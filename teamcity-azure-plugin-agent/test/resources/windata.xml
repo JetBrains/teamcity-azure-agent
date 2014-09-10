@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RDConfig xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.0.0.0">
+  <StoredCertificates>
+    <StoredCertificate name="Cert0My" certificateId="sha1:816991EB4F5EAE2E321DDE732963CE6669154708" storeName="My" configurationLevel="System" />
+  </StoredCertificates>
+  <Deployment name="98f6a88f5758472ca313409d2e02da1e" incarnation="2" guid="{08f27cd4-aae6-4d23-922d-2f7198627cae}" isNonCancellableTopologyChangeEnabled="false">
+    <Service name="paksv-win" guid="{00000000-0000-0000-0000-000000000000}" />
+    <ServiceInstance name="98f6a88f5758472ca313409d2e02da1e.2" guid="{1516749d-a8d4-4c9d-b4b4-e4c7168467f9}" />
+  </Deployment>
+  <Incarnation number="1" instance="paksv-win-2" guid="{85399c35-9b02-43d4-8992-bfefcb85c327}" />
+  <Role guid="{9818a0c7-f9de-2c2f-dd30-998d37ec48f4}" name="paksv-win-2" software="" softwareType="ApplicationPackage" entryPoint="" parameters="" settleTimeSeconds="0" />
+  <HostingEnvironmentSettings name="full" Runtime="rd_fabric_stable2.140417-1610.RuntimePackage_1.0.0.13.zip">
+    <CAS mode="full" />
+    <PrivilegeLevel mode="max" />
+    <Plugins>
+      <Plugin name="Microsoft.Compute.BGInfo" version="1.1" location="http://rdfepirv2db3prdstr02.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.Compute_BGInfo_europenorth_manifest.xml" config="PENvbmZpZ3VyYXRpb24+PFB1YmxpYyAvPjxQcml2YXRlIC8+PEVuYWJsZWQ+VHJ1ZTwvRW5hYmxlZD48L0NvbmZpZ3VyYXRpb24+" />
+    </Plugins>
+    <AdditionalProperties>
+      <CgiHandlers>
+      </CgiHandlers>
+    </AdditionalProperties>
+  </HostingEnvironmentSettings>
+  <ApplicationSettings>
+    <Setting name="__ModelData" value="&lt;m role=&quot;paksv-win-2&quot; xmlns=&quot;urn:azure:m:v1&quot;&gt;&lt;r name=&quot;paksv-win&quot;&gt;&lt;e name=&quot;openInternalEndpoint&quot; /&gt;&lt;e name=&quot;PowerShell&quot; /&gt;&lt;e name=&quot;Remote Desktop&quot; /&gt;&lt;/r&gt;&lt;r name=&quot;paksv-win-2&quot;&gt;&lt;e name=&quot;openInternalEndpoint&quot; /&gt;&lt;e name=&quot;PowerShell&quot; /&gt;&lt;e name=&quot;Remote Desktop&quot; /&gt;&lt;/r&gt;&lt;r name=&quot;paksv-win-3&quot;&gt;&lt;e name=&quot;openInternalEndpoint&quot; /&gt;&lt;e name=&quot;PowerShell&quot; /&gt;&lt;e name=&quot;Remote Desktop&quot; /&gt;&lt;/r&gt;&lt;/m&gt;" />
+    <Setting name="ProvisionCertificate|Cert0My" value="sha1:816991EB4F5EAE2E321DDE732963CE6669154708" />
+  </ApplicationSettings>
+  <LoadBalancerSettings timeoutSeconds="0" WaitLoadBalancerProbeCount="8">
+    <Probes>
+      <Probe Name="D41D8CD98F00B204E9800998ECF8427E" />
+      <Probe Name="86EBAB626500E3CA6C680B9957D515BA" />
+    </Probes>
+  </LoadBalancerSettings>
+  <OutputEndpoints>
+    <Endpoint name="paksv-win:openInternalEndpoint" type="SFS">
+      <Target instance="paksv-win" endpoint="openInternalEndpoint" />
+    </Endpoint>
+    <Endpoint name="paksv-win-2:openInternalEndpoint" type="SFS">
+      <Target instance="paksv-win-2" endpoint="openInternalEndpoint" />
+    </Endpoint>
+    <Endpoint name="paksv-win-3:openInternalEndpoint" type="SFS">
+      <Target instance="paksv-win-3" endpoint="openInternalEndpoint" />
+    </Endpoint>
+  </OutputEndpoints>
+  <Instances>
+    <Instance id="paksv-win-2" address="100.75.180.83">
+      <FaultDomains randomID="0" updateID="0" updateCount="0" />
+      <InputEndpoints>
+        <Endpoint name="openInternalEndpoint" address="100.75.180.83" protocol="any" isPublic="False" enableDirectServerReturn="False" isDirectAddress="False" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortSelfManaged />
+          </LocalPorts>
+          <RemoteInstances>
+            <RemoteInstance instance="paksv-win" />
+            <RemoteInstance instance="paksv-win-3" />
+          </RemoteInstances>
+        </Endpoint>
+        <Endpoint name="PowerShell" address="100.75.180.83:5986" protocol="tcp" hostname="paksv-winContractContract" isPublic="True" loadBalancedPublicAddress="23.102.38.81:52083" enableDirectServerReturn="False" isDirectAddress="False" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortRange from="5986" to="5986" />
+          </LocalPorts>
+        </Endpoint>
+        <Endpoint name="Remote Desktop" address="100.75.180.83:3389" protocol="tcp" hostname="paksv-winContractContract" isPublic="True" loadBalancedPublicAddress="23.102.38.81:63076" enableDirectServerReturn="False" isDirectAddress="False" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortRange from="3389" to="3389" />
+          </LocalPorts>
+        </Endpoint>
+        <Endpoint name="TC Agent" address="100.75.180.83:3389" protocol="tcp" hostname="paksv-winContractContract" isPublic="True" loadBalancedPublicAddress="23.102.38.81:63076" enableDirectServerReturn="False" isDirectAddress="False" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortRange from="3389" to="3389" />
+          </LocalPorts>
+        </Endpoint>
+      </InputEndpoints>
+    </Instance>
+    <Instance id="paksv-win" address="100.75.200.23">
+      <FaultDomains randomID="0" updateID="0" updateCount="0" />
+      <InputEndpoints>
+        <Endpoint name="openInternalEndpoint" address="100.75.200.23" protocol="any" isPublic="False" enableDirectServerReturn="False" isDirectAddress="False" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortSelfManaged />
+          </LocalPorts>
+        </Endpoint>
+      </InputEndpoints>
+    </Instance>
+    <Instance id="paksv-win-3" address="100.75.196.115">
+      <FaultDomains randomID="0" updateID="0" updateCount="0" />
+      <InputEndpoints>
+        <Endpoint name="openInternalEndpoint" address="100.75.196.115" protocol="any" isPublic="False" enableDirectServerReturn="False" isDirectAddress="False" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortSelfManaged />
+          </LocalPorts>
+        </Endpoint>
+      </InputEndpoints>
+    </Instance>
+  </Instances>
+  <GuestAgentExtension>
+    <GAFamilies>
+      <GAFamily>
+        <Name>Win8</Name>
+        <Uris>
+          <Uri>http://rdfepirv2db3prdstr02.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db3prdstr05.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db3prdstr06.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db3prdstr07.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr01.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr02.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr03.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr04.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr05.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr06.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr07.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr08.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win8_europenorth_manifest.xml</Uri>
+        </Uris>
+      </GAFamily>
+      <GAFamily>
+        <Name>Win7</Name>
+        <Uris>
+          <Uri>http://rdfepirv2db3prdstr02.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db3prdstr05.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db3prdstr06.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db3prdstr07.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr01.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr02.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr03.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr04.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr05.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr06.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr07.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+          <Uri>http://rdfepirv2db4prdstr08.blob.core.windows.net/bfd5c281a7dc4e4b84381eb0b47e3aaf/Microsoft.WindowsAzure.GuestAgent_Win7_europenorth_manifest.xml</Uri>
+        </Uris>
+      </GAFamily>
+    </GAFamilies>
+  </GuestAgentExtension>
+  <StatusUploadBlob>https://portalvhds5q177yj8y0w02.blob.core.windows.net/vhds/paksv-win.paksv-win.paksv-win-2.status?sr=b&amp;sp=rw&amp;se=9999-01-01&amp;sk=key1&amp;sv=2012-02-12&amp;sig=Oji95S5rwoL%2B8c30LV20XT22tz2ur4kVy2P9fgiWTsc%3D</StatusUploadBlob>
+</RDConfig>

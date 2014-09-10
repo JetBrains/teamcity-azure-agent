@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SharedConfig version="1.0.0.0" goalStateIncarnation="22">
+  <Deployment name="2cc79ed7afa34810a18398dc7d1d70ab" guid="{c9a736c8-b04f-4d59-82a4-e75a6afd0770}" incarnation="28" isNonCancellableTopologyChangeEnabled="false">
+    <Service name="paksv-vm-1" guid="{00000000-0000-0000-0000-000000000000}" />
+    <ServiceInstance name="2cc79ed7afa34810a18398dc7d1d70ab.67" guid="{058850dd-cedc-4e81-8f06-e23d0061c6ad}" />
+  </Deployment>
+  <Incarnation number="1" instance="paksvvm-53eb78da" guid="{b6e3de41-ce29-44f1-9ced-26105e69922b}" />
+  <Role guid="{3c0fdd6e-0930-3059-cb1b-2f4f93158140}" name="paksvvm-53eb78da" settleTimeSeconds="0" />
+  <LoadBalancerSettings timeoutSeconds="0" waitLoadBalancerProbeCount="8">
+    <Probes>
+      <Probe name="D41D8CD98F00B204E9800998ECF8427E" />
+      <Probe name="32C34F9CDCBE90A7BFF63D9EF4CD4704" />
+    </Probes>
+  </LoadBalancerSettings>
+  <OutputEndpoints>
+    <Endpoint name="paksvvm-53eb78da:openInternalEndpoint" type="SFS">
+      <Target instance="paksvvm-53eb78da" endpoint="openInternalEndpoint" />
+    </Endpoint>
+  </OutputEndpoints>
+  <Instances>
+    <Instance id="paksvvm-53eb78da" address="100.74.28.127">
+      <FaultDomains randomId="0" updateId="0" updateCount="0" />
+      <InputEndpoints>
+        <Endpoint name="openInternalEndpoint" address="100.74.28.127" protocol="any" isPublic="false" enableDirectServerReturn="false" isDirectAddress="false" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortSelfManaged />
+          </LocalPorts>
+        </Endpoint>
+        <Endpoint name="SSH" address="100.74.28.127:22" protocol="tcp" hostName="paksv-vm-1ContractContract" isPublic="true" loadBalancedPublicAddress="191.233.107.5:10022" enableDirectServerReturn="false" isDirectAddress="false" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortRange from="22" to="22" />
+          </LocalPorts>
+        </Endpoint>
+        <Endpoint name="TC Agent" address="100.74.28.127:9090" protocol="tcp" hostName="paksv-vm-1ContractContract" isPublic="true" loadBalancedPublicAddress="191.233.107.5:19091" enableDirectServerReturn="false" isDirectAddress="false" disableStealthMode="false">
+          <LocalPorts>
+            <LocalPortRange from="9090" to="9090" />
+          </LocalPorts>
+        </Endpoint>
+      </InputEndpoints>
+    </Instance>
+  </Instances>
+</SharedConfig>

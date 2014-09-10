@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact name="Deploy">
+    <output-path>E:/DevData/Trunk/plugins</output-path>
+    <root id="root">
+      <element id="artifact" artifact-name="Plugin-zip" />
+    </root>
+  </artifact>
+</component>

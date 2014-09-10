@@ -1,0 +1,35 @@
+<component name="ArtifactManager">
+  <artifact build-on-make="true" name="Plugin">
+    <output-path>$PROJECT_DIR$/out/artifacts/Plugin</output-path>
+    <root id="root">
+      <element id="directory" name="server">
+        <element id="archive" name="azure-cloud-server.jar">
+          <element id="dir-copy" path="$PROJECT_DIR$/teamcity-azure-plugin-server/src/main/resources" />
+          <element id="module-output" name="teamcity-azure-plugin-server" />
+        </element>
+        <element id="archive" name="azure-cloud-common.jar">
+          <element id="module-output" name="teamcity-azure-plugin-common" />
+        </element>
+        <element id="library" level="project" name="com.microsoft.windowsazure:microsoft-azure-api-management-compute:0.5.0" />
+        <element id="library" level="project" name="com.microsoft.windowsazure:microsoft-azure-api-management:0.5.0" />
+        <element id="library" level="project" name="org.bouncycastle:com.springsource.org.bouncycastle.jce:1.46.0" />
+      </element>
+      <element id="file-copy" path="$PROJECT_DIR$/teamcity-plugin.xml" />
+      <element id="directory" name="agent">
+        <element id="archive" name="azure-cloud.zip">
+          <element id="directory" name="azure-cloud">
+            <element id="directory" name="lib">
+              <element id="archive" name="azure-cloud-common.jar">
+                <element id="module-output" name="teamcity-azure-plugin-common" />
+              </element>
+              <element id="archive" name="azure-cloud-agent.jar">
+                <element id="module-output" name="teamcity-azure-plugin-agent" />
+                <element id="dir-copy" path="$PROJECT_DIR$/teamcity-azure-plugin-agent/src/main/resources" />
+              </element>
+            </element>
+          </element>
+        </element>
+      </element>
+    </root>
+  </artifact>
+</component>

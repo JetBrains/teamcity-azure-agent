@@ -1,0 +1,45 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Server Module Tests" type="TestNG" factoryName="TestNG">
+    <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea">
+      <pattern>
+        <option name="PATTERN" value="jetbrains.buildServer.clouds.azure.*" />
+        <option name="ENABLED" value="true" />
+      </pattern>
+    </extension>
+    <module name="teamcity-azure-plugin-server" />
+    <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
+    <option name="ALTERNATIVE_JRE_PATH" value="" />
+    <option name="SUITE_NAME" value="$PROJECT_DIR$/teamcity-azure-plugin-server/src/test/java/testng.xml" />
+    <option name="PACKAGE_NAME" value="" />
+    <option name="MAIN_CLASS_NAME" value="" />
+    <option name="METHOD_NAME" value="" />
+    <option name="GROUP_NAME" value="" />
+    <option name="TEST_OBJECT" value="SUITE" />
+    <option name="VM_PARAMETERS" value="-ea" />
+    <option name="PARAMETERS" value="" />
+    <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$" />
+    <option name="OUTPUT_DIRECTORY" value="" />
+    <option name="ANNOTATION_TYPE" />
+    <option name="ENV_VARIABLES" />
+    <option name="PASS_PARENT_ENVS" value="true" />
+    <option name="TEST_SEARCH_SCOPE">
+      <value defaultName="moduleWithDependencies" />
+    </option>
+    <option name="USE_DEFAULT_REPORTERS" value="false" />
+    <option name="PROPERTIES_FILE" value="" />
+    <envs />
+    <properties />
+    <listeners />
+    <RunnerSettings RunnerId="Cover" />
+    <RunnerSettings RunnerId="Debug">
+      <option name="DEBUG_PORT" value="64695" />
+      <option name="TRANSPORT" value="0" />
+      <option name="LOCAL" value="true" />
+    </RunnerSettings>
+    <RunnerSettings RunnerId="Run" />
+    <ConfigurationWrapper RunnerId="Cover" />
+    <ConfigurationWrapper RunnerId="Debug" />
+    <ConfigurationWrapper RunnerId="Run" />
+    <method />
+  </configuration>
+</component>

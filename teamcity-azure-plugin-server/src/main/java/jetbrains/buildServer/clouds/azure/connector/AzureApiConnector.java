@@ -52,13 +52,16 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   private final String myUrl;
   private final String myManagementCertificate;
   private final String mySubscriptionId;
-  private final Configuration myConfiguration;
-  private final ComputeManagementClient myClient;
+  private Configuration myConfiguration;
+  private ComputeManagementClient myClient;
 
   public AzureApiConnector(@NotNull final String url, @NotNull final String managementCertificate, @NotNull final String subscriptionId) {
     myUrl = url;
     myManagementCertificate = managementCertificate;
     mySubscriptionId = subscriptionId;
+  }
+
+  private void initClient(){
     ClassLoader old = Thread.currentThread().getContextClassLoader();
     try {
       Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());

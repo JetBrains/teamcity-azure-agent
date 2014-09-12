@@ -1,18 +1,12 @@
 package jetbrains.buildServer.clouds.azure;
 
+import com.intellij.openapi.diagnostic.Logger;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import jetbrains.buildServer.clouds.*;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
-import jetbrains.buildServer.clouds.azure.connector.AzureInstance;
 import jetbrains.buildServer.clouds.azure.connector.ConditionalRunner;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
-import jetbrains.buildServer.clouds.base.beans.AbstractCloudImageDetails;
-import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
-import jetbrains.buildServer.clouds.base.connector.CloudAsyncTaskExecutor;
 import jetbrains.buildServer.clouds.base.tasks.UpdateInstancesTask;
 import jetbrains.buildServer.serverSide.AgentDescription;
 import org.jetbrains.annotations.NotNull;
@@ -25,9 +19,14 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
 
+  private static final Logger LOG = Logger.getInstance(AzureCloudClient.class.getName());
+
+  private boolean myInitialized = false;
+
   public AzureCloudClient(@NotNull final CloudClientParameters params, @NotNull final Collection<AzureCloudImageDetails> images, final AzureApiConnector apiConnector) {
     super(params, images, apiConnector);
     myAsyncTaskExecutor.scheduleWithFixedDelay(new ConditionalRunner(), 0, 5, TimeUnit.SECONDS);
+    myInitialized = true;
   }
 
   public void dispose() {
@@ -35,12 +34,12 @@ public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, Az
   }
 
   public boolean isInitialized() {
-    return true;
+    return myInitialized;
   }
 
   @Override
   protected AzureCloudImage checkAndCreateImage(@NotNull final AzureCloudImageDetails imageDetails) {
-    return new AzureCloudImage(imageDetails, (AzureApiConnector)myApiConnector, myAsyncTaskExecutor);
+    return new AzureCloudImage(imageDetails, (AzureApiConnector)myApiConnector);
   }
 
   @Override

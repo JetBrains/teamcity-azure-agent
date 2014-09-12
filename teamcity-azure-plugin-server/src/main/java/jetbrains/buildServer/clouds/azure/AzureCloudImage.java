@@ -1,5 +1,6 @@
 package jetbrains.buildServer.clouds.azure;
 
+import com.intellij.openapi.diagnostic.Logger;
 import com.microsoft.windowsazure.core.OperationStatus;
 import com.microsoft.windowsazure.core.OperationStatusResponse;
 import com.microsoft.windowsazure.exception.ServiceException;
@@ -32,18 +33,17 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
  */
 public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
 
+  private static final Logger LOG = Logger.getInstance(AzureCloudImage.class.getName());
+
   private final AzureCloudImageDetails myImageDetails;
   private final AzureApiConnector myApiConnector;
-  @NotNull private final CloudAsyncTaskExecutor myTaskExecutor;
   private boolean myGeneralized;
 
   protected AzureCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
-                            @NotNull final AzureApiConnector apiConnector,
-                            @NotNull final CloudAsyncTaskExecutor taskExecutor) {
+                            @NotNull final AzureApiConnector apiConnector) {
     super(imageDetails.getImageName(), imageDetails.getImageName());
     myImageDetails = imageDetails;
     myApiConnector = apiConnector;
-    myTaskExecutor = taskExecutor;
     myGeneralized = apiConnector.isImageGeneralized(imageDetails.getImageName());
     final Map<String, AzureInstance> instances = apiConnector.listImageInstances(this);
     for (AzureInstance azureInstance : instances.values()) {
@@ -92,9 +92,10 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
 
     final String vmName = String.format("%s-%x", myImageDetails.getVmNamePrefix(), time/1000);
     final AzureCloudInstance instance = new AzureCloudInstance(this, vmName, vmName);
-
+    instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
     try {
       final OperationStatusResponse response = myApiConnector.createAndStartVM(AzureCloudImage.this, vmName, myGeneralized);
+      instance.setStatus(InstanceStatus.STARTING);
       final String operationId = response.getId();
       ConditionalRunner.addConditional(new ConditionalRunner.Conditional() {
         private InstanceStatus myNewStatus = InstanceStatus.RUNNING;
@@ -103,6 +104,8 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
           try {
             return myApiConnector.getOperationStatus(operationId).getStatus() == OperationStatus.Succeeded;
           } catch (Exception ex){
+            LOG.warn("Unable to get status of operation " + operationId);
+            LOG.debug("Unable to get status of operation " + operationId, ex);
             myNewStatus = InstanceStatus.ERROR;
             return true;
           }

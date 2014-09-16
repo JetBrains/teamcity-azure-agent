@@ -17,16 +17,19 @@ BS.UploadManagementCertificate = OO.extend(BS.AbstractWebForm, OO.extend(BS.Abst
 
 BS.Clouds.Azure = BS.Clouds.Azure || {
   optionsFetched: false,
-  _dataKeys: ['serviceName', 'deploymentName', 'imageName', 'namePrefix', 'vmSize' ,'osType', 'provisionUsername', 'provisionPassword'],
+  _dataKeys: ['serviceName', 'deploymentName', 'imageName', 'namePrefix', 'vmSize' ],
+  _extDataKeys: ['osType', 'provisionUsername', 'provisionPassword'],
   selectors: {
     imagesSelect: '#imageName'
   },
   init: function(refreshOptionsUrl){
     this.refreshOptionsUrl = refreshOptionsUrl;
-    this.$imageNameElem = $j('#imageName');
+    this.$cert = $j('#managementCertificate');
+    this.$subscrId = $j('#subscriptionId');
+    this.$imageNameDataElem = $j('#imageName');
     this.$serviceNameDataElem = $j('#serviceName');
     this.$vmSizeDataElem = $j('#vmSize');
-    this.$deploymentsDataElem = $j('#deploymentName');
+    this.$deploymentNameDataElem = $j('#deploymentName');
     this.$osTypeDataElem = $j('#osType');
     $response = null;
     this.$fetchOptionsButton = $j('#azureFetchOptionsButton');
@@ -39,26 +42,36 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$namePrefixDataElem = $j("#namePrefix");
     this.$provisionUsernameDataElem = $j("#provisionUsername");
     this.$provisionPasswordDataElem = $j("#provisionPassword");
+    this.loaders = {
+      options: $j('.options-loader')
+    };
 
-    var $self = this;
+    $j('.' + (this.$imagesDataElem.val().split(';X;')[0].length ? 'imagesTable' : 'emptyImagesListMessage'))
+      .removeClass('hidden');
+
+    this._fetchOptionsClickHandler();
+    this.$cert.add(this.$subscrId).change(this._fetchOptionsClickHandler.bind(this));
+
     this.$serviceNameDataElem.change(function(){
-      $self._fillDeployments($self.$serviceNameDataElem.val());
-    });
-    this.$imageNameElem.change(function(){
-      var $find = $response.find('Images:eq(0) Image[name="' + $self.$imageNameElem.val() + '"]');
-      if (!$find)
-        return;
-      $self._toggleProvisionCredentials($find);
-      $self._showImageOsType($find);
-    });
-    $j('.provision').each(function(){
-      this.hide();
-    });
+      this._fillDeployments(this.$serviceNameDataElem.val());
+    }.bind(this));
+
+    this.$imageNameDataElem.change(function() {
+      var $find = $response.find('Images:eq(0) Image[name="' + this.$imageNameDataElem.val() + '"]');
+
+      if ($find) {
+        this._toggleProvisionCredentials($find);
+        this._showImageOsType($find);
+      }
+    }.bind(this));
   },
   fetchOptions: function(){
+    this.loaders.options.removeClass('invisible');
+
     BS.ajaxRequest(this.refreshOptionsUrl, {
       parameters: BS.Clouds.Admin.CreateProfileForm.serializeParameters(),
       onComplete: function () {
+        this.loaders.options.addClass('invisible');
       }.bind(this),
       onFailure: function (response) {
         alert('Failure: ' + response.getStatusText());
@@ -74,7 +87,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     return false;
   },
   _fetchOptionsClickHandler: function(){
-    this.fetchOptions();
+    if (this.$cert.val().length && this.$subscrId.val().length) {
+      this.fetchOptions();
+    }
     return false;
   },
   _appendOption: function ($target, value, text) {
@@ -112,52 +127,48 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     var self = this,
         $deployments = $response.find('Service[name="'+$serviceName+'"] Deployment');
 
-    this._clearSelectAndAddDefault(this.$deploymentsDataElem);
+    this._clearSelectAndAddDefault(this.$deploymentNameDataElem);
 
     $deployments.each(function(){
-      self._appendOption(self.$deploymentsDataElem, $j(this).attr('name'));
+      self._appendOption(self.$deploymentNameDataElem, $j(this).attr('name'));
     });
   },
   _fillImages: function() {
     if (!$response)
       return;
 
-    this._clearSelectAndAddDefault(this.$imageNameElem);
+    this._clearSelectAndAddDefault(this.$imageNameDataElem);
 
     var self = this,
         $images = $response.find('Images:eq(0) Image');
 
     $images.each(function(){
-      self._appendOption(self.$imageNameElem, $j(this).attr('name'));
+      self._appendOption(self.$imageNameDataElem, $j(this).attr('name'));
     });
   },
   _showImageOsType: function($find){
-    var $osType = $find.attr('osType');
-    this.$osTypeDataElem.html($osType);
+    this.$osTypeDataElem.text($find.attr('osType'));
   },
   _toggleProvisionCredentials: function($find){
-    if ($find.attr('generalized') == 'true') {
-      $j('.provision').each(function(){
-        this.show(100);
-      });
-    } else {
-      $j('.provision').each(function(){
-        this.hide(100);
-      });
-    }
+    $j('.provision').toggle($find && $find.attr('generalized') == 'true');
   },
   _clearSelectAndAddDefault: function($select){
     $select.find('option').remove();
     this._appendOption($select, '', '<Please select a value>');
   },
   _addImage: function(){
-    var $imageData = this.$serviceNameDataElem.val() + ';' + this.$deploymentsDataElem.val() + ';'
-        + this.$imageNameElem.val() + ';' + this.$namePrefixDataElem.val() + ';' + this.$vmSizeDataElem.val() + ';';
-    if (this.$osTypeDataElem.is(':visible')){
-      $imageData = $imageData + this.$osTypeDataElem.html() + ';'
-      + this.$provisionUsernameDataElem.val() + ';' + this.$provisionPasswordDataElem.val() + ';';
+    var $imageData,
+      reduceFn = function (collector, item) {
+        return collector + this['$' + item + 'DataElem'].val() + ';';
+      }.bind(this);
+
+    $imageData = this._dataKeys.reduce(reduceFn, '');
+
+    if (this.$osTypeDataElem.is(':visible')) {
+      $imageData +=  this._extDataKeys.reduce(reduceFn, '');
     }
-    $imageData = $imageData + 'X;';
+
+    $imageData += 'X;';
 
     this.$imagesDataElem.val(this.$imagesDataElem.val() + $imageData);
   }

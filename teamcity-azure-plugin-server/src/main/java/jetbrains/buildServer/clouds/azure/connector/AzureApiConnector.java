@@ -1,16 +1,20 @@
 package jetbrains.buildServer.clouds.azure.connector;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.Pair;
 import com.microsoft.windowsazure.Configuration;
 import com.microsoft.windowsazure.core.OperationStatusResponse;
 import com.microsoft.windowsazure.core.utils.Base64;
 import com.microsoft.windowsazure.core.utils.KeyStoreType;
 import com.microsoft.windowsazure.exception.ServiceException;
+import com.microsoft.windowsazure.management.ManagementClient;
+import com.microsoft.windowsazure.management.ManagementClientImpl;
+import com.microsoft.windowsazure.management.RoleSizeOperations;
 import com.microsoft.windowsazure.management.compute.*;
 import com.microsoft.windowsazure.management.compute.models.*;
 import com.microsoft.windowsazure.management.configuration.ManagementConfiguration;
+import com.microsoft.windowsazure.management.models.RoleSizeListResponse;
 import java.io.*;
-import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.KeyStore;
@@ -21,7 +25,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.xml.parsers.ParserConfigurationException;
@@ -33,8 +36,8 @@ import jetbrains.buildServer.clouds.azure.AzureCloudInstance;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
-import org.apache.log4j.Priority;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.xml.sax.SAXException;
 
@@ -47,26 +50,45 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
   private static final int MIN_PORT_NUMBER = 9092;
-
+  private static final URI MANAGEMENT_URL;
   private final ConcurrentMap<String, Lock> myServiceLocks = new ConcurrentHashMap<String, Lock>();
-  private final String myUrl;
-  private final String myManagementCertificate;
+  private final KeyStoreType myKeyStoreType;
   private final String mySubscriptionId;
   private Configuration myConfiguration;
   private ComputeManagementClient myClient;
+  private ManagementClient myManagementClient;
 
-  public AzureApiConnector(@NotNull final String url, @NotNull final String managementCertificate, @NotNull final String subscriptionId) {
-    myUrl = url;
-    myManagementCertificate = managementCertificate;
+  public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final File keyFile, @NotNull final String keyFilePassword) {
     mySubscriptionId = subscriptionId;
+    myKeyStoreType = KeyStoreType.jks;
+    initClient(keyFile, keyFilePassword);
   }
 
-  private void initClient(){
+  public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final String managementCertificate) {
+    mySubscriptionId = subscriptionId;
+    myKeyStoreType = KeyStoreType.pkcs12;
+    try {
+      final File tempFile = File.createTempFile("azk", null);
+      FileOutputStream fOut = new FileOutputStream(tempFile);
+      Random r = new Random();
+      byte[] pwdData = new byte[4];
+      r.nextBytes(pwdData);
+      final String base64pw = Base64.encode(pwdData).substring(0, 6);
+      createKeyStorePKCS12(managementCertificate, fOut, base64pw);
+      initClient(tempFile, base64pw);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+  }
+
+  private void initClient(@NotNull final File keyStoreFile, @NotNull final String keyStoreFilePw){
     ClassLoader old = Thread.currentThread().getContextClassLoader();
     try {
       Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
-      myConfiguration = prepareConfiguration();
+      myConfiguration = prepareConfiguration(keyStoreFile, keyStoreFilePw, myKeyStoreType);
       myClient = ComputeManagementService.create(myConfiguration);
+      myManagementClient = myConfiguration.create(ManagementClient.class);
     } finally {
       Thread.currentThread().setContextClassLoader(old);
     }
@@ -105,6 +127,48 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   public Collection<TypedCloudErrorInfo> checkInstance(@NotNull final AzureCloudInstance instance) {
     return Collections.emptyList();
   }
+
+  public Map<String, String> listVmSizes() throws ServiceException, ParserConfigurationException, SAXException, IOException {
+    Map<String, String> map = new TreeMap<String, String>();
+    final RoleSizeOperations roleSizesOps = myManagementClient.getRoleSizesOperations();
+    final RoleSizeListResponse list = roleSizesOps.list();
+    for (RoleSizeListResponse.RoleSize roleSize : list) {
+      map.put(roleSize.getName(), roleSize.getLabel());
+    }
+    return map;
+  }
+
+  public List<String> listServicesNames() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
+    final HostedServiceOperations servicesOps = myClient.getHostedServicesOperations();
+    final HostedServiceListResponse list = servicesOps.list();
+    return new ArrayList<String>(){{
+      for (HostedServiceListResponse.HostedService service : list) {
+        add(service.getServiceName());
+      }
+    }};
+  }
+
+  public List<String> listServiceDeployments(@NotNull final String serviceName)
+    throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
+    final HostedServiceOperations servicesOps = myClient.getHostedServicesOperations();
+    final HostedServiceGetDetailedResponse serviceDetails = servicesOps.getDetailed(serviceName);
+    return new ArrayList<String>(){{
+      for (HostedServiceGetDetailedResponse.Deployment deployment : serviceDetails.getDeployments()) {
+        add(deployment.getName());
+      }
+    }};
+  }
+
+  public Map<String, Pair<Boolean, String>> listImages() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
+    final VirtualMachineVMImageOperations imagesOps = myClient.getVirtualMachineVMImagesOperations();
+    final VirtualMachineVMImageListResponse imagesList = imagesOps.list();
+    return new HashMap<String, Pair<Boolean, String>>(){{
+      for (VirtualMachineVMImageListResponse.VirtualMachineVMImage image : imagesList) {
+        put(image.getName(), new Pair<Boolean, String>(isImageGeneralized(image), image.getOSDiskConfiguration().getOperatingSystem()));
+      }
+    }};
+  }
+
 
   public OperationStatusResponse createAndStartVM(@NotNull final AzureCloudImage image, @NotNull final String vmName, final boolean generalized)
     throws SAXException, InterruptedException, ExecutionException, TransformerException, ServiceException, URISyntaxException, ParserConfigurationException, IOException {
@@ -197,7 +261,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     try {
       for (VirtualMachineVMImageListResponse.VirtualMachineVMImage image : vmImagesOperations.list()) {
         if (imageName.equals(image.getName())){
-          return "Generalized".equals(image.getOSDiskConfiguration().getOSState());
+          return isImageGeneralized(image);
         }
       }
     } catch (Exception e) {
@@ -206,7 +270,11 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     throw new RuntimeException("Unable to find image with name " + imageName);
   }
 
-  private Configuration prepareConfiguration() throws RuntimeException {
+  private boolean isImageGeneralized(final VirtualMachineVMImageListResponse.VirtualMachineVMImage image) {
+    return "Generalized".equals(image.getOSDiskConfiguration().getOSState());
+  }
+
+  private Configuration prepareConfiguration(@NotNull final String managementCertificate) throws RuntimeException {
     try {
       final File tempFile = File.createTempFile("azk", null);
       FileOutputStream fOut = new FileOutputStream(tempFile);
@@ -214,9 +282,18 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       byte[] pwdData = new byte[4];
       r.nextBytes(pwdData);
       final String base64pw = Base64.encode(pwdData).substring(0, 6);
-      final KeyStore keyStorePKCS12 = createKeyStorePKCS12(myManagementCertificate, fOut, base64pw);
-      return ManagementConfiguration.configure(new URI(myUrl), mySubscriptionId, tempFile.getPath(), base64pw, KeyStoreType.pkcs12);
+      createKeyStorePKCS12(managementCertificate, fOut, base64pw);
+      return prepareConfiguration(tempFile, base64pw, KeyStoreType.pkcs12);
     } catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
+  }
+
+  private Configuration prepareConfiguration(@NotNull final File keyStoreFile, @NotNull final String password, @NotNull final KeyStoreType keyStoreType) throws RuntimeException {
+    try {
+      return ManagementConfiguration.configure(MANAGEMENT_URL, mySubscriptionId, keyStoreFile.getPath(), password, keyStoreType);
+    } catch (IOException e) {
       e.printStackTrace();
       return null;
     }
@@ -237,7 +314,6 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     keyStoreOutputStream.close();
     return store;
   }
-
 
   private void waitAndGetLock(@NotNull final String serviceName) {
     myServiceLocks.putIfAbsent(serviceName, new ReentrantLock(true));
@@ -262,5 +338,15 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     endpoint.setName("TC Agent");
     retval.add(value);
     return retval;
+  }
+
+  static {
+    URI uri;
+    try {
+      uri = new URI("https://management.core.windows.net");
+    } catch (Exception e) {
+      uri = null;
+    }
+    MANAGEMENT_URL = uri;
   }
 }

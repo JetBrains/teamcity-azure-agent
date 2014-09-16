@@ -1,16 +1,20 @@
 package jetbrains.buildServer.clouds.azure.web;
 
+import com.intellij.openapi.diagnostic.Logger;
+import com.intellij.openapi.util.Pair;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
 import jetbrains.buildServer.controllers.*;
 import jetbrains.buildServer.controllers.admin.projects.PluginPropertiesUtil;
 import jetbrains.buildServer.log.Loggers;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.util.FileUtil;
-import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jdom.Element;
@@ -24,6 +28,8 @@ import org.springframework.web.servlet.ModelAndView;
  *         Time: 3:01 PM
  */
 public class AzureEditProfileController extends BaseFormXmlController {
+
+  private static final Logger LOG = Logger.getInstance(AzureEditProfileController.class.getName());
 
   @NotNull private final String myJspPath;
   @NotNull private final String myHtmlPath;
@@ -76,7 +82,7 @@ public class AzureEditProfileController extends BaseFormXmlController {
   }
 
   @Override
-  protected ModelAndView doGet(final HttpServletRequest httpServletRequest, final HttpServletResponse httpServletResponse) {
+  protected ModelAndView doGet(final HttpServletRequest request, final HttpServletResponse response) {
     ModelAndView mv = new ModelAndView(myJspPath);
     mv.getModel().put("refreshablePath", myHtmlPath);
     mv.getModel().put("resPath", myPluginDescriptor.getPluginResourcesPath());
@@ -84,15 +90,69 @@ public class AzureEditProfileController extends BaseFormXmlController {
   }
 
   @Override
-  protected void doPost(final HttpServletRequest httpServletRequest, final HttpServletResponse httpServletResponse, final Element element) {
+  protected void doPost(final HttpServletRequest request, final HttpServletResponse response, final Element xmlResponse) {
     ActionErrors errors = new ActionErrors();
 
     BasePropertiesBean propsBean = new BasePropertiesBean(null);
-    PluginPropertiesUtil.bindPropertiesFromRequest(httpServletRequest, propsBean, true);
+    PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true);
 
     final Map<String, String> props = propsBean.getProperties();
     final String subscriptionId = props.get(AzureWebConstants.SUBSCRIPTION_ID);
     final String certificate = props.get(AzureWebConstants.MANAGEMENT_CERTIFICATE);
 
+    AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, certificate);
+
+    try {
+      final List<String> servicesList = apiConnector.listServicesNames();
+      Element services = new Element("Services");
+      for (String serviceName : servicesList) {
+        final Element service = new Element("Service");
+        service.setAttribute("name", serviceName);
+
+        service.addContent(getServiceDeployments(apiConnector.listServiceDeployments(serviceName)));
+        services.addContent(service);
+      }
+      xmlResponse.addContent(services);
+      xmlResponse.addContent(getImages(apiConnector.listImages()));
+      xmlResponse.addContent(getVmSizes(apiConnector.listVmSizes()));
+
+    } catch (Exception e) {
+      LOG.warn("An error during fetching options: " + e.toString());
+      LOG.debug("An error during fetching options", e);
+    }
+  }
+
+  private Element getImages(final Map<String, Pair<Boolean, String>> imagesMap) {
+    Element images = new Element("Images");
+    for (String imageName : imagesMap.keySet()) {
+      final Element imageElem = new Element("Image");
+      imageElem.setAttribute("name", imageName);
+      final Pair<Boolean, String> pair = imagesMap.get(imageName);
+      imageElem.setAttribute("generalized", String.valueOf(pair.getFirst()));
+      imageElem.setAttribute("osType", pair.getSecond());
+      images.addContent(imageElem);
+    }
+    return images;
+  }
+
+  private Element getVmSizes(final Map<String, String> vmSizesMap) {
+    Element vmSizes = new Element("VmSizes");
+    for (String size : vmSizesMap.keySet()) {
+      final Element vmSize = new Element("VmSize");
+      vmSize.setAttribute("name", size);
+      vmSize.setAttribute("label", vmSizesMap.get(size));
+      vmSizes.addContent(vmSize);
+    }
+    return vmSizes;
+  }
+
+  private List<Element> getServiceDeployments(final List<String> deploymentList) {
+    List<Element> deploymentElements = new ArrayList<Element>();
+    for (String deploymentName : deploymentList) {
+      final Element deployment = new Element("Deployment");
+      deployment.setAttribute("name", deploymentName);
+      deploymentElements.add(deployment);
+    }
+    return deploymentElements;
   }
 }

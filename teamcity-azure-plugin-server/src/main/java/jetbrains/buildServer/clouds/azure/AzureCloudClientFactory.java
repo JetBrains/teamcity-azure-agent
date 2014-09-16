@@ -31,19 +31,17 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
 
   @Override
   public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final Collection<AzureCloudImageDetails> imageDetailsList, @NotNull final CloudClientParameters params) {
-    final String serverUrl = params.getParameter("serverUrl");
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
-    final AzureApiConnector apiConnector = new AzureApiConnector(serverUrl, managementCertificate, subscriptionId);
+    final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
     return new AzureCloudClient(params, imageDetailsList, apiConnector);
   }
 
   @Override
   public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params, final TypedCloudErrorInfo[] profileErrors) {
-    final String serverUrl = params.getParameter("serverUrl");
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
-    final AzureApiConnector apiConnector = new AzureApiConnector(serverUrl, managementCertificate, subscriptionId);
+    final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
     return new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector);
   }
 

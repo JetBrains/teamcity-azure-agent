@@ -24,43 +24,11 @@
 <%--@elvariable id="resPath" type="java.lang.String"--%>
 
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.web.AzureWebConstants"/>
+<jsp:useBean id="refreshablePath" class="java.lang.String" scope="request"/>
 
   <tr>
     <th><label for="${cons.managementCertificate}">Management certificate: <l:star/></label></th>
-    <td><forms:button id="${cons.managementCertificate}" onclick="return BS.UploadManagementCertificate.show();">Upload management certificate</forms:button>
-      <bs:dialog dialogId="addManagementCertificate"
-                 dialogClass="uploadDialog"
-                 title="Upload Management Certificate"
-                 titleId="addCertificateTitle"
-                 closeCommand="BS.UploadManagementCertificate.close()">
-        <c:url var="actionUrl" value="${resPath}uploadManagementCertificate.html"/>
-        <forms:multipartForm id="uploadCertificateForm" action="${actionUrl}"
-                             onsubmit="return BS.UploadManagementCertificate.validate();"
-                             targetIframe="hidden-iframe">
-          <div>
-            <table>
-              <tr>
-                <th><label for="fileName">Name</label></th>
-                <td><input type="text" id="fileName" name="fileName" value=""/></td>
-              </tr>
-              <tr>
-                <th>File</th>
-                <td>
-                  <forms:file name="fileToUpload" size="28"/>
-                </td>
-              </tr>
-            </table>
-            <span id="uploadError" class="error" style="display: none; margin-left: 0;"></span>
-          </div>
-          <div class="popupSaveButtonsBlock">
-            <forms:submit label="Save"/>
-            <forms:cancel onclick="if (this.getContainer()) {BS.Hider.hideDiv(this.getContainer().id);}" showdiscardchangesmessage="false"/>
-            <input type="hidden" id="projectId" name="project" value="${project.externalId}"/>
-            <forms:saving id="saving"/>
-          </div>
-        </forms:multipartForm>
-      </bs:dialog>
-    </td>
+    <td><props:textProperty name="${cons.managementCertificate}" className="longField"/></td>
   </tr>
 
   <tr>
@@ -100,46 +68,79 @@
 </tr>
 
 <tr>
-  <th><label for="${cons.serviceName}">Service name: <l:star/></label></th>
-  <td><props:textProperty name="${cons.serviceName}" className="longField"/></td>
+  <th><label for="${cons.serviceName}">Service name:</label></th>
+  <td>
+    <div>
+      <select name="_${cons.serviceName}" id="${cons.serviceName}" data-err-id="${cons.serviceName}"></select>
+    </div>
+    <span class="error option-error option-error_${cons.serviceName}"></span>
+  </td>
 </tr>
 <tr>
-  <th><label for="${cons.deploymentName}">Deployment name: <l:star/></label></th>
-  <td><props:textProperty name="${cons.deploymentName}" className="longField"/></td>
+  <th><label for="${cons.deploymentName}">Deployment name:</label></th>
+  <td>
+    <div>
+      <select name="_${cons.deploymentName}" id="${cons.deploymentName}" data-err-id="${cons.deploymentName}"></select>
+    </div>
+    <span class="error option-error option-error_${cons.deploymentName}"></span>
+  </td>
 </tr>
 <tr>
-  <th><label for="${cons.imageName}">Image name: <l:star/></label></th>
-  <td><props:textProperty name="${cons.imageName}" className="longField"/></td>
+  <th><label for="${cons.imageName}">Image name:</label></th>
+  <td>
+    <div>
+      <select name="_${cons.imageName}" id="${cons.imageName}" data-err-id="${cons.imageName}"></select>
+    </div>
+    <span class="error option-error option-error_${cons.imageName}"></span>
+  </td>
 </tr>
 <tr>
   <th><label for="${cons.namePrefix}">Name prefix: <l:star/></label></th>
-  <td><props:textProperty name="${cons.namePrefix}" className="longField"/></td>
+  <td><props:textProperty name="${cons.namePrefix}"/></td>
 </tr>
 <tr>
-  <th><label for="${cons.vmSize}">Virtual machine size: <l:star/></label></th>
-  <td><props:textProperty name="${cons.vmSize}" className="longField"/></td>
+  <th><label for="${cons.vmSize}">VM Size:</label></th>
+  <td>
+    <div>
+      <select name="_${cons.vmSize}" id="${cons.vmSize}" data-err-id="${cons.vmSize}"></select>
+    </div>
+    <span class="error option-error option-error_${cons.vmSize}"></span>
+  </td>
 </tr>
-<tr>
-  <th><label for="${cons.osType}">Operating System: <l:star/></label></th>
-  <td><props:textProperty name="${cons.osType}" className="longField"/></td>
+<tr class="provision">
+  <th></th><td></td>
 </tr>
-<tr>
-  <th><label for="${cons.provisionUsername}">: <l:star/></label></th>
-  <td><props:textProperty name="${cons.provisionUsername}" className="longField"/></td>
+<tr class="provision">
+  <th><label for="${cons.osType}">OS Type:</label></th>
+  <td>
+    <div id="${cons.osType}"> </div>
+  </td>
 </tr>
-<tr>
-  <th><label for="secure:${cons.provisionPassword}">: <l:star/></label></th>
-  <td><props:passwordProperty name="secure:${cons.provisionPassword}" className="longField"/></td>
+<tr class="provision">
+  <th><label for="${cons.provisionUsername}">Provision username:</label></th>
+  <td><input type="text" id="${cons.provisionUsername}" className="longField"/></td>
+</tr>
+<tr class="provision">
+  <th><label for="${cons.provisionPassword}">Provision password: </label></th>
+  <td><input type="password" id="${cons.provisionPassword}" className="longField"/></td>
 </tr>
 <tr>
   <td colspan="2">
     <forms:button id="addImageButton">Add image</forms:button>
   </td>
 </tr>
+<tr>
+  <td colspan="2">
+    <props:multilineProperty name="images_data" linkTitle="Images" cols="50" rows="5"/>
+  </td>
+</tr>
 <script type="text/javascript">
   $j.ajax({
             url: "<c:url value="${resPath}azure-settings.js"/>",
             dataType: "script",
+            success: function() {
+              BS.Clouds.Azure.init('<c:url value="${refreshablePath}"/>');
+            },
             cache: true
           });
 </script>

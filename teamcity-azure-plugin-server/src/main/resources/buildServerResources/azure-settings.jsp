@@ -39,9 +39,10 @@
   <tr>
     <td colspan="2">
       <span id="error_fetch_options" class="error"></span>
-      <div>
-        <forms:button id="azureFetchOptionsButton">Fetch options</forms:button>
-      </div>
+      <%--<div>--%>
+        <%--<forms:button id="azureFetchOptionsButton">Fetch options</forms:button>--%>
+      <%--</div>--%>
+      <div class="options-loader invisible"><i class="icon-refresh icon-spin"></i> Fetching options...</div>
     </td>
   </tr>
 <tr>
@@ -68,7 +69,7 @@
 </tr>
 
 <tr>
-  <th><label for="${cons.serviceName}">Service name:</label></th>
+  <th><label for="${cons.serviceName}">Service name: <l:star/></label></th>
   <td>
     <div>
       <select name="_${cons.serviceName}" id="${cons.serviceName}" data-err-id="${cons.serviceName}"></select>
@@ -77,7 +78,7 @@
   </td>
 </tr>
 <tr>
-  <th><label for="${cons.deploymentName}">Deployment name:</label></th>
+  <th><label for="${cons.deploymentName}">Deployment name: <l:star/></label></th>
   <td>
     <div>
       <select name="_${cons.deploymentName}" id="${cons.deploymentName}" data-err-id="${cons.deploymentName}"></select>
@@ -99,7 +100,7 @@
   <td><props:textProperty name="${cons.namePrefix}"/></td>
 </tr>
 <tr>
-  <th><label for="${cons.vmSize}">VM Size:</label></th>
+  <th><label for="${cons.vmSize}">VM Size: <l:star/></label></th>
   <td>
     <div>
       <select name="_${cons.vmSize}" id="${cons.vmSize}" data-err-id="${cons.vmSize}"></select>
@@ -107,21 +108,21 @@
     <span class="error option-error option-error_${cons.vmSize}"></span>
   </td>
 </tr>
-<tr class="provision">
+<tr class="provision hidden">
   <th></th><td></td>
 </tr>
-<tr class="provision">
+<tr class="provision hidden">
   <th><label for="${cons.osType}">OS Type:</label></th>
   <td>
     <div id="${cons.osType}"> </div>
   </td>
 </tr>
-<tr class="provision">
-  <th><label for="${cons.provisionUsername}">Provision username:</label></th>
+<tr class="provision hidden">
+  <th><label for="${cons.provisionUsername}">Provision username: <l:star/></label></th>
   <td><input type="text" id="${cons.provisionUsername}" className="longField"/></td>
 </tr>
-<tr class="provision">
-  <th><label for="${cons.provisionPassword}">Provision password: </label></th>
+<tr class="provision hidden">
+  <th><label for="${cons.provisionPassword}">Provision password:  <l:star/></label></th>
   <td><input type="password" id="${cons.provisionPassword}" className="longField"/></td>
 </tr>
 <tr>

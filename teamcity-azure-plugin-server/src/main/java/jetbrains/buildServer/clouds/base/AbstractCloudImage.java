@@ -7,6 +7,7 @@ import java.util.Map;
 import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudImage;
 import jetbrains.buildServer.clouds.CloudInstance;
+import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.base.errors.CloudErrorMap;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.clouds.base.errors.UpdatableCloudErrorProvider;
@@ -70,6 +71,6 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance> implem
 
   public abstract void restartInstance(@NotNull final T instance);
 
-  public abstract T startNewInstance();
+  public abstract T startNewInstance(@NotNull final CloudInstanceUserData tag);
 
 }

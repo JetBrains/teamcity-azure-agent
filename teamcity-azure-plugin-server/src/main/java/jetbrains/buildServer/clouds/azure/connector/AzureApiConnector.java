@@ -8,7 +8,6 @@ import com.microsoft.windowsazure.core.utils.Base64;
 import com.microsoft.windowsazure.core.utils.KeyStoreType;
 import com.microsoft.windowsazure.exception.ServiceException;
 import com.microsoft.windowsazure.management.ManagementClient;
-import com.microsoft.windowsazure.management.ManagementClientImpl;
 import com.microsoft.windowsazure.management.RoleSizeOperations;
 import com.microsoft.windowsazure.management.compute.*;
 import com.microsoft.windowsazure.management.compute.models.*;
@@ -29,6 +28,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
+import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.AzureCloudImage;
 import jetbrains.buildServer.clouds.azure.AzureCloudImageDetails;
@@ -37,7 +37,6 @@ import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 import org.xml.sax.SAXException;
 
@@ -50,7 +49,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
   private static final int MIN_PORT_NUMBER = 9092;
-  private static final URI MANAGEMENT_URL;
+  private static final URI MANAGEMENT_URI = URI.create("https://management.core.windows.net");
   private final ConcurrentMap<String, Lock> myServiceLocks = new ConcurrentHashMap<String, Lock>();
   private final KeyStoreType myKeyStoreType;
   private final String mySubscriptionId;
@@ -106,12 +105,22 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   public Map<String, AzureInstance> listImageInstances(@NotNull final AzureCloudImage image) {
     try {
-      final DeploymentOperations ops = myClient.getDeploymentsOperations();
       final AzureCloudImageDetails imageDetails = image.getImageDetails();
-      final DeploymentGetResponse deploymentResponse = ops.getByName(imageDetails.getServiceName(), imageDetails.getDeploymentName());
-      Map<String, AzureInstance> retval = new HashMap<String, AzureInstance>();
-      for (RoleInstance instance : deploymentResponse.getRoleInstances()) {
-        retval.put(instance.getInstanceName(), new AzureInstance(instance));
+      final Map<String, AzureInstance> retval = new HashMap<String, AzureInstance>();
+      final DeploymentOperations deployOps = myClient.getDeploymentsOperations();
+      final DeploymentGetResponse deploymentResponse = deployOps.getByName(imageDetails.getServiceName(), imageDetails.getDeploymentName());
+      for (final RoleInstance instance : deploymentResponse.getRoleInstances()) {
+        if (imageDetails.getCloneType().isUseOriginal()) {
+          if (instance.getInstanceName().equals(imageDetails.getImageName())){
+            return Collections.singletonMap(imageDetails.getImageName(), new AzureInstance(instance));
+          }
+        } else {
+          for (final InstanceEndpoint endpoint : instance.getInstanceEndpoints()) {
+            if (AzurePropertiesNames.ENDPOINT_NAME.equals(endpoint.getName())) {
+              retval.put(instance.getInstanceName(), new AzureInstance(instance));
+            }
+          }
+        }
       }
       return retval;
     } catch (Exception e) {
@@ -148,15 +157,19 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }};
   }
 
-  public List<String> listServiceDeployments(@NotNull final String serviceName)
+  public Map<String, List<String>> listServiceDeployments(@NotNull final String serviceName)
     throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
     final HostedServiceOperations servicesOps = myClient.getHostedServicesOperations();
     final HostedServiceGetDetailedResponse serviceDetails = servicesOps.getDetailed(serviceName);
-    return new ArrayList<String>(){{
-      for (HostedServiceGetDetailedResponse.Deployment deployment : serviceDetails.getDeployments()) {
-        add(deployment.getName());
+    Map<String, List<String>> retval = new HashMap<String, List<String>>();
+    for (HostedServiceGetDetailedResponse.Deployment deployment : serviceDetails.getDeployments()) {
+      final ArrayList<String> instancesList = new ArrayList<String>();
+      retval.put(deployment.getName(), instancesList);
+      for (RoleInstance instance : deployment.getRoleInstances()) {
+        instancesList.add(instance.getInstanceName());
       }
-    }};
+    }
+    return retval;
   }
 
   public Map<String, Pair<Boolean, String>> listImages() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
@@ -169,8 +182,14 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }};
   }
 
+  public OperationStatusResponse startVM(@NotNull final AzureCloudImage image)
+    throws InterruptedException, ExecutionException, ServiceException, IOException {
+    final AzureCloudImageDetails imageDetails = image.getImageDetails();
+    final VirtualMachineOperations vmOps = myClient.getVirtualMachinesOperations();
+    return vmOps.start(imageDetails.getServiceName(), imageDetails.getDeploymentName(), imageDetails.getImageName());
+  }
 
-  public OperationStatusResponse createAndStartVM(@NotNull final AzureCloudImage image, @NotNull final String vmName, final boolean generalized)
+  public OperationStatusResponse createAndStartVM(@NotNull final AzureCloudImage image, @NotNull final String vmName, @NotNull final CloudInstanceUserData tag, final boolean generalized)
     throws SAXException, InterruptedException, ExecutionException, TransformerException, ServiceException, URISyntaxException, ParserConfigurationException, IOException {
     final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final HostedServiceOperations servicesOperations = myClient.getHostedServicesOperations();
@@ -202,11 +221,13 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         provisionConf.setHostName(vmName);
         provisionConf.setUserName(imageDetails.getUsername());
         provisionConf.setUserPassword(imageDetails.getPassword());
+        provisionConf.setCustomData(tag.serialize());
       } else {
         provisionConf.setConfigurationSetType(ConfigurationSetTypes.WINDOWSPROVISIONINGCONFIGURATION);
         provisionConf.setComputerName(vmName);
         provisionConf.setAdminUserName(imageDetails.getUsername());
         provisionConf.setAdminPassword(imageDetails.getPassword());
+        provisionConf.setCustomData(tag.serialize());
       }
     }
     try {
@@ -292,7 +313,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   private Configuration prepareConfiguration(@NotNull final File keyStoreFile, @NotNull final String password, @NotNull final KeyStoreType keyStoreType) throws RuntimeException {
     try {
-      return ManagementConfiguration.configure(MANAGEMENT_URL, mySubscriptionId, keyStoreFile.getPath(), password, keyStoreType);
+      return ManagementConfiguration.configure(MANAGEMENT_URI, mySubscriptionId, keyStoreFile.getPath(), password, keyStoreType);
     } catch (IOException e) {
       e.printStackTrace();
       return null;
@@ -335,18 +356,9 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     endpoint.setLocalPort(port);
     endpoint.setPort(port);
     endpoint.setProtocol("TCP");
-    endpoint.setName("TC Agent");
+    endpoint.setName(AzurePropertiesNames.ENDPOINT_NAME);
     retval.add(value);
     return retval;
   }
 
-  static {
-    URI uri;
-    try {
-      uri = new URI("https://management.core.windows.net");
-    } catch (Exception e) {
-      uri = null;
-    }
-    MANAGEMENT_URL = uri;
-  }
 }

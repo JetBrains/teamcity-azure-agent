@@ -12,6 +12,7 @@ import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
+import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.connector.AzureInstance;
@@ -44,7 +45,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
     super(imageDetails.getImageName(), imageDetails.getImageName());
     myImageDetails = imageDetails;
     myApiConnector = apiConnector;
-    myGeneralized = apiConnector.isImageGeneralized(imageDetails.getImageName());
+    if (myImageDetails.getCloneType().isUseOriginal()) {
+      myGeneralized = false;
+    } else {
+      myGeneralized = apiConnector.isImageGeneralized(imageDetails.getImageName());
+    }
     final Map<String, AzureInstance> instances = apiConnector.listImageInstances(this);
     for (AzureInstance azureInstance : instances.values()) {
       final AzureCloudInstance cloudInstance = new AzureCloudInstance(this, azureInstance.getName(), azureInstance.getName());
@@ -68,10 +73,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
       final OperationStatusResponse operationStatusResponse = myApiConnector.stopVM(instance);
       if (operationStatusResponse.getStatus()== OperationStatus.Succeeded) {
         myInstances.remove(instance.getInstanceId());
+        if (myImageDetails.getCloneType().isDeleteAfterStop()) {
+          myApiConnector.deleteVM(instance);
+        }
       }
-      myApiConnector.deleteVM(instance);
     } catch (InterruptedException ignored) {
-
     } catch (ExecutionException e) {
       instance.updateErrors(null);
     } catch (ServiceException e) {
@@ -87,14 +93,25 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
   }
 
   @Override
-  public AzureCloudInstance startNewInstance() {
-    long time = System.currentTimeMillis();
-
-    final String vmName = String.format("%s-%x", myImageDetails.getVmNamePrefix(), time/1000);
-    final AzureCloudInstance instance = new AzureCloudInstance(this, vmName, vmName);
+  public AzureCloudInstance startNewInstance(@NotNull final CloudInstanceUserData tag) {
+    final AzureCloudInstance instance;
+    final String vmName;
+    if (myImageDetails.getCloneType().isUseOriginal()) {
+      vmName = myImageDetails.getImageName();
+    } else {
+      long time = System.currentTimeMillis();
+      vmName = String.format("%s-%x", myImageDetails.getVmNamePrefix(), time / 1000);
+    }
+    instance = new AzureCloudInstance(this, vmName);
+    myInstances.put(instance.getInstanceId(), instance);
     instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
     try {
-      final OperationStatusResponse response = myApiConnector.createAndStartVM(AzureCloudImage.this, vmName, myGeneralized);
+      final OperationStatusResponse response;
+      if (myImageDetails.getCloneType().isUseOriginal()) {
+        response = myApiConnector.startVM(this);
+      } else {
+        response = myApiConnector.createAndStartVM(this, vmName, tag, myGeneralized);
+      }
       instance.setStatus(InstanceStatus.STARTING);
       final String operationId = response.getId();
       ConditionalRunner.addConditional(new ConditionalRunner.Conditional() {
@@ -102,8 +119,12 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
 
         public boolean canExecute() throws Exception {
           try {
+            if (myApiConnector.getOperationStatus(operationId).getStatus() == OperationStatus.Failed){
+              myNewStatus = InstanceStatus.ERROR;
+              return true;
+            }
             return myApiConnector.getOperationStatus(operationId).getStatus() == OperationStatus.Succeeded;
-          } catch (Exception ex){
+          } catch (Exception ex) {
             LOG.warn("Unable to get status of operation " + operationId);
             LOG.debug("Unable to get status of operation " + operationId, ex);
             myNewStatus = InstanceStatus.ERROR;
@@ -118,7 +139,6 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-    myInstances.put(instance.getInstanceId(), instance);
     return instance;
   }
 }

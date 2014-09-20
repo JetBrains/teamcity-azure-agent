@@ -109,12 +109,14 @@ public class AzureEditProfileController extends BaseFormXmlController {
         final Element service = new Element("Service");
         service.setAttribute("name", serviceName);
 
-        service.addContent(getServiceDeployments(apiConnector.listServiceDeployments(serviceName)));
+        final Map<String, List<String>> deployments = apiConnector.listServiceDeployments(serviceName);
+        service.addContent(getServiceDeployments(deployments));
         services.addContent(service);
       }
       xmlResponse.addContent(services);
       xmlResponse.addContent(getImages(apiConnector.listImages()));
       xmlResponse.addContent(getVmSizes(apiConnector.listVmSizes()));
+
 
     } catch (Exception e) {
       LOG.warn("An error during fetching options: " + e.toString());
@@ -146,11 +148,16 @@ public class AzureEditProfileController extends BaseFormXmlController {
     return vmSizes;
   }
 
-  private List<Element> getServiceDeployments(final List<String> deploymentList) {
+  private List<Element> getServiceDeployments(final Map<String, List<String>> deploymentList) {
     List<Element> deploymentElements = new ArrayList<Element>();
-    for (String deploymentName : deploymentList) {
+    for (String deploymentName : deploymentList.keySet()) {
       final Element deployment = new Element("Deployment");
       deployment.setAttribute("name", deploymentName);
+      for (String instanceName : deploymentList.get(deploymentName)) {
+        final Element instanceElem = new Element("Instance");
+        instanceElem.setAttribute("name", instanceName);
+        deployment.addContent(instanceElem);
+      }
       deploymentElements.add(deployment);
     }
     return deploymentElements;

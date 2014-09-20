@@ -10,6 +10,7 @@ import jetbrains.buildServer.clouds.base.AbstractCloudInstance;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * @author Sergey.Pak
@@ -50,12 +51,16 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
         for (final G cloudInstance : image.getInstances()) {
           final String instanceName = cloudInstance.getName();
           final AbstractInstance instance = realInstances.get(instanceName);
-          if (!realInstances.containsKey(instanceName)) {
+          if (!realInstances.containsKey(instanceName) && cloudInstance.getStatus() != InstanceStatus.SCHEDULED_TO_START) {
             image.removeInstance(instanceName);
           }
           cloudInstance.updateErrors(myConnector.checkInstance(cloudInstance));
-          cloudInstance.setStartDate(instance.getStartDate());
-          cloudInstance.setNetworkIdentify(instance.getIpAddress());
+          if (instance.getStartDate() != null) {
+            cloudInstance.setStartDate(instance.getStartDate());
+          }
+          if (instance.getIpAddress() != null) {
+            cloudInstance.setNetworkIdentify(instance.getIpAddress());
+          }
         }
       }
     } catch (Exception ex){
@@ -66,5 +71,22 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
 
   private static boolean isStatusPermanent(InstanceStatus status){
     return status == InstanceStatus.STOPPED || status == InstanceStatus.RUNNING;
+  }
+
+  private static InstanceStatus calculateStatus(@NotNull final InstanceStatus currentStatus, @Nullable final InstanceStatus realStatus){
+    switch (currentStatus){
+      case UNKNOWN:
+        return realStatus == null ? InstanceStatus.UNKNOWN : realStatus;
+      case SCHEDULED_TO_START:
+        if (realStatus == InstanceStatus.RUNNING){
+          return InstanceStatus.RUNNING;
+        }
+        return InstanceStatus.SCHEDULED_TO_START;
+      case STARTING:
+        if (realStatus == InstanceStatus.STOPPED){
+
+        }
+    }
+    return null;
   }
 }

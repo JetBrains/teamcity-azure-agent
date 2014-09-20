@@ -51,7 +51,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     final String[] split = imageData.split(";X;");
     List<AzureCloudImageDetails> images = new ArrayList<AzureCloudImageDetails>();
     for (String s : split) {
-      images.add(AzureCloudImageDetails.fromString(s));
+      images.add(AzureCloudImageDetails.fromString(s.trim()));
     }
     return images;
   }

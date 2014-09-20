@@ -46,25 +46,19 @@
     </td>
   </tr>
 <tr>
-  <td colspan="2">
-    <h3 class="title_underlined">Images</h3>
-    <div class="imagesTableWrapper hidden">
-      <span class="emptyImagesListMessage hidden">You haven't added any images yet.</span>
-      <table id="azureImagesTable" class="settings imagesTable hidden">
-        <tbody>
-        <tr>
-          <th class="name">Service name</th>
-          <th class="name">Deployment name</th>
-          <th class="name">Image name</th>
-          <th class="name">Name prefix</th>
-          <th class="name">Generalized</th>
-          <th class="name">Max # of instances</th>
-          <th class="name" colspan="2"></th>
-        </tr>
-        </tbody>
-      </table>
-      <props:hiddenProperty name="${cons.imagesData}"/>
-    </div>
+  <th>Select an image type:</th>
+  <td>
+    <input type="radio" id="cloneBehaviour_FRESH_CLONE" name="cloneBehaviour" value="FRESH_CLONE" checked="true" class="cloneBehaviourRadio"/>
+    <label for="cloneBehaviour_FRESH_CLONE">Fresh clone</label>
+    <br/>
+    <input type="radio" id="cloneBehaviour_START_STOP" name="cloneBehaviour" value="START_STOP" class="cloneBehaviourRadio"/>
+    <label for="cloneBehaviour_START_STOP">Start/Stop instance</label>
+    <br/>
+<%--
+    <input type="radio" id="cloneBehaviour_ON_DEMAND_CLONE" name="cloneBehaviour" value="ON_DEMAND_CLONE" class="cloneBehaviourRadio"/>
+    <label for="cloneBehaviour_ON_DEMAND_CLONE">On demand clone</label>
+    <br/>
+--%>
   </td>
 </tr>
 
@@ -87,7 +81,7 @@
   </td>
 </tr>
 <tr>
-  <th><label for="${cons.imageName}">Image name:</label></th>
+  <th><label id="label_${cons.imageName}" for="${cons.imageName}">Image name:</label></th>
   <td>
     <div>
       <select name="_${cons.imageName}" id="${cons.imageName}" data-err-id="${cons.imageName}"></select>
@@ -95,11 +89,11 @@
     <span class="error option-error option-error_${cons.imageName}"></span>
   </td>
 </tr>
-<tr>
+<tr class="clone hidden">
   <th><label for="${cons.namePrefix}">Name prefix: <l:star/></label></th>
   <td><props:textProperty name="${cons.namePrefix}"/></td>
 </tr>
-<tr>
+<tr class="clone hidden">
   <th><label for="${cons.vmSize}">VM Size: <l:star/></label></th>
   <td>
     <div>

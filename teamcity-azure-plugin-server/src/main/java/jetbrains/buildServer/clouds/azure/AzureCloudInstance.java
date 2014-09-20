@@ -13,6 +13,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AzureCloudInstance extends AbstractCloudInstance<AzureCloudImage> {
 
+  protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name) {
+    super(image, name, name);
+  }
+
   protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name, String id) {
     super(image, name, id);
   }

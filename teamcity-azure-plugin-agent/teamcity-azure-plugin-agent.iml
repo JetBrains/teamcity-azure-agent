@@ -21,6 +21,7 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="module" module-name="teamcity-azure-plugin-common" />
     <orderEntry type="library" name="agent" level="project" />
+    <orderEntry type="library" name="org.testng:testng:6.8.1" level="project" />
   </component>
 </module>
 

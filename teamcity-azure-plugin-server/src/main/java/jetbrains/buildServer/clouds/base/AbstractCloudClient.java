@@ -50,7 +50,7 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
   @NotNull
   public G startNewInstance(@NotNull final CloudImage baseImage, @NotNull final CloudInstanceUserData tag) throws QuotaException {
     final T image = (T)baseImage;
-    return image.startNewInstance();
+    return image.startNewInstance(tag);
   }
 
   public void restartInstance(@NotNull final CloudInstance baseInstance) {

@@ -1,6 +1,7 @@
 package jetbrains.buildServer.clouds.azure;
 
 import jetbrains.buildServer.clouds.base.beans.AbstractCloudImageDetails;
+import jetbrains.buildServer.clouds.base.types.CloudCloneType;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -18,22 +19,22 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
   private final String myVmSize;
   private final String myUsername;
   private final String myPassword;
+  private final CloudCloneType myCloneType;
 
   public static AzureCloudImageDetails fromString(@NotNull final String s){
     final String[] split = s.split(";");
-    //serviceName;deploymentName;imageName;vmNamePrefix;vmSize;osType
-    //TODO: update buildAgent.properties, then agent will restart automatically
     if (split.length == 6) {
       return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5]);
-    } else if (split.length == 8){
-      return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5], split[6], split[7]);
+    } else if (split.length == 9){
+      return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5], split[6], split[7], split[8]);
     } else {
       return null;
     }
   }
 
 
-  private AzureCloudImageDetails(final String serviceName,
+  private AzureCloudImageDetails(final String cloneTypeName,
+                                 final String serviceName,
                                  final String deploymentName,
                                  final String imageName,
                                  final String vmNamePrefix,
@@ -41,6 +42,7 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
                                  final String osType,
                                  final String username,
                                  final String password){
+    myCloneType = CloudCloneType.valueOf(cloneTypeName);
     myImageName = imageName;
     myDeploymentName = deploymentName;
     myServiceName = serviceName;
@@ -50,13 +52,13 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
     myUsername = username;
     myPassword = password;
   }
-  private AzureCloudImageDetails(final String serviceName,
+  private AzureCloudImageDetails(final String cloneTypeName,
+                                 final String serviceName,
                                  final String deploymentName,
                                  final String imageName,
                                  final String vmNamePrefix,
-                                 final String vmSize,
-                                 final String osType){
-    this (serviceName, deploymentName, imageName, vmNamePrefix, vmSize, osType, null, null);
+                                 final String vmSize){
+    this (cloneTypeName, serviceName, deploymentName, imageName, vmNamePrefix, vmSize, null, null, null);
   }
 
   public String getImageName() {
@@ -68,6 +70,9 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
   }
 
   public String getOsType() {
+    if (myOsType == null){
+      throw new UnsupportedOperationException("Don't have enough data for this VM type");
+    }
     return myOsType;
   }
 
@@ -89,5 +94,9 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
 
   public String getPassword() {
     return myPassword;
+  }
+
+  public CloudCloneType getCloneType() {
+    return myCloneType;
   }
 }

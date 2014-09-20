@@ -3,14 +3,15 @@ package jetbrains.buildServer.clouds.azure;
 import com.intellij.execution.configurations.GeneralCommandLine;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.SystemInfo;
+import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.StringReader;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import jetbrains.buildServer.ExecResult;
 import jetbrains.buildServer.SimpleCommandLineProcessRunner;
 import jetbrains.buildServer.agent.*;
+import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -28,8 +29,11 @@ import org.jetbrains.annotations.NotNull;
 public class AzurePropertiesReader {
 
   private static final Logger LOG = Logger.getInstance(AzurePropertiesReader.class.getName());
-  private static final String LINUX_PROP_FILE= "/var/lib/waagent/SharedConfig.xml";
+  private static final String LINUX_CONFIG_DIR = "/var/lib/waagent/";
+  private static final String LINUX_PROP_FILE= LINUX_CONFIG_DIR + "SharedConfig.xml";
+  private static final String LINUX_CUSTOM_DATA_FILE= LINUX_CONFIG_DIR + "ovf-env.xml";
   private static final String WINDOWS_PROP_FILE_DIR="C:\\WindowsAzure\\Config";
+  private static final String WINDOWS_CUSTOM_DATA_FILE="C:\\AzureData\\CustomData.bin";
 
   private final BuildAgentConfigurationEx myAgentConfiguration;
 
@@ -42,46 +46,84 @@ public class AzurePropertiesReader {
       @Override
       public void afterAgentConfigurationLoaded(@NotNull final BuildAgent agent) {
         if (SystemInfo.isLinux){
-          final String xmlData = readFileWithSudo();
-          if (StringUtil.isEmpty(xmlData)){
-            LOG.info("Unable to find azure properties file. Azure integration is disabled");
-            return;
-          }
-          try {
-            final Element documentElement = FileUtil.parseDocument(new StringReader(xmlData), false);
-            if (documentElement == null) {
-              LOG.info("Unable to read azure properties file. Azure integration is disabled");
-              return;
-            }
-            addInstanceName(documentElement);
-          } catch (Exception e) {
-            LOG.info("Unable to read azure properties file. Azure integration is disabled:" + xmlData);
-            LOG.info(e.toString());
-            LOG.debug(e.toString(), e);
-          }
+          processLinuxConfig();
         } else if (SystemInfo.isWindows){
-          File configDir = new File(WINDOWS_PROP_FILE_DIR);
-          final File[] files = configDir.listFiles();
-          if (files == null || files.length == 0) {
-            LOG.info("Unable to find azure properties file. Azure integration is disabled");
-            return;
-          }
-          Arrays.sort(files, new Comparator<File>() {
-            public int compare(final File o1, final File o2) {
-              return new Long(o2.lastModified()).compareTo(o1.lastModified());
-            }
-          });
-          File latest = files[0];
-          FileUtil.readXmlFile(latest, new FileUtil.Processor() {
-            public void process(final Element element) {
-              addInstanceName(element);
-            }
-          });
+          processWindowsConfig();
         } else {
           LOG.warn(String.format("Azure integration is disablled: unsupported OS family %s(%s)", SystemInfo.OS_ARCH, SystemInfo.OS_VERSION));
         }
       }
     });
+  }
+
+  private void processWindowsConfig() {
+    File configDir = new File(WINDOWS_PROP_FILE_DIR);
+    final File[] files = configDir.listFiles();
+    if (files == null || files.length == 0) {
+      LOG.info("Unable to find azure properties file. Azure integration is disabled");
+      return;
+    }
+    Arrays.sort(files, new Comparator<File>() {
+      public int compare(final File o1, final File o2) {
+        return new Long(o2.lastModified()).compareTo(o1.lastModified());
+      }
+    });
+    File latest = files[0];
+    FileUtil.readXmlFile(latest, new FileUtil.Processor() {
+      public void process(final Element element) {
+        addInstanceName(element);
+      }
+    });
+
+    File customDataFile = new File(WINDOWS_CUSTOM_DATA_FILE);
+    if (customDataFile.exists()){
+      try {
+        final String customData = FileUtil.readText(customDataFile);
+        if (customData != null) {
+          processCustomData(customData);
+        }
+      } catch (IOException e) {
+        LOG.info("Unable to read customData file: " + e.toString());
+      }
+    }
+  }
+
+  private void processLinuxConfig() {
+    final String xmlData = readFileWithSudo(LINUX_PROP_FILE);
+    if (StringUtil.isEmpty(xmlData)){
+      LOG.info("Unable to find azure properties file. Azure integration is disabled");
+      return;
+    }
+    try {
+      final Element documentElement = FileUtil.parseDocument(new ByteArrayInputStream(xmlData.getBytes()), false);
+      if (documentElement == null) {
+        LOG.info("Unable to read azure properties file. Azure integration is disabled");
+        return;
+      }
+      addInstanceName(documentElement);
+    } catch (Exception e) {
+      LOG.info("Unable to read azure properties file. Azure integration is disabled:" + xmlData);
+      LOG.info(e.toString());
+      LOG.debug(e.toString(), e);
+    }
+
+    final String customData = readFileWithSudo(LINUX_CUSTOM_DATA_FILE);
+    if (StringUtil.isEmpty(customData)){
+      LOG.info("Empty custom data. Will use existing parameters");
+      return;
+    }
+    try {
+      final Element documentElement = FileUtil.parseDocument(new ByteArrayInputStream(customData.getBytes()), false);
+      if (documentElement == null) {
+        LOG.info("Unable to read azure custom data. Will use existing parameters");
+        return;
+      }
+      readCustomData(documentElement);
+    } catch (Exception e) {
+      LOG.info("Unable to read azure custom data. Will use existing parameters: " + customData);
+      LOG.info(e.toString());
+      LOG.debug(e.toString(), e);
+    }
   }
 
   private void addInstanceName(final Element documentElement){
@@ -92,7 +134,7 @@ public class AzurePropertiesReader {
     if (nameAttr != null){
       final String instanceName = nameAttr.getValue();
       addLocalPort(documentElement, instanceName);
-      setOwnAddress(documentElement);
+      setOwnAddress(documentElement, instanceName);
       myAgentConfiguration.addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, instanceName);
       myAgentConfiguration.setName(instanceName);
       LOG.info("Instance name and agent name are set to " + instanceName);
@@ -104,8 +146,8 @@ public class AzurePropertiesReader {
   private void addLocalPort(@NotNull final Element documentElement, @NotNull final String selfInstanceName){
     try {
       final XPath xPath = XPath.newInstance(String.format(
-        "string(//Instances/Instance[@id='%s']/InputEndpoints/Endpoint[@name='TC Agent']/LocalPorts/LocalPortRange/@from)",
-        selfInstanceName));
+        "string(//Instances/Instance[@id='%s']/InputEndpoints/Endpoint[@name='%s']/LocalPorts/LocalPortRange/@from)",
+        selfInstanceName, AzurePropertiesNames.ENDPOINT_NAME));
       final Object value = xPath.selectSingleNode(documentElement);
       try {
         final int portValue = Integer.parseInt(String.valueOf(value));
@@ -119,23 +161,55 @@ public class AzurePropertiesReader {
     }
   }
 
-  private void setOwnAddress(@NotNull final Element documentElement){
+  private void setOwnAddress(@NotNull final Element documentElement, @NotNull final String selfInstanceName){
     try {
-      final XPath xPath = XPath.newInstance("string(//Deployment/Service/@name)");
+      final XPath xPath = XPath.newInstance(String.format(
+        "string(//Instances/Instance[@id='%s']/InputEndpoints/Endpoint[@name='%s']/@loadBalancedPublicAddress)",
+        selfInstanceName, AzurePropertiesNames.ENDPOINT_NAME));
       final Object value = xPath.selectSingleNode(documentElement);
-      final String serviceAddress = value + ".cloudapp.net";
-      myAgentConfiguration.addAlternativeAgentAddress(serviceAddress);
-      LOG.info("Own address is set to " + serviceAddress);
+      final String loadBalancedAddress = String.valueOf(value);
+      final String externalIp = loadBalancedAddress.contains(":") ? loadBalancedAddress.substring(0, loadBalancedAddress.indexOf(":")) : loadBalancedAddress;
+      myAgentConfiguration.addAlternativeAgentAddress(externalIp);
+      LOG.info("Added alternative address is set to " + externalIp);
     } catch (JDOMException e) {
       LOG.warn("", e);
     }
   }
 
-  private String readFileWithSudo(){
+  private void readCustomData(@NotNull final Element documentElement){
+    final XPath xPath;
+    try {
+      xPath = XPath.newInstance("string(//wa:LinuxProvisioningConfigurationSet/wa:CustomData)");
+      final Object value = xPath.selectSingleNode(documentElement);
+      if (value != null){
+        final String serializedCustomData = String.valueOf(value);
+        processCustomData(serializedCustomData);
+      }
+    } catch (JDOMException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private void processCustomData(@NotNull final String serializedCustomData) {
+    final CloudInstanceUserData data = CloudInstanceUserData.deserialize(serializedCustomData);
+    if (data != null) {
+      myAgentConfiguration.setServerUrl(data.getServerAddress());
+      LOG.info("Set server URL to " + data.getServerAddress());
+      final Map<String, String> customParams = data.getCustomAgentConfigurationParameters();
+      for (String key : customParams.keySet()) {
+        myAgentConfiguration.addConfigurationParameter(key, customParams.get(key));
+        LOG.info(String.format("added config param: {%s, %s}", key, customParams.get(key)));
+      }
+    } else {
+      LOG.info(String.format("Unable to deserialize customData: '%s'", serializedCustomData));
+    }
+  }
+
+  private String readFileWithSudo(@NotNull final String filePath){
     final GeneralCommandLine commandLine = new GeneralCommandLine();
     commandLine.setExePath("/bin/bash");
     commandLine.addParameter("-c");
-    commandLine.addParameter(String.format("sudo cat %s", LINUX_PROP_FILE));
+    commandLine.addParameter(String.format("sudo cat %s", filePath));
     final ExecResult execResult = SimpleCommandLineProcessRunner.runCommand(commandLine, new byte[0]);
     if (execResult.getExitCode() != 0){
       LOG.info("");

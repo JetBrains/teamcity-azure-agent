@@ -25,7 +25,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     cloneBehaviourRadio: ".cloneBehaviourRadio"
   },
   init: function(refreshOptionsUrl){
-    this.response = null;
+    this.$response = null;
     this.refreshOptionsUrl = refreshOptionsUrl;
     this.$cert = $j('#managementCertificate');
     this.$subscrId = $j('#subscriptionId');
@@ -64,7 +64,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }.bind(this));
 
     this.$imageNameDataElem.change(function() {
-      var $find = this.response.find('Images:eq(0) Image[name="' + this.$imageNameDataElem.val() + '"]');
+      var $find = this.$response.find('Images:eq(0) Image[name="' + this.$imageNameDataElem.val() + '"]');
 
       if ($find) {
         this._toggleProvisionCredentials($find);
@@ -85,10 +85,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
 
   },
+  validateServerSettings: function () {
+    return true;
+  },
   fetchOptions: function(){
 /*
     this.loaders.options.removeClass('invisible');
-    this.response = $j($j.parseXML('<response><Services>'
+    this.$response = $j($j.parseXML('<response><Services>'
                    + '<Service name="paksv-lnx-agent"><Deployment name="Ubuntu"><Instance name="Ubuntu"/></Deployment></Service>'
                    + '<Service name="paksv-win-agent"><Deployment name="win"><Instance name="win" /></Deployment></Service>'
                    + '<Service name="tc-srv"><Deployment name="tc-srv"><Instance name="tc-srv" /></Deployment></Service></Services>'
@@ -97,19 +100,46 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this._fillVmSizes();
     this.loaders.options.addClass('invisible');
 */
-    BS.ajaxRequest(this.refreshOptionsUrl, {
-      parameters: BS.Clouds.Admin.CreateProfileForm.serializeParameters(),
-      onComplete: function () {
-        this.loaders.options.addClass('invisible');
-      }.bind(this),
-      onFailure: function (response) {
-        alert('Failure: ' + response.getStatusText());
-      }.bind(this),
-      onSuccess: function (response){
-        this.response = $j(response.responseXML);
+    var _fetchOptionsInProgress = function () {
+      return this.fetchOptionsDeferred ?
+        this.fetchOptionsDeferred.state() === 'pending' :
+        false;
+    };
+
+    if ( _fetchOptionsInProgress() || !this.validateServerSettings()) {
+      return false;
+    }
+
+    this.fetchOptionsDeferred = $j.Deferred()
+      .then(function (response) {
+        this.$response = $j(response);
+
         this._fillServices();
         this._fillVmSizes();
         this._fillImages();
+      }.bind(this))
+      .fail(function (errorText) {
+        this.addError("Unable to fetch options: " + errorText);
+        BS.VMWareImageDialog.close();
+      }.bind(this));
+      .done(function() {
+        this.loaders.options.addClass('invisible');
+      }.bind(this));
+
+    BS.ajaxRequest(this.refreshOptionsUrl, {
+      parameters: BS.Clouds.Admin.CreateProfileForm.serializeParameters(),
+      onFailure: function (response) {
+        this.fetchOptionsDeferred.reject(response.getStatusText());
+      }.bind(this),
+      onSuccess: function (response){
+        var $response = $j(response.responseXML),
+          $errors = $response.find("errors:eq(0) error");
+
+        if ($errors) {
+          this.fetchOptionsDeferred.reject($errors.text());
+        } else {
+          this.fetchOptionsDeferred.resolve(response);
+        }
       }.bind(this)
     });
 
@@ -125,10 +155,10 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $target.append($j('<option>').attr('value', value).text(text || value));
   },
   _fillServices: function(){
-    if (!this.response)
+    if (!this.$response)
       return;
     var self = this,
-        $services = this.response.find('Services:eq(0) Service');
+        $services = this.$response.find('Services:eq(0) Service');
 
     this._clearSelectAndAddDefault(this.$serviceNameDataElem);
 
@@ -137,11 +167,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     });
   },
   _fillVmSizes: function(){
-    if (!this.response)
+    if (!this.$response)
       return;
 
     var self = this,
-        $vmSizes = this.response.find('VmSizes:eq(0) VmSize');
+        $vmSizes = this.$response.find('VmSizes:eq(0) VmSize');
 
     this._clearSelectAndAddDefault(this.$vmSizeDataElem);
 
@@ -150,11 +180,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     });
   },
   _fillDeployments: function($serviceName) {
-    if (!this.response)
+    if (!this.$response)
       return;
 
     var self = this,
-        $deployments = this.response.find('Service[name="'+$serviceName+'"] Deployment');
+        $deployments = this.$response.find('Service[name="'+$serviceName+'"] Deployment');
 
     this._clearSelectAndAddDefault(this.$deploymentNameDataElem);
 
@@ -163,13 +193,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     });
   },
   _fillInstances: function($serviceName, $deploymentName) {
-    if (!this.response)
+    if (!this.$response)
       return;
 
     this._clearSelectAndAddDefault(this.$imageNameDataElem);
     if (!this._isClone()) {
       var self = this,
-          $instances = this.response.find('Service[name="' + $serviceName + '"] Deployment[name="' + $deploymentName + '"] Instance');
+          $instances = this.$response.find('Service[name="' + $serviceName + '"] Deployment[name="' + $deploymentName + '"] Instance');
 
       $instances.each(function () {
         self._appendOption(self.$imageNameDataElem, $j(this).attr('name'));
@@ -177,13 +207,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }
   },
   _fillImages: function() {
-    if (!this.response)
+    if (!this.$response)
       return;
 
     this._clearSelectAndAddDefault(this.$imageNameDataElem);
     debugger;
     if (this._isClone()){
-      var $images = this.response.find('Images:eq(0) Image');
+      var $images = this.$response.find('Images:eq(0) Image');
       var self = this;
 
       $images.each(function(){

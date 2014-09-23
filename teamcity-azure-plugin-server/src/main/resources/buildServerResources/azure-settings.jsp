@@ -26,6 +26,8 @@
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.web.AzureWebConstants"/>
 <jsp:useBean id="refreshablePath" class="java.lang.String" scope="request"/>
 
+<bs:linkCSS>${resPath}azure-settings.css</bs:linkCSS>
+
   <tr>
     <th><label for="${cons.managementCertificate}">Management certificate: <l:star/></label></th>
     <td><props:textProperty name="${cons.managementCertificate}" className="longField"/></td>
@@ -42,7 +44,7 @@
       <%--<div>--%>
         <%--<forms:button id="azureFetchOptionsButton">Fetch options</forms:button>--%>
       <%--</div>--%>
-      <div class="options-loader invisible"><i class="icon-refresh icon-spin"></i> Fetching options...</div>
+      <div class="options-loader invisible"><i class="icon-refresh icon-spin"></i>&nbsp;Fetching options...</div>
     </td>
   </tr>
 <tr>
@@ -63,6 +65,19 @@
 </tr>
 
 <tr>
+    <th><label id="label_${cons.imageName}" for="${cons.imageName}">Image name: <l:star/></label></th>
+    <td>
+        <div>
+            <select class="inline-block" name="_${cons.imageName}" id="${cons.imageName}" data-err-id="${cons.imageName}"></select>
+      <span id="${cons.osType}" class="provision hidden">
+        <bs:osIcon osName="windows" small="true"/>
+        <bs:osIcon osName="linux" small="true"/>
+      </span>
+        </div>
+        <span class="error option-error option-error_${cons.imageName}"></span>
+    </td>
+</tr>
+<tr>
   <th><label for="${cons.serviceName}">Service name: <l:star/></label></th>
   <td>
     <div>
@@ -78,15 +93,6 @@
       <select name="_${cons.deploymentName}" id="${cons.deploymentName}" data-err-id="${cons.deploymentName}"></select>
     </div>
     <span class="error option-error option-error_${cons.deploymentName}"></span>
-  </td>
-</tr>
-<tr>
-  <th><label id="label_${cons.imageName}" for="${cons.imageName}">Image name:</label></th>
-  <td>
-    <div>
-      <select name="_${cons.imageName}" id="${cons.imageName}" data-err-id="${cons.imageName}"></select>
-    </div>
-    <span class="error option-error option-error_${cons.imageName}"></span>
   </td>
 </tr>
 <tr class="clone hidden">
@@ -106,12 +112,6 @@
   <th></th><td></td>
 </tr>
 <tr class="provision hidden">
-  <th><label for="${cons.osType}">OS Type:</label></th>
-  <td>
-    <div id="${cons.osType}"> </div>
-  </td>
-</tr>
-<tr class="provision hidden">
   <th><label for="${cons.provisionUsername}">Provision username: <l:star/></label></th>
   <td><input type="text" id="${cons.provisionUsername}" className="longField"/></td>
 </tr>
@@ -121,7 +121,7 @@
 </tr>
 <tr>
   <td colspan="2">
-    <forms:button id="addImageButton">Add image</forms:button>
+    <forms:addButton title="Add Image" id="addImageButton">Add image</forms:addButton>
   </td>
 </tr>
 <tr>

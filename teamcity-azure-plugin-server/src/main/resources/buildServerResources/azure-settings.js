@@ -17,7 +17,7 @@ BS.UploadManagementCertificate = OO.extend(BS.AbstractWebForm, OO.extend(BS.Abst
 
 BS.Clouds.Azure = BS.Clouds.Azure || {
   optionsFetched: false,
-  _dataKeys: ['serviceName', 'deploymentName', 'imageName', 'namePrefix', 'vmSize' ],
+  _dataKeys: ['serviceName', 'deploymentName', 'imageName' ],
   _extDataKeys: ['osType', 'provisionUsername', 'provisionPassword'],
   _cloneDataKeys: ['namePrefix', 'vmSize'],
   selectors: {
@@ -73,11 +73,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }.bind(this));
 
     $j(this.selectors.cloneBehaviourRadio).on('change', function(e, val){
-      this._cloneDataKeys.forEach(function(key, index){
-        $j('.clone').each(function(){
-          this.toggle($self._isClone());
-        });
-      });
+      $j('.clone').toggleClass('hidden', $self._isClone());
+
       $self._fillImages();
       //debugger;
       $self.$imageNameLabel.text($self._isClone() ? "Image name:" : "Instance name:");
@@ -110,9 +107,10 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       return false;
     }
 
+    this.loaders.options.removeClass('invisible');
     this.fetchOptionsDeferred = $j.Deferred()
-      .then(function (response) {
-        this.$response = $j(response);
+      .done(function (response) {
+        this.$response = $j(response.responseXML);
 
         this._fillServices();
         this._fillVmSizes();
@@ -121,8 +119,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       .fail(function (errorText) {
         this.addError("Unable to fetch options: " + errorText);
         BS.VMWareImageDialog.close();
-      }.bind(this));
-      .done(function() {
+      }.bind(this))
+      .always(function() {
         this.loaders.options.addClass('invisible');
       }.bind(this));
 
@@ -135,7 +133,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         var $response = $j(response.responseXML),
           $errors = $response.find("errors:eq(0) error");
 
-        if ($errors) {
+        if ($errors.length) {
           this.fetchOptionsDeferred.reject($errors.text());
         } else {
           this.fetchOptionsDeferred.resolve(response);
@@ -211,7 +209,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       return;
 
     this._clearSelectAndAddDefault(this.$imageNameDataElem);
-    debugger;
+    //debugger;
     if (this._isClone()){
       var $images = this.$response.find('Images:eq(0) Image');
       var self = this;
@@ -220,12 +218,21 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         self._appendOption(self.$imageNameDataElem, $j(this).attr('name'));
       });
     }
+
+    this.$imageNameDataElem.trigger('change');
   },
   _isClone: function(){
     return $j(this.selectors.activeCloneBehaviour).val() !== 'START_STOP';
   },
   _showImageOsType: function($imageElem){
-    this.$osTypeDataElem.text($imageElem.attr('osType'));
+    //debugger
+    var _osType = $imageElem.attr('osType');
+
+    this.$osTypeDataElem.children().hide();
+
+    if (_osType) {
+      this.$osTypeDataElem.find('[title="' + _osType.toLowerCase() + '"]').show();
+    }
   },
   _toggleProvisionCredentials: function($findElem){
     $j('.provision').toggle($findElem && $findElem.attr('generalized') == 'true');

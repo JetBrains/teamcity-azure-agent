@@ -23,7 +23,9 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
 
   public static AzureCloudImageDetails fromString(@NotNull final String s){
     final String[] split = s.split(";");
-    if (split.length == 6) {
+    if (split.length == 4) {
+      return new AzureCloudImageDetails(split[0], split[1], split[2], split[3]);
+    } else if (split.length == 6) {
       return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5]);
     } else if (split.length == 9){
       return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5], split[6], split[7], split[8]);
@@ -59,6 +61,12 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
                                  final String vmNamePrefix,
                                  final String vmSize){
     this (cloneTypeName, serviceName, deploymentName, imageName, vmNamePrefix, vmSize, null, null, null);
+  }
+  private AzureCloudImageDetails(final String cloneTypeName,
+                                 final String serviceName,
+                                 final String deploymentName,
+                                 final String imageName){
+    this (cloneTypeName, serviceName, deploymentName, imageName, null, null, null, null, null);
   }
 
   public String getImageName() {

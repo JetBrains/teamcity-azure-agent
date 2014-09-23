@@ -73,11 +73,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }.bind(this));
 
     $j(this.selectors.cloneBehaviourRadio).on('change', function(e, val){
-      this._cloneDataKeys.forEach(function(key, index){
-        $j('.clone').each(function(){
-          this.toggle($self._isClone());
-        });
-      });
+      if ($self._isClone()) {
+        $j('.clone').removeClass('hidden');
+      } else {
+        $j('.clone').addClass('hidden');
+      }
       $self._fillImages();
       //debugger;
       $self.$imageNameLabel.text($self._isClone() ? "Image name:" : "Instance name:");
@@ -181,7 +181,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       return;
 
     this._clearSelectAndAddDefault(this.$imageNameDataElem);
-    debugger;
+
     if (this._isClone()){
       var $images = $response.find('Images:eq(0) Image');
       var self = this;

@@ -216,18 +216,23 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     if (generalized){
       ConfigurationSet provisionConf = new ConfigurationSet();
       configurationSetList.add(provisionConf);
-      if ("Linux".equals(imageDetails.getOsType())){
-        provisionConf.setConfigurationSetType(ConfigurationSetTypes.LINUXPROVISIONINGCONFIGURATION);
-        provisionConf.setHostName(vmName);
-        provisionConf.setUserName(imageDetails.getUsername());
-        provisionConf.setUserPassword(imageDetails.getPassword());
-        provisionConf.setCustomData(tag.serialize());
+
+      final String serializedUserData = tag.serialize();
+      if ("Linux".equals(imageDetails.getOsType())) {
+          provisionConf.setConfigurationSetType(ConfigurationSetTypes.LINUXPROVISIONINGCONFIGURATION);
+          provisionConf.setHostName(vmName);
+          provisionConf.setUserName(imageDetails.getUsername());
+          provisionConf.setUserPassword(imageDetails.getPassword());
+          // for Linux userData is written to xml config as is - in Base64 format. We will decode it using CloudInstanceUserData.decode
+          provisionConf.setCustomData(serializedUserData);
       } else {
         provisionConf.setConfigurationSetType(ConfigurationSetTypes.WINDOWSPROVISIONINGCONFIGURATION);
         provisionConf.setComputerName(vmName);
         provisionConf.setAdminUserName(imageDetails.getUsername());
         provisionConf.setAdminPassword(imageDetails.getPassword());
-        provisionConf.setCustomData(tag.serialize());
+        // for Windows userData is decoded from Base64 format and written to C:\AzureData\CustomData.bin
+        // that's why we additionally encode it in Base64 again
+        provisionConf.setCustomData(Base64.encode(serializedUserData.getBytes()));
       }
     }
     try {

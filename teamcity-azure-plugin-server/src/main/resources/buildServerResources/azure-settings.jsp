@@ -89,11 +89,11 @@
     <span class="error option-error option-error_${cons.imageName}"></span>
   </td>
 </tr>
-<tr class="clone hidden">
+<tr class="clone">
   <th><label for="${cons.namePrefix}">Name prefix: <l:star/></label></th>
   <td><props:textProperty name="${cons.namePrefix}"/></td>
 </tr>
-<tr class="clone hidden">
+<tr class="clone">
   <th><label for="${cons.vmSize}">VM Size: <l:star/></label></th>
   <td>
     <div>

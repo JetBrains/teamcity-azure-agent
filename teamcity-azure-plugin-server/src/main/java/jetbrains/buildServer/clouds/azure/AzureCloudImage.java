@@ -70,20 +70,17 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
   @Override
   public void terminateInstance(@NotNull final AzureCloudInstance instance) {
     try {
+      instance.setStatus(InstanceStatus.STOPPING);
       final OperationStatusResponse operationStatusResponse = myApiConnector.stopVM(instance);
+      instance.setStatus(InstanceStatus.STOPPED);
       if (operationStatusResponse.getStatus()== OperationStatus.Succeeded) {
-        myInstances.remove(instance.getInstanceId());
         if (myImageDetails.getCloneType().isDeleteAfterStop()) {
           myApiConnector.deleteVM(instance);
+          myInstances.remove(instance.getInstanceId());
         }
       }
-    } catch (InterruptedException ignored) {
-    } catch (ExecutionException e) {
-      instance.updateErrors(null);
-    } catch (ServiceException e) {
-      e.printStackTrace();
-    } catch (IOException e) {
-      e.printStackTrace();
+    } catch (Exception e) {
+      instance.setStatus(InstanceStatus.ERROR);
     }
   }
 
@@ -103,13 +100,13 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
       vmName = String.format("%s-%x", myImageDetails.getVmNamePrefix(), time / 1000);
     }
     instance = new AzureCloudInstance(this, vmName);
-    myInstances.put(instance.getInstanceId(), instance);
     instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
     try {
       final OperationStatusResponse response;
       if (myImageDetails.getCloneType().isUseOriginal()) {
         response = myApiConnector.startVM(this);
       } else {
+        myInstances.put(instance.getInstanceId(), instance);
         response = myApiConnector.createAndStartVM(this, vmName, tag, myGeneralized);
       }
       instance.setStatus(InstanceStatus.STARTING);

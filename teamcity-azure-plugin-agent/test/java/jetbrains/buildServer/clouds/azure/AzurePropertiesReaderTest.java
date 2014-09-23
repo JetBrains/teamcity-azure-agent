@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.Map;
+import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.util.FileUtil;
 import org.apache.xerces.impl.dv.util.Base64;
 import org.jdom.Element;
@@ -51,5 +53,15 @@ public class AzurePropertiesReaderTest {
     //xPath.addNamespace(wa);
     final Object value = xPath.selectSingleNode(element);
     System.out.println(new String(Base64.decode(String.valueOf(value))));
+  }
+
+  public void deserializeCustomDataWindows() throws IOException {
+    final String xmlData = FileUtil.readText(new File("teamcity-azure-plugin-agent/test/resources/CustomData.bin"));
+    final CloudInstanceUserData deserialize = CloudInstanceUserData.deserialize(Base64.encode(xmlData.getBytes()));
+    final Map<String, String> customParams = deserialize.getCustomAgentConfigurationParameters();
+    for (String paramName : customParams.keySet()) {
+      System.out.printf("%s:%s%n", paramName, customParams.get(paramName));
+    }
+    //deserialize
   }
 }

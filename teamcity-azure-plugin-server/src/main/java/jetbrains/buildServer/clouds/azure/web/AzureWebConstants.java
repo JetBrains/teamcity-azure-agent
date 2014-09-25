@@ -17,6 +17,7 @@ public class AzureWebConstants {
   public static final String OS_TYPE="osType";
   public static final String PROVISION_USERNAME="provisionUsername";
   public static final String PROVISION_PASSWORD="provisionPassword";
+  public static final String MAX_INSTANCES_COUNT="maxInstancesCount";
 
   public String getSubscriptionId() {
     return SUBSCRIPTION_ID;
@@ -61,4 +62,6 @@ public class AzureWebConstants {
   public String getProvisionPassword() {
     return PROVISION_PASSWORD;
   }
+
+  public String getMaxInstancesCount() { return MAX_INSTANCES_COUNT; }
 }

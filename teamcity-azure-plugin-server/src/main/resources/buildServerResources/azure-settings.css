@@ -4,3 +4,13 @@
 .osIcon {
     vertical-align: middle;
 }
+
+.innerTable {
+    width: 100%;
+}
+
+.innerTable,
+.innerTable td,
+.innerTable th {
+    border: none;
+}

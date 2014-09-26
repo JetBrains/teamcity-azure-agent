@@ -3,7 +3,10 @@
  */
 
 BS.Clouds.Azure = BS.Clouds.Azure || {
-  optionsFetched: false,
+  data: [],
+  dataKeys: [ 'cloneType', 'service', 'deployment', 'name', 'namePrefix',
+    'vmSize', 'os', 'provisionUsername', 'provisionPassword', 'maxInstancesCount'
+  ],
   selectors: {
     imagesSelect: '#imageName',
     cloneBehaviourRadio: ".cloneBehaviourRadio"
@@ -40,6 +43,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     this._bindHandlers();
     this._fetchOptionsClickHandler();
+    this._initData();
+    console.log(this.data);
   },
   validateServerSettings: function () {
     return true;
@@ -56,7 +61,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       return this.fetchOptionsDeferred ?
         this.fetchOptionsDeferred.state() === 'pending' :
         false;
-    };
+    }.bind(this);
 
     if ( _fetchOptionsInProgress() || !this.validateServerSettings()) {
       return false;
@@ -234,7 +239,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
   _fillSelect: function (optionsArray) {
     var self = this;
-debugger
+
     if (this.$response) {
       optionsArray.forEach(function (options) {
         var $items = self.$response.find(options.selector);
@@ -267,11 +272,20 @@ debugger
   },
   _addImage: function () {
     var self = this,
-      imageData = [ 'cloneType', 'service', 'deployment', 'name', 'namePrefix',
-        'vmSize', 'os', 'provisionUsername', 'provisionPassword', 'maxInstancesCount'
-      ].reduce(function (l, r) { return l +self._newImageData[r] + ';';}, '') + 'X;';
+      imageData;
 
-    this.$imagesDataElem.val(this.$imagesDataElem.val() + imageData);
+    this.data.push(this._newImageData);
+    this._newImageData = {};
+
+    imageData = this.data.reduce(function (result, current) {
+      return result + self.dataKeys.reduce(function (l, r) {
+        return l + (typeof current[r] === 'undefined' ? '' : current[r]) + ';';
+      }, '') + 'X;';
+    }, '');
+
+    this.$imagesDataElem.val(imageData);
+
+    BS.AzureImageDialog.close();
 
     return false;
   },
@@ -282,5 +296,26 @@ debugger
   },
   _appendOption: function ($target, value, text, type) {
     $target.append($j('<option>').attr('value', value).text(text || value).attr('data-type', type));
+  },
+
+  _initData: function () {
+    var self = this;
+    this.data = this.$imagesDataElem.val()
+      .replace(/;X;$/, '')
+      .split(';X;').reduce(function (images, current) {
+        var _image = {};
+        current = current.split(';');
+        self.dataKeys.forEach(function (key, i) {
+          _image[key] = current[i];
+        });
+        images.push(_image);
+        return images;
+      }, []);
   }
 };
+
+BS.AzureImageDialog = OO.extend(BS.AbstractModalDialog, {
+  getContainer: function() {
+    return $('AzureImageDialog');
+  }
+});

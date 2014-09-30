@@ -4,6 +4,8 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Map;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.util.FileUtil;
@@ -63,5 +65,29 @@ public class AzurePropertiesReaderTest {
       System.out.printf("%s:%s%n", paramName, customParams.get(paramName));
     }
     //deserialize
+  }
+
+  public void getAddresses() {
+    try {
+      InetAddress inetAddress = InetAddress.getLocalHost();
+      displayStuff("local host", inetAddress);
+      System.out.print("--------------------------");
+      inetAddress = InetAddress.getByName("www.google.com");
+      displayStuff("www.google.com", inetAddress);
+      System.out.print("--------------------------");
+      InetAddress[] inetAddressArray = InetAddress.getAllByName("www.google.com");
+      for (int i = 0; i < inetAddressArray.length; i++) {
+        displayStuff("www.google.com #" + (i + 1), inetAddressArray[i]);
+      }
+    } catch (UnknownHostException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static void displayStuff(String whichHost, InetAddress inetAddress) {
+    System.out.println("--------------------------");
+    System.out.println("Which Host:" + whichHost);
+    System.out.println("Canonical Host Name:" + inetAddress.getCanonicalHostName());
+    System.out.println("Host Name:" + inetAddress.getHostName());
   }
 }

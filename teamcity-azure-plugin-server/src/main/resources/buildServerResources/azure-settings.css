@@ -1,0 +1,22 @@
+.inline-block {
+    display: inline-block;
+}
+.osIcon {
+    vertical-align: middle;
+}
+
+.runnerFormTable.innerTable,
+.runnerFormTable.innerTable td,
+.runnerFormTable.innerTable th {
+    border: none;
+}
+
+.innerTable,
+.innerTable td,
+.innerTable th {
+    border: none;
+}
+
+.AzureImageDialog {
+    width: auto;
+}

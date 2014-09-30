@@ -151,7 +151,26 @@
 
 <forms:button title="Add image" id="azureShowDialogButton" onclick="BS.AzureImageDialog.showCentered()">Add image</forms:button>
 
-<props:multilineProperty name="images_data" linkTitle="Images" cols="50" rows="5"/>
+<div class="imagesOuterWrapper">
+    <h3 class="title_underlined">Images</h3>
+    <div class="imagesTableWrapper hidden">
+        <span class="emptyImagesListMessage hidden">You haven't added any images yet.</span>
+        <table id="azureImagesTable" class="settings imagesTable hidden">
+            <tbody>
+            <tr>
+                <th class="name">Image/Instance</th>
+                <th class="name">Service</th>
+                <th class="name">Deployment</th>
+                <th class="name">Name prefix</th>
+                <th class="name">Start behaviour</th>
+                <th class="name">Max # of instances</th>
+                <th class="name" colspan="2"></th>
+            </tr>
+            </tbody>
+        </table>
+        <props:hiddenProperty name="images_data"/>
+    </div>
+</div>
 
 <script type="text/javascript">
   $j.ajax({

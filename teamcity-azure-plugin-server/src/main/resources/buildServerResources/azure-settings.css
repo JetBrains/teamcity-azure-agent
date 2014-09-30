@@ -20,3 +20,11 @@
 .AzureImageDialog {
     width: auto;
 }
+
+.imagesOuterWrapper {
+    padding-left: 8px;
+}
+
+.imagesTableWrapper {
+    margin-bottom: 0.5em;
+}

@@ -9,7 +9,10 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   ],
   selectors: {
     imagesSelect: '#imageName',
-    cloneBehaviourRadio: ".cloneBehaviourRadio"
+    cloneBehaviourRadio: ".cloneBehaviourRadio",
+    rmImageLink: '.removeImageLink',
+    editImageLink: '.editImageLink',
+    imagesTableRow: '.imagesTableRow'
   },
   _newImageData: {},
   init: function (refreshOptionsUrl) {
@@ -32,18 +35,19 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$addImageButton = $j('#addImageButton');
 
     this.$imagesDataElem = $j('#images_data');
+    this.$imagesTable = $j('#azureImagesTable');
+    this.$imagesTableWrapper = $j('.imagesTableWrapper');
+    this.$emptyImagesListMessage = $j('.emptyImagesListMessage');
 
     this.selectors.activeCloneBehaviour = this.selectors.cloneBehaviourRadio + ':checked';
     this.loaders = {
       options: $j('.options-loader')
     };
 
-    $j('.' + (this.$imagesDataElem.val().split(';X;')[0].length ? 'imagesTable' : 'emptyImagesListMessage'))
-      .removeClass('hidden');
-
     this._bindHandlers();
     this._fetchOptionsClickHandler();
     this._initData();
+    this.renderImagesTable();
     console.log(this.data);
   },
   validateServerSettings: function () {
@@ -299,18 +303,60 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
 
   _initData: function () {
-    var self = this;
-    this.data = this.$imagesDataElem.val()
-      .replace(/;X;$/, '')
-      .split(';X;').reduce(function (images, current) {
-        var _image = {};
-        current = current.split(';');
-        self.dataKeys.forEach(function (key, i) {
-          _image[key] = current[i];
-        });
-        images.push(_image);
-        return images;
-      }, []);
+    var self = this,
+      _data = this.$imagesDataElem.val()
+        .replace(/;X;$/, '');
+
+    if (_data.length) {
+      this.data = _data.split(';X;').reduce(function (images, current) {
+          var _image = {};
+          current = current.split(';');
+          self.dataKeys.forEach(function (key, i) {
+            _image[key] = current[i];
+          });
+          images.push(_image);
+          return images;
+        }, []);
+    }
+  },
+  renderImagesTable: function () {
+    //if (this._imagesDataLength) {
+    //  Object.keys(this.imagesData).forEach(function (imageId) {
+    //    this._renderImageRow(this.imagesData[imageId], imageId);
+    //  }.bind(this));
+    //}
+    var _id = 0;
+      this.data.forEach(function (image) {
+        this._renderImageRow(image, _id++);
+      }.bind(this));
+    this._toggleImagesTable();
+  },
+  _imagesTableRowTemplate: $j('<tr class="imagesTableRow">\
+<td class="name"></td>\
+<td class="service"></td>\
+<td class="deployment"></td>\
+<td class="namePrefix"></td>\
+<td class="cloneType"></td>\
+<td class="maxInstancesCount"></td>\
+<td><a href="#" class="editImageLink">edit</a></td>\
+<td><a href="#" class="removeImageLink">delete</a></td>\
+    </tr>'),
+  _renderImageRow: function (rows, id) {
+    var $row = this._imagesTableRowTemplate.clone();
+
+    this.dataKeys.forEach(function (className) {
+      $row.find('.' + className).text(rows[className]);
+    });
+    $row.find(this.selectors.rmImageLink).data('imageId', id);
+    $row.find(this.selectors.editImageLink).data('imageId', id);
+    this.$imagesTable.append($row);
+  },
+  _toggleImagesTable: function () {
+    //var toggle = !!this._imagesDataLength;
+    var toggle = !!this.data.length;
+    this.$imagesTableWrapper.show();
+    this.$emptyImagesListMessage.toggle(!toggle);
+    this.$imagesTable.toggle(toggle);
   }
 };
 

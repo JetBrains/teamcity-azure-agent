@@ -6,6 +6,7 @@ import java.util.concurrent.TimeUnit;
 import jetbrains.buildServer.clouds.*;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.connector.ConditionalRunner;
+import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
 import jetbrains.buildServer.clouds.base.tasks.UpdateInstancesTask;
 import jetbrains.buildServer.serverSide.AgentDescription;
@@ -26,6 +27,7 @@ public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, Az
   public AzureCloudClient(@NotNull final CloudClientParameters params, @NotNull final Collection<AzureCloudImageDetails> images, final AzureApiConnector apiConnector) {
     super(params, images, apiConnector);
     myAsyncTaskExecutor.scheduleWithFixedDelay(new ConditionalRunner(), 0, 5, TimeUnit.SECONDS);
+    myAsyncTaskExecutor.scheduleWithFixedDelay(ProvisionActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
     myInitialized = true;
   }
 

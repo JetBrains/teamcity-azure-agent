@@ -1,7 +1,9 @@
 package jetbrains.buildServer.clouds.base.tasks;
 
 import com.intellij.openapi.diagnostic.Logger;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
@@ -42,18 +44,25 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
             continue;
           }
           final InstanceStatus realInstanceStatus = myConnector.getInstanceStatus(instance);
+          LOG.info(String.format("Found instance: %s. Status: %s", realInstanceName, realInstanceStatus.getText()));
           if (realInstanceStatus != null && isStatusPermanent(instance.getStatus()) && isStatusPermanent(realInstanceStatus) && realInstanceStatus != instance.getStatus()) {
             LOG.info(String.format("Updated instance '%s' status to %s based on API information", realInstanceName, realInstanceStatus));
             instance.setStatus(realInstanceStatus);
           }
         }
 
-        for (final G cloudInstance : image.getInstances()) {
+        final Collection<G> instances = image.getInstances();
+        List<String> instancesToRemove = new ArrayList<String>();
+        for (final G cloudInstance : instances) {
           final String instanceName = cloudInstance.getName();
           final AbstractInstance instance = realInstances.get(instanceName);
-          if (!realInstances.containsKey(instanceName) && cloudInstance.getStatus() != InstanceStatus.SCHEDULED_TO_START) {
-            image.removeInstance(instanceName);
+          if (instance == null) {
+            if (cloudInstance.getStatus() != InstanceStatus.SCHEDULED_TO_START) {
+              instancesToRemove.add(instanceName);
+            }
+            continue;
           }
+
           cloudInstance.updateErrors(myConnector.checkInstance(cloudInstance));
           if (instance.getStartDate() != null) {
             cloudInstance.setStartDate(instance.getStartDate());
@@ -62,10 +71,12 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
             cloudInstance.setNetworkIdentify(instance.getIpAddress());
           }
         }
+        for (String instanceName : instancesToRemove) {
+          image.removeInstance(instanceName);
+        }
       }
     } catch (Exception ex){
-      LOG.warn(ex.toString());
-      ex.printStackTrace();
+      LOG.warn(ex.toString(), ex);
     }
   }
 

@@ -4,6 +4,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CopyOnWriteArrayList;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * @author Sergey.Pak
@@ -18,29 +19,33 @@ public class ConditionalRunner implements Runnable {
 
   public void run() {
     for (Conditional item : myItems) {
+      boolean remove = false;
       try {
         if (item.canExecute()){
-          try {
-            item.execute();
-          } catch (Exception ex){
-            LOG.warn(ex.toString());
-          }
-          myItems.remove(item);
+          remove = item.execute();
+          LOG.info(String.format("Executing %s. Result: %b", item.getName(), remove));
         }
       } catch (Exception e) {
-        myItems.remove(item);
+        LOG.warn(e.toString(), e);
+      } finally {
+        if (remove)
+          myItems.remove(item);
       }
     }
   }
 
   public static void addConditional(Conditional conditional){
     myItems.add(conditional);
+    LOG.info(String.format("Added conditional '%s'", conditional.getName()));
   }
 
   public static interface Conditional{
 
+    @NotNull
+    String getName();
+
     boolean canExecute() throws Exception;
 
-    void execute();
+    boolean execute() throws Exception;
   }
 }

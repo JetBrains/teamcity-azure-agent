@@ -3,6 +3,8 @@ package jetbrains.buildServer.clouds.azure.connector;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
 import com.microsoft.windowsazure.Configuration;
+import com.microsoft.windowsazure.core.OperationResponse;
+import com.microsoft.windowsazure.core.OperationStatus;
 import com.microsoft.windowsazure.core.OperationStatusResponse;
 import com.microsoft.windowsazure.core.utils.Base64;
 import com.microsoft.windowsazure.core.utils.KeyStoreType;
@@ -14,8 +16,7 @@ import com.microsoft.windowsazure.management.compute.models.*;
 import com.microsoft.windowsazure.management.configuration.ManagementConfiguration;
 import com.microsoft.windowsazure.management.models.RoleSizeListResponse;
 import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.net.*;
 import java.security.KeyStore;
 import java.security.Security;
 import java.util.*;
@@ -45,12 +46,11 @@ import org.xml.sax.SAXException;
  *         Date: 8/5/2014
  *         Time: 2:13 PM
  */
-public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, AzureCloudInstance> {
+public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, AzureCloudInstance>, ActionIdChecker {
 
   private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
   private static final int MIN_PORT_NUMBER = 9092;
   private static final URI MANAGEMENT_URI = URI.create("https://management.core.windows.net");
-  private final ConcurrentMap<String, Lock> myServiceLocks = new ConcurrentHashMap<String, Lock>();
   private final KeyStoreType myKeyStoreType;
   private final String mySubscriptionId;
   private Configuration myConfiguration;
@@ -81,7 +81,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   }
 
-  private void initClient(@NotNull final File keyStoreFile, @NotNull final String keyStoreFilePw){
+  private void initClient(@NotNull final File keyStoreFile, @NotNull final String keyStoreFilePw) {
     ClassLoader old = Thread.currentThread().getContextClassLoader();
     try {
       Thread.currentThread().setContextClassLoader(this.getClass().getClassLoader());
@@ -111,20 +111,18 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       final DeploymentGetResponse deploymentResponse = deployOps.getByName(imageDetails.getServiceName(), imageDetails.getDeploymentName());
       for (final RoleInstance instance : deploymentResponse.getRoleInstances()) {
         if (imageDetails.getCloneType().isUseOriginal()) {
-          if (instance.getInstanceName().equals(imageDetails.getImageName())){
+          if (instance.getInstanceName().equals(imageDetails.getImageName())) {
             return Collections.singletonMap(imageDetails.getImageName(), new AzureInstance(instance));
           }
         } else {
-          for (final InstanceEndpoint endpoint : instance.getInstanceEndpoints()) {
-            if (AzurePropertiesNames.ENDPOINT_NAME.equals(endpoint.getName())) {
-              retval.put(instance.getInstanceName(), new AzureInstance(instance));
-            }
+          if (instance.getInstanceName().startsWith(imageDetails.getVmNamePrefix())) {
+            retval.put(instance.getInstanceName(), new AzureInstance(instance));
           }
         }
       }
       return retval;
     } catch (Exception e) {
-      LOG.warn(e.toString());
+      LOG.warn(e.toString(), e);
       return Collections.emptyMap();
     }
   }
@@ -150,7 +148,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   public List<String> listServicesNames() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
     final HostedServiceOperations servicesOps = myClient.getHostedServicesOperations();
     final HostedServiceListResponse list = servicesOps.list();
-    return new ArrayList<String>(){{
+    return new ArrayList<String>() {{
       for (HostedServiceListResponse.HostedService service : list) {
         add(service.getServiceName());
       }
@@ -175,25 +173,37 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   public Map<String, Pair<Boolean, String>> listImages() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
     final VirtualMachineVMImageOperations imagesOps = myClient.getVirtualMachineVMImagesOperations();
     final VirtualMachineVMImageListResponse imagesList = imagesOps.list();
-    return new HashMap<String, Pair<Boolean, String>>(){{
+    return new HashMap<String, Pair<Boolean, String>>() {{
       for (VirtualMachineVMImageListResponse.VirtualMachineVMImage image : imagesList) {
         put(image.getName(), new Pair<Boolean, String>(isImageGeneralized(image), image.getOSDiskConfiguration().getOperatingSystem()));
       }
     }};
   }
 
-  public OperationStatusResponse startVM(@NotNull final AzureCloudImage image)
-    throws InterruptedException, ExecutionException, ServiceException, IOException {
+  public OperationResponse startVM(@NotNull final AzureCloudImage image)
+    throws ServiceException, IOException {
     final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final VirtualMachineOperations vmOps = myClient.getVirtualMachinesOperations();
-    return vmOps.start(imageDetails.getServiceName(), imageDetails.getDeploymentName(), imageDetails.getImageName());
+    return vmOps.beginStarting(imageDetails.getServiceName(), imageDetails.getDeploymentName(), imageDetails.getImageName());
   }
 
-  public OperationStatusResponse createAndStartVM(@NotNull final AzureCloudImage image, @NotNull final String vmName, @NotNull final CloudInstanceUserData tag, final boolean generalized)
-    throws SAXException, InterruptedException, ExecutionException, TransformerException, ServiceException, URISyntaxException, ParserConfigurationException, IOException {
+  public OperationResponse createAndStartVM(@NotNull final AzureCloudImage image,
+                                            @NotNull final String vmName,
+                                            @NotNull final CloudInstanceUserData tag,
+                                            final boolean generalized)
+    throws ServiceException, IOException {
     final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final HostedServiceOperations servicesOperations = myClient.getHostedServicesOperations();
-    final HostedServiceGetDetailedResponse service = servicesOperations.getDetailed(imageDetails.getServiceName());
+    final HostedServiceGetDetailedResponse service;
+    try {
+      service = servicesOperations.getDetailed(imageDetails.getServiceName());
+    } catch (ParserConfigurationException e) {
+      throw new ServiceException(e);
+    } catch (SAXException e) {
+      throw new IOException(e);
+    } catch (URISyntaxException e) {
+      throw new IOException(e);
+    }
     int portNumber = MIN_PORT_NUMBER;
     for (HostedServiceGetDetailedResponse.Deployment deployment : service.getDeployments()) {
       for (RoleInstance instance : deployment.getRoleInstances()) {
@@ -211,20 +221,20 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     parameters.setProvisionGuestAgent(Boolean.TRUE);
     parameters.setRoleName(vmName);
     parameters.setVMImageName(image.getName());
-    final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(portNumber);
+    final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(portNumber, tag.getServerAddress());
     parameters.setConfigurationSets(configurationSetList);
-    if (generalized){
+    if (generalized) {
       ConfigurationSet provisionConf = new ConfigurationSet();
       configurationSetList.add(provisionConf);
 
       final String serializedUserData = tag.serialize();
       if ("Linux".equals(imageDetails.getOsType())) {
-          provisionConf.setConfigurationSetType(ConfigurationSetTypes.LINUXPROVISIONINGCONFIGURATION);
-          provisionConf.setHostName(vmName);
-          provisionConf.setUserName(imageDetails.getUsername());
-          provisionConf.setUserPassword(imageDetails.getPassword());
-          // for Linux userData is written to xml config as is - in Base64 format. We will decode it using CloudInstanceUserData.decode
-          provisionConf.setCustomData(serializedUserData);
+        provisionConf.setConfigurationSetType(ConfigurationSetTypes.LINUXPROVISIONINGCONFIGURATION);
+        provisionConf.setHostName(vmName);
+        provisionConf.setUserName(imageDetails.getUsername());
+        provisionConf.setUserPassword(imageDetails.getPassword());
+        // for Linux userData is written to xml config as is - in Base64 format. We will decode it using CloudInstanceUserData.decode
+        provisionConf.setCustomData(serializedUserData);
       } else {
         provisionConf.setConfigurationSetType(ConfigurationSetTypes.WINDOWSPROVISIONINGCONFIGURATION);
         provisionConf.setComputerName(vmName);
@@ -236,57 +246,45 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       }
     }
     try {
-      waitAndGetLock(imageDetails.getServiceName());
-      final OperationStatusResponse response = vmOperations.create(imageDetails.getServiceName(), imageDetails.getDeploymentName(), parameters);
-      return response;
-    } finally {
-      unlock(imageDetails.getServiceName());
+      return vmOperations.beginCreating(imageDetails.getServiceName(), imageDetails.getDeploymentName(), parameters);
+    } catch (ParserConfigurationException e) {
+      throw new ServiceException(e);
+    } catch (SAXException e) {
+      throw new IOException(e);
+    } catch (TransformerException e) {
+      throw new IOException(e);
     }
   }
 
-  public OperationStatusResponse stopVM(@NotNull final AzureCloudInstance instance)
-    throws InterruptedException, ExecutionException, ServiceException, IOException {
+  public OperationResponse stopVM(@NotNull final AzureCloudInstance instance)
+    throws ServiceException, IOException{
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
     final VirtualMachineShutdownParameters shutdownParams = new VirtualMachineShutdownParameters();
     shutdownParams.setPostShutdownAction(PostShutdownAction.StoppedDeallocated);
-    return vmOperations.shutdown(imageDetails.getServiceName(), imageDetails.getDeploymentName(), instance.getName(), shutdownParams);
+    try {
+      return vmOperations.beginShutdown(imageDetails.getServiceName(), imageDetails.getDeploymentName(), instance.getName(), shutdownParams);
+    } catch (Exception e) {
+      throw new ServiceException(e);
+    }
   }
 
-  public Future<OperationStatusResponse> deleteVM(@NotNull final AzureCloudInstance instance) {
+  public OperationResponse deleteVM(@NotNull final AzureCloudInstance instance) throws IOException, ServiceException {
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
-    return vmOperations.deleteAsync(imageDetails.getServiceName(), imageDetails.getDeploymentName(), instance.getName(), true);
-  }
-
-  public Future<OperationStatusResponse> startVM(@NotNull final AzureCloudImage image, @NotNull final String instanceName) {
-    final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
-    final AzureCloudImageDetails imageDetails = image.getImageDetails();
-
-    return vmOperations.startAsync(imageDetails.getServiceName(), imageDetails.getDeploymentName(), instanceName);
+    return vmOperations.beginDeleting(imageDetails.getServiceName(), imageDetails.getDeploymentName(), instance.getName(), true);
   }
 
   public OperationStatusResponse getOperationStatus(@NotNull final String operationId) throws ServiceException, ParserConfigurationException, SAXException, IOException {
     return myClient.getOperationStatus(operationId);
   }
 
-  public boolean isServiceFree(@NotNull final String serviceName){
-    final Lock lock = myServiceLocks.get(serviceName);
-    if (lock == null) {
-      return true;
-    }
-    final boolean tryLock = lock.tryLock();
-    if (tryLock) {
-      lock.unlock();
-    }
-    return tryLock;
-  }
 
   public boolean isImageGeneralized(@NotNull final String imageName) {
     final VirtualMachineVMImageOperations vmImagesOperations = myClient.getVirtualMachineVMImagesOperations();
     try {
       for (VirtualMachineVMImageListResponse.VirtualMachineVMImage image : vmImagesOperations.list()) {
-        if (imageName.equals(image.getName())){
+        if (imageName.equals(image.getName())) {
           return isImageGeneralized(image);
         }
       }
@@ -341,16 +339,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     return store;
   }
 
-  private void waitAndGetLock(@NotNull final String serviceName) {
-    myServiceLocks.putIfAbsent(serviceName, new ReentrantLock(true));
-    myServiceLocks.get(serviceName).lock();
-  }
-
-  private void unlock(@NotNull final String serviceName) {
-    myServiceLocks.get(serviceName).unlock();
-  }
-
-  private static ArrayList<ConfigurationSet> createConfigurationSetList(int port) {
+  private static ArrayList<ConfigurationSet> createConfigurationSetList(int port, String serverLocation) {
     ArrayList<ConfigurationSet> retval = new ArrayList<ConfigurationSet>();
     final ConfigurationSet value = new ConfigurationSet();
     value.setConfigurationSetType(ConfigurationSetTypes.NETWORKCONFIGURATION);
@@ -362,8 +351,47 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     endpoint.setPort(port);
     endpoint.setProtocol("TCP");
     endpoint.setName(AzurePropertiesNames.ENDPOINT_NAME);
+    final EndpointAcl acl = new EndpointAcl();
+    endpoint.setEndpointAcl(acl);
+    final URI serverUri = URI.create(serverLocation);
+    List<InetAddress> serverAddresses = new ArrayList<InetAddress>();
+    try {
+      serverAddresses.addAll(Arrays.asList(InetAddress.getAllByName(serverUri.getHost())));
+      serverAddresses.add(InetAddress.getLocalHost());
+    } catch (UnknownHostException e) {
+      LOG.warn("Unable to identify server name ip list", e);
+    }
+    final ArrayList<AccessControlListRule> aclRules = new ArrayList<AccessControlListRule>();
+    acl.setRules(aclRules);
+    int order = 1;
+    for (final InetAddress address : serverAddresses) {
+      if (!(address instanceof Inet4Address)) {
+        continue;
+      }
+      final AccessControlListRule rule = new AccessControlListRule();
+      rule.setOrder(order++);
+      rule.setAction("Permit");
+      rule.setRemoteSubnet(address.getHostAddress() + "/32");
+      rule.setDescription("Server");
+      aclRules.add(rule);
+    }
+
     retval.add(value);
     return retval;
   }
 
+  public boolean isActionFinished(@NotNull final String actionId) {
+    final OperationStatusResponse operationStatus;
+    try {
+      operationStatus = getOperationStatus(actionId);
+      final boolean isFinished = operationStatus.getStatus() == OperationStatus.Succeeded || operationStatus.getStatus() == OperationStatus.Failed;
+      if (operationStatus.getError() != null){
+        LOG.info(String.format("Was an error during executing action %s: %s", actionId, operationStatus.getError().getMessage()));
+      }
+      return isFinished;
+    } catch (Exception e) {
+      LOG.warn(e.toString(), e);
+      return false;
+    }
+  }
 }

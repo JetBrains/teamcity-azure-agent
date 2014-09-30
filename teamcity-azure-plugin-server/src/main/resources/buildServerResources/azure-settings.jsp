@@ -22,18 +22,28 @@
 <%@ taglib prefix="util" uri="/WEB-INF/functions/util" %>
 <%@ taglib prefix="bs" tagdir="/WEB-INF/tags" %>
 <%--@elvariable id="resPath" type="java.lang.String"--%>
-
+</table>
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.web.AzureWebConstants"/>
 <jsp:useBean id="refreshablePath" class="java.lang.String" scope="request"/>
 
+<bs:linkCSS>${resPath}azure-settings.css</bs:linkCSS>
+
+<c:set var="azureLink"><a href="#" target="_blank">**put related link here**</a></c:set>
+<table class="runnerFormTable">
   <tr>
     <th><label for="${cons.managementCertificate}">Management certificate: <l:star/></label></th>
-    <td><props:textProperty name="${cons.managementCertificate}" className="longField"/></td>
+    <td>
+        <props:textProperty name="${cons.managementCertificate}" className="longField"/>
+        <span class="smallNote">Your Azure account management certificate. You may find the info at ${azureLink}</span>
+    </td>
   </tr>
 
   <tr>
-    <th><label for="${cons.subscriptionId}">Subscription Id: <l:star/></label></th>
-    <td><props:textProperty name="${cons.subscriptionId}" className="longField"/></td>
+    <th><label for="${cons.subscriptionId}">Subscription ID: <l:star/></label></th>
+    <td>
+        <props:textProperty name="${cons.subscriptionId}" className="longField"/>
+        <span class="smallNote">Your Azure account subscription ID. You may find the info at ${azureLink}</span>
+    </td>
   </tr>
 
   <tr>
@@ -42,101 +52,115 @@
       <%--<div>--%>
         <%--<forms:button id="azureFetchOptionsButton">Fetch options</forms:button>--%>
       <%--</div>--%>
-      <div class="options-loader invisible"><i class="icon-refresh icon-spin"></i> Fetching options...</div>
+      <div class="options-loader invisible"><i class="icon-refresh icon-spin"></i>&nbsp;Fetching options...</div>
     </td>
   </tr>
-<tr>
-  <th>Select an image type:</th>
-  <td>
-    <input type="radio" id="cloneBehaviour_FRESH_CLONE" name="cloneBehaviour" value="FRESH_CLONE" checked="true" class="cloneBehaviourRadio"/>
-    <label for="cloneBehaviour_FRESH_CLONE">Fresh clone</label>
-    <br/>
-    <input type="radio" id="cloneBehaviour_START_STOP" name="cloneBehaviour" value="START_STOP" class="cloneBehaviourRadio"/>
-    <label for="cloneBehaviour_START_STOP">Start/Stop instance</label>
-    <br/>
-<%--
-    <input type="radio" id="cloneBehaviour_ON_DEMAND_CLONE" name="cloneBehaviour" value="ON_DEMAND_CLONE" class="cloneBehaviourRadio"/>
-    <label for="cloneBehaviour_ON_DEMAND_CLONE">On demand clone</label>
-    <br/>
---%>
-  </td>
-</tr>
+</table>
+<bs:dialog dialogId="AzureImageDialog" title="Edit Image" closeCommand="BS.AzureImageDialog.close()"
+           dialogClass="AzureImageDialog" titleId="AzureImageDialogTitle"
+        ><table class="runnerFormTable">
+    <tr>
+        <th>
+            <span id="label_${cons.imageName}">Source:</span> <l:star/>
+        </th>
+        <td>
+            <div>
+                <select class="inline-block longField" name="_${cons.imageName}" id="${cons.imageName}" data-err-id="${cons.imageName}"></select>
+          <span id="${cons.osType}" class="provision hidden">
+            <bs:osIcon osName="windows" small="true"/>
+            <bs:osIcon osName="linux" small="true"/>
+          </span>
+            </div>
+            <span class="smallNote">Image or Instance</span>
+            <span class="error option-error option-error_${cons.imageName}"></span>
+        </td>
+    </tr>
+    <tr>
+      <th>Behaviour: <l:star/></th>
+      <td>
+        <input type="radio" id="cloneBehaviour_FRESH_CLONE" name="cloneBehaviour" value="FRESH_CLONE" checked="true" class="cloneBehaviourRadio"/>
+        <label for="cloneBehaviour_FRESH_CLONE">Fresh clone</label>
+        <br/>
+        <input type="radio" id="cloneBehaviour_START_STOP" name="cloneBehaviour" value="START_STOP" class="cloneBehaviourRadio"/>
+        <label for="cloneBehaviour_START_STOP">Start/Stop instance</label>
+        <br/>
+    <%--
+        <input type="radio" id="cloneBehaviour_ON_DEMAND_CLONE" name="cloneBehaviour" value="ON_DEMAND_CLONE" class="cloneBehaviourRadio"/>
+        <label for="cloneBehaviour_ON_DEMAND_CLONE">On demand clone</label>
+        <br/>
+    --%>
+      </td>
+    </tr>
+</table>
+        <table class="runnerFormTable innerTable">
+            <tr>
+              <th>Service: <l:star/></th>
+              <td>
+                <div>
+                  <select name="_${cons.serviceName}" id="${cons.serviceName}" data-err-id="${cons.serviceName}" class="longField"></select>
+                </div>
+                <span class="error option-error option-error_${cons.serviceName}"></span>
+              </td>
+            </tr>
+            <tr>
+              <th>Deployment: <l:star/></th>
+              <td>
+                <div>
+                  <select name="_${cons.deploymentName}" id="${cons.deploymentName}" data-err-id="${cons.deploymentName}" class="longField"></select>
+                </div>
+                <span class="error option-error option-error_${cons.deploymentName}"></span>
+              </td>
+            </tr>
+            <tr class="clone hidden">
+                <th>Max # of instances: <l:star/></th>
+                <td>
+                    <div>
+                        <input type="text" name="_${cons.maxInstancesCount}" id="${cons.maxInstancesCount}" data-err-id="${cons.maxInstancesCount}" class="longField"/>
+                    </div>
+                    <span class="error option-error option-error_${cons.maxInstancesCount}"></span>
+                </td>
+            </tr>
+            <tr class="clone hidden">
+              <th>Name prefix: <l:star/></th>
+              <td><props:textProperty name="${cons.namePrefix}" className="longField"/></td>
+            </tr>
+            <tr class="clone hidden">
+              <th>VM Size: <l:star/></th>
+              <td>
+                <div>
+                  <select name="_${cons.vmSize}" id="${cons.vmSize}" data-err-id="${cons.vmSize}" class="longField"></select>
+                </div>
+                <span class="error option-error option-error_${cons.vmSize}"></span>
+              </td>
+            </tr>
+            <tr class="provision hidden">
+              <th></th><td></td>
+            </tr>
+            <tr class="provision hidden">
+              <th>Provision username: <l:star/></th>
+              <td><input type="text" id="${cons.provisionUsername}" class="longField"/></td>
+            </tr>
+            <tr class="provision hidden">
+              <th>Provision password:  <l:star/></th>
+              <td><input type="password" id="${cons.provisionPassword}" class="longField"/></td>
+            </tr>
+        </table>
+    <forms:addButton title="Add Image" id="addImageButton">Add image</forms:addButton>
+    <forms:button title="Cancel" id="azureCancelDialogButton" onclick="BS.AzureImageDialog.close()">Cancel</forms:button>
+    </bs:dialog>
 
-<tr>
-  <th><label for="${cons.serviceName}">Service name: <l:star/></label></th>
-  <td>
-    <div>
-      <select name="_${cons.serviceName}" id="${cons.serviceName}" data-err-id="${cons.serviceName}"></select>
-    </div>
-    <span class="error option-error option-error_${cons.serviceName}"></span>
-  </td>
-</tr>
-<tr>
-  <th><label for="${cons.deploymentName}">Deployment name: <l:star/></label></th>
-  <td>
-    <div>
-      <select name="_${cons.deploymentName}" id="${cons.deploymentName}" data-err-id="${cons.deploymentName}"></select>
-    </div>
-    <span class="error option-error option-error_${cons.deploymentName}"></span>
-  </td>
-</tr>
-<tr>
-  <th><label id="label_${cons.imageName}" for="${cons.imageName}">Image name:</label></th>
-  <td>
-    <div>
-      <select name="_${cons.imageName}" id="${cons.imageName}" data-err-id="${cons.imageName}"></select>
-    </div>
-    <span class="error option-error option-error_${cons.imageName}"></span>
-  </td>
-</tr>
-<tr class="clone">
-  <th><label for="${cons.namePrefix}">Name prefix: <l:star/></label></th>
-  <td><props:textProperty name="${cons.namePrefix}"/></td>
-</tr>
-<tr class="clone">
-  <th><label for="${cons.vmSize}">VM Size: <l:star/></label></th>
-  <td>
-    <div>
-      <select name="_${cons.vmSize}" id="${cons.vmSize}" data-err-id="${cons.vmSize}"></select>
-    </div>
-    <span class="error option-error option-error_${cons.vmSize}"></span>
-  </td>
-</tr>
-<tr class="provision hidden">
-  <th></th><td></td>
-</tr>
-<tr class="provision hidden">
-  <th><label for="${cons.osType}">OS Type:</label></th>
-  <td>
-    <div id="${cons.osType}"> </div>
-  </td>
-</tr>
-<tr class="provision hidden">
-  <th><label for="${cons.provisionUsername}">Provision username: <l:star/></label></th>
-  <td><input type="text" id="${cons.provisionUsername}" className="longField"/></td>
-</tr>
-<tr class="provision hidden">
-  <th><label for="${cons.provisionPassword}">Provision password:  <l:star/></label></th>
-  <td><input type="password" id="${cons.provisionPassword}" className="longField"/></td>
-</tr>
-<tr>
-  <td colspan="2">
-    <forms:button id="addImageButton">Add image</forms:button>
-  </td>
-</tr>
-<tr>
-  <td colspan="2">
-    <props:multilineProperty name="images_data" linkTitle="Images" cols="50" rows="5"/>
-  </td>
-</tr>
+<forms:button title="Add image" id="azureShowDialogButton" onclick="BS.AzureImageDialog.showCentered()">Add image</forms:button>
+
+<props:multilineProperty name="images_data" linkTitle="Images" cols="50" rows="5"/>
+
 <script type="text/javascript">
   $j.ajax({
-            url: "<c:url value="${resPath}azure-settings.js"/>",
-            dataType: "script",
-            success: function() {
-              BS.Clouds.Azure.init('<c:url value="${refreshablePath}"/>');
-            },
-            cache: true
-          });
+      url: "<c:url value="${resPath}azure-settings.js"/>",
+    dataType: "script",
+    success: function() {
+      BS.Clouds.Azure.init('<c:url value="${refreshablePath}"/>');
+    },
+    cache: true
+  });
 </script>
-
+<table class="runnerFormTable">

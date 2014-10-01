@@ -5,7 +5,7 @@
 BS.Clouds.Azure = BS.Clouds.Azure || {
   data: [],
   dataKeys: [ 'cloneType', 'service', 'deployment', 'name', 'namePrefix',
-    'vmSize', 'os', 'provisionUsername', 'provisionPassword', 'maxInstancesCount'
+    'vmSize', 'maxInstancesCount', 'os', 'provisionUsername', 'provisionPassword'
   ],
   selectors: {
     imagesSelect: '#imageName',

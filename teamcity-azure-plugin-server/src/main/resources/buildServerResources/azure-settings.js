@@ -288,6 +288,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }, '');
 
     this.$imagesDataElem.val(imageData);
+    this.renderImagesTable();
 
     BS.AzureImageDialog.close();
 
@@ -320,6 +321,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }
   },
   renderImagesTable: function () {
+    this._clearImagesTable();
     //if (this._imagesDataLength) {
     //  Object.keys(this.imagesData).forEach(function (imageId) {
     //    this._renderImageRow(this.imagesData[imageId], imageId);
@@ -332,24 +334,30 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this._toggleImagesTable();
   },
   _imagesTableRowTemplate: $j('<tr class="imagesTableRow">\
-<td class="name"></td>\
-<td class="service"></td>\
-<td class="deployment"></td>\
+<td class="imageName"><div class="sourceIcon"></div><span class="name"></span></td>\
+<td class="service hidden"></td>\
+<td class="deployment hidden"></td>\
 <td class="namePrefix"></td>\
-<td class="cloneType"></td>\
+<td class="cloneType hidden"></td>\
 <td class="maxInstancesCount"></td>\
-<td><a href="#" class="editImageLink">edit</a></td>\
-<td><a href="#" class="removeImageLink">delete</a></td>\
+<td class="edit"><a href="#" class="editImageLink">edit</a></td>\
+<td class="remove"><a href="#" class="removeImageLink">delete</a></td>\
     </tr>'),
-  _renderImageRow: function (rows, id) {
+  _renderImageRow: function (data, id) {
     var $row = this._imagesTableRowTemplate.clone();
 
     this.dataKeys.forEach(function (className) {
-      $row.find('.' + className).text(rows[className]);
+      $row.find('.' + className).text(data[className]);
     });
+    $row.find('.sourceIcon')
+      .text(data.cloneType === 'START_STOP' ? 'M' : 'I')
+      .attr('title', data.cloneType === 'START_STOP' ? 'Machine' : 'Image');
     $row.find(this.selectors.rmImageLink).data('imageId', id);
     $row.find(this.selectors.editImageLink).data('imageId', id);
     this.$imagesTable.append($row);
+  },
+  _clearImagesTable: function () {
+    this.$imagesTable.find(this.selectors.imagesTableRow).remove();
   },
   _toggleImagesTable: function () {
     //var toggle = !!this._imagesDataLength;

@@ -28,3 +28,24 @@
 .imagesTableWrapper {
     margin-bottom: 0.5em;
 }
+
+.sourceIcon {
+    display: inline-block;
+    border-radius: 100%;
+    background-color: #4477ff;
+    color: #fff;
+    width: 20px;
+    height: 20px;
+    margin-right: 6px;
+    line-height: 20px;
+    font-size: 12px;
+    text-align: center;
+    font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.remove,
+.edit {
+    width: 5%;
+    padding: 0.5em;
+    text-align: center;
+}

@@ -71,7 +71,7 @@
             <bs:osIcon osName="linux" small="true"/>
           </span>
             </div>
-            <span class="smallNote">Image or Instance</span>
+            <span class="smallNote">Image or Machine</span>
             <span class="error option-error option-error_${cons.imageName}"></span>
         </td>
     </tr>
@@ -82,7 +82,7 @@
         <label for="cloneBehaviour_FRESH_CLONE">Fresh clone</label>
         <br/>
         <input type="radio" id="cloneBehaviour_START_STOP" name="cloneBehaviour" value="START_STOP" class="cloneBehaviourRadio"/>
-        <label for="cloneBehaviour_START_STOP">Start/Stop instance</label>
+        <label for="cloneBehaviour_START_STOP">Start/Stop machine</label>
         <br/>
     <%--
         <input type="radio" id="cloneBehaviour_ON_DEMAND_CLONE" name="cloneBehaviour" value="ON_DEMAND_CLONE" class="cloneBehaviourRadio"/>
@@ -91,63 +91,68 @@
     --%>
       </td>
     </tr>
-</table>
-        <table class="runnerFormTable innerTable">
-            <tr>
-              <th>Service: <l:star/></th>
-              <td>
+    </table>
+    <table class="runnerFormTable innerTable">
+        <tr class="clone hidden">
+          <th>Service: <l:star/></th>
+          <td>
+            <div>
+              <select name="_${cons.serviceName}" id="${cons.serviceName}" data-err-id="${cons.serviceName}" class="longField"></select>
+            </div>
+            <span class="error option-error option-error_${cons.serviceName}"></span>
+          </td>
+        </tr>
+        <tr class="clone hidden">
+          <th>Deployment: <l:star/></th>
+          <td>
+            <div>
+              <select name="_${cons.deploymentName}" id="${cons.deploymentName}" data-err-id="${cons.deploymentName}" class="longField"></select>
+            </div>
+            <span class="error option-error option-error_${cons.deploymentName}"></span>
+          </td>
+        </tr>
+        <tr class="clone hidden">
+            <th>Max # of instances: <l:star/></th>
+            <td>
                 <div>
-                  <select name="_${cons.serviceName}" id="${cons.serviceName}" data-err-id="${cons.serviceName}" class="longField"></select>
+                    <input type="text" name="_${cons.maxInstancesCount}" id="${cons.maxInstancesCount}" data-err-id="${cons.maxInstancesCount}" class="longField"/>
                 </div>
-                <span class="error option-error option-error_${cons.serviceName}"></span>
-              </td>
-            </tr>
-            <tr>
-              <th>Deployment: <l:star/></th>
-              <td>
-                <div>
-                  <select name="_${cons.deploymentName}" id="${cons.deploymentName}" data-err-id="${cons.deploymentName}" class="longField"></select>
-                </div>
-                <span class="error option-error option-error_${cons.deploymentName}"></span>
-              </td>
-            </tr>
-            <tr class="clone hidden">
-                <th>Max # of instances: <l:star/></th>
-                <td>
-                    <div>
-                        <input type="text" name="_${cons.maxInstancesCount}" id="${cons.maxInstancesCount}" data-err-id="${cons.maxInstancesCount}" class="longField"/>
-                    </div>
-                    <span class="error option-error option-error_${cons.maxInstancesCount}"></span>
-                </td>
-            </tr>
-            <tr class="clone hidden">
-              <th>Name prefix: <l:star/></th>
-              <td><props:textProperty name="${cons.namePrefix}" className="longField"/></td>
-            </tr>
-            <tr class="clone hidden">
-              <th>VM Size: <l:star/></th>
-              <td>
-                <div>
-                  <select name="_${cons.vmSize}" id="${cons.vmSize}" data-err-id="${cons.vmSize}" class="longField"></select>
-                </div>
-                <span class="error option-error option-error_${cons.vmSize}"></span>
-              </td>
-            </tr>
-            <tr class="provision hidden">
-              <th></th><td></td>
-            </tr>
-            <tr class="provision hidden">
-              <th>Provision username: <l:star/></th>
-              <td><input type="text" id="${cons.provisionUsername}" class="longField"/></td>
-            </tr>
-            <tr class="provision hidden">
-              <th>Provision password:  <l:star/></th>
-              <td><input type="password" id="${cons.provisionPassword}" class="longField"/></td>
-            </tr>
-        </table>
-    <forms:addButton title="Add Image" id="addImageButton">Add image</forms:addButton>
-    <forms:button title="Cancel" id="azureCancelDialogButton" onclick="BS.AzureImageDialog.close()">Cancel</forms:button>
-    </bs:dialog>
+                <span class="error option-error option-error_${cons.maxInstancesCount}"></span>
+            </td>
+        </tr>
+        <tr class="clone hidden">
+          <th>Name prefix: <l:star/></th>
+          <td>
+              <props:textProperty name="${cons.namePrefix}" className="longField"/>
+              <span class="smallNote">Max length is 16</span>
+          </td>
+        </tr>
+        <tr class="clone hidden">
+          <th>VM Size: <l:star/></th>
+          <td>
+            <div>
+              <select name="_${cons.vmSize}" id="${cons.vmSize}" data-err-id="${cons.vmSize}" class="longField"></select>
+            </div>
+            <span class="error option-error option-error_${cons.vmSize}"></span>
+          </td>
+        </tr>
+        <tr class="provision hidden">
+          <th></th><td></td>
+        </tr>
+        <tr class="provision hidden">
+          <th>Provision username: <l:star/></th>
+          <td><input type="text" id="${cons.provisionUsername}" class="longField"/></td>
+        </tr>
+        <tr class="provision hidden">
+          <th>Provision password:  <l:star/></th>
+          <td><input type="password" id="${cons.provisionPassword}" class="longField"/></td>
+        </tr>
+    </table>
+    <div class="popupSaveButtonsBlock">
+        <forms:addButton title="Add Image" id="addImageButton">Add image</forms:addButton>
+        <forms:button title="Cancel" id="azureCancelDialogButton" onclick="BS.AzureImageDialog.close()">Cancel</forms:button>
+    </div>
+</bs:dialog>
 
 <forms:button title="Add image" id="azureShowDialogButton" onclick="BS.AzureImageDialog.showCentered()">Add image</forms:button>
 
@@ -159,10 +164,10 @@
             <tbody>
             <tr>
                 <th class="name">Image/Instance</th>
-                <th class="name">Service</th>
-                <th class="name">Deployment</th>
+                <th class="name hidden">Service</th>
+                <th class="name hidden">Deployment</th>
                 <th class="name">Name prefix</th>
-                <th class="name">Start behaviour</th>
+                <th class="name hidden">Start behaviour</th>
                 <th class="name">Max # of instances</th>
                 <th class="name" colspan="2"></th>
             </tr>

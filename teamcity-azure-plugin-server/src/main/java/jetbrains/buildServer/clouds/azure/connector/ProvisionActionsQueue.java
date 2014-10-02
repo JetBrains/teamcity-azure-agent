@@ -52,6 +52,8 @@ public class ProvisionActionsQueue{
           return true;
         } catch (ServiceException ex){
           LOG.warn(ex.toString(), ex);
+          if (ex.getErrorMessage() == null)
+            throw ex;
           final Matcher matcher = CONFLICT_ERROR_PATTERN.matcher(ex.getErrorMessage());
           if (matcher.matches()){
             requestsQueue.get(key).set(matcher.group(1));

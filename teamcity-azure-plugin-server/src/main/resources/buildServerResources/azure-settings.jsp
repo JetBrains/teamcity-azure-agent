@@ -124,7 +124,7 @@
           <th>Name prefix: <l:star/></th>
           <td>
               <props:textProperty name="${cons.namePrefix}" className="longField"/>
-              <span class="smallNote">Max length is 16</span>
+              <span class="smallNote">Max length is 6</span>
           </td>
         </tr>
         <tr class="clone hidden">

@@ -109,7 +109,7 @@ public class AzureEditProfileController extends BaseFormXmlController {
         final Element service = new Element("Service");
         service.setAttribute("name", serviceName);
 
-        final Map<String, List<String>> deployments = apiConnector.listServiceDeployments(serviceName);
+        final Map<String, List<Pair<String, String>>> deployments = apiConnector.listServiceDeployments(serviceName);
         service.addContent(getServiceDeployments(deployments));
         services.addContent(service);
       }
@@ -148,14 +148,15 @@ public class AzureEditProfileController extends BaseFormXmlController {
     return vmSizes;
   }
 
-  private List<Element> getServiceDeployments(final Map<String, List<String>> deploymentList) {
+  private List<Element> getServiceDeployments(final Map<String, List<Pair<String, String>>> deploymentList) {
     List<Element> deploymentElements = new ArrayList<Element>();
     for (String deploymentName : deploymentList.keySet()) {
       final Element deployment = new Element("Deployment");
       deployment.setAttribute("name", deploymentName);
-      for (String instanceName : deploymentList.get(deploymentName)) {
+      for (Pair<String, String> pair : deploymentList.get(deploymentName)) {
         final Element instanceElem = new Element("Instance");
-        instanceElem.setAttribute("name", instanceName);
+        instanceElem.setAttribute("name", pair.getFirst());
+        instanceElem.setAttribute("osType", pair.getSecond());
         deployment.addContent(instanceElem);
       }
       deploymentElements.add(deployment);

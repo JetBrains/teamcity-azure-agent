@@ -80,6 +80,10 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
     return myStartDate;
   }
 
+  public void refreshStartDate(){
+    setStartDate(new Date());
+  }
+
   public void setStartDate(final Date startDate) {
     myStartDate = startDate;
   }

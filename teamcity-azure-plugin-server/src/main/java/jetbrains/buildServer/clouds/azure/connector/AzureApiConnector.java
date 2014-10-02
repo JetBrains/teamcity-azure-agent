@@ -155,16 +155,20 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }};
   }
 
-  public Map<String, List<String>> listServiceDeployments(@NotNull final String serviceName)
+  public Map<String, List<Pair<String, String>>> listServiceDeployments(@NotNull final String serviceName)
     throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
     final HostedServiceOperations servicesOps = myClient.getHostedServicesOperations();
     final HostedServiceGetDetailedResponse serviceDetails = servicesOps.getDetailed(serviceName);
-    Map<String, List<String>> retval = new HashMap<String, List<String>>();
+    final Map<String, List<Pair<String, String>>> retval = new HashMap<String, List<Pair<String, String>>>();
     for (HostedServiceGetDetailedResponse.Deployment deployment : serviceDetails.getDeployments()) {
-      final ArrayList<String> instancesList = new ArrayList<String>();
+      final ArrayList<Pair<String, String>> instancesList = new ArrayList<Pair<String, String>>();
       retval.put(deployment.getName(), instancesList);
+      Map<String, String> roleOsNames = new HashMap<String, String>();
+      for (Role role : deployment.getRoles()) {
+        roleOsNames.put(role.getRoleName(), role.getOSVirtualHardDisk().getOperatingSystem());
+      }
       for (RoleInstance instance : deployment.getRoleInstances()) {
-        instancesList.add(instance.getInstanceName());
+        instancesList.add(Pair.create(instance.getInstanceName(), roleOsNames.get(instance.getRoleName())));
       }
     }
     return retval;

@@ -19,18 +19,23 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
   private final String myVmSize;
   private final String myUsername;
   private final String myPassword;
+  private final int myMaxInstancesCount;
   private final CloudCloneType myCloneType;
 
   public static AzureCloudImageDetails fromString(@NotNull final String s){
     final String[] split = s.split(";");
     if (split.length == 4) {
       return new AzureCloudImageDetails(split[0], split[1], split[2], split[3]);
-    } else if (split.length == 6) {
-      return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5]);
-    } else if (split.length == 9){
-      return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5], split[6], split[7], split[8]);
     } else {
-      return null;
+      int maxInstancesCount = Integer.parseInt(split[6]);
+
+      if (split.length == 7) {
+        return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5], maxInstancesCount);
+      } else if (split.length == 10) {
+        return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5], maxInstancesCount, split[7], split[8], split[9]);
+      } else {
+        return null;
+      }
     }
   }
 
@@ -41,6 +46,7 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
                                  final String imageName,
                                  final String vmNamePrefix,
                                  final String vmSize,
+                                 final int maxInstancesCount,
                                  final String osType,
                                  final String username,
                                  final String password){
@@ -53,20 +59,22 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
     myVmSize = vmSize;
     myUsername = username;
     myPassword = password;
+    myMaxInstancesCount = maxInstancesCount;
   }
   private AzureCloudImageDetails(final String cloneTypeName,
                                  final String serviceName,
                                  final String deploymentName,
                                  final String imageName,
                                  final String vmNamePrefix,
-                                 final String vmSize){
-    this (cloneTypeName, serviceName, deploymentName, imageName, vmNamePrefix, vmSize, null, null, null);
+                                 final String vmSize,
+                                 final int maxInstancesCount){
+    this (cloneTypeName, serviceName, deploymentName, imageName, vmNamePrefix, vmSize, maxInstancesCount, null, null, null);
   }
   private AzureCloudImageDetails(final String cloneTypeName,
                                  final String serviceName,
                                  final String deploymentName,
                                  final String imageName){
-    this (cloneTypeName, serviceName, deploymentName, imageName, null, null, null, null, null);
+    this (cloneTypeName, serviceName, deploymentName, imageName, null, null, 1, null, null, null);
   }
 
   public String getImageName() {
@@ -102,6 +110,10 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
 
   public String getPassword() {
     return myPassword;
+  }
+
+  public int getMaxInstancesCount() {
+    return myMaxInstancesCount;
   }
 
   public CloudCloneType getCloneType() {

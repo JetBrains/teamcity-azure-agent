@@ -26,6 +26,7 @@ public class ConditionalRunner implements Runnable {
           LOG.info(String.format("Executing %s. Result: %b", item.getName(), remove));
         }
       } catch (Exception e) {
+        remove = true;
         LOG.warn(e.toString(), e);
       } finally {
         if (remove)

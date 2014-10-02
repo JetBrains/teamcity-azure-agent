@@ -56,7 +56,12 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
 
   @Override
   public boolean canStartNewInstance() {
-    return ProvisionActionsQueue.isLocked(myImageDetails.getServiceName(), myImageDetails.getDeploymentName());
+    if (myImageDetails.getCloneType().isUseOriginal()) {
+      return myInstances.get(myImageDetails.getImageName()).getStatus() == InstanceStatus.STOPPED;
+    } else {
+      return myInstances.size() < myImageDetails.getMaxInstancesCount()
+             && ProvisionActionsQueue.isLocked(myImageDetails.getServiceName(), myImageDetails.getDeploymentName());
+    }
   }
 
   @Override
@@ -150,8 +155,14 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
       long time = System.currentTimeMillis();
       vmName = String.format("%s-%x", myImageDetails.getVmNamePrefix(), time / 1000);
     }
-    instance = new AzureCloudInstance(this, vmName);
+    if (myImageDetails.getCloneType().isUseOriginal()) {
+      instance = myInstances.get(myImageDetails.getImageName());
+    } else {
+      instance = new AzureCloudInstance(this, vmName);
+      myInstances.put(instance.getInstanceId(), instance);
+    }
     instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
+    instance.refreshStartDate();
     try {
       ProvisionActionsQueue.queueAction(
         myImageDetails.getServiceName(), myImageDetails.getDeploymentName(), new ProvisionActionsQueue.InstanceAction() {
@@ -168,10 +179,12 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
             if (myImageDetails.getCloneType().isUseOriginal()) {
               response = myApiConnector.startVM(AzureCloudImage.this);
             } else {
-              myInstances.put(instance.getInstanceId(), instance);
+              if (myInstances.size() >= myImageDetails.getMaxInstancesCount()){
+                throw new ServiceException("Unable to start more instances. Limit reached");
+              }
               response = myApiConnector.createAndStartVM(AzureCloudImage.this, vmName, tag, myGeneralized);
             }
-            instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
+            instance.setStatus(InstanceStatus.STARTING);
             operationId = response.getRequestId();
             return operationId;
           }
@@ -186,6 +199,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
               final OperationStatusResponse operationStatus = myApiConnector.getOperationStatus(operationId);
               if (operationStatus.getStatus() == OperationStatus.Succeeded){
                 instance.setStatus(InstanceStatus.RUNNING);
+                instance.refreshStartDate();
               } else if (operationStatus.getStatus() == OperationStatus.Failed){
                 instance.setStatus(InstanceStatus.ERROR);
                 final OperationStatusResponse.ErrorDetails error = operationStatus.getError();

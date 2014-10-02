@@ -57,7 +57,7 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
           final String instanceName = cloudInstance.getName();
           final AbstractInstance instance = realInstances.get(instanceName);
           if (instance == null) {
-            if (cloudInstance.getStatus() != InstanceStatus.SCHEDULED_TO_START) {
+            if (cloudInstance.getStatus() != InstanceStatus.SCHEDULED_TO_START && cloudInstance.getStatus() != InstanceStatus.STARTING) {
               instancesToRemove.add(instanceName);
             }
             continue;

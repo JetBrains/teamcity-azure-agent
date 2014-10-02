@@ -44,6 +44,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       options: $j('.options-loader')
     };
 
+    this._lastImageId = this._imagesDataLength = 0;
     this._bindHandlers();
     this._fetchOptionsClickHandler();
     this._initData();
@@ -274,20 +275,27 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       this._newImageData.$image &&
       this._newImageData.$image.attr('generalized') == 'true');
   },
-  _addImage: function () {
-    var self = this,
-      imageData;
+  _saveImagesData: function () {
+    var imageData = Object.keys(this.data).map(function (imageId) {
+      return this.dataKeys.map(function (key) {
+        return this.data[imageId][key];
+      }.bind(this)).join(';');
+    }.bind(this)).join(';X;');
 
-    this.data.push(this._newImageData);
-    this._newImageData = {};
-
-    imageData = this.data.reduce(function (result, current) {
-      return result + self.dataKeys.reduce(function (l, r) {
-        return l + (typeof current[r] === 'undefined' ? '' : current[r]) + ';';
-      }, '') + 'X;';
-    }, '');
+    if (imageData.length) {
+      imageData+= ';X;';
+    }
 
     this.$imagesDataElem.val(imageData);
+  },
+  _addImage: function () {
+    var self = this,
+      newImageId = this._lastImageId++;
+
+    this.data[newImageId] = this._newImageData;
+    this._imagesDataLength += 1;
+    this._newImageData = {};
+    this._saveImagesData();
     this.renderImagesTable();
 
     BS.AzureImageDialog.close();
@@ -305,32 +313,35 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
   _initData: function () {
     var self = this,
-      _data = this.$imagesDataElem.val()
-        .replace(/;X;$/, '');
+      rawImagesData = this.$imagesDataElem.val() || '',
+      imagesData = rawImagesData && rawImagesData.replace(/;X;$/, '').split(';X;') || [];
 
-    if (_data.length) {
-      this.data = _data.split(';X;').reduce(function (images, current) {
-          var _image = {};
-          current = current.split(';');
-          self.dataKeys.forEach(function (key, i) {
-            _image[key] = current[i];
-          });
-          images.push(_image);
-          return images;
-        }, []);
-    }
+    this.data = imagesData.reduce(function (accumulator, imageDataStr) {
+      var props = imageDataStr.split(';'),
+        id;
+
+      // drop images without vmName
+      if (props[0].length) {
+        id = self._lastImageId++;
+        accumulator[id] = {};
+        self.dataKeys.forEach(function(key, index) {
+          accumulator[id][key] = props[index];
+        });
+        self._imagesDataLength++;
+      }
+
+      return accumulator;
+    }, {});
   },
   renderImagesTable: function () {
     this._clearImagesTable();
-    //if (this._imagesDataLength) {
-    //  Object.keys(this.imagesData).forEach(function (imageId) {
-    //    this._renderImageRow(this.imagesData[imageId], imageId);
-    //  }.bind(this));
-    //}
-    var _id = 0;
-      this.data.forEach(function (image) {
-        this._renderImageRow(image, _id++);
+
+    if (this._imagesDataLength) {
+      Object.keys(this.data).forEach(function (imageId) {
+        this._renderImageRow(this.data[imageId], imageId);
       }.bind(this));
+    }
+
     this._toggleImagesTable();
   },
   _imagesTableRowTemplate: $j('<tr class="imagesTableRow">\
@@ -360,8 +371,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$imagesTable.find(this.selectors.imagesTableRow).remove();
   },
   _toggleImagesTable: function () {
-    //var toggle = !!this._imagesDataLength;
-    var toggle = !!this.data.length;
+    var toggle = !!this._imagesDataLength;
+
     this.$imagesTableWrapper.show();
     this.$emptyImagesListMessage.toggle(!toggle);
     this.$imagesTable.toggle(toggle);

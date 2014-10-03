@@ -122,9 +122,21 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     return false;
   },
   _bindHandlers: function () {
-    var $self = this;
+    var self = this;
 
     this.$fetchOptionsButton.on('click', this._fetchOptionsClickHandler.bind(this));
+
+    this.$imagesTable.on('click', this.selectors.rmImageLink, function () {
+      var $this = $j(this),
+        id = $this.data('imageId'),
+        name = self.data[id].name;
+
+      if (confirm('Are you sure you want to remove the image "' + name + '"?')) {
+        self.removeImage($this);
+      }
+      return false;
+    });
+
     this.$addImageButton.on('click', this._addImage.bind(this));
     // fetch options if credentials were changed
     this.$cert.add(this.$subscrId).on('change', this._fetchOptionsClickHandler.bind(this));
@@ -133,7 +145,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     // toggle clone options and image name label on clone behaviour change
     $j(this.selectors.cloneBehaviourRadio).on('change', function () {
-      $j('.clone').toggleClass('hidden', ! $self._isClone());
+      $j('.clone').toggleClass('hidden', ! self._isClone());
     }.bind(this));
 
     // filter deployments if service was changed
@@ -156,7 +168,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }.bind(this));
 
     this.$deploymentNameDataElem.on('change', function () {
-      $self._newImageData.deployment = this.value;
+      self._newImageData.deployment = this.value;
     });
 
     this.$namePrefixDataElem
@@ -165,9 +177,16 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       .add(this.$passwordDataElem)
       .add(this.$maxInstancesCountdDataElem)
       .on('change', function () {
-        $self._newImageData[this.getAttribute('id')] = this.value;
+        self._newImageData[this.getAttribute('id')] = this.value;
       });
 
+  },
+  removeImage: function ($elem) {
+    delete this.data[$elem.data('imageId')];
+    this._imagesDataLength -= 1;
+    $elem.parents(this.selectors.imagesTableRow).remove();
+    this._saveImagesData();
+    this._toggleImagesTable();
   },
   _fetchOptionsClickHandler: function () {
     if (this.$cert.val().length && this.$subscrId.val().length) {

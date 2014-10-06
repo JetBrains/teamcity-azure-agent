@@ -49,9 +49,6 @@
   <tr>
     <td colspan="2">
       <span id="error_fetch_options" class="error"></span>
-      <%--<div>--%>
-        <%--<forms:button id="azureFetchOptionsButton">Fetch options</forms:button>--%>
-      <%--</div>--%>
       <div class="options-loader invisible"><i class="icon-refresh icon-spin"></i>&nbsp;Fetching options...</div>
     </td>
   </tr>

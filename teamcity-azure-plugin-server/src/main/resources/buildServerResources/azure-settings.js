@@ -31,7 +31,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$passwordDataElem = $j('#provisionPassword');
     this.$maxInstancesCountdDataElem = $j('#maxInstancesCount');
 
-    this.$fetchOptionsButton = $j('#azureFetchOptionsButton');
     this.$showDialogButton = $j('#azureShowDialogButton');
     this.$dialogSubmitButton = $j('#addImageButton');
     this.$cancelButton = $j('#azureCancelDialogButton');
@@ -120,8 +119,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _bindHandlers: function () {
     var self = this;
-
-    this.$fetchOptionsButton.on('click', this._fetchOptionsClickHandler.bind(this));
 
     this.$showDialogButton.on('click', function () {
       if (! this.$showDialogButton.attr('disabled')) {

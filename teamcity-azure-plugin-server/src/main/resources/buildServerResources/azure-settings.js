@@ -70,12 +70,14 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }
 
     this.loaders.options.removeClass('invisible');
+    this._toggleEditLinks();
     this.fetchOptionsDeferred = $j.Deferred()
       .done(function (response) {
-        this.$response = $j(response.responseXML);
+        this.$response = $j(response.responseXML).find('response');
 
         if (this.$response.children().length) {
           this._toggleDialogShowButton(true);
+          this._toggleEditLinks(true);
           this._fillImages();
           this._fillSelect([
             {
@@ -92,6 +94,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
               addLabel: true
             }
           ]);
+        } else {
+          this.addError('Empty response received, it is somewhat suspicious — check your credentials');
         }
       }.bind(this))
       .fail(function (errorText) {
@@ -217,25 +221,20 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this._toggleImagesTable();
   },
   showEditDialog: function ($elem) {
-    var imageId = $elem.data('imageId');
+    var imageId = $elem.data('imageId'),
+      image = this.data[imageId];
+
+    this.$imageNameDataElem.trigger('change', image.name);
+    this.$serviceNameDataElem.trigger('change', image.service);
+    this.$deploymentNameDataElem.trigger('change', image.deployment);
+    this.$osTypeDataElem.trigger('change', image.os);
+    this.$vmSizeDataElem.trigger('change', image.vmSize);
+    this.$namePrefixDataElem.trigger('change', image.namePrefix);
+    this.$usernameDataElem.trigger('change', image.provisionUsername);
+    this.$passwordDataElem.trigger('change', image.provisionPassword);
+    this.$maxInstancesCountdDataElem.trigger('change', image.maxInstancesCount);
 
     this.showDialog('edit', imageId);
-
-    this.fetchOptionsDeferred
-      .then(function () {
-        var image = this.data[imageId];
-
-        this.$imageNameDataElem.trigger('change', image.name);
-        this.$serviceNameDataElem.trigger('change', image.service);
-        this.$deploymentNameDataElem.trigger('change', image.deployment);
-        this.$osTypeDataElem.trigger('change', image.os);
-        this.$vmSizeDataElem.trigger('change', image.vmSize);
-        this.$namePrefixDataElem.trigger('change', image.namePrefix);
-        this.$usernameDataElem.trigger('change', image.provisionUsername);
-        this.$passwordDataElem.trigger('change', image.provisionPassword);
-        this.$maxInstancesCountdDataElem.trigger('change', image.maxInstancesCount);
-
-      }.bind(this));
   },
   showDialog: function (action, imageId) {
     action = action ? 'Edit' : 'Add';
@@ -300,6 +299,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $j(this.selectors.cloneBehaviourRadio).trigger('change');
     this._toggleProvisionCredentials();
     this._showImageOsType();
+
+    BS.AzureImageDialog.showCentered();
   },
   _fillImages: function () {
     if (!this.$response)
@@ -309,15 +310,21 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     var $images = this.$response.find('Images:eq(0) Image'),
       $instances = this.$response.find('Instance'),
+      $machinesOptgroup = $j('<optgroup label="Machines"></optgroup>'),
+      $imagesOptgroup = $j('<optgroup label="Images"></optgroup>'),
       self = this;
 
     $images.each(function () {
-      self._appendOption(self.$imageNameDataElem, $j(this).attr('name'), null, 'image');
+      self._appendOption($imagesOptgroup, $j(this).attr('name'), null, 'image');
     });
 
     $instances.each(function () {
-      self._appendOption(self.$imageNameDataElem, $j(this).attr('name'), null, 'instance');
+      self._appendOption($machinesOptgroup, $j(this).attr('name'), null, 'instance');
     });
+
+    this.$imageNameDataElem
+      .append($imagesOptgroup)
+      .append($machinesOptgroup);
 
     this.$imageNameDataElem.trigger('change');
   },
@@ -442,7 +449,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 <td class="namePrefix"></td>\
 <td class="cloneType hidden"></td>\
 <td class="maxInstancesCount"></td>\
-<td class="edit"><a href="#" class="editImageLink">edit</a></td>\
+<td class="edit"><span class="editImageLink_disabled" title="Editing is available after successful retrieval of data">edit</span><a href="#" class="editImageLink hidden">edit</a></td>\
 <td class="remove"><a href="#" class="removeImageLink">delete</a></td>\
     </tr>'),
   _renderImageRow: function (data, id) {
@@ -470,6 +477,10 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _toggleDialogShowButton: function (enable) {
     this.$showDialogButton.attr('disabled', !enable);
+  },
+  _toggleEditLinks: function (enable) {
+    $j(this.selectors.editImageLink).toggleClass('hidden', !enable);
+    $j(this.selectors.editImageLink + '_disabled').toggleClass('hidden', !!enable);
   },
   /**
    * @param {jQuery} [target]

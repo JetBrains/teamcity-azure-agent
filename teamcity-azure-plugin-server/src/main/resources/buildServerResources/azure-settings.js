@@ -23,7 +23,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     this.$imageNameDataElem = $j('#imageName');
     this.$serviceNameDataElem = $j('#serviceName');
-    this.$deploymentNameDataElem = $j('#deploymentName');
+    this.$deploymentNameDataElem = $j('#deployment');
     this.$osTypeDataElem = $j('#osType');
     this.$vmSizeDataElem = $j('#vmSize');
     this.$namePrefixDataElem = $j('#namePrefix');
@@ -32,12 +32,15 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$maxInstancesCountdDataElem = $j('#maxInstancesCount');
 
     this.$fetchOptionsButton = $j('#azureFetchOptionsButton');
-    this.$addImageButton = $j('#addImageButton');
+    this.$showDialogButton = $j('#azureShowDialogButton');
+    this.$dialogSubmitButton = $j('#addImageButton');
+    this.$cancelButton = $j('#azureCancelDialogButton');
 
     this.$imagesDataElem = $j('#images_data');
     this.$imagesTable = $j('#azureImagesTable');
     this.$imagesTableWrapper = $j('.imagesTableWrapper');
     this.$emptyImagesListMessage = $j('.emptyImagesListMessage');
+    this.$fetchOptionsError = $j("#error_fetch_options");
 
     this.selectors.activeCloneBehaviour = this.selectors.cloneBehaviourRadio + ':checked';
     this.loaders = {
@@ -52,16 +55,10 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     console.log(this.data);
   },
   validateServerSettings: function () {
+    this.clearErrors();
     return true;
   },
   fetchOptions: function () {
-/*
-    this.$response = $j($j.parseXML('<response><Services>'
-                   + '<Service name="paksv-lnx-agent"><Deployment name="Ubuntu"><Instance name="Ubuntu"/></Deployment></Service>'
-                   + '<Service name="paksv-win-agent"><Deployment name="win"><Instance name="win" /></Deployment></Service>'
-                   + '<Service name="tc-srv"><Deployment name="tc-srv"><Instance name="tc-srv" /></Deployment></Service></Services>'
-                   + '<Images><Image name="linux-agent-cleaned" generalized="true" osType="Linux" /><Image name="win-image-cleaned" generalized="true" osType="Windows" /></Images><VmSizes><VmSize name="A5" label="A5 (2 cores, 14336 MB)" /><VmSize name="A6" label="A6 (4 cores, 28672 MB)" /><VmSize name="A7" label="A7 (8 cores, 57344 MB)" /><VmSize name="A8" label="A8 (8 cores, 57344 MB)" /><VmSize name="A9" label="A9 (16 cores, 114688 MB)" /><VmSize name="Basic_A0" label="Basic_A0 (1 cores, 768 MB)" /><VmSize name="Basic_A1" label="Basic_A1 (1 cores, 1792 MB)" /><VmSize name="Basic_A2" label="Basic_A2 (2 cores, 3584 MB)" /><VmSize name="Basic_A3" label="Basic_A3 (4 cores, 7168 MB)" /><VmSize name="Basic_A4" label="Basic_A4 (8 cores, 14336 MB)" /><VmSize name="ExtraLarge" label="ExtraLarge (8 cores, 14336 MB)" /><VmSize name="ExtraSmall" label="ExtraSmall (1 cores, 768 MB)" /><VmSize name="Large" label="Large (4 cores, 7168 MB)" /><VmSize name="Medium" label="Medium (2 cores, 3584 MB)" /><VmSize name="Small" label="Small (1 cores, 1792 MB)" /></VmSizes></response>'));
-*/
     var _fetchOptionsInProgress = function () {
       return this.fetchOptionsDeferred ?
         this.fetchOptionsDeferred.state() === 'pending' :
@@ -96,7 +93,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       }.bind(this))
       .fail(function (errorText) {
         this.addError("Unable to fetch options: " + errorText);
-        BS.VMWareImageDialog.close();
+        BS.AzureImageDialog.close();
       }.bind(this))
       .always(function () {
         this.loaders.options.addClass('invisible');
@@ -126,6 +123,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     this.$fetchOptionsButton.on('click', this._fetchOptionsClickHandler.bind(this));
 
+    this.$showDialogButton.on('click', function () {
+      if (! this.$showDialogButton.attr('disabled')) {
+        this.showDialog();
+      }
+      return false;
+    }.bind(this));
+
     this.$imagesTable.on('click', this.selectors.rmImageLink, function () {
       var $this = $j(this),
         id = $this.data('imageId'),
@@ -136,20 +140,39 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       }
       return false;
     });
+    this.$imagesTable.on('click', this.selectors.editImageLink, function () {
+      self.showEditDialog($j(this));
 
-    this.$addImageButton.on('click', this._addImage.bind(this));
+      return false;
+    });
+
+    this.$dialogSubmitButton.on('click', this._submitDialogHandler.bind(this));
+
+    this.$cancelButton.on('click', function () {
+      BS.AzureImageDialog.close();
+
+      return false;
+    }.bind(this));
+
     // fetch options if credentials were changed
     this.$cert.add(this.$subscrId).on('change', this._fetchOptionsClickHandler.bind(this));
 
-    this.$imageNameDataElem.on('change', this._nameChangeHandler.bind(this));
+    /** Image Dialog Props Handlers **/
+    this.$imageNameDataElem.on('change', function(e, data) {
+      this._nameChangeHandler(e, data);
+    }.bind(this));
 
     // toggle clone options and image name label on clone behaviour change
     $j(this.selectors.cloneBehaviourRadio).on('change', function () {
-      $j('.clone').toggleClass('hidden', ! self._isClone());
+      this._toggleCloneOptions();
     }.bind(this));
 
     // filter deployments if service was changed
-    this.$serviceNameDataElem.change(function () {
+    this.$serviceNameDataElem.on('change', function (e, data) {
+      if (typeof data !== 'undefined') {
+        this.$serviceNameDataElem.val(data);
+      }
+
       var service = this.$serviceNameDataElem.val(),
         $deployments = this.$response.find('Service[name="' + service + '"] Deployment'),
         deployments = [];
@@ -167,17 +190,18 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     }.bind(this));
 
-    this.$deploymentNameDataElem.on('change', function () {
-      self._newImageData.deployment = this.value;
-    });
-
-    this.$namePrefixDataElem
+    this.$deploymentNameDataElem
+      .add(this.$namePrefixDataElem)
       .add(this.$vmSizeDataElem)
       .add(this.$usernameDataElem)
       .add(this.$passwordDataElem)
       .add(this.$maxInstancesCountdDataElem)
-      .on('change', function () {
-        self._newImageData[this.getAttribute('id')] = this.value;
+      .on('change', function (e, data) {
+        if (typeof data === 'undefined') {
+          self._newImageData[this.getAttribute('id')] = this.value;
+        } else {
+          this.value = data;
+        }
       });
 
   },
@@ -188,13 +212,46 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this._saveImagesData();
     this._toggleImagesTable();
   },
+  showEditDialog: function ($elem) {
+    var imageId = $elem.data('imageId');
+
+    this.showDialog('edit', imageId);
+
+    this.fetchOptionsDeferred
+      .then(function () {
+        var image = this.data[imageId];
+
+        this.$imageNameDataElem.trigger('change', image.name);
+        this.$serviceNameDataElem.trigger('change', image.service);
+        this.$deploymentNameDataElem.trigger('change', image.deployment);
+        this.$osTypeDataElem.trigger('change', image.os);
+        this.$vmSizeDataElem.trigger('change', image.vmSize);
+        this.$namePrefixDataElem.trigger('change', image.namePrefix);
+        this.$usernameDataElem.trigger('change', image.provisionUsername);
+        this.$passwordDataElem.trigger('change', image.provisionPassword);
+        this.$maxInstancesCountdDataElem.trigger('change', image.maxInstancesCount);
+
+      }.bind(this));
+  },
+  showDialog: function (action, imageId) {
+    action = action ? 'Edit' : 'Add';
+    $j('#AzureDialogTitle').text(action + ' Image');
+
+    this.$dialogSubmitButton.val(action).data('imageId', imageId);
+
+    BS.AzureImageDialog.showCentered();
+  },
   _fetchOptionsClickHandler: function () {
     if (this.$cert.val().length && this.$subscrId.val().length) {
       this.fetchOptions();
     }
     return false;
   },
-  _nameChangeHandler: function () {
+  _nameChangeHandler: function (event, data) {
+    if (typeof data !== 'undefined') {
+      this.$imageNameDataElem.val(data);
+    }
+
     var imageName = this.$imageNameDataElem.val(),
       type = $j(event.target).find('option:checked').attr('data-type'),
       $image = this.$response.find('Images:eq(0) Image[name="' + imageName + '"]');
@@ -281,6 +338,10 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     return $j(this.selectors.activeCloneBehaviour).val() !== 'START_STOP';
   },
   _showImageOsType: function () {
+    /**
+     * @type {String}
+     * @private
+     */
     var _osType = this._newImageData.os;
 
     this.$osTypeDataElem.children().hide();
@@ -288,6 +349,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     if (_osType) {
       this.$osTypeDataElem.find('[title="' + _osType.toLowerCase() + '"]').show();
     }
+  },
+  _toggleCloneOptions: function () {
+    $j('.clone').toggleClass('hidden', !this._isClone());
   },
   _toggleProvisionCredentials: function () {
     $j('.provision').toggle(this._newImageData &&
@@ -307,15 +371,19 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     this.$imagesDataElem.val(imageData);
   },
-  _addImage: function () {
-    var self = this,
-      newImageId = this._lastImageId++;
-
-    this.data[newImageId] = this._newImageData;
-    this._imagesDataLength += 1;
+  _updateDataAndView: function (imageId) {
+    this.data[imageId] = this._newImageData;
     this._newImageData = {};
     this._saveImagesData();
     this.renderImagesTable();
+  },
+  _submitDialogHandler: function () {
+    if (this.$dialogSubmitButton.val().toLowerCase() === 'edit') {
+      this._updateDataAndView(this.$dialogSubmitButton.data('imageId'));
+    } else {
+      this._imagesDataLength += 1;
+      this._updateDataAndView(this._lastImageId++);
+    }
 
     BS.AzureImageDialog.close();
 
@@ -395,11 +463,44 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$imagesTableWrapper.show();
     this.$emptyImagesListMessage.toggle(!toggle);
     this.$imagesTable.toggle(toggle);
+  },
+  /**
+   * @param {jQuery} [target]
+   */
+  clearErrors: function (target) {
+    (target || this.$fetchOptionsError).empty();
+  },
+  /**
+   * @param {html|String} errorHTML
+   * @param {jQuery} [target]
+   */
+  addError: function (errorHTML, target) {
+    (target || this.$fetchOptionsError)
+      .append($j("<div>").html(errorHTML));
+  },
+  resetDataAndDialog: function () {
+    this._newImageData = {};
+
+    this.$imageNameDataElem.trigger('change', '');
+    this.$serviceNameDataElem.trigger('change', '');
+    this.$deploymentNameDataElem.trigger('change', '');
+    this.$osTypeDataElem.trigger('change', '');
+    this.$vmSizeDataElem.trigger('change', '');
+    this.$namePrefixDataElem.trigger('change', '');
+    this.$usernameDataElem.trigger('change', '');
+    this.$passwordDataElem.trigger('change', '');
+    this.$maxInstancesCountdDataElem.trigger('change', '');
+
+    this._toggleCloneOptions();
   }
 };
 
 BS.AzureImageDialog = OO.extend(BS.AbstractModalDialog, {
   getContainer: function() {
     return $('AzureImageDialog');
+  },
+  close: function () {
+    BS.Clouds.Azure.resetDataAndDialog();
+    BS.AbstractModalDialog.close.apply(this);
   }
 });

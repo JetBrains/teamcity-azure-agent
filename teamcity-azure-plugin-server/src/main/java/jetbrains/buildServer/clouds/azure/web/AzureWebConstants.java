@@ -10,7 +10,7 @@ public class AzureWebConstants {
   public static final String MANAGEMENT_CERTIFICATE="managementCertificate";
   public static final String IMAGES_DATA="imagesData";
   public static final String SERVICE_NAME="serviceName";
-  public static final String DEPLOYMENT_NAME="deploymentName";
+  public static final String DEPLOYMENT_NAME="deployment";
   public static final String IMAGE_NAME="imageName";
   public static final String NAME_PREFIX="namePrefix";
   public static final String VM_SIZE="vmSize";

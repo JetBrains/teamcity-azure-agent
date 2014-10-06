@@ -57,7 +57,7 @@
   </tr>
 </table>
 <bs:dialog dialogId="AzureImageDialog" title="Edit Image" closeCommand="BS.AzureImageDialog.close()"
-           dialogClass="AzureImageDialog" titleId="AzureImageDialogTitle"
+           dialogClass="AzureImageDialog" titleId="AzureDialogTitle"
         ><table class="runnerFormTable">
     <tr>
         <th>
@@ -75,7 +75,7 @@
             <span class="error option-error option-error_${cons.imageName}"></span>
         </td>
     </tr>
-    <tr>
+    <tr class="hidden">
       <th>Behaviour: <l:star/></th>
       <td>
         <input type="radio" id="cloneBehaviour_FRESH_CLONE" name="cloneBehaviour" value="FRESH_CLONE" checked="true" class="cloneBehaviourRadio"/>
@@ -149,12 +149,12 @@
         </tr>
     </table>
     <div class="popupSaveButtonsBlock">
-        <forms:addButton title="Add Image" id="addImageButton">Add image</forms:addButton>
-        <forms:button title="Cancel" id="azureCancelDialogButton" onclick="BS.AzureImageDialog.close()">Cancel</forms:button>
+        <forms:submit label="Add" id="addImageButton">Add image</forms:submit>
+        <forms:button title="Cancel" id="azureCancelDialogButton">Cancel</forms:button>
     </div>
 </bs:dialog>
 
-<forms:button title="Add image" id="azureShowDialogButton" onclick="BS.AzureImageDialog.showCentered()">Add image</forms:button>
+<forms:addButton title="Add image" id="azureShowDialogButton">Add image</forms:addButton>
 
 <div class="imagesOuterWrapper">
     <h3 class="title_underlined">Images</h3>

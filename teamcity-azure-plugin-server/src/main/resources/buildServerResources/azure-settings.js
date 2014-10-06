@@ -156,6 +156,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     // fetch options if credentials were changed
     this.$cert.add(this.$subscrId).on('change', this._fetchOptionsClickHandler.bind(this));
+    this.$cert.add(this.$subscrId).on('keypress', function (e) {
+      return e.which === 13 && this._fetchOptionsClickHandler();
+    }.bind(this));
 
     /** Image Dialog Props Handlers **/
     this.$imageNameDataElem.on('change', function(e, data) {

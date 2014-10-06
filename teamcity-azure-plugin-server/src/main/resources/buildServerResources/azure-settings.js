@@ -402,7 +402,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
 
   _clearSelectAndAddDefault: function ($select) {
-    $select.find('option').remove();
+    $select.find('option, optgroup').remove();
     this._appendOption($select, '', '<Please select a value>');
   },
   _appendOption: function ($target, value, text, type) {

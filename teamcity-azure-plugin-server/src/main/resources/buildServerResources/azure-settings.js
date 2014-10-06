@@ -47,6 +47,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     };
 
     this._lastImageId = this._imagesDataLength = 0;
+    this._toggleDialogShowButton();
     this._bindHandlers();
     this._fetchOptionsClickHandler();
     this._initData();
@@ -55,7 +56,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   validateServerSettings: function () {
     this.clearErrors();
-    return true;
+    return !!(this.$cert.val().length && this.$subscrId.val().length);
   },
   fetchOptions: function () {
     var _fetchOptionsInProgress = function () {
@@ -73,22 +74,25 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       .done(function (response) {
         this.$response = $j(response.responseXML);
 
-        this._fillImages();
-        this._fillSelect([
-          {
-            selector: 'Services:eq(0) Service',
-            $target: this.$serviceNameDataElem
-          },
-          {
-            selector: 'Service Deployment',
-            $target: this.$deploymentNameDataElem
-          },
-          {
-            selector: 'VmSizes:eq(0) VmSize',
-            $target: this.$vmSizeDataElem,
-            addLabel: true
-          }
-        ]);
+        if (this.$response.children().length) {
+          this._toggleDialogShowButton(true);
+          this._fillImages();
+          this._fillSelect([
+            {
+              selector: 'Services:eq(0) Service',
+              $target: this.$serviceNameDataElem
+            },
+            {
+              selector: 'Service Deployment',
+              $target: this.$deploymentNameDataElem
+            },
+            {
+              selector: 'VmSizes:eq(0) VmSize',
+              $target: this.$vmSizeDataElem,
+              addLabel: true
+            }
+          ]);
+        }
       }.bind(this))
       .fail(function (errorText) {
         this.addError("Unable to fetch options: " + errorText);
@@ -154,7 +158,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     // fetch options if credentials were changed
     this.$cert.add(this.$subscrId).on('change', this._fetchOptionsClickHandler.bind(this));
     this.$cert.add(this.$subscrId).on('keypress', function (e) {
-      return e.which === 13 && this._fetchOptionsClickHandler();
+      return e.which !== 13 || this._fetchOptionsClickHandler();
     }.bind(this));
 
     /** Image Dialog Props Handlers **/
@@ -242,7 +246,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     BS.AzureImageDialog.showCentered();
   },
   _fetchOptionsClickHandler: function () {
-    if (this.$cert.val().length && this.$subscrId.val().length) {
+    if (this.validateServerSettings()) {
       this.fetchOptions();
     }
     return false;
@@ -463,6 +467,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$imagesTableWrapper.show();
     this.$emptyImagesListMessage.toggle(!toggle);
     this.$imagesTable.toggle(toggle);
+  },
+  _toggleDialogShowButton: function (enable) {
+    this.$showDialogButton.attr('disabled', !enable);
   },
   /**
    * @param {jQuery} [target]

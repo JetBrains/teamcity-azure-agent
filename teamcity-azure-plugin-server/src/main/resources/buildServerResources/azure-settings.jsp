@@ -68,7 +68,7 @@
             <bs:osIcon osName="linux" small="true"/>
           </span>
             </div>
-            <span class="smallNote">Image or Machine</span>
+            <span class="smallNote">Image or Machine. Greyed machines are already added</span>
             <span class="error option-error option-error_${cons.imageName}"></span>
         </td>
     </tr>
@@ -160,7 +160,7 @@
         <table id="azureImagesTable" class="settings imagesTable hidden">
             <tbody>
             <tr>
-                <th class="name">Image/Instance</th>
+                <th class="name">Image/Machine</th>
                 <th class="name hidden">Service</th>
                 <th class="name hidden">Deployment</th>
                 <th class="name">Name prefix</th>

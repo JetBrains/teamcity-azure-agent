@@ -53,3 +53,10 @@
 .editImageLink_disabled {
     color: #ccc;
 }
+.settings .maxInstancesCount,
+.settings .maxInstancesCount.name {
+    width: 80px;
+    max-width: 80px;
+    padding: 1px 6px;
+    text-align: center;
+}

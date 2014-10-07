@@ -51,6 +51,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this._bindHandlers();
     this._fetchOptionsClickHandler();
     this._initData();
+    this._showImageOsType();
     this.renderImagesTable();
     console.log(this.data);
   },
@@ -298,45 +299,41 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       $image = this.$response.find('Instance[name="' + imageName + '"]');
     }
 
-    $j(this.selectors.cloneBehaviourRadio).trigger('change');
-    this._toggleProvisionCredentials();
+    if ($image.length) {
+      this._imageData = {
+        $image: $image,
+        name: imageName,
+        type: type,
+        os: $image.attr('osType')
+      };
 
-    if (! $image.length) {
-      return;
-    }
+      if (type === 'image') {
+        this._imageData.cloneType = 'FRESH_CLONE';
+        $j('#cloneBehaviour_START_STOP').prop('disabled', true);
+        $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', false).prop('checked', true);
 
-    this._imageData = {
-      $image: $image,
-      name: imageName,
-      type: type,
-      os: $image.attr('osType')
-    };
+        this.$serviceNameDataElem.prop('disabled', false).children().prop('disabled', false);
+        this.$deploymentNameDataElem.prop('disabled', true).children().prop('disabled', false);
+      } else if (type === 'instance') {
+        this._imageData.cloneType = 'START_STOP';
+        $j('#cloneBehaviour_START_STOP').prop('disabled', false).prop('checked', true);
+        $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', true);
+        this._imageData.service = $image.parents('Service').attr('name');
+        this.$serviceNameDataElem.prop('disabled', true)
+          .find('option[value=' + this._imageData.service + ']').prop('disabled', false).attr('selected', true).end()
+          .find('option[value!=' + this._imageData.service + ']').prop('disabled', true);
 
-    if (type === 'image') {
-      this._imageData.cloneType = 'FRESH_CLONE';
-      $j('#cloneBehaviour_START_STOP').prop('disabled', true);
-      $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', false).prop('checked', true);
-
-      this.$serviceNameDataElem.prop('disabled', false).children().prop('disabled', false);
-      this.$deploymentNameDataElem.prop('disabled', true).children().prop('disabled', false);
-    } else if (type === 'instance') {
-      this._imageData.cloneType = 'START_STOP';
-      $j('#cloneBehaviour_START_STOP').prop('disabled', false).prop('checked', true);
-      $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', true);
-      this._imageData.service = $image.parents('Service').attr('name');
-      this.$serviceNameDataElem.prop('disabled', true)
-        .find('option[value=' + this._imageData.service + ']').prop('disabled', false).attr('selected', true).end()
-        .find('option[value!=' + this._imageData.service + ']').prop('disabled', true);
-
-      this._imageData.deployment = $image.parents('Deployment').attr('name');
-      this.$deploymentNameDataElem.prop('disabled', true)
-        .find('option[value=' + this._imageData.deployment + ']').prop('disabled', false).attr('selected', true).end()
-        .find('option[value!=' + this._imageData.deployment + ']').prop('disabled', true);
+        this._imageData.deployment = $image.parents('Deployment').attr('name');
+        this.$deploymentNameDataElem.prop('disabled', true)
+          .find('option[value=' + this._imageData.deployment + ']').prop('disabled', false).attr('selected', true).end()
+          .find('option[value!=' + this._imageData.deployment + ']').prop('disabled', true);
+      }
     }
 
     this._showImageOsType();
-
-    BS.AzureImageDialog.showCentered();
+    $j(this.selectors.cloneBehaviourRadio).trigger('change');
+    this._toggleProvisionCredentials();
+    BS.AzureImageDialog.recenterDialog();
   },
   _behaviourChangeHandler: function () {
     $j('.clone').toggleClass('hidden', !this._isClone());
@@ -443,9 +440,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _imagesTableRowTemplate: $j('<tr class="imagesTableRow">\
 <td class="imageName"><div class="sourceIcon"></div><span class="name"></span></td>\
-<td class="service hidden"></td>\
-<td class="deployment hidden"></td>\
-<td class="namePrefix"></td>\
+<td class="service"></td>\
+<td class="deployment"></td>\
+<td class="namePrefix hidden"></td>\
 <td class="cloneType hidden"></td>\
 <td class="maxInstancesCount"></td>\
 <td class="edit"><span class="editImageLink_disabled" title="Editing is available after successful retrieval of data">edit</span><a href="#" class="editImageLink hidden">edit</a></td>\
@@ -457,9 +454,14 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.dataKeys.forEach(function (className) {
       $row.find('.' + className).text(data[className]);
     });
+
+    $row.find('.service').append(' &rarr; ' + $row.find('.deployment').text());
+    $row.find('.deployment').remove();
+
     $row.find('.sourceIcon')
       .text(data.cloneType === 'START_STOP' ? 'M' : 'I')
       .attr('title', data.cloneType === 'START_STOP' ? 'Machine' : 'Image');
+
     $row.find(this.selectors.rmImageLink).data('imageId', id);
     $row.find(this.selectors.editImageLink).data('imageId', id);
     this.$imagesTable.append($row);

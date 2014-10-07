@@ -63,10 +63,10 @@
         <td>
             <div>
                 <select class="inline-block longField" name="_${cons.imageName}" id="${cons.imageName}" data-err-id="${cons.imageName}"></select>
-          <span id="${cons.osType}" class="provision hidden">
-            <bs:osIcon osName="windows" small="true"/>
-            <bs:osIcon osName="linux" small="true"/>
-          </span>
+                <span id="${cons.osType}">
+                    <bs:osIcon osName="windows" small="true"/>
+                    <bs:osIcon osName="linux" small="true"/>
+                </span>
             </div>
             <span class="smallNote">Image or Machine. Greyed machines are already added</span>
             <span class="error option-error option-error_${cons.imageName}"></span>
@@ -160,12 +160,11 @@
         <table id="azureImagesTable" class="settings imagesTable hidden">
             <tbody>
             <tr>
-                <th class="name">Image/Machine</th>
-                <th class="name hidden">Service</th>
-                <th class="name hidden">Deployment</th>
-                <th class="name">Name prefix</th>
+                <th class="name">Image or Machine</th>
+                <th class="name">Service &rarr; Deployment</th>
+                <th class="name hidden">Name prefix</th>
                 <th class="name hidden">Start behaviour</th>
-                <th class="name">Max # of instances</th>
+                <th class="name maxInstancesCount">Max # of instances</th>
                 <th class="name" colspan="2"></th>
             </tr>
             </tbody>

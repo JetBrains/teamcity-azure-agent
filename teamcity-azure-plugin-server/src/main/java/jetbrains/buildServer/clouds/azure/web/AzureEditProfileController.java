@@ -119,6 +119,8 @@ public class AzureEditProfileController extends BaseFormXmlController {
 
 
     } catch (Exception e) {
+      errors.addError("Error fetching details", e.toString());
+      writeErrors(xmlResponse, errors);
       LOG.warn("An error during fetching options: " + e.toString());
       LOG.debug("An error during fetching options", e);
     }

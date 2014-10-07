@@ -3,6 +3,7 @@ package jetbrains.buildServer.clouds.azure;
 import jetbrains.buildServer.clouds.base.beans.AbstractCloudImageDetails;
 import jetbrains.buildServer.clouds.base.types.CloudCloneType;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * @author Sergey.Pak
@@ -22,17 +23,22 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
   private final int myMaxInstancesCount;
   private final CloudCloneType myCloneType;
 
+  @Nullable
   public static AzureCloudImageDetails fromString(@NotNull final String s){
     final String[] split = s.split(";");
-    if (split.length == 4) {
-      return new AzureCloudImageDetails(split[0], split[1], split[2], split[3]);
+    if (split.length != 8 && split.length != 10){
+      return null;
+    }
+    final CloudCloneType cloudCloneType = CloudCloneType.valueOf(split[0]);
+    if (cloudCloneType.isUseOriginal()) {
+      return new AzureCloudImageDetails(cloudCloneType, split[1], split[2], split[3]);
     } else {
       int maxInstancesCount = Integer.parseInt(split[6]);
 
-      if (split.length == 7) {
-        return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5], maxInstancesCount);
+      if (split.length == 8) {
+        return new AzureCloudImageDetails(cloudCloneType, split[1], split[2], split[3], split[4], split[5], maxInstancesCount);
       } else if (split.length == 10) {
-        return new AzureCloudImageDetails(split[0], split[1], split[2], split[3], split[4], split[5], maxInstancesCount, split[7], split[8], split[9]);
+        return new AzureCloudImageDetails(cloudCloneType, split[1], split[2], split[3], split[4], split[5], maxInstancesCount, split[7], split[8], split[9]);
       } else {
         return null;
       }
@@ -40,7 +46,7 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
   }
 
 
-  private AzureCloudImageDetails(final String cloneTypeName,
+  private AzureCloudImageDetails(final CloudCloneType cloneTypeName,
                                  final String serviceName,
                                  final String deploymentName,
                                  final String imageName,
@@ -50,7 +56,7 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
                                  final String osType,
                                  final String username,
                                  final String password){
-    myCloneType = CloudCloneType.valueOf(cloneTypeName);
+    myCloneType = cloneTypeName;
     myImageName = imageName;
     myDeploymentName = deploymentName;
     myServiceName = serviceName;
@@ -61,7 +67,7 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
     myPassword = password;
     myMaxInstancesCount = maxInstancesCount;
   }
-  private AzureCloudImageDetails(final String cloneTypeName,
+  private AzureCloudImageDetails(final CloudCloneType cloneTypeName,
                                  final String serviceName,
                                  final String deploymentName,
                                  final String imageName,
@@ -70,7 +76,7 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
                                  final int maxInstancesCount){
     this (cloneTypeName, serviceName, deploymentName, imageName, vmNamePrefix, vmSize, maxInstancesCount, null, null, null);
   }
-  private AzureCloudImageDetails(final String cloneTypeName,
+  private AzureCloudImageDetails(final CloudCloneType cloneTypeName,
                                  final String serviceName,
                                  final String deploymentName,
                                  final String imageName){

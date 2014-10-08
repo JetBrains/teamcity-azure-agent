@@ -1,5 +1,6 @@
 package jetbrains.buildServer.clouds.azure;
 
+import java.io.File;
 import java.util.*;
 import jetbrains.buildServer.clouds.*;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
@@ -20,12 +21,18 @@ import org.jetbrains.annotations.Nullable;
 public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudImage, AzureCloudClient> {
 
   private final String myHtmlPath;
+  private final File myAzureStorage;
 
   public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
                                  @NotNull final EventDispatcher<BuildServerListener> serverDispatcher,
                                  @NotNull final CloudManagerBase cloudManager,
-                                 @NotNull final PluginDescriptor pluginDescriptor) {
+                                 @NotNull final PluginDescriptor pluginDescriptor,
+                                 @NotNull final ServerPaths serverPaths) {
     super(cloudRegistrar);
+    myAzureStorage = new File(serverPaths.getPluginDataDirectory(), "azureIdx");
+    if (!myAzureStorage.exists()){
+      myAzureStorage.mkdirs();
+    }
     myHtmlPath = pluginDescriptor.getPluginResourcesPath("azure-settings.html");
     serverDispatcher.addListener(new BuildServerAdapter(){
 
@@ -66,7 +73,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
     final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
-    return new AzureCloudClient(params, imageDetailsList, apiConnector);
+    return new AzureCloudClient(params, imageDetailsList, apiConnector, myAzureStorage);
   }
 
   @Override
@@ -74,7 +81,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
     final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
-    return new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector);
+    return new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
   }
 
 
@@ -83,7 +90,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     final String[] split = imageData.split(";X;");
     List<AzureCloudImageDetails> images = new ArrayList<AzureCloudImageDetails>();
     for (String s : split) {
-      final AzureCloudImageDetails e = AzureCloudImageDetails.fromString(s.trim());
+      final AzureCloudImageDetails e = AzureCloudImageDetails.fromString(s.trim(), myAzureStorage);
       if (e != null)
         images.add(e);
     }

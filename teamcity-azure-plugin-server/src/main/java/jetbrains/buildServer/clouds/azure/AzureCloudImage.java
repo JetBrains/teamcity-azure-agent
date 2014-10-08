@@ -5,6 +5,7 @@ import com.microsoft.windowsazure.core.OperationResponse;
 import com.microsoft.windowsazure.core.OperationStatus;
 import com.microsoft.windowsazure.core.OperationStatusResponse;
 import com.microsoft.windowsazure.exception.ServiceException;
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
@@ -15,6 +16,7 @@ import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.connector.*;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
+import jetbrains.buildServer.util.FileUtil;
 import org.jetbrains.annotations.NotNull;
 import org.xml.sax.SAXException;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -29,6 +31,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
   private static final Logger LOG = Logger.getInstance(AzureCloudImage.class.getName());
 
   private final AzureCloudImageDetails myImageDetails;
+  @NotNull private final File myIdxFile;
   private final AzureApiConnector myApiConnector;
   private boolean myGeneralized;
 
@@ -36,6 +39,14 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
                             @NotNull final AzureApiConnector apiConnector) {
     super(imageDetails.getImageName(), imageDetails.getImageName());
     myImageDetails = imageDetails;
+    myIdxFile = imageDetails.getImageIdxFile();
+    if (!myIdxFile.exists()){
+      try {
+        FileUtil.writeFileAndReportErrors(myIdxFile, "1");
+      } catch (IOException e) {
+        LOG.warn(String.format("Unable to write idx file '%s': %s", myIdxFile.getAbsolutePath(), e.toString()));
+      }
+    }
     myApiConnector = apiConnector;
     if (myImageDetails.getCloneType().isUseOriginal()) {
       myGeneralized = false;
@@ -152,8 +163,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
     if (myImageDetails.getCloneType().isUseOriginal()) {
       vmName = myImageDetails.getImageName();
     } else {
-      long time = System.currentTimeMillis();
-      vmName = String.format("%s-%x", myImageDetails.getVmNamePrefix(), time / 1000);
+      vmName = String.format("%s.%d", myImageDetails.getVmNamePrefix(), getNextIdx());
     }
     if (myImageDetails.getCloneType().isUseOriginal()) {
       instance = myInstances.get(myImageDetails.getImageName());
@@ -217,5 +227,16 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
       throw new RuntimeException(e);
     }
     return instance;
+  }
+
+  private int getNextIdx(){
+    try {
+      final int nextIdx = Integer.parseInt(FileUtil.readText(myIdxFile));
+      FileUtil.writeFileAndReportErrors(myIdxFile, String.valueOf(nextIdx+1));
+      return nextIdx;
+    } catch (Exception e) {
+      LOG.warn("Unable to read idx file: " + e.toString());
+      return 0;
+    }
   }
 }

@@ -1,0 +1,5 @@
+<project basedir="." default="setVersion">
+  <target name="setVersion">
+    <replace file="teamcity-plugin.xml" token="@Version@" value="${build.number}" />
+  </target>
+</project>

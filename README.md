@@ -2,7 +2,7 @@
 #### Enables Teamcity cloud integration with Microsoft Azure cloud and allows to automatically create/start/stop/delete virtual machines.
 
 Before you can start using integration, you need to create a Virtual Machine instance (both Windows and Linux instances are supported). Teamcity Build Agent must be installed and
-set to start automatically.
+set to start automatically. Also, you need to manually point the agent to existing TC server with Azure plugin installed to let the buildagent download the plugins.
 
 If you'd like to use _Fresh Clone_ behaviour, you need to create an image from this instance (depending on whether you checked
 "I have run the Windows Azure Linux Agent on the virtual machine"/" I have run Sysprep on the virtual machine" checkbox) the image will be Generalized (checked) or Specialized

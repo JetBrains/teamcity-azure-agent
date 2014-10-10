@@ -4,7 +4,7 @@
 
 BS.Clouds.Azure = BS.Clouds.Azure || {
   data: [],
-  dataKeys: [ 'cloneType', 'service', 'deployment', 'name', 'namePrefix',
+  dataKeys: [ 'cloneType', 'service', 'name', 'namePrefix',
     'vmSize', 'maxInstancesCount', 'os', 'provisionUsername', 'provisionPassword'
   ],
   selectors: {
@@ -23,7 +23,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     this.$imageNameDataElem = $j('#imageName');
     this.$serviceNameDataElem = $j('#serviceName');
-    this.$deploymentNameDataElem = $j('#deployment');
     this.$osTypeDataElem = $j('#osType');
     this.$vmSizeDataElem = $j('#vmSize');
     this.$namePrefixDataElem = $j('#namePrefix');
@@ -100,31 +99,15 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     // toggle clone options and image name label on clone behaviour change
     $j(this.selectors.cloneBehaviourRadio).on('change', this._behaviourChangeHandler.bind(this));
 
-    // filter deployments if service was changed
     this.$serviceNameDataElem.on('change', function (e, data) {
       if (typeof data !== 'undefined') {
         this.$serviceNameDataElem.val(data);
       }
 
-      var service = this.$serviceNameDataElem.val(),
-        $deployments = this.$response.find('Service[name="' + service + '"] Deployment'),
-        deployments = [];
-
-      $deployments.each(function () {
-        deployments.push(this.getAttribute('name'));
-      });
-
-      this._imageData.service = service;
-      this._imageData.deployment = null;
-
-      this.$deploymentNameDataElem.prop('disabled', false).val('').find('option').each(function () {
-        $j(this).prop('disabled', deployments.indexOf(this.getAttribute('value')) === -1);
-      });
-
+      this._imageData.service = this.$serviceNameDataElem.val();
     }.bind(this));
 
-    this.$deploymentNameDataElem
-      .add(this.$namePrefixDataElem)
+    this.$namePrefixDataElem
       .add(this.$vmSizeDataElem)
       .add(this.$usernameDataElem)
       .add(this.$passwordDataElem)
@@ -201,10 +184,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
             {
               selector: 'Services:eq(0) Service',
               $target: this.$serviceNameDataElem
-            },
-            {
-              selector: 'Service Deployment',
-              $target: this.$deploymentNameDataElem
             },
             {
               selector: 'VmSizes:eq(0) VmSize',
@@ -312,7 +291,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', false).prop('checked', true);
 
         this.$serviceNameDataElem.prop('disabled', false).children().prop('disabled', false);
-        this.$deploymentNameDataElem.prop('disabled', true).children().prop('disabled', false);
       } else if (type === 'instance') {
         this._imageData.cloneType = 'START_STOP';
         $j('#cloneBehaviour_START_STOP').prop('disabled', false).prop('checked', true);
@@ -321,11 +299,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         this.$serviceNameDataElem.prop('disabled', true)
           .find('option[value=' + this._imageData.service + ']').prop('disabled', false).attr('selected', true).end()
           .find('option[value!=' + this._imageData.service + ']').prop('disabled', true);
-
-        this._imageData.deployment = $image.parents('Deployment').attr('name');
-        this.$deploymentNameDataElem.prop('disabled', true)
-          .find('option[value=' + this._imageData.deployment + ']').prop('disabled', false).attr('selected', true).end()
-          .find('option[value!=' + this._imageData.deployment + ']').prop('disabled', true);
       }
     }
 
@@ -440,7 +413,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   _imagesTableRowTemplate: $j('<tr class="imagesTableRow">\
 <td class="imageName"><div class="sourceIcon"></div><span class="name"></span></td>\
 <td class="service"></td>\
-<td class="deployment"></td>\
 <td class="namePrefix hidden"></td>\
 <td class="cloneType hidden"></td>\
 <td class="maxInstancesCount"></td>\
@@ -454,8 +426,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       $row.find('.' + className).text(data[className]);
     });
 
-    $row.find('.service').append(' &rarr; ' + $row.find('.deployment').text());
-    $row.find('.deployment').remove();
+    $row.find('.service');
 
     $row.find('.sourceIcon')
       .text(data.cloneType === 'START_STOP' ? 'M' : 'I')
@@ -508,7 +479,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     this.$imageNameDataElem.trigger('change', image.name || '');
     this.$serviceNameDataElem.trigger('change', image.service || '');
-    this.$deploymentNameDataElem.trigger('change', image.deployment || '');
     this.$osTypeDataElem.trigger('change', image.os || '');
     this.$vmSizeDataElem.trigger('change', image.vmSize || '');
     this.$namePrefixDataElem.trigger('change', image.namePrefix || '');

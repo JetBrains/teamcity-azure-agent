@@ -102,15 +102,6 @@
           </td>
         </tr>
         <tr class="clone hidden">
-          <th>Deployment: <l:star/></th>
-          <td>
-            <div>
-              <select name="_${cons.deploymentName}" id="${cons.deploymentName}" data-err-id="${cons.deploymentName}" class="longField"></select>
-            </div>
-            <span class="error option-error option-error_${cons.deploymentName}"></span>
-          </td>
-        </tr>
-        <tr class="clone hidden">
             <th>Max # of instances: <l:star/></th>
             <td>
                 <div>
@@ -163,7 +154,7 @@
             <tbody>
             <tr>
                 <th class="name">Image or Machine</th>
-                <th class="name">Service &rarr; Deployment</th>
+                <th class="name">Service</th>
                 <th class="name hidden">Name prefix</th>
                 <th class="name hidden">Start behaviour</th>
                 <th class="name maxInstancesCount">Max # of instances</th>

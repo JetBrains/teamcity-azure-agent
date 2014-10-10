@@ -23,15 +23,14 @@ public class ProvisionActionsQueue{
   private static final Map<String, AtomicReference<String>> requestsQueue = new HashMap<String, AtomicReference<String>>();
   public static final Pattern CONFLICT_ERROR_PATTERN = Pattern.compile("Windows Azure is currently performing an operation with x-ms-requestid ([0-9a-f]{32}) on this deployment that requires exclusive access.");
 
-  public static boolean isLocked(@NotNull final String serviceName, @NotNull final String deploymentName){
-    final String key = deploymentName + "@" + serviceName;
+  public static boolean isLocked(@NotNull final String serviceName){
+    final String key = serviceName;
     return requestsQueue.get(key) == null || requestsQueue.get(key).get() == null;
   }
 
-  public static synchronized void queueAction(@NotNull final String serviceName, @NotNull final String deploymentName, @NotNull final InstanceAction action){
-    final String key = deploymentName + "@" + serviceName;
-    if (!requestsQueue.containsKey(key)){
-      requestsQueue.put(key, new AtomicReference<String>(null));
+  public static synchronized void queueAction(@NotNull final String serviceName, @NotNull final InstanceAction action){
+    if (!requestsQueue.containsKey(serviceName)){
+      requestsQueue.put(serviceName, new AtomicReference<String>(null));
     }
     ConditionalRunner.addConditional(new ConditionalRunner.Conditional() {
       @NotNull
@@ -40,15 +39,15 @@ public class ProvisionActionsQueue{
       }
 
       public boolean canExecute(){
-        return requestsQueue.get(key).get() == null;
+        return requestsQueue.get(serviceName).get() == null;
       }
 
       public boolean execute() throws Exception {
         try {
 
           final String actionId = action.action();
-          ConditionalRunner.addConditional(createFromActionId(action, actionId, key));
-          requestsQueue.get(key).set(actionId);
+          ConditionalRunner.addConditional(createFromActionId(action, actionId, serviceName));
+          requestsQueue.get(serviceName).set(actionId);
           return true;
         } catch (ServiceException ex){
           LOG.warn(ex.toString(), ex);
@@ -56,7 +55,7 @@ public class ProvisionActionsQueue{
             throw ex;
           final Matcher matcher = CONFLICT_ERROR_PATTERN.matcher(ex.getErrorMessage());
           if (matcher.matches()){
-            requestsQueue.get(key).set(matcher.group(1));
+            requestsQueue.get(serviceName).set(matcher.group(1));
             return false;
           } else {
             throw ex;

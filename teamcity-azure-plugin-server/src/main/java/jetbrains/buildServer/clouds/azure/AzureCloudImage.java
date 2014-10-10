@@ -9,8 +9,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
-import javax.xml.parsers.ParserConfigurationException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.connector.*;
@@ -18,7 +16,6 @@ import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.FileUtil;
 import org.jetbrains.annotations.NotNull;
-import org.xml.sax.SAXException;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
@@ -71,7 +68,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
       return myInstances.get(myImageDetails.getImageName()).getStatus() == InstanceStatus.STOPPED;
     } else {
       return myInstances.size() < myImageDetails.getMaxInstancesCount()
-             && ProvisionActionsQueue.isLocked(myImageDetails.getServiceName(), myImageDetails.getDeploymentName());
+             && ProvisionActionsQueue.isLocked(myImageDetails.getServiceName());
     }
   }
 
@@ -79,7 +76,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
   public void terminateInstance(@NotNull final AzureCloudInstance instance) {
     try {
       instance.setStatus(InstanceStatus.STOPPING);
-      ProvisionActionsQueue.queueAction(myImageDetails.getServiceName(), myImageDetails.getDeploymentName(), new ProvisionActionsQueue.InstanceAction() {
+      ProvisionActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
         private String myRequestId;
 
         @NotNull
@@ -129,7 +126,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
   }
 
   private void deleteInstance(@NotNull final AzureCloudInstance instance){
-    ProvisionActionsQueue.queueAction(myImageDetails.getServiceName(), myImageDetails.getDeploymentName(), new ProvisionActionsQueue.InstanceAction() {
+    ProvisionActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
       private String myRequestId;
 
       @NotNull
@@ -139,7 +136,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
 
       @NotNull
       public String action() throws ServiceException, IOException {
-        final OperationResponse operationResponse = myApiConnector.deleteVM(instance);
+        final OperationResponse operationResponse = myApiConnector.deleteVmOrDeployment(instance);
         myRequestId = operationResponse.getRequestId();
         return myRequestId;
       }
@@ -163,7 +160,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
     if (myImageDetails.getCloneType().isUseOriginal()) {
       vmName = myImageDetails.getImageName();
     } else {
-      vmName = String.format("%s.%d", myImageDetails.getVmNamePrefix(), getNextIdx());
+      vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix(), getNextIdx());
     }
     if (myImageDetails.getCloneType().isUseOriginal()) {
       instance = myInstances.get(myImageDetails.getImageName());
@@ -175,7 +172,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
     instance.refreshStartDate();
     try {
       ProvisionActionsQueue.queueAction(
-        myImageDetails.getServiceName(), myImageDetails.getDeploymentName(), new ProvisionActionsQueue.InstanceAction() {
+        myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
           private String operationId = null;
 
           @NotNull
@@ -192,7 +189,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
               if (myInstances.size() >= myImageDetails.getMaxInstancesCount()){
                 throw new ServiceException("Unable to start more instances. Limit reached");
               }
-              response = myApiConnector.createAndStartVM(AzureCloudImage.this, vmName, tag, myGeneralized);
+              response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
             }
             instance.setStatus(InstanceStatus.STARTING);
             operationId = response.getRequestId();

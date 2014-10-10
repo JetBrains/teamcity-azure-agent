@@ -39,6 +39,7 @@ import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.xml.sax.SAXException;
 
 /**
@@ -107,16 +108,20 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     try {
       final AzureCloudImageDetails imageDetails = image.getImageDetails();
       final Map<String, AzureInstance> retval = new HashMap<String, AzureInstance>();
-      final DeploymentOperations deployOps = myClient.getDeploymentsOperations();
-      final DeploymentGetResponse deploymentResponse = deployOps.getByName(imageDetails.getServiceName(), imageDetails.getDeploymentName());
-      for (final RoleInstance instance : deploymentResponse.getRoleInstances()) {
-        if (imageDetails.getCloneType().isUseOriginal()) {
-          if (instance.getInstanceName().equals(imageDetails.getImageName())) {
-            return Collections.singletonMap(imageDetails.getImageName(), new AzureInstance(instance));
-          }
-        } else {
-          if (instance.getInstanceName().startsWith(imageDetails.getVmNamePrefix())) {
-            retval.put(instance.getInstanceName(), new AzureInstance(instance));
+      final HostedServiceGetDetailedResponse serviceDetailed = myClient.getHostedServicesOperations().getDetailed(imageDetails.getServiceName());
+      final ArrayList<HostedServiceGetDetailedResponse.Deployment> deployments = serviceDetailed.getDeployments();
+
+      // there can be one or 0 deployments
+      for (final HostedServiceGetDetailedResponse.Deployment deployment : deployments) {
+        for (final RoleInstance instance : deployment.getRoleInstances()) {
+          if (imageDetails.getCloneType().isUseOriginal()) {
+            if (instance.getInstanceName().equals(imageDetails.getImageName())) {
+              return Collections.singletonMap(imageDetails.getImageName(), new AzureInstance(instance));
+            }
+          } else {
+            if (instance.getInstanceName().startsWith(imageDetails.getVmNamePrefix())) {
+              retval.put(instance.getInstanceName(), new AzureInstance(instance));
+            }
           }
         }
       }
@@ -155,20 +160,16 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }};
   }
 
-  public Map<String, List<Pair<String, String>>> listServiceDeployments(@NotNull final String serviceName)
-    throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
-    final HostedServiceOperations servicesOps = myClient.getHostedServicesOperations();
-    final HostedServiceGetDetailedResponse serviceDetails = servicesOps.getDetailed(serviceName);
-    final Map<String, List<Pair<String, String>>> retval = new HashMap<String, List<Pair<String, String>>>();
-    for (HostedServiceGetDetailedResponse.Deployment deployment : serviceDetails.getDeployments()) {
-      final ArrayList<Pair<String, String>> instancesList = new ArrayList<Pair<String, String>>();
-      retval.put(deployment.getName(), instancesList);
+  public Map<String, String> listServiceInstances(@NotNull final String serviceName) throws IOException, ServiceException {
+    final Map<String, String> retval = new HashMap<String, String>();
+    final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(serviceName);
+    if (serviceDeployment != null) {
       Map<String, String> roleOsNames = new HashMap<String, String>();
-      for (Role role : deployment.getRoles()) {
+      for (Role role : serviceDeployment.getRoles()) {
         roleOsNames.put(role.getRoleName(), role.getOSVirtualHardDisk().getOperatingSystem());
       }
-      for (RoleInstance instance : deployment.getRoleInstances()) {
-        instancesList.add(Pair.create(instance.getInstanceName(), roleOsNames.get(instance.getRoleName())));
+      for (RoleInstance instance : serviceDeployment.getRoleInstances()) {
+        retval.put(instance.getInstanceName(), roleOsNames.get(instance.getRoleName()));
       }
     }
     return retval;
@@ -188,33 +189,38 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     throws ServiceException, IOException {
     final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final VirtualMachineOperations vmOps = myClient.getVirtualMachinesOperations();
-    return vmOps.beginStarting(imageDetails.getServiceName(), imageDetails.getDeploymentName(), imageDetails.getImageName());
+    final String serviceName = imageDetails.getServiceName();
+    final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(serviceName);
+    if (serviceDeployment != null)
+      return vmOps.beginStarting(serviceName, serviceDeployment.getName(), imageDetails.getImageName());
+    else
+      throw new ServiceException(String.format("Unable to find deployment for service name '%s' and instance '%s'", serviceName, image.getName()));
   }
 
-  public OperationResponse createAndStartVM(@NotNull final AzureCloudImage image,
-                                            @NotNull final String vmName,
-                                            @NotNull final CloudInstanceUserData tag,
-                                            final boolean generalized)
+  public OperationResponse createVmOrDeployment(@NotNull final AzureCloudImage image,
+                                                @NotNull final String vmName,
+                                                @NotNull final CloudInstanceUserData tag,
+                                                final boolean generalized)
     throws ServiceException, IOException {
     final AzureCloudImageDetails imageDetails = image.getImageDetails();
-    final HostedServiceOperations servicesOperations = myClient.getHostedServicesOperations();
-    final HostedServiceGetDetailedResponse service;
-    try {
-      service = servicesOperations.getDetailed(imageDetails.getServiceName());
-    } catch (ParserConfigurationException e) {
-      throw new ServiceException(e);
-    } catch (SAXException e) {
-      throw new IOException(e);
-    } catch (URISyntaxException e) {
-      throw new IOException(e);
+    final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
+    if (serviceDeployment == null) {
+      return createVmDeployment(imageDetails, generalized, vmName, tag);
+    } else  {
+      return createVM(imageDetails, generalized, vmName, tag, serviceDeployment);
     }
+  }
+
+  private OperationResponse createVM(final AzureCloudImageDetails imageDetails,
+                                     final boolean generalized,
+                                     final String vmName,
+                                     final CloudInstanceUserData tag,
+                                     final HostedServiceGetDetailedResponse.Deployment deployment) throws ServiceException, IOException {
     int portNumber = MIN_PORT_NUMBER;
-    for (HostedServiceGetDetailedResponse.Deployment deployment : service.getDeployments()) {
-      for (RoleInstance instance : deployment.getRoleInstances()) {
-        for (InstanceEndpoint endpoint : instance.getInstanceEndpoints()) {
-          if (AzurePropertiesNames.ENDPOINT_NAME.equals(endpoint.getName()) && endpoint.getPort() >= portNumber) {
-            portNumber = endpoint.getPort() + 1;
-          }
+    for (RoleInstance instance : deployment.getRoleInstances()) {
+      for (InstanceEndpoint endpoint : instance.getInstanceEndpoints()) {
+        if (AzurePropertiesNames.ENDPOINT_NAME.equals(endpoint.getName()) && endpoint.getPort() >= portNumber) {
+          portNumber = endpoint.getPort() + 1;
         }
       }
     }
@@ -224,9 +230,57 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     parameters.setRoleSize(imageDetails.getVmSize());
     parameters.setProvisionGuestAgent(Boolean.TRUE);
     parameters.setRoleName(vmName);
-    parameters.setVMImageName(image.getName());
-    final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(portNumber, tag.getServerAddress());
+    parameters.setVMImageName(imageDetails.getImageName());
+    final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(imageDetails, generalized, vmName, tag, portNumber);
     parameters.setConfigurationSets(configurationSetList);
+
+    try {
+      return vmOperations.beginCreating(imageDetails.getServiceName(), deployment.getName(), parameters);
+    } catch (ParserConfigurationException e) {
+      throw new ServiceException(e);
+    } catch (SAXException e) {
+      throw new IOException(e);
+    } catch (TransformerException e) {
+      throw new IOException(e);
+    }  }
+
+  private OperationResponse createVmDeployment(final AzureCloudImageDetails imageDetails,
+                                                  final boolean generalized,
+                                                  final String vmName,
+                                                  final CloudInstanceUserData tag) throws IOException, ServiceException {
+    final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
+    final VirtualMachineCreateDeploymentParameters vmDeployParams = new VirtualMachineCreateDeploymentParameters();
+    final Role role = new Role();
+    role.setVMImageName(imageDetails.getImageName());
+    role.setRoleType(VirtualMachineRoleType.PersistentVMRole.name());
+    role.setRoleName(vmName);
+    role.setProvisionGuestAgent(true);
+    role.setRoleSize(imageDetails.getVmSize());
+    role.setLabel(imageDetails.getImageName());
+    role.setConfigurationSets(createConfigurationSetList(imageDetails, generalized, vmName, tag, MIN_PORT_NUMBER));
+    final ArrayList<Role> roleAsList = new ArrayList<Role>();
+    roleAsList.add(role);
+    vmDeployParams.setRoles(roleAsList);
+    vmDeployParams.setLabel(imageDetails.getImageName());
+    vmDeployParams.setName("teamcityVms");
+    vmDeployParams.setDeploymentSlot(DeploymentSlot.Production);
+    try {
+      return vmOperations.beginCreatingDeployment(imageDetails.getServiceName(), vmDeployParams);
+    } catch (ParserConfigurationException e) {
+      throw new IOException(e);
+    } catch (SAXException e) {
+      throw new IOException(e);
+    } catch (TransformerException e) {
+      throw new IOException(e);
+    }
+  }
+
+  private ArrayList<ConfigurationSet> createConfigurationSetList(final AzureCloudImageDetails imageDetails,
+                                                                 final boolean generalized,
+                                                                 final String vmName,
+                                                                 final CloudInstanceUserData tag,
+                                                                 final int portNumber) {
+    final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(portNumber, tag.getServerAddress());
     if (generalized) {
       ConfigurationSet provisionConf = new ConfigurationSet();
       configurationSetList.add(provisionConf);
@@ -249,16 +303,9 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         provisionConf.setCustomData(Base64.encode(serializedUserData.getBytes()));
       }
     }
-    try {
-      return vmOperations.beginCreating(imageDetails.getServiceName(), imageDetails.getDeploymentName(), parameters);
-    } catch (ParserConfigurationException e) {
-      throw new ServiceException(e);
-    } catch (SAXException e) {
-      throw new IOException(e);
-    } catch (TransformerException e) {
-      throw new IOException(e);
-    }
+    return configurationSetList;
   }
+
 
   public OperationResponse stopVM(@NotNull final AzureCloudInstance instance)
     throws ServiceException, IOException{
@@ -267,22 +314,90 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final VirtualMachineShutdownParameters shutdownParams = new VirtualMachineShutdownParameters();
     shutdownParams.setPostShutdownAction(PostShutdownAction.StoppedDeallocated);
     try {
-      return vmOperations.beginShutdown(imageDetails.getServiceName(), imageDetails.getDeploymentName(), instance.getName(), shutdownParams);
+      final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
+      if (serviceDeployment != null) {
+        return vmOperations.beginShutdown(imageDetails.getServiceName(), serviceDeployment.getName(), instance.getName(), shutdownParams);
+      } else {
+        throw new ServiceException(String.format("Unable to find deployment for service '%s' and instance '%s'",
+                                                 imageDetails.getServiceName(), instance.getName()));
+      }
     } catch (Exception e) {
       throw new ServiceException(e);
     }
   }
 
-  public OperationResponse deleteVM(@NotNull final AzureCloudInstance instance) throws IOException, ServiceException {
-    final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
+  public OperationResponse deleteVmOrDeployment(@NotNull final AzureCloudInstance instance) throws IOException, ServiceException {
+    final HostedServiceOperations serviceOps = myClient.getHostedServicesOperations();
     final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
-    return vmOperations.beginDeleting(imageDetails.getServiceName(), imageDetails.getDeploymentName(), instance.getName(), true);
+    try {
+      final String serviceName = imageDetails.getServiceName();
+      final ArrayList<HostedServiceGetDetailedResponse.Deployment> deployments = serviceOps.getDetailed(serviceName).getDeployments();
+      if (deployments.size() == 1){
+        final HostedServiceGetDetailedResponse.Deployment deployment = deployments.get(0);
+        if (deployment.getRoleInstances().size() == 1){
+          return deleteVmDeployment(serviceName, deployment.getName());
+        } else {
+          return deleteVM(serviceName, deployment.getName(), instance.getName());
+        }
+      } else {
+        String msg = String.format("Invalid # of deployments (%d) while trying to delete instance '%s'", deployments.size(), instance.getName());
+        throw new ServiceException(msg);
+      }
+    } catch (ParserConfigurationException e) {
+      throw new IOException(e);
+    } catch (SAXException e) {
+      throw new IOException(e);
+    } catch (URISyntaxException e) {
+      throw new IOException(e);
+    }
+  }
+
+  private OperationResponse deleteVM(final String serviceName, final String deploymentName, final String instanceName) throws IOException, ServiceException {
+    final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
+    return vmOperations.beginDeleting(serviceName, deploymentName, instanceName, true);
+  }
+
+  private OperationResponse deleteVmDeployment(final String serviceName, final String deploymentName) throws IOException, ServiceException {
+    final DeploymentOperations deployOps = myClient.getDeploymentsOperations();
+    return deployOps.beginDeletingByName(serviceName, deploymentName, true);
   }
 
   public OperationStatusResponse getOperationStatus(@NotNull final String operationId) throws ServiceException, ParserConfigurationException, SAXException, IOException {
     return myClient.getOperationStatus(operationId);
   }
 
+  @Nullable
+  private HostedServiceGetDetailedResponse.Deployment getServiceDeployment(String serviceName)
+    throws IOException, ServiceException {
+    final HostedServiceOperations serviceOps = myClient.getHostedServicesOperations();
+    try {
+      final HostedServiceGetDetailedResponse detailed = serviceOps.getDetailed(serviceName);
+      final ArrayList<HostedServiceGetDetailedResponse.Deployment> deployments = detailed.getDeployments();
+      if (deployments.size() == 0){
+        return null;
+      } else if (deployments.size() == 1){
+        final HostedServiceGetDetailedResponse.Deployment deployment = deployments.get(0);
+        final ArrayList<Role> roles = deployment.getRoles();
+        if (roles.size() == 0){
+          return deployment;
+        }
+        final Role role = roles.get(0);
+        if (VirtualMachineRoleType.PersistentVMRole.name().equals(role.getRoleType()))
+          return deployment;
+        else
+          throw new ServiceException("Service is not suitable for VM deployment");
+      } else {
+        throw new ServiceException(String.format("Wrong # of deployments (%d) for service '%s'", deployments.size(), serviceName));
+      }
+    } catch (ParserConfigurationException e) {
+      throw new IOException(e);
+    } catch (SAXException e) {
+      throw new IOException(e);
+    } catch (URISyntaxException e) {
+      throw new IOException(e);
+    }
+
+  }
 
   public boolean isImageGeneralized(@NotNull final String imageName) {
     final VirtualMachineVMImageOperations vmImagesOperations = myClient.getVirtualMachineVMImagesOperations();

@@ -26,7 +26,9 @@
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.web.AzureWebConstants"/>
 <jsp:useBean id="refreshablePath" class="java.lang.String" scope="request"/>
 
-<bs:linkCSS>${resPath}azure-settings.css</bs:linkCSS>
+<script type="text/javascript">
+    BS.LoadStyleSheetDynamically("<c:url value='${resPath}azure-settings.css'/>");
+</script>
 
 <c:set var="azureLink"><a href="#" target="_blank">**put related link here**</a></c:set>
 <table class="runnerFormTable">

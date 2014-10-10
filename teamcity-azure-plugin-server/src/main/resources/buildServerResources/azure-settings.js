@@ -53,7 +53,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this._initData();
     this._showImageOsType();
     this.renderImagesTable();
-    console.log(this.data);
   },
   _bindHandlers: function () {
     var self = this;
@@ -500,7 +499,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   resetDataAndDialog: function () {
     this._imageData = {};
 
-    this._triggerDialogChange();
+    if (this.$response) {
+      this._triggerDialogChange();
+    }
   },
   _triggerDialogChange: function () {
     var image = this._imageData;

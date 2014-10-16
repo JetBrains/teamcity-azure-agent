@@ -22,4 +22,5 @@ after it becomes unnecessary (a defined timeout elapsed). Depending on the image
 - **Start/Stop** - works with currently existing Virtual Machine Instances. TC starts the instance before the build and stops after a build or idle timeout
 (depending on profile settings). Machine state is saved. When TC Server url changes, you need to change the serverUrl parameter in buildAgent.properties to point to the new server
 
+###License: Apache 2.0
 

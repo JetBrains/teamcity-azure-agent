@@ -1,4 +1,4 @@
-## Teamcity azure cloud plugin
+### Teamcity azure cloud plugin
 #### Enables Teamcity cloud integration with Microsoft Azure cloud and allows to automatically create/start/stop/delete virtual machines.
 
 Before you can start using integration, you need to create a Virtual Machine instance (both Windows and Linux instances are supported). Teamcity Build Agent must be installed and
@@ -22,5 +22,14 @@ after it becomes unnecessary (a defined timeout elapsed). Depending on the image
 - **Start/Stop** - works with currently existing Virtual Machine Instances. TC starts the instance before the build and stops after a build or idle timeout
 (depending on profile settings). Machine state is saved. When TC Server url changes, you need to change the serverUrl parameter in buildAgent.properties to point to the new server
 
-###License: Apache 2.0
+#####License
+Apache 2.0
 
+##### Compatibility
+Teamcity 8.1.x and Teamcity 9.0
+
+##### Builds
+https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_Build
+
+##### Issue tracker
+https://youtrack.jetbrains.com/issues/TW

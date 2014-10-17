@@ -95,7 +95,8 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       createKeyStorePKCS12(managementCertificate, fOut, base64pw);
       initClient(tempFile, base64pw);
     } catch (Exception e) {
-      e.printStackTrace();
+      LOG.warn("An exception while trying to create an API connector", e);
+      throw new RuntimeException(e);
     }
 
   }

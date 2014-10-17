@@ -42,14 +42,11 @@ public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, Az
   private static final Logger LOG = Logger.getInstance(AzureCloudClient.class.getName());
 
   private boolean myInitialized = false;
-  private final File myAzureStorage;
 
   public AzureCloudClient(@NotNull final CloudClientParameters params,
                           @NotNull final Collection<AzureCloudImageDetails> images,
-                          @NotNull final AzureApiConnector apiConnector,
-                          @NotNull final File azureStorage) {
+                          @NotNull final AzureApiConnector apiConnector) {
     super(params, images, apiConnector);
-    myAzureStorage = azureStorage;
     myAsyncTaskExecutor.scheduleWithFixedDelay(new ConditionalRunner(), 0, 5, TimeUnit.SECONDS);
     myAsyncTaskExecutor.scheduleWithFixedDelay(ProvisionActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
     myInitialized = true;

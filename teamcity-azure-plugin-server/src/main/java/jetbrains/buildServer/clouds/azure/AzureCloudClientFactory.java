@@ -91,7 +91,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
     final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
-    return new AzureCloudClient(params, imageDetailsList, apiConnector, myAzureStorage);
+    return new AzureCloudClient(params, imageDetailsList, apiConnector);
   }
 
   @Override
@@ -99,7 +99,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
     final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
-    return new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
+    return new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector);
   }
 
 

@@ -244,7 +244,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     action = action ? 'Edit' : 'Add';
     $j('#AzureDialogTitle').text(action + ' Image');
 
-    this.$dialogSubmitButton.val(action).data('imageId', imageId);
+    this.$dialogSubmitButton.val(action === 'Edit' ? 'Save' : action) .data('imageId', imageId);
 
     var usedMachines = Object.keys(this.data).reduce(function (acc, key) {
       if (this.data[key].cloneType === 'START_STOP' && this._imageData.name !== this.data[key].name) {

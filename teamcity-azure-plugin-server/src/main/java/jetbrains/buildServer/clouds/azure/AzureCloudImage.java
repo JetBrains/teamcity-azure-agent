@@ -36,6 +36,7 @@ import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.errors.CloudErrorMap;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.FileUtil;
+import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
@@ -70,6 +71,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
       myGeneralized = false;
     } else {
       myGeneralized = apiConnector.isImageGeneralized(imageDetails.getSourceName());
+    }
+    if (myGeneralized){
+      if (StringUtil.isEmpty(imageDetails.getUsername()) || StringUtil.isEmpty(imageDetails.getPassword())){
+        throw new TeamCityRuntimeException("No credentials supplied for VM creation");
+      }
     }
     final Map<String, AzureInstance> instances = apiConnector.listImageInstances(this);
     for (AzureInstance azureInstance : instances.values()) {

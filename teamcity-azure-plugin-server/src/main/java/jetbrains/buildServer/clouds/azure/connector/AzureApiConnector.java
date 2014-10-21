@@ -49,6 +49,7 @@ import jetbrains.buildServer.clouds.azure.AzureCloudInstance;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
+import org.apache.commons.lang.math.NumberUtils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -63,6 +64,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
   private static final int MIN_PORT_NUMBER = 9092;
+  private static final int MAX_PORT_NUMBER = 9999;
   private static final URI MANAGEMENT_URI = URI.create("https://management.core.windows.net");
   private final KeyStoreType myKeyStoreType;
   private final String mySubscriptionId;
@@ -229,12 +231,21 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
                                      final String vmName,
                                      final CloudInstanceUserData tag,
                                      final HostedServiceGetDetailedResponse.Deployment deployment) throws ServiceException, IOException {
-    int portNumber = MIN_PORT_NUMBER;
+    BitSet busyPorts = new BitSet();
+    busyPorts.set(MIN_PORT_NUMBER, MAX_PORT_NUMBER);
     for (RoleInstance instance : deployment.getRoleInstances()) {
       for (InstanceEndpoint endpoint : instance.getInstanceEndpoints()) {
-        if (AzurePropertiesNames.ENDPOINT_NAME.equals(endpoint.getName()) && endpoint.getPort() >= portNumber) {
-          portNumber = endpoint.getPort() + 1;
+        final int port = endpoint.getPort();
+        if (port >= MIN_PORT_NUMBER && port <=MAX_PORT_NUMBER){
+          busyPorts.set(port, false);
         }
+      }
+    }
+    int portNumber = MIN_PORT_NUMBER;
+    for (int i = MIN_PORT_NUMBER; i <= MAX_PORT_NUMBER; i++) {
+      if (busyPorts.get(i)){
+        portNumber = i;
+        break;
       }
     }
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();

@@ -32,7 +32,7 @@
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}azure-settings.css'/>");
 </script>
 
-<c:set var="azureLink"><a href="#" target="_blank">**put related link here**</a></c:set>
+<c:set var="azureLink"><a href="#" target="_blank">https://manage.windowsazure.com/publishsettings</a></c:set>
 <table class="runnerFormTable">
   <tr>
     <th><label for="${cons.managementCertificate}">Management certificate: <l:star/></label></th>

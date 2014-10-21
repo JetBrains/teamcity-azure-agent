@@ -20,8 +20,12 @@ package jetbrains.buildServer.clouds.azure;
 
 import com.google.gson.annotations.SerializedName;
 import java.io.File;
+import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.base.beans.AbstractCloudImageDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
+import jetbrains.buildServer.util.StringUtil;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * @author Sergey.Pak
@@ -52,15 +56,15 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
   private transient File myImageIdxFile;
 
 
-  public AzureCloudImageDetails(final CloneBehaviour cloneTypeName,
-                                final String serviceName,
-                                final String sourceName,
-                                final String vmNamePrefix,
-                                final String vmSize,
+  public AzureCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
+                                @Nullable final String serviceName,
+                                @NotNull final String sourceName,
+                                @Nullable final String vmNamePrefix,
+                                @Nullable final String vmSize,
                                 final int maxInstances,
-                                final String osType,
-                                final String username,
-                                final String password){
+                                @Nullable final String osType,
+                                @Nullable final String username,
+                                @Nullable final String password){
     myBehaviour = cloneTypeName;
     mySourceName = sourceName;
     myServiceName = serviceName;
@@ -70,7 +74,7 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
     myUsername = username;
     myPassword = password;
     myMaxInstances = maxInstances;
-
+    validateParams();
   }
   public String getSourceName() {
     return mySourceName;
@@ -117,5 +121,21 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
 
   public void setImageIdxFile(final File imageIdxFile) {
     myImageIdxFile = imageIdxFile;
+  }
+
+  private void validateParams(){
+    if (!myBehaviour.isUseOriginal()){
+      check(StringUtil.isNotEmpty(myServiceName), "Service name is required");
+      check(StringUtil.isNotEmpty(myVmNamePrefix), "Name prefix is required");
+      check(StringUtil.isNotEmpty(myVmSize), "VM Size is required");
+      check(StringUtil.isNotEmpty(myOsType), "Unable to determine OS Type");
+      check(myMaxInstances>0, "Max instances is less than 1, not VMs of this Image will be started");
+    }
+  }
+
+  private void check(boolean expression, String errorMessage){
+    if (!expression){
+      throw new TeamCityRuntimeException(errorMessage);
+    }
   }
 }

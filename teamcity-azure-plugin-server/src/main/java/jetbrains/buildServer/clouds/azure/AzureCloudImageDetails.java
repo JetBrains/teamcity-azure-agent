@@ -18,13 +18,10 @@
 
 package jetbrains.buildServer.clouds.azure;
 
-import com.google.gson.Gson;
 import com.google.gson.annotations.SerializedName;
 import java.io.File;
 import jetbrains.buildServer.clouds.base.beans.AbstractCloudImageDetails;
-import jetbrains.buildServer.clouds.base.types.CloudCloneBehaviour;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
 
 /**
  * @author Sergey.Pak
@@ -50,12 +47,12 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
   @SerializedName("maxInstances")
   private final int myMaxInstances;
   @SerializedName("behaviour")
-  private final CloudCloneBehaviour myBehaviour;
+  private final CloneBehaviour myBehaviour;
 
   private transient File myImageIdxFile;
 
 
-  public AzureCloudImageDetails(final CloudCloneBehaviour cloneTypeName,
+  public AzureCloudImageDetails(final CloneBehaviour cloneTypeName,
                                 final String serviceName,
                                 final String sourceName,
                                 final String vmNamePrefix,
@@ -110,7 +107,7 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
     return myMaxInstances;
   }
 
-  public CloudCloneBehaviour getBehaviour() {
+  public CloneBehaviour getBehaviour() {
     return myBehaviour;
   }
 

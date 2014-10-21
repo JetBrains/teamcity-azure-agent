@@ -25,6 +25,7 @@ import com.microsoft.windowsazure.core.OperationStatusResponse;
 import com.microsoft.windowsazure.exception.ServiceException;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
 import jetbrains.buildServer.TeamCityRuntimeException;
@@ -32,6 +33,7 @@ import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.connector.*;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
+import jetbrains.buildServer.clouds.base.errors.CloudErrorMap;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.FileUtil;
 import org.jetbrains.annotations.NotNull;
@@ -204,15 +206,21 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
 
           @NotNull
           public String action() throws ServiceException, IOException {
-            final OperationResponse response;
-            if (myImageDetails.getBehaviour().isUseOriginal()) {
-              response = myApiConnector.startVM(AzureCloudImage.this);
-            } else {
-              response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
+            try {
+              final OperationResponse response;
+              if (myImageDetails.getBehaviour().isUseOriginal()) {
+                response = myApiConnector.startVM(AzureCloudImage.this);
+              } else {
+                response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
+              }
+              instance.setStatus(InstanceStatus.STARTING);
+              operationId = response.getRequestId();
+              return operationId;
+            } catch (ServiceException se){
+              instance.setStatus(InstanceStatus.ERROR);
+              instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(se.getMessage(), se.getMessage())));
+              throw se;
             }
-            instance.setStatus(InstanceStatus.STARTING);
-            operationId = response.getRequestId();
-            return operationId;
           }
 
           @NotNull

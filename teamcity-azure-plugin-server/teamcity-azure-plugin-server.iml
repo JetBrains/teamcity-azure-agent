@@ -32,6 +32,6 @@
     <orderEntry type="library" name="org.bouncycastle:com.springsource.org.bouncycastle.jce:1.46.0" level="project" />
     <orderEntry type="library" name="jsch-0.1.51" level="project" />
     <orderEntry type="library" name="commons-cli-1.2-javadoc" level="project" />
+    <orderEntry type="library" name="com.google.code.gson:gson:2.3" level="project" />
   </component>
 </module>
-

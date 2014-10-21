@@ -39,12 +39,6 @@ import java.security.KeyStore;
 import java.security.Security;
 import java.util.*;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
@@ -133,9 +127,9 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       // there can be one or 0 deployments
       for (final HostedServiceGetDetailedResponse.Deployment deployment : deployments) {
         for (final RoleInstance instance : deployment.getRoleInstances()) {
-          if (imageDetails.getCloneType().isUseOriginal()) {
-            if (instance.getInstanceName().equals(imageDetails.getImageName())) {
-              return Collections.singletonMap(imageDetails.getImageName(), new AzureInstance(instance));
+          if (imageDetails.getBehaviour().isUseOriginal()) {
+            if (instance.getInstanceName().equals(imageDetails.getSourceName())) {
+              return Collections.singletonMap(imageDetails.getSourceName(), new AzureInstance(instance));
             }
           } else {
             if (instance.getInstanceName().startsWith(imageDetails.getVmNamePrefix())) {
@@ -211,7 +205,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final String serviceName = imageDetails.getServiceName();
     final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(serviceName);
     if (serviceDeployment != null)
-      return vmOps.beginStarting(serviceName, serviceDeployment.getName(), imageDetails.getImageName());
+      return vmOps.beginStarting(serviceName, serviceDeployment.getName(), imageDetails.getSourceName());
     else
       throw new ServiceException(String.format("Unable to find deployment for service name '%s' and instance '%s'", serviceName, image.getName()));
   }
@@ -249,7 +243,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     parameters.setRoleSize(imageDetails.getVmSize());
     parameters.setProvisionGuestAgent(Boolean.TRUE);
     parameters.setRoleName(vmName);
-    parameters.setVMImageName(imageDetails.getImageName());
+    parameters.setVMImageName(imageDetails.getSourceName());
     final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(imageDetails, generalized, vmName, tag, portNumber);
     parameters.setConfigurationSets(configurationSetList);
 
@@ -270,17 +264,17 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final VirtualMachineCreateDeploymentParameters vmDeployParams = new VirtualMachineCreateDeploymentParameters();
     final Role role = new Role();
-    role.setVMImageName(imageDetails.getImageName());
+    role.setVMImageName(imageDetails.getSourceName());
     role.setRoleType(VirtualMachineRoleType.PersistentVMRole.name());
     role.setRoleName(vmName);
     role.setProvisionGuestAgent(true);
     role.setRoleSize(imageDetails.getVmSize());
-    role.setLabel(imageDetails.getImageName());
+    role.setLabel(imageDetails.getSourceName());
     role.setConfigurationSets(createConfigurationSetList(imageDetails, generalized, vmName, tag, MIN_PORT_NUMBER));
     final ArrayList<Role> roleAsList = new ArrayList<Role>();
     roleAsList.add(role);
     vmDeployParams.setRoles(roleAsList);
-    vmDeployParams.setLabel(imageDetails.getImageName());
+    vmDeployParams.setLabel(imageDetails.getSourceName());
     vmDeployParams.setName("teamcityVms");
     vmDeployParams.setDeploymentSlot(DeploymentSlot.Production);
     try {

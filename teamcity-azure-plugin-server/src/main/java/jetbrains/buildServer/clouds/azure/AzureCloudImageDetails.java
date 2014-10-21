@@ -18,9 +18,11 @@
 
 package jetbrains.buildServer.clouds.azure;
 
+import com.google.gson.Gson;
+import com.google.gson.annotations.SerializedName;
 import java.io.File;
 import jetbrains.buildServer.clouds.base.beans.AbstractCloudImageDetails;
-import jetbrains.buildServer.clouds.base.types.CloudCloneType;
+import jetbrains.buildServer.clouds.base.types.CloudCloneBehaviour;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -31,80 +33,50 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AzureCloudImageDetails extends AbstractCloudImageDetails {
 
-  private final String myImageName;
+  @SerializedName("sourceName")
+  private final String mySourceName;
+  @SerializedName("serviceName")
   private final String myServiceName;
+  @SerializedName("vmNamePrefix")
   private final String myVmNamePrefix;
+  @SerializedName("osType")
   private final String myOsType;
+  @SerializedName("vmSize")
   private final String myVmSize;
+  @SerializedName("username")
   private final String myUsername;
+  @SerializedName("password")
   private final String myPassword;
-  private final int myMaxInstancesCount;
-  private final CloudCloneType myCloneType;
-  private final File myImageIdxFile;
+  @SerializedName("maxInstances")
+  private final int myMaxInstances;
+  @SerializedName("behaviour")
+  private final CloudCloneBehaviour myBehaviour;
+
+  private transient File myImageIdxFile;
 
 
-  @Nullable
-  public static AzureCloudImageDetails fromString(@NotNull final String s, @NotNull final File azureStorage){
-    final String[] split = s.split(";");
-    if (split.length != 9 && split.length != 7){
-      return null;
-    }
-    final CloudCloneType cloudCloneType = CloudCloneType.valueOf(split[0]);
-    if (cloudCloneType.isUseOriginal()) {
-      return new AzureCloudImageDetails(cloudCloneType, azureStorage, split[1], split[2]);
-    } else {
-      int maxInstancesCount = Integer.parseInt(split[5]);
-
-      if (split.length == 7) {
-        return new AzureCloudImageDetails(cloudCloneType, azureStorage, split[1], split[2], split[3], split[4], maxInstancesCount);
-      } else if (split.length == 9) {
-        return new AzureCloudImageDetails(cloudCloneType, azureStorage, split[1], split[2], split[3], split[4], maxInstancesCount, split[6] , split[7], split[8]);
-      } else {
-        return null;
-      }
-    }
-  }
-
-
-  private AzureCloudImageDetails(final CloudCloneType cloneTypeName,
-                                 final File azureStorage,
-                                 final String serviceName,
-                                 final String imageName,
-                                 final String vmNamePrefix,
-                                 final String vmSize,
-                                 final int maxInstancesCount,
-                                 final String osType,
-                                 final String username,
-                                 final String password){
-    myCloneType = cloneTypeName;
-    myImageName = imageName;
+  public AzureCloudImageDetails(final CloudCloneBehaviour cloneTypeName,
+                                final String serviceName,
+                                final String sourceName,
+                                final String vmNamePrefix,
+                                final String vmSize,
+                                final int maxInstances,
+                                final String osType,
+                                final String username,
+                                final String password){
+    myBehaviour = cloneTypeName;
+    mySourceName = sourceName;
     myServiceName = serviceName;
     myVmNamePrefix = vmNamePrefix;
     myOsType = osType;
     myVmSize = vmSize;
     myUsername = username;
     myPassword = password;
-    myMaxInstancesCount = maxInstancesCount;
-    myImageIdxFile = new File(azureStorage, imageName + ".idx");
-  }
-  private AzureCloudImageDetails(final CloudCloneType cloneTypeName,
-                                 final File azureStorage,
-                                 final String serviceName,
-                                 final String imageName,
-                                 final String vmNamePrefix,
-                                 final String vmSize,
-                                 final int maxInstancesCount){
-    this (cloneTypeName, azureStorage, serviceName, imageName, vmNamePrefix, vmSize, maxInstancesCount, null, null, null);
-  }
-  private AzureCloudImageDetails(final CloudCloneType cloneTypeName,
-                                 final File azureStorage,
-                                 final String serviceName,
-                                 final String imageName){
-    this (cloneTypeName, azureStorage, serviceName, imageName, null, null, 1, null, null, null);
-  }
+    myMaxInstances = maxInstances;
 
-  public String getImageName() {
-    return myImageName;
+  }
+  public String getSourceName() {
+    return mySourceName;
   }
 
   public String getServiceName() {
@@ -134,15 +106,19 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
     return myPassword;
   }
 
-  public int getMaxInstancesCount() {
-    return myMaxInstancesCount;
+  public int getMaxInstances() {
+    return myMaxInstances;
   }
 
-  public CloudCloneType getCloneType() {
-    return myCloneType;
+  public CloudCloneBehaviour getBehaviour() {
+    return myBehaviour;
   }
 
   public File getImageIdxFile() {
     return myImageIdxFile;
+  }
+
+  public void setImageIdxFile(final File imageIdxFile) {
+    myImageIdxFile = imageIdxFile;
   }
 }

@@ -28,8 +28,7 @@ public class AzureWebConstants {
   public static final String MANAGEMENT_CERTIFICATE="managementCertificate";
   public static final String IMAGES_DATA="imagesData";
   public static final String SERVICE_NAME="serviceName";
-  public static final String DEPLOYMENT_NAME="deployment";
-  public static final String IMAGE_NAME="imageName";
+  public static final String SOURCE_NAME ="sourceName";
   public static final String NAME_PREFIX="namePrefix";
   public static final String VM_SIZE="vmSize";
   public static final String OS_TYPE="osType";
@@ -53,12 +52,8 @@ public class AzureWebConstants {
     return SERVICE_NAME;
   }
 
-  public String getDeploymentName() {
-    return DEPLOYMENT_NAME;
-  }
-
-  public String getImageName() {
-    return IMAGE_NAME;
+  public String getSourceName() {
+    return SOURCE_NAME;
   }
 
   public String getNamePrefix() {

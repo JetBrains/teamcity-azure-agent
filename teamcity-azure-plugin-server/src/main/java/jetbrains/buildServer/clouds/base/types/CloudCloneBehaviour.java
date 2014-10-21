@@ -23,7 +23,7 @@ package jetbrains.buildServer.clouds.base.types;
  *         Date: 9/18/2014
  *         Time: 1:23 PM
  */
-public enum CloudCloneType {
+public enum CloudCloneBehaviour {
   START_STOP (false, true),
   FRESH_CLONE (true, false),
   ON_DEMAND_CLONE(false, false)
@@ -31,7 +31,7 @@ public enum CloudCloneType {
   private final boolean myDeleteAfterStop;
   private final boolean myUseOriginal;
 
-  CloudCloneType(final boolean deleteAfterStop, final boolean useOriginal) {
+  CloudCloneBehaviour(final boolean deleteAfterStop, final boolean useOriginal) {
     myDeleteAfterStop = deleteAfterStop;
     myUseOriginal = useOriginal;
   }

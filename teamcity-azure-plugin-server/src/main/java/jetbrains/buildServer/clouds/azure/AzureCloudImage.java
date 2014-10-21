@@ -27,6 +27,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Map;
+import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.connector.*;
@@ -52,7 +53,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
 
   protected AzureCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
                             @NotNull final AzureApiConnector apiConnector) {
-    super(imageDetails.getImageName(), imageDetails.getImageName());
+    super(imageDetails.getSourceName(), imageDetails.getSourceName());
     myImageDetails = imageDetails;
     myIdxFile = imageDetails.getImageIdxFile();
     if (!myIdxFile.exists()){
@@ -63,10 +64,10 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
       }
     }
     myApiConnector = apiConnector;
-    if (myImageDetails.getCloneType().isUseOriginal()) {
+    if (myImageDetails.getBehaviour().isUseOriginal()) {
       myGeneralized = false;
     } else {
-      myGeneralized = apiConnector.isImageGeneralized(imageDetails.getImageName());
+      myGeneralized = apiConnector.isImageGeneralized(imageDetails.getSourceName());
     }
     final Map<String, AzureInstance> instances = apiConnector.listImageInstances(this);
     for (AzureInstance azureInstance : instances.values()) {
@@ -82,10 +83,10 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
 
   @Override
   public boolean canStartNewInstance() {
-    if (myImageDetails.getCloneType().isUseOriginal()) {
-      return myInstances.get(myImageDetails.getImageName()).getStatus() == InstanceStatus.STOPPED;
+    if (myImageDetails.getBehaviour().isUseOriginal()) {
+      return myInstances.get(myImageDetails.getSourceName()).getStatus() == InstanceStatus.STOPPED;
     } else {
-      return myInstances.size() < myImageDetails.getMaxInstancesCount()
+      return myInstances.size() < myImageDetails.getMaxInstances()
              && ProvisionActionsQueue.isLocked(myImageDetails.getServiceName());
     }
   }
@@ -119,7 +120,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
             final OperationStatusResponse statusResponse = myApiConnector.getOperationStatus(myRequestId);
             instance.setStatus(InstanceStatus.STOPPED);
             if (statusResponse.getStatus()== OperationStatus.Succeeded) {
-              if (myImageDetails.getCloneType().isDeleteAfterStop()) {
+              if (myImageDetails.getBehaviour().isDeleteAfterStop()) {
                 deleteInstance(instance);
               }
             } else if (statusResponse.getStatus() == OperationStatus.Failed) {
@@ -175,15 +176,18 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
   public AzureCloudInstance startNewInstance(@NotNull final CloudInstanceUserData tag) {
     final AzureCloudInstance instance;
     final String vmName;
-    if (myImageDetails.getCloneType().isUseOriginal()) {
-      vmName = myImageDetails.getImageName();
+    if (myImageDetails.getBehaviour().isUseOriginal()) {
+      vmName = myImageDetails.getSourceName();
     } else {
       vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix(), getNextIdx());
     }
-    if (myImageDetails.getCloneType().isUseOriginal()) {
-      instance = myInstances.get(myImageDetails.getImageName());
+    if (myImageDetails.getBehaviour().isUseOriginal()) {
+      instance = myInstances.get(myImageDetails.getSourceName());
     } else {
       instance = new AzureCloudInstance(this, vmName);
+      if (myInstances.size() >= myImageDetails.getMaxInstances()){
+        throw new TeamCityRuntimeException("Unable to start more instances. Limit reached");
+      }
       myInstances.put(instance.getInstanceId(), instance);
     }
     instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
@@ -201,12 +205,9 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
           @NotNull
           public String action() throws ServiceException, IOException {
             final OperationResponse response;
-            if (myImageDetails.getCloneType().isUseOriginal()) {
+            if (myImageDetails.getBehaviour().isUseOriginal()) {
               response = myApiConnector.startVM(AzureCloudImage.this);
             } else {
-              if (myInstances.size() >= myImageDetails.getMaxInstancesCount()){
-                throw new ServiceException("Unable to start more instances. Limit reached");
-              }
               response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
             }
             instance.setStatus(InstanceStatus.STARTING);

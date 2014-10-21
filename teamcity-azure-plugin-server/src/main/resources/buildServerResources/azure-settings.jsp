@@ -62,18 +62,18 @@
         ><table class="runnerFormTable">
     <tr>
         <th>
-            <span id="label_${cons.imageName}">Source:</span> <l:star/>
+            <span id="label_${cons.sourceName}">Source:</span> <l:star/>
         </th>
         <td>
             <div>
-                <select class="inline-block longField" name="_${cons.imageName}" id="${cons.imageName}" data-err-id="${cons.imageName}"></select>
+                <select class="inline-block longField" name="_${cons.sourceName}" id="${cons.sourceName}" data-err-id="${cons.sourceName}"></select>
                 <span id="${cons.osType}">
                     <bs:osIcon osName="windows" small="true"/>
                     <bs:osIcon osName="linux" small="true"/>
                 </span>
             </div>
             <span class="smallNote">Image or Machine. Greyed machines are already added</span>
-            <span class="error option-error option-error_${cons.imageName}"></span>
+            <span class="error option-error option-error_${cons.sourceName}"></span>
         </td>
     </tr>
     <tr class="hidden">
@@ -159,7 +159,7 @@
                 <th class="name">Service</th>
                 <th class="name hidden">Name prefix</th>
                 <th class="name hidden">Start behaviour</th>
-                <th class="name maxInstancesCount">Max # of instances</th>
+                <th class="name maxInstances">Max # of instances</th>
                 <th class="name" colspan="2"></th>
             </tr>
             </tbody>

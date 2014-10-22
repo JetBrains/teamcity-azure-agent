@@ -20,14 +20,11 @@
  * Created by Sergey.Pak on 9/11/2014.
  */
 
-BS.Clouds.Azure = BS.Clouds.Azure || {
+BS.Clouds.Azure = {
   data: [],
-  dataKeys: [ 'cloneType', 'service', 'name', 'namePrefix',
-    'vmSize', 'maxInstancesCount', 'os', 'provisionUsername', 'provisionPassword'
-  ],
   selectors: {
-    imagesSelect: '#imageName',
-    cloneBehaviourRadio: ".cloneBehaviourRadio",
+    sourcesSelect: '#sourceName',
+    behaviourRadio: '.behaviourRadio',
     rmImageLink: '.removeImageLink',
     editImageLink: '.editImageLink',
     imagesTableRow: '.imagesTableRow'
@@ -39,14 +36,14 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$cert = $j('#managementCertificate');
     this.$subscrId = $j('#subscriptionId');
 
-    this.$imageNameDataElem = $j('#imageName');
+    this.$sourceNameDataElem = $j('#sourceName');
     this.$serviceNameDataElem = $j('#serviceName');
     this.$osTypeDataElem = $j('#osType');
     this.$vmSizeDataElem = $j('#vmSize');
-    this.$namePrefixDataElem = $j('#namePrefix');
-    this.$usernameDataElem = $j('#provisionUsername');
-    this.$passwordDataElem = $j('#provisionPassword');
-    this.$maxInstancesCountdDataElem = $j('#maxInstancesCount');
+    this.$vmNamePrefixDataElem = $j('#vmNamePrefix');
+    this.$usernameDataElem = $j('#username');
+    this.$passwordDataElem = $j('#password');
+    this.$maxInstancesDataElem = $j('#maxInstances');
 
     this.$showDialogButton = $j('#azureShowDialogButton');
     this.$dialogSubmitButton = $j('#addImageButton');
@@ -58,7 +55,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$emptyImagesListMessage = $j('.emptyImagesListMessage');
     this.$fetchOptionsError = $j("#error_fetch_options");
 
-    this.selectors.activeCloneBehaviour = this.selectors.cloneBehaviourRadio + ':checked';
     this.loaders = {
       options: $j('.options-loader')
     };
@@ -84,7 +80,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$imagesTable.on('click', this.selectors.rmImageLink, function () {
       var $this = $j(this),
         id = $this.data('imageId'),
-        name = self.data[id].name;
+        name = self.data[id].sourceName;
 
       if (confirm('Are you sure you want to remove the image "' + name + '"?')) {
         self.removeImage($this);
@@ -112,24 +108,24 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }.bind(this));
 
     /** Image Dialog Props Handlers **/
-    this.$imageNameDataElem.on('change', this._nameChangeHandler.bind(this));
+    this.$sourceNameDataElem.on('change', this._nameChangeHandler.bind(this));
 
     // toggle clone options and image name label on clone behaviour change
-    $j(this.selectors.cloneBehaviourRadio).on('change', this._behaviourChangeHandler.bind(this));
+    $j(this.selectors.behaviourRadio).on('change', this._behaviourChangeHandler.bind(this));
 
     this.$serviceNameDataElem.on('change', function (e, data) {
       if (typeof data !== 'undefined') {
         this.$serviceNameDataElem.val(data);
       }
 
-      this._imageData.service = this.$serviceNameDataElem.val();
+      this._imageData.serviceName = this.$serviceNameDataElem.val();
     }.bind(this));
 
-    this.$namePrefixDataElem
+    this.$vmNamePrefixDataElem
       .add(this.$vmSizeDataElem)
       .add(this.$usernameDataElem)
       .add(this.$passwordDataElem)
-      .add(this.$maxInstancesCountdDataElem)
+      .add(this.$maxInstancesDataElem)
       .on('change', function (e, data) {
         if (arguments.length === 1) {
           self._imageData[this.getAttribute('id')] = this.value;
@@ -141,21 +137,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _initData: function () {
     var self = this,
-      nameIndex = this.dataKeys.indexOf('name'),
-      rawImagesData = this.$imagesDataElem.val() || '',
-      imagesData = rawImagesData && rawImagesData.replace(/;X;$/, '').split(';X;') || [];
+      rawImagesData = this.$imagesDataElem.val() || '[]',
+      imagesData = JSON.parse(rawImagesData);
 
     this.data = imagesData.reduce(function (accumulator, imageDataStr) {
-      var props = imageDataStr.split(';'),
-        id;
-
-      // drop images without vmName
-      if (props[nameIndex].length) {
-        id = self._lastImageId++;
-        accumulator[id] = {};
-        self.dataKeys.forEach(function(key, index) {
-          accumulator[id][key] = props[index];
-        });
+      // drop images without sourceName
+      if (imageDataStr.sourceName) {
+        accumulator[self._lastImageId++] = imageDataStr;
         self._imagesDataLength++;
       }
 
@@ -180,11 +168,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   fetchOptions: function () {
     var _fetchOptionsInProgress = function () {
       return this.fetchOptionsDeferred ?
-      this.fetchOptionsDeferred.state() === 'pending' :
+        this.fetchOptionsDeferred.state() === 'pending' :
         false;
     }.bind(this);
 
-    if ( _fetchOptionsInProgress() || !this.validateServerSettings()) {
+    if (_fetchOptionsInProgress() || !this.validateServerSettings()) {
       return false;
     }
 
@@ -244,17 +232,17 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     action = action ? 'Edit' : 'Add';
     $j('#AzureDialogTitle').text(action + ' Image');
 
-    this.$dialogSubmitButton.val(action === 'Edit' ? 'Save' : action) .data('imageId', imageId);
+    this.$dialogSubmitButton.val(action === 'Edit' ? 'Save' : action).data('imageId', imageId);
 
     var usedMachines = Object.keys(this.data).reduce(function (acc, key) {
-      if (this.data[key].cloneType === 'START_STOP' && this._imageData.name !== this.data[key].name) {
-        acc.push(this.data[key].name);
+      if (this.data[key].behaviour === 'START_STOP' && this._imageData.sourceName !== this.data[key].sourceName) {
+        acc.push(this.data[key].sourceName);
       }
 
       return acc;
     }.bind(this), []);
 
-    this.$imageNameDataElem.find('option[data-type="instance"]').each(function () {
+    this.$sourceNameDataElem.find('option[data-type="instance"]').each(function () {
       $j(this).prop('disabled', usedMachines.indexOf(this.value) !== -1);
     });
 
@@ -284,44 +272,44 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _nameChangeHandler: function (event, data) {
     if (arguments.length >= 2) {
-      this.$imageNameDataElem.val(data);
+      this.$sourceNameDataElem.val(data);
     }
 
-    var imageName = this.$imageNameDataElem.val(),
+    var sourceName = this.$sourceNameDataElem.val(),
       type = $j(event.target).find('option:checked').attr('data-type'),
-      $image = this.$response.find('Images:eq(0) Image[name="' + imageName + '"]');
+      $image = this.$response.find('Images:eq(0) Image[name="' + sourceName + '"]');
 
-    if (! $image.length) {
-      $image = this.$response.find('Instance[name="' + imageName + '"]');
+    if (!$image.length) {
+      $image = this.$response.find('Instance[name="' + sourceName + '"]');
     }
 
     if ($image.length) {
       this._imageData = {
         $image: $image,
-        name: imageName,
+        sourceName: sourceName,
         type: type,
-        os: $image.attr('osType')
+        osType: $image.attr('osType')
       };
 
       if (type === 'image') {
-        this._imageData.cloneType = 'FRESH_CLONE';
+        this._imageData.behaviour = 'FRESH_CLONE';
         $j('#cloneBehaviour_START_STOP').prop('disabled', true);
         $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', false).prop('checked', true);
 
         this.$serviceNameDataElem.prop('disabled', false).children().prop('disabled', false);
       } else if (type === 'instance') {
-        this._imageData.cloneType = 'START_STOP';
+        this._imageData.behaviour = 'START_STOP';
         $j('#cloneBehaviour_START_STOP').prop('disabled', false).prop('checked', true);
         $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', true);
-        this._imageData.service = $image.parents('Service').attr('name');
+        this._imageData.serviceName = $image.parents('Service').attr('name');
         this.$serviceNameDataElem.prop('disabled', true)
-          .find('option[value=' + this._imageData.service + ']').prop('disabled', false).attr('selected', true).end()
-          .find('option[value!=' + this._imageData.service + ']').prop('disabled', true);
+          .find('option[value=' + this._imageData.serviceName + ']').prop('disabled', false).attr('selected', true).end()
+          .find('option[value!=' + this._imageData.serviceName + ']').prop('disabled', true);
       }
     }
 
     this._showImageOsType();
-    $j(this.selectors.cloneBehaviourRadio).trigger('change');
+    $j(this.selectors.behaviourRadio).trigger('change');
     this._toggleProvisionCredentials();
     BS.AzureImageDialog.recenterDialog();
   },
@@ -333,7 +321,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
      * @type {String}
      * @private
      */
-    var _osType = this._imageData.os;
+    var _osType = this._imageData.osType;
 
     this.$osTypeDataElem.children().hide();
 
@@ -347,23 +335,24 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       this._imageData.$image.attr('generalized') == 'true'));
   },
   _saveImagesData: function () {
-    var imageData = Object.keys(this.data).map(function (imageId) {
-      return this.dataKeys.map(function (key) {
-        return this.data[imageId][key];
-      }.bind(this)).join(';');
-    }.bind(this)).join(';X;');
+    var imageData = Object.keys(this.data).reduce(function (accumulator, id) {
+      var _val = $j.extend({}, this.data[id]);
 
-    if (imageData.length) {
-      imageData+= ';X;';
-    }
+      delete _val.$image;
+      delete _val.type;
+      accumulator.push(_val);
 
-    this.$imagesDataElem.val(imageData);
+      return accumulator;
+    }.bind(this), []);
+
+    this.$imagesDataElem.val(JSON.stringify(imageData));
   },
   _fillImages: function () {
-    if (!this.$response)
+    if (!this.$response) {
       return;
+    }
 
-    this._clearSelectAndAddDefault(this.$imageNameDataElem);
+    this._clearSelectAndAddDefault(this.$sourceNameDataElem);
 
     var $images = this.$response.find('Images:eq(0) Image'),
       $instances = this.$response.find('Instance'),
@@ -379,11 +368,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       self._appendOption($machinesOptgroup, $j(this).attr('name'), null, 'instance');
     });
 
-    this.$imageNameDataElem
+    this.$sourceNameDataElem
       .append($imagesOptgroup)
       .append($machinesOptgroup);
 
-    this.$imageNameDataElem.trigger('change');
+    this.$sourceNameDataElem.trigger('change');
   },
   _fillSelect: function (optionsArray) {
     var self = this;
@@ -401,7 +390,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }
   },
   _isClone: function () {
-    return this._imageData.cloneType === 'FRESH_CLONE';
+    return this._imageData.behaviour === 'FRESH_CLONE';
   },
   _updateDataAndView: function (imageId) {
     this.data[imageId] = this._imageData;
@@ -409,7 +398,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.renderImagesTable();
   },
   _submitDialogHandler: function () {
-    if (this.$dialogSubmitButton.val().toLowerCase() === 'edit') {
+    if (this.$dialogSubmitButton.val().toLowerCase() === 'save') {
       this._updateDataAndView(this.$dialogSubmitButton.data('imageId'));
     } else {
       this._imagesDataLength += 1;
@@ -429,26 +418,26 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $target.append($j('<option>').attr('value', value).text(text || value).attr('data-type', type));
   },
   _imagesTableRowTemplate: $j('<tr class="imagesTableRow">\
-<td class="imageName"><div class="sourceIcon"></div><span class="name"></span></td>\
-<td class="service"></td>\
-<td class="namePrefix hidden"></td>\
-<td class="cloneType hidden"></td>\
-<td class="maxInstancesCount"></td>\
+<td class="imageName"><div class="sourceIcon"></div><span class="sourceName"></span></td>\
+<td class="serviceName"></td>\
+<td class="vmNamePrefix hidden"></td>\
+<td class="behaviour hidden"></td>\
+<td class="maxInstances"></td>\
 <td class="edit"><span class="editImageLink_disabled" title="Editing is available after successful retrieval of data">edit</span><a href="#" class="editImageLink hidden">edit</a></td>\
 <td class="remove"><a href="#" class="removeImageLink">delete</a></td>\
     </tr>'),
   _renderImageRow: function (data, id) {
     var $row = this._imagesTableRowTemplate.clone();
 
-    this.dataKeys.forEach(function (className) {
-      $row.find('.' + className).text(data[className]);
+    Object.keys(data).forEach(function (className) {
+      typeof data[className] === 'string' && $row.find('.' + className).text(data[className]);
     });
 
-    $row.find('.service');
+    $row.find('.serviceName');
 
     $row.find('.sourceIcon')
-      .text(data.cloneType === 'START_STOP' ? 'M' : 'I')
-      .attr('title', data.cloneType === 'START_STOP' ? 'Machine' : 'Image');
+      .text(data.behaviour === 'START_STOP' ? 'M' : 'I')
+      .attr('title', data.behaviour === 'START_STOP' ? 'Machine' : 'Image');
 
     $row.find(this.selectors.rmImageLink).data('imageId', id);
     $row.find(this.selectors.editImageLink).data('imageId', id);
@@ -495,16 +484,16 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   _triggerDialogChange: function () {
     var image = this._imageData;
 
-    this.$imageNameDataElem.trigger('change', image.name || '');
-    this.$serviceNameDataElem.trigger('change', image.service || '');
-    this.$osTypeDataElem.trigger('change', image.os || '');
+    this.$sourceNameDataElem.trigger('change', image.sourceName || '');
+    this.$serviceNameDataElem.trigger('change', image.serviceName || '');
+    this.$osTypeDataElem.trigger('change', image.osType || '');
     this.$vmSizeDataElem.trigger('change', image.vmSize || '');
-    this.$namePrefixDataElem.trigger('change', image.namePrefix || '');
-    this.$usernameDataElem.trigger('change', image.provisionUsername || '');
-    this.$passwordDataElem.trigger('change', image.provisionPassword || '');
-    this.$maxInstancesCountdDataElem.trigger('change', image.maxInstancesCount || '');
+    this.$vmNamePrefixDataElem.trigger('change', image.vmNamePrefix || '');
+    this.$usernameDataElem.trigger('change', image.username || '');
+    this.$passwordDataElem.trigger('change', image.password || '');
+    this.$maxInstancesDataElem.trigger('change', image.maxInstances || '');
   }
-};
+} || BS.Clouds.Azure;
 
 BS.AzureImageDialog = OO.extend(BS.AbstractModalDialog, {
   getContainer: function() {

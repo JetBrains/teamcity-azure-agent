@@ -29,12 +29,12 @@ public class AzureWebConstants {
   public static final String IMAGES_DATA="imagesData";
   public static final String SERVICE_NAME="serviceName";
   public static final String SOURCE_NAME ="sourceName";
-  public static final String NAME_PREFIX="namePrefix";
+  public static final String NAME_PREFIX="vmNamePrefix";
   public static final String VM_SIZE="vmSize";
   public static final String OS_TYPE="osType";
-  public static final String PROVISION_USERNAME="provisionUsername";
-  public static final String PROVISION_PASSWORD="provisionPassword";
-  public static final String MAX_INSTANCES_COUNT="maxInstancesCount";
+  public static final String PROVISION_USERNAME="username";
+  public static final String PROVISION_PASSWORD="password";
+  public static final String MAX_INSTANCES_COUNT="maxInstances";
 
   public String getSubscriptionId() {
     return SUBSCRIPTION_ID;

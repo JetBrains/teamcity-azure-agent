@@ -79,14 +79,14 @@
     <tr class="hidden">
       <th>Behaviour: <l:star/></th>
       <td>
-        <input type="radio" id="cloneBehaviour_FRESH_CLONE" name="cloneBehaviour" value="FRESH_CLONE" checked="true" class="cloneBehaviourRadio"/>
+        <input type="radio" id="cloneBehaviour_FRESH_CLONE" name="behaviour" value="FRESH_CLONE" checked="true" class="behaviourRadio"/>
         <label for="cloneBehaviour_FRESH_CLONE">Fresh clone</label>
         <br/>
-        <input type="radio" id="cloneBehaviour_START_STOP" name="cloneBehaviour" value="START_STOP" class="cloneBehaviourRadio"/>
+        <input type="radio" id="cloneBehaviour_START_STOP" name="behaviour" value="START_STOP" class="behaviourRadio"/>
         <label for="cloneBehaviour_START_STOP">Start/Stop machine</label>
         <br/>
     <%--
-        <input type="radio" id="cloneBehaviour_ON_DEMAND_CLONE" name="cloneBehaviour" value="ON_DEMAND_CLONE" class="cloneBehaviourRadio"/>
+        <input type="radio" id="cloneBehaviour_ON_DEMAND_CLONE" name="behaviour" value="ON_DEMAND_CLONE" class="behaviourRadio"/>
         <label for="cloneBehaviour_ON_DEMAND_CLONE">On demand clone</label>
         <br/>
     --%>
@@ -164,7 +164,10 @@
             </tr>
             </tbody>
         </table>
-        <props:hiddenProperty name="images_data"/>
+        <%--<props:hiddenProperty name="images_data"/>--%>
+<jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
+<c:set var="actualValue" value="${propertiesBean.properties['images_data']}"/>
+        <input type="hidden" name="prop:images_data" id="images_data" value="<c:out value="${actualValue}"/>"/>
     </div>
 </div>
 

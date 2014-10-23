@@ -107,7 +107,7 @@
             <th>Max # of instances: <l:star/></th>
             <td>
                 <div>
-                    <input type="text" name="_${cons.maxInstancesCount}" id="${cons.maxInstancesCount}" data-err-id="${cons.maxInstancesCount}" class="longField"/>
+                    <input value="1" type="text" name="_${cons.maxInstancesCount}" id="${cons.maxInstancesCount}" data-err-id="${cons.maxInstancesCount}" class="longField"/>
                 </div>
                 <span class="error option-error option-error_${cons.maxInstancesCount}"></span>
             </td>
@@ -117,6 +117,7 @@
           <td>
               <props:textProperty name="${cons.namePrefix}" className="longField"/>
               <span class="smallNote">Max length is 6</span>
+              <span class="error option-error option-error_${cons.namePrefix}"></span>
           </td>
         </tr>
         <tr class="clone hidden">
@@ -133,15 +134,21 @@
         </tr>
         <tr class="provision hidden">
           <th>Provision username: <l:star/></th>
-          <td><input type="text" id="${cons.provisionUsername}" class="longField"/></td>
+          <td>
+              <input type="text" id="${cons.provisionUsername}" class="longField"/>
+              <span class="error option-error option-error_${cons.provisionUsername}"></span>
+          </td>
         </tr>
         <tr class="provision hidden">
           <th>Provision password:  <l:star/></th>
-          <td><input type="password" id="${cons.provisionPassword}" class="longField"/></td>
+          <td>
+              <input type="password" id="${cons.provisionPassword}" class="longField"/>
+              <span class="error option-error option-error_${cons.provisionPassword}"></span>
+          </td>
         </tr>
     </table>
     <div class="popupSaveButtonsBlock">
-        <forms:submit label="Add" id="addImageButton">Add image</forms:submit>
+        <forms:submit label="Add" id="addImageButton"/>
         <forms:button title="Cancel" id="azureCancelDialogButton">Cancel</forms:button>
     </div>
 </bs:dialog>

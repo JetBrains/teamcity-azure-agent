@@ -256,7 +256,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       return acc;
     }.bind(this), []);
 
-    this.$sourceNameDataElem.find('option[data-type="instance"]').each(function () {
+    this.$sourceNameDataElem.find('optgroup[label="Machines"] option').each(function () {
       $j(this).prop('disabled', usedMachines.indexOf(this.value) !== -1);
     });
 

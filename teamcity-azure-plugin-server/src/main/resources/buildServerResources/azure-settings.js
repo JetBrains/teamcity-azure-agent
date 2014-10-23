@@ -290,11 +290,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         $image = this._getSourceByName(sourceName);
 
       if ($image.length) {
-        this._imageData = {
+        $j.extend(true, this._imageData, {
           $image: $image,
           sourceName: sourceName,
           osType: $image.attr('osType')
-        };
+        });
 
         if (this._getSourceType() === 'image') {
           this._imageData.behaviour = 'FRESH_CLONE';
@@ -304,9 +304,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
           this._imageData.behaviour = 'START_STOP';
           $j('#cloneBehaviour_START_STOP').prop('disabled', false).prop('checked', true);
           $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', true);
+          ['maxInstances', 'vmNamePrefix', 'vmSize'].forEach(function (key) {
+            delete this._imageData[key];
+            this['$' + key + 'DataElem'].val('')
+          }.bind(this));
         }
 
-        this._imageData.serviceName = $image.parents('Service').attr('name');
+        this._imageData.serviceName = $image.parents('Service').attr('name') || '';
         this.$serviceNameDataElem.trigger('change', this._imageData.serviceName);
       }
     }
@@ -336,9 +340,16 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $j('.clone').toggleClass('hidden', !this._isClone());
   },
   _toggleProvisionCredentials: function () {
-    $j('.provision').toggle(!!(this._imageData &&
-      this._imageData.$image &&
-      this._imageData.$image.attr('generalized') == 'true'));
+    var isGeneralized = !!(this._imageData.$image &&
+      this._imageData.$image.attr('generalized') == 'true');
+
+    $j('.provision').toggle(isGeneralized);
+
+    if(! isGeneralized) {
+      delete this._imageData.username;
+      delete this._imageData.password;
+      this.$usernameDataElem.add(this.$passwordDataElem).val('');
+    }
   },
   _saveImagesData: function () {
     var imageData = Object.keys(this.data).reduce(function (accumulator, id) {

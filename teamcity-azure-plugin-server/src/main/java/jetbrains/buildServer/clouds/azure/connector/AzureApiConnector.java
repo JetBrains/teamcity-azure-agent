@@ -241,6 +241,17 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         }
       }
     }
+    for (Role role : deployment.getRoles()) {
+      for (ConfigurationSet conf : role.getConfigurationSets()) {
+        for (InputEndpoint endpoint : conf.getInputEndpoints()) {
+          final int port = endpoint.getPort();
+          if (port >= MIN_PORT_NUMBER && port <=MAX_PORT_NUMBER){
+            busyPorts.set(port, false);
+          }
+        }
+      }
+    }
+
     int portNumber = MIN_PORT_NUMBER;
     for (int i = MIN_PORT_NUMBER; i <= MAX_PORT_NUMBER; i++) {
       if (busyPorts.get(i)){

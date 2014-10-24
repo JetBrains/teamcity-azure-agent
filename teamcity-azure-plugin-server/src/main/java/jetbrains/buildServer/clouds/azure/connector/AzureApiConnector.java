@@ -41,6 +41,7 @@ import java.util.*;
 import java.util.Random;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
+import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.AzureCloudImage;
@@ -119,7 +120,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }
   }
 
-  public Map<String, AzureInstance> listImageInstances(@NotNull final AzureCloudImage image) {
+  public Map<String, AzureInstance> listImageInstances(@NotNull final AzureCloudImage image) throws CloudException{
     try {
       final AzureCloudImageDetails imageDetails = image.getImageDetails();
       final Map<String, AzureInstance> retval = new HashMap<String, AzureInstance>();
@@ -142,8 +143,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       }
       return retval;
     } catch (Exception e) {
-      LOG.warn(e.toString(), e);
-      return Collections.emptyMap();
+      throw new CloudException("Unable to list image instances", e);
     }
   }
 

@@ -19,10 +19,7 @@
 package jetbrains.buildServer.clouds.base.tasks;
 
 import com.intellij.openapi.diagnostic.Logger;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
@@ -50,6 +47,7 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
   }
 
   public void run() {
+    final Map<InstanceStatus, List<String>> instancesByStatus = new HashMap<InstanceStatus, List<String>>();
     try {
       final Collection<T> images = myClient.getImages();
       for (final T image : images) {
@@ -62,7 +60,11 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
             continue;
           }
           final InstanceStatus realInstanceStatus = myConnector.getInstanceStatus(instance);
-          LOG.info(String.format("Found instance: %s. Status: %s", realInstanceName, realInstanceStatus.getText()));
+          if (!instancesByStatus.containsKey(realInstanceStatus)){
+            instancesByStatus.put(realInstanceStatus, new ArrayList<String>());
+          }
+          instancesByStatus.get(realInstanceStatus).add(realInstanceName);
+
           if (realInstanceStatus != null && isStatusPermanent(instance.getStatus()) && isStatusPermanent(realInstanceStatus) && realInstanceStatus != instance.getStatus()) {
             LOG.info(String.format("Updated instance '%s' status to %s based on API information", realInstanceName, realInstanceStatus));
             instance.setStatus(realInstanceStatus);
@@ -95,6 +97,11 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
       }
     } catch (Exception ex){
       LOG.warn(ex.toString(), ex);
+    } finally {
+      //logging here:
+      for (InstanceStatus instanceStatus : instancesByStatus.keySet()) {
+        LOG.info(String.format("Instances in '%s' status: %s", instanceStatus.getText(), Arrays.toString(instancesByStatus.get(instanceStatus).toArray())));
+      }
     }
   }
 

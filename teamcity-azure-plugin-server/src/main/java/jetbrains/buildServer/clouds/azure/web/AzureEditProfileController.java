@@ -116,7 +116,7 @@ public class AzureEditProfileController extends BaseFormXmlController {
 
     final Map<String, String> props = propsBean.getProperties();
     final String subscriptionId = props.get(AzureWebConstants.SUBSCRIPTION_ID);
-    final String certificate = props.get(AzureWebConstants.MANAGEMENT_CERTIFICATE);
+    final String certificate = props.get("secure:"+AzureWebConstants.MANAGEMENT_CERTIFICATE);
 
     AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, certificate);
 

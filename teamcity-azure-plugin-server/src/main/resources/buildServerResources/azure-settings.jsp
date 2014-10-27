@@ -35,9 +35,9 @@
 <c:set var="azureLink"><a href="https://manage.windowsazure.com/publishsettings" target="_blank">https://manage.windowsazure.com/publishsettings</a></c:set>
 <table class="runnerFormTable">
   <tr>
-    <th><label for="${cons.managementCertificate}">Management certificate: <l:star/></label></th>
+    <th><label for="secure:${cons.managementCertificate}">Management certificate: <l:star/></label></th>
     <td>
-        <props:textProperty name="${cons.managementCertificate}" className="longField"/>
+        <props:textProperty name="secure:${cons.managementCertificate}" className="longField"/>
         <span class="smallNote">Your Azure account management certificate. You may find the info at ${azureLink}</span>
     </td>
   </tr>
@@ -142,7 +142,7 @@
         <tr class="provision hidden">
           <th>Provision password:  <l:star/></th>
           <td>
-              <input type="password" id="${cons.provisionPassword}" class="longField"/>
+              <props:passwordProperty name="secure:${cons.provisionPassword}" className="longField"/>
               <span class="error option-error option-error_${cons.provisionPassword}"></span>
           </td>
         </tr>

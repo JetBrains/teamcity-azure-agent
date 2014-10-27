@@ -35,7 +35,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   init: function (refreshOptionsUrl) {
     this.$response = null;
     this.refreshOptionsUrl = refreshOptionsUrl;
-    this.$cert = $j('#managementCertificate');
+    this.$cert = $j(BS.Util.escapeId('secure:managementCertificate'));
     this.$subscrId = $j('#subscriptionId');
 
     this.$sourceNameDataElem = $j('#sourceName');

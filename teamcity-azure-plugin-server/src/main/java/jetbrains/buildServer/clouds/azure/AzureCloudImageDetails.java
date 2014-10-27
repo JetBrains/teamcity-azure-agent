@@ -53,9 +53,6 @@ public class AzureCloudImageDetails implements CloudImageDetails {
   @SerializedName("behaviour")
   private final CloneBehaviour myBehaviour;
 
-  private transient File myImageIdxFile;
-
-
   public AzureCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
                                 @Nullable final String serviceName,
                                 @NotNull final String sourceName,
@@ -112,21 +109,13 @@ public class AzureCloudImageDetails implements CloudImageDetails {
     return myBehaviour;
   }
 
-  public File getImageIdxFile() {
-    return myImageIdxFile;
-  }
-
-  public void setImageIdxFile(final File imageIdxFile) {
-    myImageIdxFile = imageIdxFile;
-  }
-
   private void validateParams(){
     if (!myBehaviour.isUseOriginal()){
       check(StringUtil.isNotEmpty(myServiceName), "Service name is required");
       check(StringUtil.isNotEmpty(myVmNamePrefix), "Name prefix is required");
       check(StringUtil.isNotEmpty(myVmSize), "VM Size is required");
       check(StringUtil.isNotEmpty(myOsType), "Unable to determine OS Type");
-      check(myMaxInstances>0, "Max instances is less than 1, not VMs of this Image will be started");
+      check(myMaxInstances>0, "Max instances is less than 1, no VMs of this Image will be started");
     }
   }
 

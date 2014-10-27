@@ -25,10 +25,12 @@ import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import jetbrains.buildServer.clouds.base.connector.CloudAsyncTaskExecutor;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -38,20 +40,26 @@ import org.jetbrains.annotations.NotNull;
  */
 public class ProvisionActionsQueue{
   private static final Logger LOG = Logger.getInstance(ProvisionActionsQueue.class.getName());
-  private static final Map<String, AtomicReference<String>> requestsQueue = new HashMap<String, AtomicReference<String>>();
   public static final Pattern CONFLICT_ERROR_PATTERN = Pattern.compile("Windows Azure is currently performing an operation with x-ms-requestid ([0-9a-f]{32}) on this deployment that requires exclusive access.");
   public static final Pattern PORT_ERROR_PATTERN = Pattern.compile("Port (\\d+) is already in use by one of the endpoints in this deployment. Ensure that the port numbers are unique across endpoints within a deployment.");
 
-  public static boolean isLocked(@NotNull final String serviceName){
+  private final Map<String, AtomicReference<String>> requestsQueue = new HashMap<String, AtomicReference<String>>();
+  private final ConditionalRunner myRunner = new ConditionalRunner();
+
+  public ProvisionActionsQueue(final CloudAsyncTaskExecutor asyncTaskExecutor) {
+    asyncTaskExecutor.scheduleWithFixedDelay(myRunner, 0, 5, TimeUnit.SECONDS);
+  }
+
+  public boolean isLocked(@NotNull final String serviceName){
     final String key = serviceName;
     return requestsQueue.get(key) == null || requestsQueue.get(key).get() == null;
   }
 
-  public static synchronized void queueAction(@NotNull final String serviceName, @NotNull final InstanceAction action){
+  public synchronized void queueAction(@NotNull final String serviceName, @NotNull final InstanceAction action){
     if (!requestsQueue.containsKey(serviceName)){
       requestsQueue.put(serviceName, new AtomicReference<String>(null));
     }
-    ConditionalRunner.addConditional(new ConditionalRunner.Conditional() {
+    myRunner.addConditional(new ConditionalRunner.Conditional() {
       @NotNull
       public String getName() {
         return "Start handler of '" + action.getName() + "'";
@@ -63,15 +71,16 @@ public class ProvisionActionsQueue{
 
       public boolean execute() throws Exception {
         try {
-
           final String actionId = action.action();
-          ConditionalRunner.addConditional(createFromActionId(action, actionId, serviceName));
+          myRunner.addConditional(createFromActionId(action, actionId, serviceName));
           requestsQueue.get(serviceName).set(actionId);
           return true;
         } catch (ServiceException ex){
-          LOG.warn(ex.toString(), ex);
-          if (ex.getErrorMessage() == null)
+          LOG.warn("An error occurred while attempting to execute " + getName() + ": " + ex.toString(), ex);
+          if (ex.getErrorMessage() == null) {
+            action.onError(ex);
             throw ex;
+          }
           final Matcher matcher = CONFLICT_ERROR_PATTERN.matcher(ex.getErrorMessage());
           if (matcher.matches()){
             requestsQueue.get(serviceName).set(matcher.group(1));
@@ -81,14 +90,15 @@ public class ProvisionActionsQueue{
             if (portMatcher.matches()){
               return false;
             }
-            throw ex;
           }
+          action.onError(ex);
+          throw ex;
         }
       }
     });
   }
 
-  public static Runnable getRequestCheckerCleanable(@NotNull final ActionIdChecker actionIdChecker){
+  public Runnable getRequestCheckerCleanable(@NotNull final ActionIdChecker actionIdChecker){
     return new Runnable() {
       public void run() {
         try {
@@ -104,7 +114,7 @@ public class ProvisionActionsQueue{
     };
   }
 
-  private static ConditionalRunner.Conditional createFromActionId(@NotNull final InstanceAction action, @NotNull final String actionId, @NotNull final String key){
+  private ConditionalRunner.Conditional createFromActionId(@NotNull final InstanceAction action, @NotNull final String actionId, @NotNull final String key){
     return new ConditionalRunner.Conditional() {
       @NotNull
       public String getName() {
@@ -129,6 +139,7 @@ public class ProvisionActionsQueue{
     @NotNull String action() throws ServiceException, IOException;
     @NotNull ActionIdChecker getActionIdChecker();
     void onFinish();
+    void onError(Throwable th);
   }
 
 }

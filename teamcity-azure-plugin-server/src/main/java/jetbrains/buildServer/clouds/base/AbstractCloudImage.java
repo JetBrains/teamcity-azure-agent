@@ -93,4 +93,8 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
   public abstract T startNewInstance(@NotNull final CloudInstanceUserData tag);
 
   public abstract G getImageDetails();
+
+  public String toString() {
+    return getClass().getSimpleName() +"{" +"myName='" + getId() + '\'' +'}';
+  }
 }

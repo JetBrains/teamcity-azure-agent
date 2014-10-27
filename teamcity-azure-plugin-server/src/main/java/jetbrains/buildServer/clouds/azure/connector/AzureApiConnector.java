@@ -348,17 +348,21 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
     final VirtualMachineShutdownParameters shutdownParams = new VirtualMachineShutdownParameters();
     shutdownParams.setPostShutdownAction(PostShutdownAction.StoppedDeallocated);
-    try {
       final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
       if (serviceDeployment != null) {
-        return vmOperations.beginShutdown(imageDetails.getServiceName(), serviceDeployment.getName(), instance.getName(), shutdownParams);
+        try {
+          return vmOperations.beginShutdown(imageDetails.getServiceName(), serviceDeployment.getName(), instance.getName(), shutdownParams);
+        } catch (ParserConfigurationException e) {
+          throw new CloudException(e.getMessage(), e);
+        } catch (SAXException e) {
+          throw new CloudException(e.getMessage(), e);
+        } catch (TransformerException e) {
+          throw new CloudException(e.getMessage(), e);
+        }
       } else {
-        throw new ServiceException(String.format("Unable to find deployment for service '%s' and instance '%s'",
+        throw new CloudException(String.format("Unable to find deployment for service '%s' and instance '%s'",
                                                  imageDetails.getServiceName(), instance.getName()));
       }
-    } catch (Exception e) {
-      throw new ServiceException(e);
-    }
   }
 
   public OperationResponse deleteVmOrDeployment(@NotNull final AzureCloudInstance instance) throws IOException, ServiceException {

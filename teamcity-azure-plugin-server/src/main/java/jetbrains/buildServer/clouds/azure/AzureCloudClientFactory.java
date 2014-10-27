@@ -93,7 +93,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
     final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
-    return new AzureCloudClient(params, imageDetailsList, apiConnector);
+    return new AzureCloudClient(params, imageDetailsList, apiConnector, myAzureStorage);
   }
 
   @Override
@@ -101,7 +101,9 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
     final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
-    return new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector);
+    final AzureCloudClient azureCloudClient = new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
+    azureCloudClient.updateErrors(Arrays.asList(profileErrors));
+    return azureCloudClient;
   }
 
 
@@ -112,9 +114,6 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
       return Collections.emptyList();
     }
     final AzureCloudImageDetails[] images = gson.fromJson(imageData, AzureCloudImageDetails[].class);
-    for (AzureCloudImageDetails imageDetails : images) {
-      imageDetails.setImageIdxFile(new File(myAzureStorage, imageDetails.getSourceName() + ".idx"));
-    }
     return Arrays.asList(images);
   }
 

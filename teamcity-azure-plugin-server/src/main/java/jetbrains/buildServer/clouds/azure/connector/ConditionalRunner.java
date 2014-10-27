@@ -32,7 +32,7 @@ import org.jetbrains.annotations.NotNull;
 public class ConditionalRunner implements Runnable {
   private static final Logger LOG = Logger.getInstance(ConditionalRunner.class.getName());
 
-  private static final List<Conditional> myItems = new CopyOnWriteArrayList<Conditional>();
+  private final List<Conditional> myItems = new CopyOnWriteArrayList<Conditional>();
 
 
   public void run() {
@@ -53,7 +53,7 @@ public class ConditionalRunner implements Runnable {
     }
   }
 
-  public static void addConditional(Conditional conditional){
+  public void addConditional(Conditional conditional){
     myItems.add(conditional);
     LOG.info(String.format("Added conditional '%s'", conditional.getName()));
   }

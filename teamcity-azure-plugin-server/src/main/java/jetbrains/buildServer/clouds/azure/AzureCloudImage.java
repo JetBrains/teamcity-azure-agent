@@ -33,7 +33,6 @@ import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.connector.*;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
-import jetbrains.buildServer.clouds.base.errors.CloudErrorMap;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -50,15 +49,19 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   private static final Logger LOG = Logger.getInstance(AzureCloudImage.class.getName());
 
   private final AzureCloudImageDetails myImageDetails;
+  @NotNull private final ProvisionActionsQueue myActionsQueue;
   @NotNull private final File myIdxFile;
   private final AzureApiConnector myApiConnector;
   private boolean myGeneralized;
 
   protected AzureCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
-                            @NotNull final AzureApiConnector apiConnector) {
+                            @NotNull final ProvisionActionsQueue actionsQueue,
+                            @NotNull final AzureApiConnector apiConnector,
+                            @NotNull final File azureStorage) {
     super(imageDetails.getSourceName(), imageDetails.getSourceName());
     myImageDetails = imageDetails;
-    myIdxFile = imageDetails.getImageIdxFile();
+    myActionsQueue = actionsQueue;
+    myIdxFile = new File(azureStorage, imageDetails.getSourceName() + ".idx");
     if (!myIdxFile.exists()){
       try {
         FileUtil.writeFileAndReportErrors(myIdxFile, "1");
@@ -98,7 +101,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
       return myInstances.get(myImageDetails.getSourceName()).getStatus() == InstanceStatus.STOPPED;
     } else {
       return myInstances.size() < myImageDetails.getMaxInstances()
-             && ProvisionActionsQueue.isLocked(myImageDetails.getServiceName());
+             && myActionsQueue.isLocked(myImageDetails.getServiceName());
     }
   }
 
@@ -106,7 +109,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   public void terminateInstance(@NotNull final AzureCloudInstance instance) {
     try {
       instance.setStatus(InstanceStatus.STOPPING);
-      ProvisionActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
+      myActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
         private String myRequestId;
 
         @NotNull
@@ -144,6 +147,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
             instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(e.getMessage(), e.toString())));
           }
         }
+
+        public void onError(final Throwable th) {
+          instance.setStatus(InstanceStatus.ERROR);
+          instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(th.getMessage(), th.getMessage())));
+        }
       });
     } catch (Exception e) {
       instance.setStatus(InstanceStatus.ERROR);
@@ -156,7 +164,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   }
 
   private void deleteInstance(@NotNull final AzureCloudInstance instance){
-    ProvisionActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
+    myActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
       private String myRequestId;
 
       @NotNull
@@ -178,6 +186,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
 
       public void onFinish() {
         myInstances.remove(instance.getInstanceId());
+      }
+
+      public void onError(final Throwable th) {
+        instance.setStatus(InstanceStatus.ERROR);
+        instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(th.getMessage(), th.getMessage())));
       }
     });
 
@@ -204,7 +217,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
     instance.refreshStartDate();
     try {
-      ProvisionActionsQueue.queueAction(
+      myActionsQueue.queueAction(
         myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
           private String operationId = null;
 
@@ -215,21 +228,15 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
 
           @NotNull
           public String action() throws ServiceException, IOException {
-            try {
-              final OperationResponse response;
-              if (myImageDetails.getBehaviour().isUseOriginal()) {
-                response = myApiConnector.startVM(AzureCloudImage.this);
-              } else {
-                response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
-              }
-              instance.setStatus(InstanceStatus.STARTING);
-              operationId = response.getRequestId();
-              return operationId;
-            } catch (ServiceException se){
-              instance.setStatus(InstanceStatus.ERROR);
-              instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(se.getMessage(), se.getMessage())));
-              throw se;
+            final OperationResponse response;
+            if (myImageDetails.getBehaviour().isUseOriginal()) {
+              response = myApiConnector.startVM(AzureCloudImage.this);
+            } else {
+              response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
             }
+            instance.setStatus(InstanceStatus.STARTING);
+            operationId = response.getRequestId();
+            return operationId;
           }
 
           @NotNull
@@ -254,6 +261,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
               instance.setStatus(InstanceStatus.ERROR);
               instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(e.getMessage(), e.toString())));
             }
+          }
+
+          public void onError(final Throwable th) {
+            instance.setStatus(InstanceStatus.ERROR);
+            instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(th.getMessage(), th.getMessage())));
           }
         });
     } catch (Exception e) {

@@ -52,13 +52,6 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
     myImageMap = new HashMap<String, T>();
     myErrorProvider = new CloudErrorMap();
     myApiConnector = apiConnector;
-    for (D details : imageDetails) {
-      T image = checkAndCreateImage(details);
-      myImageMap.put(image.getName(), image);
-    }
-    final UpdateInstancesTask<G, T, ?> updateInstancesTask = createUpdateInstancesTask();
-    updateInstancesTask.run();
-    myAsyncTaskExecutor.scheduleWithFixedDelay(updateInstancesTask, 20, 20, TimeUnit.SECONDS);
   }
 
   public void dispose() {
@@ -84,6 +77,16 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
   public boolean canStartNewInstance(@NotNull final CloudImage baseImage) {
     final T image = (T)baseImage;
     return image.canStartNewInstance();
+  }
+
+  public void populateImagesData(@NotNull final Collection<D> imageDetails){
+    for (D details : imageDetails) {
+      T image = checkAndCreateImage(details);
+      myImageMap.put(image.getName(), image);
+    }
+    final UpdateInstancesTask<G, T, ?> updateInstancesTask = createUpdateInstancesTask();
+    updateInstancesTask.run();
+    myAsyncTaskExecutor.scheduleWithFixedDelay(updateInstancesTask, 20, 20, TimeUnit.SECONDS);
   }
 
   protected abstract T checkAndCreateImage(@NotNull final D imageDetails);

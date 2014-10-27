@@ -49,7 +49,9 @@ public abstract class AbstractCloudClientFactory <D extends CloudImageDetails,C 
         return createNewClient(state, params, profileErrors);
       }
       final Collection<D> imageDetailsList = parseImageData(imagesData);
-      return createNewClient(state, imageDetailsList, params);
+      final C newClient = createNewClient(state, imageDetailsList, params);
+      newClient.populateImagesData(imageDetailsList);
+      return newClient;
     } catch (Exception ex){
       return createNewClient(state, params, new TypedCloudErrorInfo[]{new TypedCloudErrorInfo(ex.getMessage(), ex.getMessage())});
     }

@@ -40,15 +40,20 @@ import org.jetbrains.annotations.Nullable;
 public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
 
   private static final Logger LOG = Logger.getInstance(AzureCloudClient.class.getName());
+  @NotNull private final File myAzureIdxStorage;
 
   private boolean myInitialized = false;
+  private final ProvisionActionsQueue myActionsQueue;
+
 
   public AzureCloudClient(@NotNull final CloudClientParameters params,
                           @NotNull final Collection<AzureCloudImageDetails> images,
-                          @NotNull final AzureApiConnector apiConnector) {
+                          @NotNull final AzureApiConnector apiConnector,
+                          @NotNull final File azureIdxStorage) {
     super(params, images, apiConnector);
-    myAsyncTaskExecutor.scheduleWithFixedDelay(new ConditionalRunner(), 0, 5, TimeUnit.SECONDS);
-    myAsyncTaskExecutor.scheduleWithFixedDelay(ProvisionActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
+    myAzureIdxStorage = azureIdxStorage;
+    myActionsQueue = new ProvisionActionsQueue(myAsyncTaskExecutor);
+    myAsyncTaskExecutor.scheduleWithFixedDelay(myActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
     myInitialized = true;
   }
 
@@ -62,7 +67,7 @@ public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, Az
 
   @Override
   protected AzureCloudImage checkAndCreateImage(@NotNull final AzureCloudImageDetails imageDetails) {
-    return new AzureCloudImage(imageDetails, (AzureApiConnector)myApiConnector);
+    return new AzureCloudImage(imageDetails, myActionsQueue, (AzureApiConnector)myApiConnector, myAzureIdxStorage);
   }
 
   @Override

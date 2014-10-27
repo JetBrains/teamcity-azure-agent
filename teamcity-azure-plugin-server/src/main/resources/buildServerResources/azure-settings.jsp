@@ -142,7 +142,7 @@
         <tr class="provision hidden">
           <th>Provision password:  <l:star/></th>
           <td>
-              <props:passwordProperty name="secure:${cons.provisionPassword}" className="longField"/>
+              <input type="password" id="${cons.provisionPassword}" class="longField"/>
               <span class="error option-error option-error_${cons.provisionPassword}"></span>
           </td>
         </tr>

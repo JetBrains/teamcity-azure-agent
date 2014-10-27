@@ -114,4 +114,9 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
   public String getNetworkIdentity() {
     return null;
   }
+
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() +"{" +"myName='" + getInstanceId() + '\'' +'}';
+  }
 }

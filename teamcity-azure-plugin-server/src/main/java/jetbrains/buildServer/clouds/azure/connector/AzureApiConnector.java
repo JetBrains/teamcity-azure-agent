@@ -64,7 +64,7 @@ import org.xml.sax.SAXException;
 public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, AzureCloudInstance>, ActionIdChecker {
 
   private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
-  private static final int MIN_PORT_NUMBER = 9092;
+  private static final int MIN_PORT_NUMBER = 9090;
   private static final int MAX_PORT_NUMBER = 9999;
   private static final URI MANAGEMENT_URI = URI.create("https://management.core.windows.net");
   private final KeyStoreType myKeyStoreType;

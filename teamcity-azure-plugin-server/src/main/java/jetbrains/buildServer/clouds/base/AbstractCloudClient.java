@@ -21,7 +21,7 @@ package jetbrains.buildServer.clouds.base;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import jetbrains.buildServer.clouds.*;
-import jetbrains.buildServer.clouds.base.beans.AbstractCloudImageDetails;
+import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.connector.CloudAsyncTaskExecutor;
 import jetbrains.buildServer.clouds.base.errors.CloudErrorMap;
@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 7/22/2014
  *         Time: 1:49 PM
  */
-public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T extends AbstractCloudImage<G>, D extends AbstractCloudImageDetails>
+public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T extends AbstractCloudImage<G,D>, D extends CloudImageDetails>
   implements CloudClientEx, UpdatableCloudErrorProvider {
 
   protected final CloudErrorMap myErrorHolder;

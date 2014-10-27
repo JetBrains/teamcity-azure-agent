@@ -40,6 +40,7 @@ public class ProvisionActionsQueue{
   private static final Logger LOG = Logger.getInstance(ProvisionActionsQueue.class.getName());
   private static final Map<String, AtomicReference<String>> requestsQueue = new HashMap<String, AtomicReference<String>>();
   public static final Pattern CONFLICT_ERROR_PATTERN = Pattern.compile("Windows Azure is currently performing an operation with x-ms-requestid ([0-9a-f]{32}) on this deployment that requires exclusive access.");
+  public static final Pattern PORT_ERROR_PATTERN = Pattern.compile("Port (\\d+) is already in use by one of the endpoints in this deployment. Ensure that the port numbers are unique across endpoints within a deployment.");
 
   public static boolean isLocked(@NotNull final String serviceName){
     final String key = serviceName;
@@ -76,6 +77,10 @@ public class ProvisionActionsQueue{
             requestsQueue.get(serviceName).set(matcher.group(1));
             return false;
           } else {
+            Matcher portMatcher = PORT_ERROR_PATTERN.matcher(ex.getErrorMessage());
+            if (portMatcher.matches()){
+              return false;
+            }
             throw ex;
           }
         }

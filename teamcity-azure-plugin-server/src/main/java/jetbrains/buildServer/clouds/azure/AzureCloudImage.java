@@ -45,7 +45,7 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
  *         Date: 7/31/2014
  *         Time: 5:18 PM
  */
-public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
+public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails> {
 
   private static final Logger LOG = Logger.getInstance(AzureCloudImage.class.getName());
 
@@ -82,6 +82,9 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
       final AzureCloudInstance cloudInstance = new AzureCloudInstance(this, azureInstance.getName(), azureInstance.getName());
       cloudInstance.setStatus(azureInstance.getInstanceStatus());
       myInstances.put(azureInstance.getName(), cloudInstance);
+    }
+    if (myImageDetails.getBehaviour().isUseOriginal() && myInstances.size() != 1){
+      throw new TeamCityRuntimeException("Unable to find Azure Virtual Machine " + myImageDetails.getSourceName());
     }
   }
 
@@ -268,5 +271,9 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance> {
       LOG.warn("Unable to read idx file: " + e.toString());
       return 0;
     }
+  }
+
+  protected boolean isGeneralized(){
+    return myGeneralized;
   }
 }

@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 7/22/2014
  *         Time: 1:52 PM
  */
-public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends AbstractCloudImage<G>, F extends AbstractCloudClient<G, T, ?>> implements Runnable {
+public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends AbstractCloudImage<G,?>, F extends AbstractCloudClient<G, T, ?>> implements Runnable {
   private static final Logger LOG = Logger.getInstance(UpdateInstancesTask.class.getName());
 
   @NotNull private final CloudApiConnector myConnector;

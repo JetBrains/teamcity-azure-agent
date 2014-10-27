@@ -19,6 +19,7 @@
 package jetbrains.buildServer.clouds.azure;
 
 import com.google.gson.Gson;
+import com.intellij.openapi.util.text.StringUtil;
 import java.io.File;
 import java.util.*;
 import jetbrains.buildServer.clouds.*;
@@ -37,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 7/31/2014
  *         Time: 4:35 PM
  */
-public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudImage, AzureCloudClient> {
+public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudClient> {
 
   private final String myHtmlPath;
   private final File myAzureStorage;
@@ -107,6 +108,9 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
   @Override
   public Collection<AzureCloudImageDetails> parseImageData(final String imageData) {
     Gson gson = new Gson();
+    if (StringUtil.isEmpty(imageData)){
+      return Collections.emptyList();
+    }
     final AzureCloudImageDetails[] images = gson.fromJson(imageData, AzureCloudImageDetails[].class);
     for (AzureCloudImageDetails imageDetails : images) {
       imageDetails.setImageIdxFile(new File(myAzureStorage, imageDetails.getSourceName() + ".idx"));

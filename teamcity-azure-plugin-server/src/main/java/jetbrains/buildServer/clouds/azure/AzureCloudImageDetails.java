@@ -21,7 +21,7 @@ package jetbrains.buildServer.clouds.azure;
 import com.google.gson.annotations.SerializedName;
 import java.io.File;
 import jetbrains.buildServer.TeamCityRuntimeException;
-import jetbrains.buildServer.clouds.base.beans.AbstractCloudImageDetails;
+import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 8/1/2014
  *         Time: 4:45 PM
  */
-public class AzureCloudImageDetails extends AbstractCloudImageDetails {
+public class AzureCloudImageDetails implements CloudImageDetails {
 
   @SerializedName("sourceName")
   private final String mySourceName;
@@ -85,9 +85,6 @@ public class AzureCloudImageDetails extends AbstractCloudImageDetails {
   }
 
   public String getOsType() {
-    if (myOsType == null){
-      throw new UnsupportedOperationException("Don't have enough data for this VM type");
-    }
     return myOsType;
   }
 

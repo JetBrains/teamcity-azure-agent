@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import jetbrains.buildServer.clouds.*;
-import jetbrains.buildServer.clouds.base.beans.AbstractCloudImageDetails;
+import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -32,10 +32,7 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 7/22/2014
  *         Time: 1:51 PM
  */
-public abstract class AbstractCloudClientFactory <
-  D extends AbstractCloudImageDetails,
-  I extends AbstractCloudImage,
-  C extends AbstractCloudClient>
+public abstract class AbstractCloudClientFactory <D extends CloudImageDetails,C extends AbstractCloudClient>
 
   implements CloudClientFactory {
 
@@ -45,13 +42,17 @@ public abstract class AbstractCloudClientFactory <
 
   @NotNull
   public CloudClientEx createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params) {
-    final String imagesData = params.getParameter("images_data");
-    final TypedCloudErrorInfo[] profileErrors = checkClientParams(params);
-    if (profileErrors != null && profileErrors.length > 0){
-      return createNewClient(state, params, profileErrors);
+    try {
+      final String imagesData = params.getParameter("images_data");
+      final TypedCloudErrorInfo[] profileErrors = checkClientParams(params);
+      if (profileErrors != null && profileErrors.length > 0) {
+        return createNewClient(state, params, profileErrors);
+      }
+      final Collection<D> imageDetailsList = parseImageData(imagesData);
+      return createNewClient(state, imageDetailsList, params);
+    } catch (Exception ex){
+      return createNewClient(state, params, new TypedCloudErrorInfo[]{new TypedCloudErrorInfo(ex.getMessage(), ex.getMessage())});
     }
-    final Collection<D> imageDetailsList = parseImageData(imagesData);
-    return createNewClient(state, imageDetailsList, params);
   }
 
   public abstract C createNewClient(

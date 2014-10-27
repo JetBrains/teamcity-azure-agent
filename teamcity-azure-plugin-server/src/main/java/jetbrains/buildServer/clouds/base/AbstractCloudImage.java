@@ -26,6 +26,7 @@ import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudImage;
 import jetbrains.buildServer.clouds.CloudInstance;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
+import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.errors.CloudErrorMap;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.clouds.base.errors.UpdatableCloudErrorProvider;
@@ -37,7 +38,7 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 7/22/2014
  *         Time: 1:50 PM
  */
-public abstract class AbstractCloudImage<T extends AbstractCloudInstance> implements CloudImage, UpdatableCloudErrorProvider {
+public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G extends CloudImageDetails> implements CloudImage, UpdatableCloudErrorProvider {
   protected final UpdatableCloudErrorProvider myErrorProvider;
   protected final Map<String, T> myInstances;
   private final String myName;
@@ -91,4 +92,5 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance> implem
 
   public abstract T startNewInstance(@NotNull final CloudInstanceUserData tag);
 
+  public abstract G getImageDetails();
 }

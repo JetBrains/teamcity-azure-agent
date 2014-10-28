@@ -53,10 +53,13 @@ public class AzurePropertiesReader {
   private static final String WINDOWS_CUSTOM_DATA_FILE="C:\\AzureData\\CustomData.bin";
 
   private final BuildAgentConfigurationEx myAgentConfiguration;
+  @NotNull private final IdleShutdown myIdleShutdown;
 
 
-  public AzurePropertiesReader(final BuildAgentConfigurationEx agentConfiguration,
-                               @NotNull EventDispatcher<AgentLifeCycleListener> events) {
+  public AzurePropertiesReader(@NotNull final BuildAgentConfigurationEx agentConfiguration,
+                               @NotNull final EventDispatcher<AgentLifeCycleListener> events,
+                               @NotNull final IdleShutdown idleShutdown) {
+    myIdleShutdown = idleShutdown;
     LOG.info("Azure plugin initializing...");
     myAgentConfiguration = agentConfiguration;
     events.addListener(new AgentLifeCycleAdapter(){
@@ -211,6 +214,10 @@ public class AzurePropertiesReader {
     final CloudInstanceUserData data = CloudInstanceUserData.deserialize(serializedCustomData);
     if (data != null) {
       myAgentConfiguration.setServerUrl(data.getServerAddress());
+      if (data.getIdleTimeout() != null) {
+        LOG.info("Set idle timeout to " + data.getIdleTimeout());
+        myIdleShutdown.setIdleTime(data.getIdleTimeout());
+      }
       LOG.info("Set server URL to " + data.getServerAddress());
       final Map<String, String> customParams = data.getCustomAgentConfigurationParameters();
       for (String key : customParams.keySet()) {

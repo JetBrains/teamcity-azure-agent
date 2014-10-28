@@ -142,7 +142,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
           this.value = data;
         }
       });
-
   },
   _initData: function () {
     var self = this,
@@ -158,7 +157,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
       return accumulator;
     }, {});
-    this.fetchOptionsDeferred.done(function () {
+    this.fetchOptionsDeferred && this.fetchOptionsDeferred.done(function () {
       Object.keys(this.data).forEach(function (i, key) {
         var $image = this._getSourceByName(this.data[key].sourceName);
         this.data[key].$image = $image;

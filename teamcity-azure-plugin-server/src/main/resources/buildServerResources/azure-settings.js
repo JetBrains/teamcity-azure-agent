@@ -30,6 +30,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     imagesTableRow: '.imagesTableRow'
   },
   _imageData: {},
+  _passwordsData: {},
   _displayedErrors: {},
   _errorIds: ['sourceName', 'serviceName', 'maxInstances', 'vmNamePrefix', 'vmSize'],
   init: function (refreshOptionsUrl) {
@@ -53,6 +54,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$cancelButton = $j('#azureCancelDialogButton');
 
     this.$imagesDataElem = $j('#images_data');
+    this.$passwordsDataElem = $j('#passwords_data');
     this.$imagesTable = $j('#azureImagesTable');
     this.$imagesTableWrapper = $j('.imagesTableWrapper');
     this.$emptyImagesListMessage = $j('.emptyImagesListMessage');
@@ -152,7 +154,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     this.$passwordDataElem.on('change', function (e, data) {
       if (arguments.length === 1) {
-        self._imageData.password = BS.Encrypt.encryptData(this.value, $('publicKey').value);
+        self._passwordsData[self._imageData.sourceName] = this.value;
       } else {
         this.value = data;
       }

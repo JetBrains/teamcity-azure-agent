@@ -133,7 +133,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$vmNamePrefixDataElem
       .add(this.$vmSizeDataElem)
       .add(this.$usernameDataElem)
-      .add(this.$passwordDataElem)
       .add(this.$maxInstancesDataElem)
       .on('change', function (e, data) {
         if (arguments.length === 1) {
@@ -142,6 +141,14 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
           this.value = data;
         }
       });
+
+    this.$passwordDataElem.on('change', function (e, data) {
+      if (arguments.length === 1) {
+        self._imageData.password = BS.Encrypt.encryptData(this.value, $('publicKey').value);
+      } else {
+        this.value = data;
+      }
+    });
   },
   _initData: function () {
     var self = this,

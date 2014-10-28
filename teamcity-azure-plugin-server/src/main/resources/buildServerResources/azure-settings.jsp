@@ -59,7 +59,10 @@
 </table>
 <bs:dialog dialogId="AzureImageDialog" title="Edit Image" closeCommand="BS.AzureImageDialog.close()"
            dialogClass="AzureImageDialog" titleId="AzureDialogTitle"
-        ><table class="runnerFormTable">
+        ><!-- These fake fields are a workaround to disable chrome autofill -->
+    <input style="display:none" type="text" name="fakeusernameremembered"/>
+    <input style="display:none" type="password" name="fakepasswordremembered"/>
+    <table class="runnerFormTable">
     <tr>
         <th>
             <span id="label_${cons.sourceName}">Source:</span> <l:star/>

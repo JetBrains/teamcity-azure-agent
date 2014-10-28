@@ -255,14 +255,14 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$dialogSubmitButton.val(action === 'Edit' ? 'Save' : action).data('imageId', imageId);
 
     var usedMachines = Object.keys(this.data).reduce(function (acc, key) {
-      if (this.data[key].behaviour === 'START_STOP' && this._imageData.sourceName !== this.data[key].sourceName) {
+      if (this._imageData.sourceName !== this.data[key].sourceName) {
         acc.push(this.data[key].sourceName);
       }
 
       return acc;
     }.bind(this), []);
 
-    this.$sourceNameDataElem.find('optgroup[label="Machines"] option').each(function () {
+    this.$sourceNameDataElem.find('option').each(function () {
       $j(this).prop('disabled', usedMachines.indexOf(this.value) !== -1);
     });
 

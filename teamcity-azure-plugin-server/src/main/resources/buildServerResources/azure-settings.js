@@ -32,7 +32,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   _imageData: {},
   _passwordsData: {},
   _displayedErrors: {},
-  _errorIds: ['sourceName', 'serviceName', 'maxInstances', 'vmNamePrefix', 'vmSize'],
+  _errorIds: ['sourceName', 'serviceName', 'maxInstances', 'vmNamePrefix', 'vmSize', 'username', 'password'],
   init: function (refreshOptionsUrl) {
     this.$response = null;
     this.refreshOptionsUrl = refreshOptionsUrl;
@@ -431,6 +431,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _updateDataAndView: function (imageId) {
     this.data[imageId] = this._imageData;
+    this.$passwordsDataElem.val(JSON.stringify(this._passwordsData));
     this._saveImagesData();
     this.renderImagesTable();
   },
@@ -569,7 +570,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$vmNamePrefixDataElem.trigger('change', image.vmNamePrefix || '');
     this.$maxInstancesDataElem.trigger('change', image.maxInstances || '1');
     this.$usernameDataElem.trigger('change', image.username || '');
-    this.$passwordDataElem.trigger('change', image.password || '');
+    this.$passwordDataElem.trigger('change', this._passwordsData[image.sourceName] || '');
   },
   _getSourceByName: function (sourceName) {
     var $image = this.$response.find('Images:eq(0) Image[name="' + sourceName + '"]');
@@ -587,7 +588,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _errors: {
     required: 'The field must not be empty',
-    imageStart: 'START_STOP behaviour cannot be selected for images',
+    imageStart: 'Start/Stop behaviour cannot be selected for images',
     positiveNumber: 'Must be positive number',
     nonexistent: 'The %%elem%% &laquo;%%val%%&raquo; does not exist'
   },
@@ -599,6 +600,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
           if (this._getSourceType() === 'image' && ! this._imageData[prop]) {
             this.addOptionError('required', prop);
             isValid = false;
+            return true;
           }
         };
       },
@@ -626,8 +628,16 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
             isValid = false;
           }
         }.bind(this),
-        vmNamePrefix: requiredForImage('vmNamePrefix').bind(this),
+        vmNamePrefix: [requiredForImage('vmNamePrefix').bind(this)],
         vmSize: requiredForImage('vmSize').bind(this),
+        username: requiredForImage('username').bind(this),
+        password: function () {
+          var pwd = this._passwordsData[this._imageData.sourceName];
+          if (!(pwd && pwd.length)) {
+            this.addOptionError('required', 'password');
+            isValid = false;
+          };
+        }.bind(this),
         maxInstances: function () {
           if (this._getSourceType() === 'image') {
             if (!maxInstances || !$j.isNumeric(maxInstances) || maxInstances < 1) {
@@ -645,7 +655,15 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.clearOptionsErrors(options);
 
     (options || Object.keys(validators)).forEach(function(option) {
-      validators[option](); // validators are already bound to parent object
+      if (validators[option]) {
+        if (Array.isArray(validators[option])) {
+          validators[option].some(function (validator) {
+            return validator();
+          });
+        } else {
+          validators[option](); // validators are already bound to parent object
+        }
+      }
     });
 
     return isValid;

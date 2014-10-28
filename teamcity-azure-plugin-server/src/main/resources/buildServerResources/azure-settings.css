@@ -19,6 +19,12 @@
 .inline-block {
     display: inline-block;
 }
+
+.toggle-certificate {
+    display: none;
+    line-height: 21px;
+}
+
 .osIcon {
     vertical-align: middle;
 }

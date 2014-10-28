@@ -38,6 +38,7 @@
     <th><label for="secure:${cons.managementCertificate}">Management certificate: <l:star/></label></th>
     <td>
         <props:textProperty name="secure:${cons.managementCertificate}" className="longField"/>
+        <a href="#" class="toggle-certificate">edit</a>
         <span class="smallNote">Your Azure account management certificate. You may find the info at ${azureLink}</span>
     </td>
   </tr>

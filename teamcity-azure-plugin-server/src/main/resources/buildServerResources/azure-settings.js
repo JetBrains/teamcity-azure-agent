@@ -36,6 +36,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$response = null;
     this.refreshOptionsUrl = refreshOptionsUrl;
     this.$cert = $j(BS.Util.escapeId('secure:managementCertificate'));
+    this.$certEditLink = $j('.toggle-certificate');
     this.$subscrId = $j('#subscriptionId');
 
     this.$sourceNameDataElem = $j('#sourceName');
@@ -89,6 +90,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       }
       return false;
     });
+
+    this.$certEditLink.on('click', function () {
+      this._toggleCertInput(true);
+
+      return false;
+    }.bind(this));
+
     this.$imagesTable.on('click', this.selectors.editImageLink, function () {
       self.showEditDialog($j(this));
 
@@ -198,6 +206,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     this.loaders.options.removeClass('invisible');
     this._toggleEditLinks();
+    this._toggleCertInput();
     this.fetchOptionsDeferred = $j.Deferred()
       .done(function (response) {
         this.$response = $j(response.responseXML).find('response');
@@ -482,6 +491,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   _toggleDialogShowButton: function (enable) {
     this.$showDialogButton.attr('disabled', !enable);
   },
+  _toggleCertInput: function (enable) {
+    this.$certEditLink.toggle(!enable);
+    this.$cert.toggle(enable);
+    if (enable) {
+      this.$cert.val('');
+    }
+  },
   _toggleEditLinks: function (enable) {
     $j(this.selectors.editImageLink).toggleClass('hidden', !enable);
     $j(this.selectors.editImageLink + '_disabled').toggleClass('hidden', !!enable);
@@ -568,7 +584,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       null;
   },
   _errors: {
-    required: 'Required field cannot be left blank',
+    required: 'The field must not be empty',
     imageStart: 'START_STOP behaviour cannot be selected for images',
     positiveNumber: 'Must be positive number',
     nonexistent: 'The %%elem%% &laquo;%%val%%&raquo; does not exist'

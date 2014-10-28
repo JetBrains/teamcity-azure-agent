@@ -94,6 +94,7 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
         for (String instanceName : instancesToRemove) {
           image.removeInstance(instanceName);
         }
+        image.detectNewInstances(realInstances);
       }
     } catch (Exception ex){
       LOG.warn(ex.toString(), ex);

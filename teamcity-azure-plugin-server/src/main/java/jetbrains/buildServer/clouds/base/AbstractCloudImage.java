@@ -27,6 +27,7 @@ import jetbrains.buildServer.clouds.CloudImage;
 import jetbrains.buildServer.clouds.CloudInstance;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
+import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.CloudErrorMap;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.clouds.base.errors.UpdatableCloudErrorProvider;
@@ -93,6 +94,8 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
   public abstract T startNewInstance(@NotNull final CloudInstanceUserData tag);
 
   public abstract G getImageDetails();
+
+  public abstract void detectNewInstances(final Map<String, AbstractInstance> realInstances);
 
   public String toString() {
     return getClass().getSimpleName() +"{" +"myName='" + getId() + '\'' +'}';

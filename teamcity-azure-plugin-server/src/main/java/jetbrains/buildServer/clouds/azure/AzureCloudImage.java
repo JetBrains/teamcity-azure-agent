@@ -33,6 +33,7 @@ import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.connector.*;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
+import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -93,6 +94,18 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
 
   public AzureCloudImageDetails getImageDetails() {
     return myImageDetails;
+  }
+
+  @Override
+  public void detectNewInstances(final Map<String, AbstractInstance> realInstances) {
+    for (String instanceName : realInstances.keySet()) {
+      if (myInstances.get(instanceName) == null) {
+        final AbstractInstance realInstance = realInstances.get(instanceName);
+        final AzureCloudInstance newInstance = new AzureCloudInstance(this, instanceName);
+        newInstance.setStatus(realInstance.getInstanceStatus());
+        myInstances.put(instanceName, newInstance);
+      }
+    }
   }
 
   @Override

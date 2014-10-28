@@ -590,7 +590,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     required: 'The field must not be empty',
     imageStart: 'Start/Stop behaviour cannot be selected for images',
     positiveNumber: 'Must be positive number',
-    nonexistent: 'The %%elem%% &laquo;%%val%%&raquo; does not exist'
+    nonexistent: 'The %%elem%% &laquo;%%val%%&raquo; does not exist',
+    no_spaces: 'Spaces are not allowed',
+    max_length: 'Maximum allowed length is %%length%%'
   },
   validateOptions: function (options) {
     var maxInstances = this._imageData.maxInstances,
@@ -628,7 +630,19 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
             isValid = false;
           }
         }.bind(this),
-        vmNamePrefix: [requiredForImage('vmNamePrefix').bind(this)],
+        vmNamePrefix: [requiredForImage('vmNamePrefix').bind(this), function () {
+          if (new RegExp(' ').test(this.$vmNamePrefixDataElem.val())) {
+            this.addOptionError('no_spaces', 'vmNamePrefix');
+            isValid = false;
+            return true;
+          }
+        }.bind(this), function () {
+          if (this.$vmNamePrefixDataElem.val().length > 6) {
+            this.addOptionError({ key: 'max_length', props: { length: 6 }}, 'vmNamePrefix');
+            isValid = false;
+            return true;
+          }
+        }.bind(this)],
         vmSize: requiredForImage('vmSize').bind(this),
         username: requiredForImage('username').bind(this),
         password: function () {

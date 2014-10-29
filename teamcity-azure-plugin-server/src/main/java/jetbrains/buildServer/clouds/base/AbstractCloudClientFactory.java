@@ -43,12 +43,11 @@ public abstract class AbstractCloudClientFactory <D extends CloudImageDetails,C 
   @NotNull
   public CloudClientEx createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params) {
     try {
-      final String imagesData = params.getParameter("images_data");
       final TypedCloudErrorInfo[] profileErrors = checkClientParams(params);
       if (profileErrors != null && profileErrors.length > 0) {
         return createNewClient(state, params, profileErrors);
       }
-      final Collection<D> imageDetailsList = parseImageData(imagesData);
+      final Collection<D> imageDetailsList = parseImageData(params);
       final C newClient = createNewClient(state, imageDetailsList, params);
       newClient.populateImagesData(imageDetailsList);
       return newClient;
@@ -63,7 +62,7 @@ public abstract class AbstractCloudClientFactory <D extends CloudImageDetails,C 
   public abstract C createNewClient(
     @NotNull final CloudState state, @NotNull final CloudClientParameters params, TypedCloudErrorInfo[] profileErrors);
 
-  public abstract Collection<D> parseImageData(String imageData);
+  public abstract Collection<D> parseImageData(CloudClientParameters params);
 
   @Nullable
   protected abstract TypedCloudErrorInfo[] checkClientParams(@NotNull final CloudClientParameters params);

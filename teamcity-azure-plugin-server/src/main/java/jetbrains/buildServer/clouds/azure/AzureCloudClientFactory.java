@@ -19,15 +19,19 @@
 package jetbrains.buildServer.clouds.azure;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.intellij.openapi.util.text.StringUtil;
 import java.io.File;
+import java.lang.reflect.Type;
 import java.util.*;
 import jetbrains.buildServer.clouds.*;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.web.AzureWebConstants;
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.clouds.server.impl.CloudManagerBase;
 import jetbrains.buildServer.serverSide.*;
+import jetbrains.buildServer.serverSide.crypt.RSACipher;
 import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
@@ -40,8 +44,11 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudClient> {
 
+  private static final Type stringStringMapType = new TypeToken<Map<String, String>>(){}.getType();
+  
   private final String myHtmlPath;
   private final File myAzureStorage;
+
 
   public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
                                  @NotNull final EventDispatcher<BuildServerListener> serverDispatcher,
@@ -108,12 +115,23 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
 
 
   @Override
-  public Collection<AzureCloudImageDetails> parseImageData(final String imageData) {
+  public Collection<AzureCloudImageDetails> parseImageData(final CloudClientParameters params) {
     Gson gson = new Gson();
+    final String imageData = params.getParameter("images_data");
     if (StringUtil.isEmpty(imageData)){
       return Collections.emptyList();
     }
     final AzureCloudImageDetails[] images = gson.fromJson(imageData, AzureCloudImageDetails[].class);
+
+    final String passwordData = params.getParameter("secure:passwords_data");
+    final Map<String,String> data = gson.fromJson(passwordData, stringStringMapType);
+    if (data != null) {
+      for (AzureCloudImageDetails image : images) {
+        if (data.get(image.getSourceName()) != null) {
+          image.setPassword(data.get(image.getSourceName()));
+        }
+      }
+    }
     return Arrays.asList(images);
   }
 

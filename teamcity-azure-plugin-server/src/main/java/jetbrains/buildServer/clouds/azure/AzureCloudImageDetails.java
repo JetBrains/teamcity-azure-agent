@@ -19,10 +19,11 @@
 package jetbrains.buildServer.clouds.azure;
 
 import com.google.gson.annotations.SerializedName;
-import java.io.File;
 import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
+import jetbrains.buildServer.serverSide.crypt.EncryptUtil;
+import jetbrains.buildServer.serverSide.crypt.RSACipher;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -44,14 +45,15 @@ public class AzureCloudImageDetails implements CloudImageDetails {
   private final String myOsType;
   @SerializedName("vmSize")
   private final String myVmSize;
-  @SerializedName("username")
-  private final String myUsername;
-  @SerializedName("password")
-  private final String myPassword;
   @SerializedName("maxInstances")
   private final int myMaxInstances;
   @SerializedName("behaviour")
   private final CloneBehaviour myBehaviour;
+
+  @SerializedName("username")
+  private final String myUsername;
+
+  private String myPassword = null;
 
   public AzureCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
                                 @Nullable final String serviceName,
@@ -99,6 +101,10 @@ public class AzureCloudImageDetails implements CloudImageDetails {
 
   public String getPassword() {
     return myPassword;
+  }
+
+  public void setPassword(final String password) {
+    myPassword = password;
   }
 
   public int getMaxInstances() {

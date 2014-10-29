@@ -179,7 +179,7 @@
         <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
         <c:set var="imagesData" value="${propertiesBean.properties['images_data']}"/>
         <input type="hidden" name="prop:images_data" id="images_data" value="<c:out value="${imagesData}"/>"/>
-        <c:set var="imagesData" value="${propertiesBean.properties['secure:passwords_data']}"/>
+        <c:set var="passwordsValue" value="${propertiesBean.properties['secure:passwords_data']}"/>
         <input type="hidden" name="prop:secure:passwords_data" id="passwords_data" value="<c:out value="${passwordsValue}"/>"/>
     </div>
 </div>

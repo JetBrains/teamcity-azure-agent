@@ -163,7 +163,14 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   _initData: function () {
     var self = this,
       rawImagesData = this.$imagesDataElem.val() || '[]',
+      imagesData;
+
+    try {
       imagesData = JSON.parse(rawImagesData);
+    } catch (e) {
+      imagesData = [];
+      BS.Log.error('bad images data: ' + rawImagesData);
+    }
 
     this.data = imagesData.reduce(function (accumulator, imageDataStr) {
       // drop images without sourceName
@@ -180,6 +187,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         this.data[key].$image = $image;
       }.bind(this))
     }.bind(this));
+
+    try {
+      this._passwordsData = JSON.parse(this.$passwordsDataElem.val());
+    } catch (e) {
+      BS.Log.error('bad passwords data: ' + this.$passwordsDataElem.val());
+    }
+
   },
   renderImagesTable: function () {
     this._clearImagesTable();

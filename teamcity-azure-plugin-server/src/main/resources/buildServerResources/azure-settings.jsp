@@ -28,18 +28,20 @@
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.web.AzureWebConstants"/>
 <jsp:useBean id="refreshablePath" class="java.lang.String" scope="request"/>
 
+<h2 class="noBorder section-header">Cloud Access Information</h2>
+<c:set var="azureLink"><a href="https://manage.windowsazure.com/publishsettings" target="_blank">file</a></c:set>
+
 <script type="text/javascript">
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}azure-settings.css'/>");
 </script>
 
-<c:set var="azureLink"><a href="https://manage.windowsazure.com/publishsettings" target="_blank">https://manage.windowsazure.com/publishsettings</a></c:set>
 <table class="runnerFormTable">
   <tr>
     <th><label for="secure:${cons.managementCertificate}">Management certificate: <l:star/></label></th>
     <td>
         <props:textProperty name="secure:${cons.managementCertificate}" className="longField"/>
         <a href="#" class="toggle-certificate">edit</a>
-        <span class="smallNote">Your Azure account management certificate. You may find the info at ${azureLink}</span>
+        <span class="smallNote">Your Azure account management certificate</span>
     </td>
   </tr>
 
@@ -47,12 +49,13 @@
     <th><label for="${cons.subscriptionId}">Subscription ID: <l:star/></label></th>
     <td>
         <props:textProperty name="${cons.subscriptionId}" className="longField"/>
-        <span class="smallNote">Your Azure account subscription ID. You may find the info at ${azureLink}</span>
+        <span class="smallNote">Your Azure account subscription ID</span>
+        <span class="grayNote">Download your subscription ${azureLink} to obtain management certificate and subscription ID</span>
     </td>
   </tr>
 
   <tr>
-    <td colspan="2">
+    <td colspan="2" class="loader-wrapper">
       <span id="error_fetch_options" class="error"></span>
       <div class="options-loader invisible"><i class="icon-refresh icon-spin"></i>&nbsp;Fetching options...</div>
     </td>
@@ -76,7 +79,7 @@
                     <bs:osIcon osName="linux" small="true"/>
                 </span>
             </div>
-            <span class="smallNote">Image or Machine. Greyed machines are already added</span>
+            <span class="smallNote">Image or Machine. The greyed out options are already added</span>
             <span class="error option-error option-error_${cons.sourceName}"></span>
         </td>
     </tr>
@@ -157,10 +160,8 @@
     </div>
 </bs:dialog>
 
-<forms:addButton title="Add image" id="azureShowDialogButton">Add image</forms:addButton>
-
+<h2 class="noBorder section-header">Agent Images</h2>
 <div class="imagesOuterWrapper">
-    <h3 class="title_underlined">Images</h3>
     <div class="imagesTableWrapper hidden">
         <span class="emptyImagesListMessage hidden">You haven't added any images yet.</span>
         <table id="azureImagesTable" class="settings imagesTable hidden">
@@ -182,6 +183,7 @@
         <c:set var="passwordsValue" value="${propertiesBean.properties['secure:passwords_data']}"/>
         <input type="hidden" name="prop:secure:passwords_data" id="passwords_data" value="<c:out value="${passwordsValue}"/>"/>
     </div>
+    <forms:addButton title="Add image" id="azureShowDialogButton">Add image</forms:addButton>
 </div>
 
 <script type="text/javascript">

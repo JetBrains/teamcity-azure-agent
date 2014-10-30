@@ -99,8 +99,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       return false;
     }.bind(this));
 
-    this.$imagesTable.on('click', this.selectors.editImageLink, function () {
-      self.showEditDialog($j(this));
+    this.$imagesTable.on('click', this.selectors.imagesTableRow + ' .highlight', function () {
+      self.showEditDialog($j(this).parents(self.selectors.imagesTableRow).find(self.selectors.editImageLink));
 
       return false;
     });
@@ -476,12 +476,12 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $target.append($j('<option>').attr('value', value).text(text || value).attr('data-type', type));
   },
   _imagesTableRowTemplate: $j('<tr class="imagesTableRow">\
-<td class="imageName"><div class="sourceIcon"></div><span class="sourceName"></span></td>\
-<td class="serviceName"></td>\
-<td class="vmNamePrefix hidden"></td>\
-<td class="behaviour hidden"></td>\
-<td class="maxInstances"></td>\
-<td class="edit"><span class="editImageLink_disabled" title="Editing is available after successful retrieval of data">edit</span><a href="#" class="editImageLink hidden">edit</a></td>\
+<td class="imageName highlight"><div class="sourceIcon"></div><span class="sourceName"></span></td>\
+<td class="serviceName highlight"></td>\
+<td class="vmNamePrefix highlight hidden"></td>\
+<td class="behaviour highlight hidden"></td>\
+<td class="maxInstances highlight"></td>\
+<td class="edit highlight"><span class="editImageLink_disabled" title="Editing is available after successful retrieval of data">edit</span><a href="#" class="editImageLink hidden">edit</a></td>\
 <td class="remove"><a href="#" class="removeImageLink">delete</a></td>\
     </tr>'),
   _renderImageRow: function (data, id) {
@@ -604,7 +604,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     return $image;
   },
   _getSourceType: function () {
-    return this._imageData.$image ?
+    return (this._imageData.$image && this._imageData.$image.length) ?
       this._imageData.$image.get(0).nodeName.toLowerCase() :
       null;
   },

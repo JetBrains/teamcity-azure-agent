@@ -100,7 +100,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }.bind(this));
 
     this.$imagesTable.on('click', this.selectors.imagesTableRow + ' .highlight', function () {
-      self.showEditDialog($j(this).parents(self.selectors.imagesTableRow).find(self.selectors.editImageLink));
+      if (self.$response) {
+        self.showEditDialog($j(this).parents(self.selectors.imagesTableRow).find(self.selectors.editImageLink));
+      }
 
       return false;
     });
@@ -138,6 +140,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         }
         this.$serviceNameDataElem.val(data);
       }
+      this.validateOptions(e.target.getAttribute('data-err-id'));
     }.bind(this));
 
     this.$vmNamePrefixDataElem
@@ -150,6 +153,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         } else {
           this.value = data;
         }
+        self.validateOptions(e.target.getAttribute('data-err-id'));
       });
 
     this.$passwordDataElem.on('change', function (e, data) {
@@ -158,6 +162,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       } else {
         this.value = data;
       }
+      self.validateOptions(e.target.getAttribute('data-err-id'));
     });
   },
   _initData: function () {
@@ -283,9 +288,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $j('#AzureDialogTitle').text(action + ' Image');
     this.$dialogSubmitButton.val(action === 'Edit' ? 'Save' : action).data('imageId', imageId);
 
-    this.resetDataAndDialog(); // fix: 'ESC' closes dialog without calling custom `close`
+    this._triggerDialogChange(); this._initImage(); this._displayedErrors = {}; this.clearOptionsErrors(); // fix: 'ESC' closes dialog without calling custom `close`
     typeof imageId !== 'undefined' && (this._imageData = this.data[imageId]);
-    this._triggerDialogChange();
 
     var usedMachines = Object.keys(this.data).reduce(function (acc, key) {
       if (this._imageData.sourceName !== this.data[key].sourceName) {
@@ -303,6 +307,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   showEditDialog: function ($elem) {
     this.showDialog('edit', $elem.data('imageId'));
+    this.fetchOptionsDeferred.then(function () {
+      this._triggerDialogChange();
+    }.bind(this));
   },
   removeImage: function ($elem) {
     delete this.data[$elem.data('imageId')];
@@ -324,7 +331,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       var sourceName = this.$sourceNameDataElem.val(),
         $image = this._getSourceByName(sourceName);
 
-      if ($image.length) {
+      if (! $image.length) {
+        delete this._imageData.sourceName;
+      } else {
         $j.extend(true, this._imageData, {
           $image: $image,
           sourceName: sourceName,
@@ -347,20 +356,22 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
             delete this._imageData[key];
             this['$' + key + 'DataElem'].val('')
           }.bind(this));
+          this._imageData.serviceName = $image.parents('Service').attr('name');
         }
 
-        this._imageData.serviceName = $image.parents('Service').attr('name') || '';
-        this.$serviceNameDataElem.trigger('change', this._imageData.serviceName);
+        this._imageData.serviceName && this.$serviceNameDataElem.trigger('change', this._imageData.serviceName);
       }
     }
 
     this._showImageOsType();
     this._toggleCloneOptions();
     this._toggleProvisionCredentials();
+    this.validateOptions('sourceName');
     BS.AzureImageDialog.recenterDialog();
   },
-  _behaviourChangeHandler: function () {
-    this._toggleCloneOptions()
+  _behaviourChangeHandler: function (e) {
+    this._toggleCloneOptions();
+    this.validateOptions(e.target.getAttribute('data-err-id'));
   },
   _showImageOsType: function () {
     /**

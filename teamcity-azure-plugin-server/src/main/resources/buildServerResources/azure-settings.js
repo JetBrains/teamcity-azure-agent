@@ -29,7 +29,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     editImageLink: '.editImageLink',
     imagesTableRow: '.imagesTableRow'
   },
-  _imageData: {},
   _passwordsData: {},
   _displayedErrors: {},
   _errorIds: ['sourceName', 'serviceName', 'maxInstances', 'vmNamePrefix', 'vmSize', 'username', 'password'],
@@ -65,6 +64,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     };
 
     this._lastImageId = this._imagesDataLength = 0;
+    this._initImage();
     this._toggleDialogShowButton();
     this._bindHandlers();
     this._fetchOptionsClickHandler();
@@ -194,6 +194,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       BS.Log.error('bad passwords data: ' + this.$passwordsDataElem.val());
     }
 
+  },
+  _initImage: function () {
+    this._imageData = {
+      maxInstances: '1'
+    };
   },
   renderImagesTable: function () {
     this._clearImagesTable();
@@ -377,8 +382,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $j('.clone').toggleClass('hidden', !this._isClone());
   },
   _toggleProvisionCredentials: function () {
-    var isGeneralized = !!(this._imageData.$image &&
-      this._imageData.$image.attr('generalized') == 'true');
+    var isGeneralized = this._isGeneralizedImage();
 
     $j('.provision').toggle(isGeneralized);
 
@@ -387,6 +391,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       delete this._imageData.password;
       this.$usernameDataElem.add(this.$passwordDataElem).val('');
     }
+  },
+  _isGeneralizedImage: function () {
+    return !!(this._imageData.$image && this._imageData.$image.attr('generalized') == 'true');
   },
   _saveImagesData: function () {
     var imageData = Object.keys(this.data).reduce(function (accumulator, id) {
@@ -484,7 +491,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     var $row = this._imagesTableRowTemplate.clone();
 
     Object.keys(data).forEach(function (className) {
-      typeof data[className] === 'string' && $row.find('.' + className).text(data[className]);
+      if (className === 'maxInstances' && data.sourceName === 'START_STOP' && data[className] == 1) {
+        $row.find('.' + className).text(data[className]);
+      } else {
+        typeof data[className] === 'string' && $row.find('.' + className).text(data[className]);
+      }
     });
 
     $row.find('.sourceIcon')
@@ -567,7 +578,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }.bind(this));
   },
   resetDataAndDialog: function () {
-    this._imageData = {};
+    this._initImage();
     this.clearOptionsErrors();
 
     if (this.$response) {
@@ -658,10 +669,16 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
           }
         }.bind(this)],
         vmSize: requiredForImage('vmSize').bind(this),
-        username: requiredForImage('username').bind(this),
+        username: function () {
+          if (this._getSourceType() === 'image' && this._isGeneralizedImage() && ! this._imageData.username) {
+            this.addOptionError('required', 'username');
+            isValid = false;
+            return true;
+          }
+        }.bind(this),
         password: function () {
           var pwd = this._passwordsData[this._imageData.sourceName];
-          if (!(pwd && pwd.length)) {
+          if (this._getSourceType() === 'image' && this._isGeneralizedImage() && !(pwd && pwd.length)) {
             this.addOptionError('required', 'password');
             isValid = false;
           };

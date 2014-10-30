@@ -111,7 +111,8 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   @Override
   public boolean canStartNewInstance() {
     if (myImageDetails.getBehaviour().isUseOriginal()) {
-      return myInstances.get(myImageDetails.getSourceName()).getStatus() == InstanceStatus.STOPPED;
+      final AzureCloudInstance singleInstance = myInstances.get(myImageDetails.getSourceName());
+      return singleInstance != null && singleInstance.getStatus() == InstanceStatus.STOPPED;
     } else {
       return myInstances.size() < myImageDetails.getMaxInstances()
              && myActionsQueue.isLocked(myImageDetails.getServiceName());

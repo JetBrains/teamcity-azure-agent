@@ -75,6 +75,14 @@
     font-family: "Helvetica Neue", Arial, sans-serif;
 }
 
+.sourceIcon_unknown {
+    background-color: #e5e5e5;
+}
+
+.sourceIcon_error {
+    background-color: #aa1111;
+}
+
 .imagesTableRow:hover .highlight {
     background-color: #ffffcc;
     color: #25419d;

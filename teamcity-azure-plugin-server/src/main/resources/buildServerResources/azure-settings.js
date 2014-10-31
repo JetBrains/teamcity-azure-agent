@@ -255,6 +255,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         } else {
           this.addError('Empty response received, it is somewhat suspicious — check your credentials');
         }
+        this.validateImages();
       }.bind(this))
       .fail(function (errorText) {
         this.addError("Unable to fetch options: " + errorText);
@@ -473,6 +474,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         this._updateDataAndView(this._lastImageId++);
       }
 
+      this.validateImages();
       BS.AzureImageDialog.close();
       this._toggleEditLinks(true);
     }
@@ -487,7 +489,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $target.append($j('<option>').attr('value', value).text(text || value).attr('data-type', type));
   },
   _imagesTableRowTemplate: $j('<tr class="imagesTableRow">\
-<td class="imageName highlight"><div class="sourceIcon"></div><span class="sourceName"></span></td>\
+<td class="imageName highlight"><div class="sourceIcon sourceIcon_unknown">?</div><span class="sourceName"></span></td>\
 <td class="serviceName highlight"></td>\
 <td class="vmNamePrefix highlight hidden"></td>\
 <td class="behaviour highlight hidden"></td>\
@@ -506,12 +508,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       }
     });
 
-    $row.find('.sourceIcon')
-      .text(data.behaviour === 'START_STOP' ? 'M' : 'I')
-      .attr('title', data.behaviour === 'START_STOP' ? 'Machine' : 'Image');
-
-    $row.find(this.selectors.rmImageLink).data('imageId', id);
-    $row.find(this.selectors.editImageLink).data('imageId', id);
+    $row.attr('data-image-id', id)
+      .find(this.selectors.rmImageLink).data('imageId', id).end()
+      .find(this.selectors.editImageLink).data('imageId', id);
     this.$imagesTable.append($row);
   },
   _clearImagesTable: function () {
@@ -529,8 +528,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _toggleCertInput: function (enable) {
     this.$certEditLink.toggle(!enable);
-    this.$cert.toggle(enable);
-    if (enable) {
+    this.$cert.toggle(!!enable);
+    if (!!enable) {
       this.$cert.val('');
     }
   },
@@ -614,9 +613,17 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     return $image;
   },
-  _getSourceType: function () {
-    return (this._imageData.$image && this._imageData.$image.length) ?
-      this._imageData.$image.get(0).nodeName.toLowerCase() :
+  /**
+   * returns source type for current image or the one provided
+   * @param {jQuery} $source
+   * @returns {string}
+   * @private
+   */
+  _getSourceType: function ($source) {
+    var _source = $source || this._imageData.$image;
+
+    return (_source && _source.length) ?
+      _source.get(0).nodeName.toLowerCase() :
       null;
   },
   _errors: {
@@ -625,6 +632,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     positiveNumber: 'Must be positive number',
     nonexistent: 'The %%elem%% &laquo;%%val%%&raquo; does not exist',
     no_spaces: 'Spaces are not allowed',
+    templateStart: 'Start/Stop behaviour cannot be selected for images',
     max_length: 'Maximum allowed length is %%length%%'
   },
   validateOptions: function (options) {
@@ -720,6 +728,46 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     });
 
     return isValid;
+  },
+  validateImages: function () {
+    var updateIcon = function(imageId, type, title, symbol) {
+      var $icon = this.$imagesTable.find(this.selectors.imagesTableRow + '[data-image-id=' + imageId + '] .sourceIcon');
+
+      $icon.removeClass().addClass('sourceIcon').removeAttr('title');
+
+      switch (type) {
+      case 'error':
+        $icon
+          .addClass('sourceIcon_error')
+          .text(symbol || '!')
+          .attr('title', title);
+        break;
+      case 'info':
+        $icon
+          .text(symbol)
+          .attr('title', title);
+        break;
+      default:
+        $icon
+          .addClass('sourceIcon_unknown')
+          .text('?');
+      }
+    }.bind(this);
+
+    Object.keys(this.data).forEach(function (imageId) {
+      var name = this.data[imageId].sourceName,
+        machine = this._getSourceByName(name),
+        type = this._getSourceType(machine);
+
+      if (! machine.length) {
+        return updateIcon(imageId, 'error', 'Nonexistent source');
+      }
+
+      if (type === 'image' && this.data[imageId].behaviour === 'START_STOP') {
+        return updateIcon(imageId, 'error', this._errors.templateStart);
+      }
+      updateIcon(imageId, 'info',type === 'image' ? 'Image' : 'Machine', type == 'image' ? 'I' : 'M');
+    }.bind(this));
   }
 };
 

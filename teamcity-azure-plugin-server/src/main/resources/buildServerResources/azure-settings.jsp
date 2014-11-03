@@ -29,7 +29,7 @@
 <jsp:useBean id="refreshablePath" class="java.lang.String" scope="request"/>
 
 <h2 class="noBorder section-header">Cloud Access Information</h2>
-<c:set var="azureLink"><a href="https://manage.windowsazure.com/publishsettings" target="_blank">file</a></c:set>
+<c:set var="azureLink"><a href="https://manage.windowsazure.com/publishsettings" target="_blank">subscription file</a></c:set>
 
 <script type="text/javascript">
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}azure-settings.css'/>");
@@ -50,7 +50,7 @@
     <td>
         <props:textProperty name="${cons.subscriptionId}" className="longField"/>
         <span class="smallNote">Your Azure account subscription ID</span>
-        <span class="grayNote">Download your subscription ${azureLink} to obtain management certificate and subscription ID</span>
+        <span class="grayNote">Download your ${azureLink} to obtain management certificate and subscription ID</span>
     </td>
   </tr>
 

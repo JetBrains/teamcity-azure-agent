@@ -109,7 +109,7 @@ public class AzurePropertiesReader {
   }
 
   private void processLinuxConfig() {
-    final String xmlData = readFileWithSudo(LINUX_PROP_FILE);
+    final String xmlData = readFile(LINUX_PROP_FILE, false);
     if (StringUtil.isEmpty(xmlData)){
       LOG.info("Unable to find azure properties file. Azure integration is disabled");
       return;
@@ -127,7 +127,7 @@ public class AzurePropertiesReader {
       LOG.debug(e.toString(), e);
     }
 
-    final String customData = readFileWithSudo(LINUX_CUSTOM_DATA_FILE);
+    final String customData = readFile(LINUX_CUSTOM_DATA_FILE, false);
     if (StringUtil.isEmpty(customData)){
       LOG.info("Empty custom data. Will use existing parameters");
       return;
@@ -229,16 +229,23 @@ public class AzurePropertiesReader {
     }
   }
 
-  private String readFileWithSudo(@NotNull final String filePath){
+  private String readFile(@NotNull final String filePath, boolean sudo){
+    LOG.info("Reading properties from " + filePath);
     final GeneralCommandLine commandLine = new GeneralCommandLine();
     commandLine.setExePath("/bin/bash");
     commandLine.addParameter("-c");
-    commandLine.addParameter(String.format("sudo cat %s", filePath));
+    commandLine.addParameter(String.format("%scat %s", sudo ? "sudo ": "", filePath));
     final ExecResult execResult = SimpleCommandLineProcessRunner.runCommand(commandLine, new byte[0]);
-    if (execResult.getExitCode() != 0){
-      LOG.info("");
+    if (execResult.getExitCode() != 0 ){
+      final String stderr = execResult.getStderr();
+      LOG.info(stderr);
+      if (!sudo && stderr.endsWith("Permission denied")){
+        LOG.info("Attempting to read "+filePath+" with sudo");
+        return readFile(filePath, true);
+      }
     }
     return StringUtil.trim(execResult.getStdout());
   }
+
 
 }

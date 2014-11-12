@@ -40,8 +40,8 @@ import org.jetbrains.annotations.NotNull;
  */
 public class ProvisionActionsQueue{
   private static final Logger LOG = Logger.getInstance(ProvisionActionsQueue.class.getName());
-  public static final Pattern CONFLICT_ERROR_PATTERN = Pattern.compile("Windows Azure is currently performing an operation with x-ms-requestid ([0-9a-f]{32}) on this deployment that requires exclusive access.");
-  public static final Pattern PORT_ERROR_PATTERN = Pattern.compile("Port (\\d+) is already in use by one of the endpoints in this deployment. Ensure that the port numbers are unique across endpoints within a deployment.");
+  private static final Pattern CONFLICT_ERROR_PATTERN = Pattern.compile("Windows Azure is currently performing an operation with x-ms-requestid ([0-9a-f]{32}) on this deployment that requires exclusive access.");
+  private static final Pattern PORT_ERROR_PATTERN = Pattern.compile("Port (\\d+) is already in use by one of the endpoints in this deployment. Ensure that the port numbers are unique across endpoints within a deployment.");
 
   private final Map<String, AtomicReference<String>> requestsQueue = new HashMap<String, AtomicReference<String>>();
   private final ConditionalRunner myRunner = new ConditionalRunner();

@@ -23,6 +23,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.SystemInfo;
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.*;
 import jetbrains.buildServer.ExecResult;
@@ -109,7 +110,7 @@ public class AzurePropertiesReader {
   }
 
   private void processLinuxConfig() {
-    final String xmlData = readFile(LINUX_PROP_FILE, false);
+    final String xmlData = readFile(LINUX_PROP_FILE);
     if (StringUtil.isEmpty(xmlData)){
       LOG.info("Unable to find azure properties file. Azure integration is disabled");
       return;
@@ -127,7 +128,7 @@ public class AzurePropertiesReader {
       LOG.debug(e.toString(), e);
     }
 
-    final String customData = readFile(LINUX_CUSTOM_DATA_FILE, false);
+    final String customData = readFile(LINUX_CUSTOM_DATA_FILE);
     if (StringUtil.isEmpty(customData)){
       LOG.info("Empty custom data. Will use existing parameters");
       return;
@@ -229,20 +230,35 @@ public class AzurePropertiesReader {
     }
   }
 
-  private String readFile(@NotNull final String filePath, boolean sudo){
-    LOG.info("Reading properties from " + filePath);
+  private String readFile(@NotNull final String filePath){
+    LOG.info("Attempting to reading azure properties from " + filePath);
+    final File file = new File(filePath);
+    final File parentDir = file.getParentFile();
+    if (!parentDir.exists() || !parentDir.isDirectory()){
+      LOG.info("Azure config dir not found at " + parentDir);
+      return null; // no waagent dir
+    }
+    if (FileUtil.canExecute(parentDir)){
+      try {
+        return FileUtil.readText(file);
+      } catch (IOException e) {
+        LOG.info(e.toString());
+        return "";
+      }
+    } else {
+      LOG.info("Reading properties from " + filePath + " with sudo");
+      return readFileWithSudo(filePath);
+    }
+  }
+  private String readFileWithSudo(@NotNull final String filePath){
     final GeneralCommandLine commandLine = new GeneralCommandLine();
     commandLine.setExePath("/bin/bash");
     commandLine.addParameter("-c");
-    commandLine.addParameter(String.format("%scat %s", sudo ? "sudo ": "", filePath));
+    commandLine.addParameter(String.format("sudo cat %s", filePath));
     final ExecResult execResult = SimpleCommandLineProcessRunner.runCommand(commandLine, new byte[0]);
     if (execResult.getExitCode() != 0 ){
       final String stderr = execResult.getStderr();
       LOG.info(stderr);
-      if (!sudo && stderr.endsWith("Permission denied")){
-        LOG.info("Attempting to read "+filePath+" with sudo");
-        return readFile(filePath, true);
-      }
     }
     return StringUtil.trim(execResult.getStdout());
   }

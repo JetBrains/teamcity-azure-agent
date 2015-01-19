@@ -26,6 +26,7 @@ import java.lang.reflect.Type;
 import java.util.*;
 import jetbrains.buildServer.clouds.*;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.errors.InvalidCertificateException;
 import jetbrains.buildServer.clouds.azure.web.AzureWebConstants;
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
@@ -99,7 +100,12 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
   public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final Collection<AzureCloudImageDetails> imageDetailsList, @NotNull final CloudClientParameters params) {
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
-    final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
+    final AzureApiConnector apiConnector;
+    try {
+      apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
+    } catch (InvalidCertificateException e) {
+      throw new RuntimeException(e);
+    }
     return new AzureCloudClient(params, imageDetailsList, apiConnector, myAzureStorage);
   }
 
@@ -107,7 +113,12 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
   public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params, final TypedCloudErrorInfo[] profileErrors) {
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
-    final AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
+    final AzureApiConnector apiConnector;
+    try {
+      apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
+    } catch (InvalidCertificateException e) {
+      throw new RuntimeException(e);
+    }
     final AzureCloudClient azureCloudClient = new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
     azureCloudClient.updateErrors(Arrays.asList(profileErrors));
     return azureCloudClient;

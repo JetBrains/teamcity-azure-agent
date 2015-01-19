@@ -48,6 +48,10 @@ public class UpdateInstancesTaskTest {
   @BeforeMethod
   public void setUp(){
     myApiConnector = new CloudApiConnector() {
+      public void ping() throws CloudException {
+
+      }
+
       public InstanceStatus getInstanceStatus(@NotNull final AbstractCloudInstance instance) {
         return null;
       }

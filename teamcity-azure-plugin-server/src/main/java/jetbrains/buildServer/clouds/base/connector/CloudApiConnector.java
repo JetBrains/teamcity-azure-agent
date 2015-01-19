@@ -34,6 +34,8 @@ import org.jetbrains.annotations.NotNull;
  */
 public interface CloudApiConnector<T extends AbstractCloudImage, G extends AbstractCloudInstance> {
 
+  void ping() throws CloudException;
+
   InstanceStatus getInstanceStatus(@NotNull final G instance);
 
   Map<String, ? extends AbstractInstance> listImageInstances(@NotNull final T image) throws CloudException;

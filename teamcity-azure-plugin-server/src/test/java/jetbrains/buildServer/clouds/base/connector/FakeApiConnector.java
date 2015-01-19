@@ -34,6 +34,10 @@ import org.jetbrains.annotations.NotNull;
  */
 public class FakeApiConnector implements CloudApiConnector {
 
+  public void ping() throws CloudException {
+
+  }
+
   public InstanceStatus getInstanceStatus(@NotNull final AbstractCloudInstance instance) {
     return null;
   }

@@ -48,6 +48,7 @@ import jetbrains.buildServer.clouds.azure.AzureCloudImage;
 import jetbrains.buildServer.clouds.azure.AzureCloudImageDetails;
 import jetbrains.buildServer.clouds.azure.AzureCloudInstance;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
+import jetbrains.buildServer.clouds.azure.errors.InvalidCertificateException;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.apache.commons.lang.math.NumberUtils;
@@ -79,22 +80,30 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     initClient(keyFile, keyFilePassword);
   }
 
-  public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final String managementCertificate) {
+  public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final String managementCertificate) throws InvalidCertificateException {
     mySubscriptionId = subscriptionId;
     myKeyStoreType = KeyStoreType.pkcs12;
+    FileOutputStream fOut;
+    final String base64pw;
+    final File tempFile;
     try {
-      final File tempFile = File.createTempFile("azk", null);
-      FileOutputStream fOut = new FileOutputStream(tempFile);
+      tempFile = File.createTempFile("azk", null);
+      fOut = new FileOutputStream(tempFile);
       Random r = new Random();
       byte[] pwdData = new byte[4];
       r.nextBytes(pwdData);
-      final String base64pw = Base64.encode(pwdData).substring(0, 6);
-      createKeyStorePKCS12(managementCertificate, fOut, base64pw);
-      initClient(tempFile, base64pw);
-    } catch (Exception e) {
+      base64pw = Base64.encode(pwdData).substring(0, 6);
+    } catch (IOException e) {
       LOG.warn("An exception while trying to create an API connector", e);
       throw new RuntimeException(e);
     }
+
+    try {
+      createKeyStorePKCS12(managementCertificate, fOut, base64pw);
+    } catch (Exception e) {
+      throw new InvalidCertificateException(e);
+    }
+    initClient(tempFile, base64pw);
 
   }
 
@@ -107,6 +116,16 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       myManagementClient = myConfiguration.create(ManagementClient.class);
     } finally {
       Thread.currentThread().setContextClassLoader(old);
+    }
+  }
+
+  public void ping() throws CloudException {
+    final HostedServiceOperations servicesOps = myClient.getHostedServicesOperations();
+    final long l = System.currentTimeMillis();
+    try {
+      servicesOps.checkNameAvailability("abstract_"+l);
+    } catch (Exception e) {
+      throw new CloudException("Ping error", e);
     }
   }
 

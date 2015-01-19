@@ -27,7 +27,9 @@ import java.util.List;
 import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.errors.InvalidCertificateException;
 import jetbrains.buildServer.controllers.*;
 import jetbrains.buildServer.controllers.admin.projects.PluginPropertiesUtil;
 import jetbrains.buildServer.log.Loggers;
@@ -118,7 +120,23 @@ public class AzureEditProfileController extends BaseFormXmlController {
     final String subscriptionId = props.get(AzureWebConstants.SUBSCRIPTION_ID);
     final String certificate = props.get("secure:"+AzureWebConstants.MANAGEMENT_CERTIFICATE);
 
-    AzureApiConnector apiConnector = new AzureApiConnector(subscriptionId, certificate);
+    AzureApiConnector apiConnector;
+    try {
+      apiConnector = new AzureApiConnector(subscriptionId, certificate);
+      apiConnector.ping();
+    } catch (InvalidCertificateException ex){
+      errors.addError("certificateError", "Invalid Management certificate. Please enter the Management Certificate exactly as it is presented in the subscription file.");
+      writeErrors(xmlResponse, errors);
+      LOG.warn("An error during initializing connection: " + ex.toString());
+      LOG.debug("An error during initializing connection: ", ex);
+      return;
+    } catch (CloudException ex){
+      errors.addError("pingError", "Error connecting to Microsoft Azure. Please check that your Management Certificate and Subscription ID are valid.");
+      writeErrors(xmlResponse, errors);
+      LOG.warn("An error during initializing connection: " + ex.toString());
+      LOG.debug("An error during initializing connection: ", ex);
+      return;
+    }
 
     try {
       final List<String> servicesList = apiConnector.listServicesNames();

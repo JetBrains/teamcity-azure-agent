@@ -289,8 +289,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $j('#AzureDialogTitle').text(action + ' Image');
     this.$dialogSubmitButton.val(action === 'Edit' ? 'Save' : action).data('imageId', imageId);
 
-    this._triggerDialogChange(); this._initImage(); this._displayedErrors = {}; this.clearOptionsErrors(); // fix: 'ESC' closes dialog without calling custom `close`
-    typeof imageId !== 'undefined' && (this._imageData = this.data[imageId]);
+    BS.Hider.addHideFunction('AzureImageDialog', this.resetDataAndDialog.bind(this));
+
+    typeof imageId !== 'undefined' && (this._imageData = $j.extend({}, this.data[imageId]));
 
     var usedMachines = Object.keys(this.data).reduce(function (acc, key) {
       if (this._imageData.sourceName !== this.data[key].sourceName) {
@@ -586,11 +587,12 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   resetDataAndDialog: function () {
     this._initImage();
-    this.clearOptionsErrors();
 
     if (this.$response) {
       this._triggerDialogChange();
     }
+
+    this.clearOptionsErrors();
   },
   _triggerDialogChange: function () {
     var image = this._imageData;
@@ -774,9 +776,5 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 BS.AzureImageDialog = OO.extend(BS.AbstractModalDialog, {
   getContainer: function() {
     return $('AzureImageDialog');
-  },
-  close: function () {
-    BS.Clouds.Azure.resetDataAndDialog();
-    BS.AbstractModalDialog.close.apply(this);
   }
 });

@@ -23,7 +23,6 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.SystemInfo;
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.*;
 import jetbrains.buildServer.ExecResult;
@@ -47,9 +46,10 @@ import org.jetbrains.annotations.NotNull;
 public class AzurePropertiesReader {
 
   private static final Logger LOG = Logger.getInstance(AzurePropertiesReader.class.getName());
-  private static final String LINUX_CONFIG_DIR = "/var/lib/waagent/";
-  private static final String LINUX_PROP_FILE= LINUX_CONFIG_DIR + "SharedConfig.xml";
-  private static final String LINUX_CUSTOM_DATA_FILE= LINUX_CONFIG_DIR + "ovf-env.xml";
+  private static final String UNIX_SHELL_PATH = "/bin/sh";
+  private static final String UNIX_CONFIG_DIR = "/var/lib/waagent/";
+  private static final String UNIX_PROP_FILE = UNIX_CONFIG_DIR + "SharedConfig.xml";
+  private static final String UNIX_CUSTOM_DATA_FILE = UNIX_CONFIG_DIR + "ovf-env.xml";
   private static final String WINDOWS_PROP_FILE_DIR="C:\\WindowsAzure\\Config";
   private static final String WINDOWS_CUSTOM_DATA_FILE="C:\\AzureData\\CustomData.bin";
 
@@ -66,12 +66,12 @@ public class AzurePropertiesReader {
     events.addListener(new AgentLifeCycleAdapter(){
       @Override
       public void afterAgentConfigurationLoaded(@NotNull final BuildAgent agent) {
-        if (SystemInfo.isLinux){
-          processLinuxConfig();
+        if (SystemInfo.isLinux || SystemInfo.isFreeBSD){
+          processUnixConfig();
         } else if (SystemInfo.isWindows){
           processWindowsConfig();
         } else {
-          LOG.warn(String.format("Azure integration is disablled: unsupported OS family %s(%s)", SystemInfo.OS_ARCH, SystemInfo.OS_VERSION));
+          LOG.warn(String.format("Azure integration is disabled: unsupported OS family %s(%s)", SystemInfo.OS_ARCH, SystemInfo.OS_VERSION));
         }
       }
     });
@@ -109,8 +109,8 @@ public class AzurePropertiesReader {
     }
   }
 
-  private void processLinuxConfig() {
-    final String xmlData = readFile(LINUX_PROP_FILE);
+  private void processUnixConfig() {
+    final String xmlData = readFile(UNIX_PROP_FILE);
     if (StringUtil.isEmpty(xmlData)){
       LOG.info("Unable to find azure properties file. Azure integration is disabled");
       return;
@@ -128,7 +128,7 @@ public class AzurePropertiesReader {
       LOG.debug(e.toString(), e);
     }
 
-    final String customData = readFile(LINUX_CUSTOM_DATA_FILE);
+    final String customData = readFile(UNIX_CUSTOM_DATA_FILE);
     if (StringUtil.isEmpty(customData)){
       LOG.info("Empty custom data. Will use existing parameters");
       return;
@@ -204,10 +204,12 @@ public class AzurePropertiesReader {
       final Object value = xPath.selectSingleNode(documentElement);
       if (value != null){
         final String serializedCustomData = String.valueOf(value);
-        processCustomData(serializedCustomData);
+        if (StringUtil.isNotEmpty(serializedCustomData)) {
+          processCustomData(serializedCustomData);
+        }
       }
     } catch (JDOMException e) {
-      e.printStackTrace();
+      LOG.warn("Unable to read custom data", e);
     }
   }
 
@@ -231,7 +233,7 @@ public class AzurePropertiesReader {
   }
 
   private String readFile(@NotNull final String filePath){
-    LOG.info("Attempting to reading azure properties from " + filePath);
+    LOG.info("Attempting to read Azure properties from " + filePath);
     final File file = new File(filePath);
     final File parentDir = file.getParentFile();
     if (!parentDir.exists() || !parentDir.isDirectory()){
@@ -252,7 +254,7 @@ public class AzurePropertiesReader {
   }
   private String readFileWithSudo(@NotNull final String filePath){
     final GeneralCommandLine commandLine = new GeneralCommandLine();
-    commandLine.setExePath("/bin/bash");
+    commandLine.setExePath(UNIX_SHELL_PATH);
     commandLine.addParameter("-c");
     commandLine.addParameter(String.format("sudo cat %s", filePath));
     final ExecResult execResult = SimpleCommandLineProcessRunner.runCommand(commandLine, new byte[0]);

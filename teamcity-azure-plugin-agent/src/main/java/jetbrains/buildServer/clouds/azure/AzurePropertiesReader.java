@@ -240,7 +240,7 @@ public class AzurePropertiesReader {
       LOG.info("Azure config dir not found at " + parentDir);
       return null; // no waagent dir
     }
-    if (FileUtil.canExecute(parentDir)){
+    if (parentDir.canExecute()){
       try {
         return FileUtil.readText(file);
       } catch (IOException e) {

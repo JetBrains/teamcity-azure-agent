@@ -25,6 +25,9 @@
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="true" />
+        <module name="teamcity-azure-plugin-agent" />
+        <module name="teamcity-azure-plugin-common" />
+        <module name="teamcity-azure-plugin-server" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
@@ -34,4 +37,3 @@
     </bytecodeTargetLevel>
   </component>
 </project>
-

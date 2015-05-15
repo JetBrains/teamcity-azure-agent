@@ -41,6 +41,8 @@ public class AzureCloudImageDetails implements CloudImageDetails {
   private final String myServiceName;
   @SerializedName("vmNamePrefix")
   private final String myVmNamePrefix;
+  @SerializedName("vnetName")
+  private final String myVnetName;
   @SerializedName("osType")
   private final String myOsType;
   @SerializedName("vmSize")
@@ -59,6 +61,7 @@ public class AzureCloudImageDetails implements CloudImageDetails {
                                 @Nullable final String serviceName,
                                 @NotNull final String sourceName,
                                 @Nullable final String vmNamePrefix,
+				@Nullable final String vnetName,
                                 @Nullable final String vmSize,
                                 final int maxInstances,
                                 @Nullable final String osType,
@@ -68,6 +71,7 @@ public class AzureCloudImageDetails implements CloudImageDetails {
     mySourceName = sourceName;
     myServiceName = serviceName;
     myVmNamePrefix = vmNamePrefix;
+    myVnetName = vnetName;
     myOsType = osType;
     myVmSize = vmSize;
     myUsername = username;
@@ -93,6 +97,10 @@ public class AzureCloudImageDetails implements CloudImageDetails {
 
   public String getVmNamePrefix() {
     return myVmNamePrefix;
+  }
+
+  public String getVnetName() {
+    return myVnetName;
   }
 
   public String getUsername() {

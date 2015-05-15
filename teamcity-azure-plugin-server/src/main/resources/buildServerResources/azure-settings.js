@@ -31,7 +31,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _passwordsData: {},
   _displayedErrors: {},
-  _errorIds: ['sourceName', 'serviceName', 'maxInstances', 'vmNamePrefix', 'vmSize', 'username', 'password'],
+  _errorIds: ['sourceName', 'serviceName', 'maxInstances', 'vmNamePrefix', 'vnetName', 'vmSize', 'username', 'password'],
   init: function (refreshOptionsUrl) {
     this.$response = null;
     this.refreshOptionsUrl = refreshOptionsUrl;
@@ -44,6 +44,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$osTypeDataElem = $j('#osType');
     this.$vmSizeDataElem = $j('#vmSize');
     this.$vmNamePrefixDataElem = $j('#vmNamePrefix');
+    this.$vnetNameDataElem = $j('#vnetName');
     this.$usernameDataElem = $j('#username');
     this.$passwordDataElem = $j('#password');
     this.$maxInstancesDataElem = $j('#maxInstances');
@@ -144,6 +145,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }.bind(this));
 
     this.$vmNamePrefixDataElem
+      .add(this.$vnetNameDataElem)
       .add(this.$vmSizeDataElem)
       .add(this.$usernameDataElem)
       .add(this.$maxInstancesDataElem)
@@ -354,7 +356,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
           this._imageData.behaviour = 'START_STOP';
           $j('#cloneBehaviour_START_STOP').prop('disabled', false).prop('checked', true);
           $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', true);
-          ['maxInstances', 'vmNamePrefix', 'vmSize'].forEach(function (key) {
+          ['maxInstances', 'vmNamePrefix', 'vnetName', 'vmSize'].forEach(function (key) {
             delete this._imageData[key];
             this['$' + key + 'DataElem'].val('')
           }.bind(this));
@@ -493,6 +495,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 <td class="imageName highlight"><div class="sourceIcon sourceIcon_unknown">?</div><span class="sourceName"></span></td>\
 <td class="serviceName highlight"></td>\
 <td class="vmNamePrefix highlight hidden"></td>\
+<td class="vnetName highlight hidden"></td>\
 <td class="behaviour highlight hidden"></td>\
 <td class="maxInstances highlight"></td>\
 <td class="edit highlight"><span class="editImageLink_disabled" title="Editing is available after successful retrieval of data">edit</span><a href="#" class="editImageLink hidden">edit</a></td>\
@@ -602,6 +605,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$osTypeDataElem.trigger('change', image.osType || '');
     this.$vmSizeDataElem.trigger('change', image.vmSize || '');
     this.$vmNamePrefixDataElem.trigger('change', image.vmNamePrefix || '');
+    this.$vnetNameDataElem.trigger('change', image.vnetName || '');
     this.$maxInstancesDataElem.trigger('change', image.maxInstances || '1');
     this.$usernameDataElem.trigger('change', image.username || '');
     this.$passwordDataElem.trigger('change', this._passwordsData[image.sourceName] || '');
@@ -673,6 +677,19 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
             isValid = false;
           }
         }.bind(this),
+        vnetName: [function () {
+          if (new RegExp(' ').test(this.$vnetNameDataElem.val())) {
+            this.addOptionError('no_spaces', 'vnetName');
+            isValid = false;
+            return true;
+          }
+        }.bind(this), function () {
+          if (this.$vnetNameDataElem.val().length > 64) {
+            this.addOptionError({ key: 'max_length', props: { length: 64 }}, 'vnetName');
+            isValid = false;
+            return true;
+          }
+        }.bind(this)],
         vmNamePrefix: [requiredForImage('vmNamePrefix').bind(this), function () {
           if (new RegExp(' ').test(this.$vmNamePrefixDataElem.val())) {
             this.addOptionError('no_spaces', 'vmNamePrefix');

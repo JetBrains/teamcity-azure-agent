@@ -35,6 +35,11 @@ public class AzureWebConstants {
   public static final String PROVISION_USERNAME="username";
   public static final String PROVISION_PASSWORD="password";
   public static final String MAX_INSTANCES_COUNT="maxInstances";
+  public static final String VNET_NAME = "vnetName";
+
+  public String getVnetName() {
+    return VNET_NAME;
+  }
 
   public String getSubscriptionId() {
     return SUBSCRIPTION_ID;

@@ -41,6 +41,10 @@ import java.util.*;
 import java.util.Random;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
+
+import com.microsoft.windowsazure.management.network.NetworkManagementClient;
+import com.microsoft.windowsazure.management.network.NetworkManagementService;
+import com.microsoft.windowsazure.management.network.models.NetworkListResponse;
 import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
@@ -72,6 +76,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   private final String mySubscriptionId;
   private Configuration myConfiguration;
   private ComputeManagementClient myClient;
+  private NetworkManagementClient myNetworkClient;
   private ManagementClient myManagementClient;
 
   public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final File keyFile, @NotNull final String keyFilePassword) {
@@ -114,6 +119,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       myConfiguration = prepareConfiguration(keyStoreFile, keyStoreFilePw, myKeyStoreType);
       myClient = ComputeManagementService.create(myConfiguration);
       myManagementClient = myConfiguration.create(ManagementClient.class);
+      myNetworkClient = NetworkManagementService.create(myConfiguration);
     } finally {
       Thread.currentThread().setContextClassLoader(old);
     }
@@ -194,6 +200,15 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }};
   }
 
+  public List<String> listVirtualNetworks() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
+    final NetworkListResponse virtualNetworkSites = myNetworkClient.getNetworksOperations().list();
+    return new ArrayList<String>() {{
+      for (NetworkListResponse.VirtualNetworkSite virtualNetworkSite : virtualNetworkSites) {
+        add(virtualNetworkSite.getName());
+      }
+    }};
+  }
+
   public Map<String, String> listServiceInstances(@NotNull final String serviceName) throws IOException, ServiceException {
     final Map<String, String> retval = new HashMap<String, String>();
     final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(serviceName);
@@ -233,13 +248,14 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   public OperationResponse createVmOrDeployment(@NotNull final AzureCloudImage image,
                                                 @NotNull final String vmName,
+                                                @NotNull final String vnetName,
                                                 @NotNull final CloudInstanceUserData tag,
                                                 final boolean generalized)
     throws ServiceException, IOException {
     final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
     if (serviceDeployment == null) {
-      return createVmDeployment(imageDetails, generalized, vmName, tag);
+      return createVmDeployment(imageDetails, generalized, vmName, vnetName, tag);
     } else  {
       return createVM(imageDetails, generalized, vmName, tag, serviceDeployment);
     }
@@ -301,6 +317,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   private OperationResponse createVmDeployment(final AzureCloudImageDetails imageDetails,
                                                   final boolean generalized,
                                                   final String vmName,
+                                                  final String vnetName,
                                                   final CloudInstanceUserData tag) throws IOException, ServiceException {
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final VirtualMachineCreateDeploymentParameters vmDeployParams = new VirtualMachineCreateDeploymentParameters();
@@ -315,6 +332,9 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final ArrayList<Role> roleAsList = new ArrayList<Role>();
     roleAsList.add(role);
     vmDeployParams.setRoles(roleAsList);
+    if (vnetName != null && vnetName.trim().length() != 0) {
+      vmDeployParams.setVirtualNetworkName(vnetName);
+    }
     vmDeployParams.setLabel(imageDetails.getSourceName());
     vmDeployParams.setName("teamcityVms");
     vmDeployParams.setDeploymentSlot(DeploymentSlot.Production);

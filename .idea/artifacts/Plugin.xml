@@ -13,6 +13,7 @@
         <element id="library" level="project" name="com.microsoft.windowsazure:microsoft-azure-api-management-compute:0.5.0" />
         <element id="library" level="project" name="com.microsoft.windowsazure:microsoft-azure-api-management:0.5.0" />
         <element id="library" level="project" name="org.bouncycastle:com.springsource.org.bouncycastle.jce:1.46.0" />
+        <element id="library" level="project" name="com.microsoft.windowsazure:microsoft-azure-api-management-network:0.5.0" />
       </element>
       <element id="file-copy" path="$PROJECT_DIR$/teamcity-plugin.xml" />
       <element id="directory" name="agent">

@@ -128,6 +128,15 @@
           </td>
         </tr>
         <tr class="clone hidden">
+          <th>Virtual Network Name: </th>
+          <td>
+            <div>
+              <select name="_${cons.vnetName}" id="${cons.vnetName}" data-err-id="${cons.vnetName}" class="longField"></select>
+            </div>
+            <span class="error option-error option-error_${cons.vnetName}"></span>
+          </td>
+        </tr>
+        <tr class="clone hidden">
           <th>VM Size: <l:star/></th>
           <td>
             <div>
@@ -170,6 +179,7 @@
                 <th class="name">Image or Machine</th>
                 <th class="name">Service</th>
                 <th class="name hidden">Name prefix</th>
+                <th class="name hidden">Virtual Network Name</th>
                 <th class="name hidden">Start behaviour</th>
                 <th class="name maxInstances">Max # of instances</th>
                 <th class="name" colspan="2"></th>

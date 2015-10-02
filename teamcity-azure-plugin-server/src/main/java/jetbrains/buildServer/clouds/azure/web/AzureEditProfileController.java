@@ -157,6 +157,7 @@ public class AzureEditProfileController extends BaseFormXmlController {
       xmlResponse.addContent(services);
       xmlResponse.addContent(getImages(apiConnector.listImages()));
       xmlResponse.addContent(getVmSizes(apiConnector.listVmSizes()));
+      xmlResponse.addContent(getVirtualNetworks(apiConnector.listVirtualNetworks()));
 
 
     } catch (Exception e) {
@@ -189,6 +190,17 @@ public class AzureEditProfileController extends BaseFormXmlController {
       vmSizes.addContent(vmSize);
     }
     return vmSizes;
+  }
+
+  private Element getVirtualNetworks(final List<String> networksList) {
+    Element virtualNetworksElement = new Element("VirtualNetworks");
+    for (String networkName : networksList) {
+      final Element vn = new Element("VirtualNetwork");
+      vn.setAttribute("name", networkName);
+      vn.setAttribute("label", networkName);
+      virtualNetworksElement.addContent(vn);
+    }
+    return virtualNetworksElement;
   }
 
   private List<Element> getServiceInstances(final Map<String, String> instancesMap) {

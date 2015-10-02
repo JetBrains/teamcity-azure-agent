@@ -29,6 +29,7 @@
     <orderEntry type="library" name="server-src" level="project" />
     <orderEntry type="library" name="com.microsoft.windowsazure:microsoft-azure-api-management:0.5.0" level="project" />
     <orderEntry type="library" name="com.microsoft.windowsazure:microsoft-azure-api-management-compute:0.5.0" level="project" />
+    <orderEntry type="library" name="com.microsoft.windowsazure:microsoft-azure-api-management-network:0.5.0" level="project" />
     <orderEntry type="library" name="org.bouncycastle:com.springsource.org.bouncycastle.jce:1.46.0" level="project" />
     <orderEntry type="library" name="jsch-0.1.51" level="project" />
     <orderEntry type="library" name="commons-cli-1.2-javadoc" level="project" />

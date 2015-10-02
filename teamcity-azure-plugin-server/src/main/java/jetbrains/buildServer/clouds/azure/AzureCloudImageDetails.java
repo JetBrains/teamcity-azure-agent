@@ -61,7 +61,7 @@ public class AzureCloudImageDetails implements CloudImageDetails {
                                 @Nullable final String serviceName,
                                 @NotNull final String sourceName,
                                 @Nullable final String vmNamePrefix,
-				@Nullable final String vnetName,
+                                @Nullable final String vnetName,
                                 @Nullable final String vmSize,
                                 final int maxInstances,
                                 @Nullable final String osType,

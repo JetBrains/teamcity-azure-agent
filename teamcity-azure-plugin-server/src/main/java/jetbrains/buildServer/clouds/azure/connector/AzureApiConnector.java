@@ -233,7 +233,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   public OperationResponse createVmOrDeployment(@NotNull final AzureCloudImage image,
                                                 @NotNull final String vmName,
-						@NotNull final String vnetName,
+                                                @NotNull final String vnetName,
                                                 @NotNull final CloudInstanceUserData tag,
                                                 final boolean generalized)
     throws ServiceException, IOException {
@@ -302,7 +302,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   private OperationResponse createVmDeployment(final AzureCloudImageDetails imageDetails,
                                                   final boolean generalized,
                                                   final String vmName,
-						  final String vnetName,
+                                                  final String vnetName,
                                                   final CloudInstanceUserData tag) throws IOException, ServiceException {
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final VirtualMachineCreateDeploymentParameters vmDeployParams = new VirtualMachineCreateDeploymentParameters();
@@ -318,7 +318,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     roleAsList.add(role);
     vmDeployParams.setRoles(roleAsList);
     if (vnetName != null && vnetName.trim().length() != 0) {
-	    vmDeployParams.setVirtualNetworkName(vnetName);
+      vmDeployParams.setVirtualNetworkName(vnetName);
     }
     vmDeployParams.setLabel(imageDetails.getSourceName());
     vmDeployParams.setName("teamcityVms");

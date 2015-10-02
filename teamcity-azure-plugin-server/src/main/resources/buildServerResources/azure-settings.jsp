@@ -128,11 +128,12 @@
           </td>
         </tr>
         <tr class="clone hidden">
-          <th>Virtual Network Name: <l:star/></th>
+          <th>Virtual Network Name: </th>
           <td>
-              <props:textProperty name="${cons.vnetName}" className="longField"/>
-              <span class="smallNote">Max length is 64</span>
-              <span class="error option-error option-error_${cons.vnetName}"></span>
+            <div>
+              <select name="_${cons.vnetName}" id="${cons.vnetName}" data-err-id="${cons.vnetName}" class="longField"></select>
+            </div>
+            <span class="error option-error option-error_${cons.vnetName}"></span>
           </td>
         </tr>
         <tr class="clone hidden">

@@ -252,6 +252,13 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
               selector: 'VmSizes:eq(0) VmSize',
               $target: this.$vmSizeDataElem,
               addLabel: true
+            },
+            {
+              selector: 'VirtualNetworks:eq(0) VirtualNetwork',
+              $target: this.$vnetNameDataElem,
+              addLabel: true,
+              defaultOptionValue: '',
+              defaultOptionLabel: '<None>'
             }
           ]);
         } else {
@@ -451,7 +458,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       optionsArray.forEach(function (options) {
         var $items = self.$response.find(options.selector);
 
-        self._clearSelectAndAddDefault(options.$target);
+        self._clearSelect(options.$target);
+
+        self._appendOption(options.$target, options.defaultOptionValue || '', options.defaultOptionLabel || '<Please select a value>');
 
         $items.each(function () {
           self._appendOption(options.$target, this.getAttribute('name'), options.addLabel && this.getAttribute('label') || null);
@@ -484,8 +493,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     return false;
   },
-  _clearSelectAndAddDefault: function ($select) {
+  _clearSelect: function ($select) {
     $select.find('option, optgroup').remove();
+  },
+  _clearSelectAndAddDefault: function ($select) {
+    this._clearSelect($select);
     this._appendOption($select, '', '<Please select a value>');
   },
   _appendOption: function ($target, value, text, type) {

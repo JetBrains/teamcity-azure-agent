@@ -41,6 +41,10 @@ import java.util.*;
 import java.util.Random;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
+
+import com.microsoft.windowsazure.management.network.NetworkManagementClient;
+import com.microsoft.windowsazure.management.network.NetworkManagementService;
+import com.microsoft.windowsazure.management.network.models.NetworkListResponse;
 import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
@@ -72,6 +76,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   private final String mySubscriptionId;
   private Configuration myConfiguration;
   private ComputeManagementClient myClient;
+  private NetworkManagementClient myNetworkClient;
   private ManagementClient myManagementClient;
 
   public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final File keyFile, @NotNull final String keyFilePassword) {
@@ -114,6 +119,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       myConfiguration = prepareConfiguration(keyStoreFile, keyStoreFilePw, myKeyStoreType);
       myClient = ComputeManagementService.create(myConfiguration);
       myManagementClient = myConfiguration.create(ManagementClient.class);
+      myNetworkClient = NetworkManagementService.create(myConfiguration);
     } finally {
       Thread.currentThread().setContextClassLoader(old);
     }
@@ -190,6 +196,15 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     return new ArrayList<String>() {{
       for (HostedServiceListResponse.HostedService service : list) {
         add(service.getServiceName());
+      }
+    }};
+  }
+
+  public List<String> listVirtualNetworks() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
+    final NetworkListResponse virtualNetworkSites = myNetworkClient.getNetworksOperations().list();
+    return new ArrayList<String>() {{
+      for (NetworkListResponse.VirtualNetworkSite virtualNetworkSite : virtualNetworkSites) {
+        add(virtualNetworkSite.getName());
       }
     }};
   }

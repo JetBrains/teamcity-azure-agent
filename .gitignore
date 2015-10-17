@@ -8,9 +8,9 @@
 # Package Files #
 *.war
 *.ear
-compiler.xml
-deployment.xml
-encondings.xml
+.idea/compiler.xml
+.idea/deployment.xml
+.idea/encondings.xml
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*

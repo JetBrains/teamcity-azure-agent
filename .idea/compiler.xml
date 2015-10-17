@@ -20,17 +20,31 @@
       <profile default="true" name="Default" enabled="false">
         <processorPath useClasspath="true" />
       </profile>
-      <profile default="false" name="Maven default annotation processors profile" enabled="true">
+      <profile default="false" name="Annotation profile for teamcity-azure-plugin-common" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <sourceTestOutputDir name="target\generated-test-sources\test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="true" />
+        <module name="teamcity-azure-plugin-common" />
+      </profile>
+      <profile default="false" name="Annotation profile for teamcity-azure-plugin-agent" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target\generated-test-sources\test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="true" />
         <module name="teamcity-azure-plugin-agent" />
-        <module name="teamcity-azure-plugin-common" />
+      </profile>
+      <profile default="false" name="Annotation profile for teamcity-azure-plugin-server" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target\generated-test-sources\test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="true" />
         <module name="teamcity-azure-plugin-server" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="build" target="1.5" />
+      <module name="teamcity-azure-plugin" target="1.5" />
       <module name="teamcity-azure-plugin-agent" target="1.5" />
       <module name="teamcity-azure-plugin-common" target="1.5" />
       <module name="teamcity-azure-plugin-server" target="1.5" />

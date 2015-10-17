@@ -57,9 +57,9 @@ public class AzureTaskWrapper implements AsyncCloudTask {
 
         public CloudTaskResult get() throws InterruptedException, ExecutionException {
           final OperationStatusResponse response = call.get();
-          if (response.getStatus() == OperationStatus.Succeeded) {
+          if (response.getStatus() == OperationStatus.SUCCEEDED) {
             return new CloudTaskResult(response.getId());
-          } else if (response.getStatus() == OperationStatus.Failed) {
+          } else if (response.getStatus() == OperationStatus.FAILED) {
             return new CloudTaskResult(true, response.getError().getMessage(), null);
           } else {
             return new CloudTaskResult(true, String.format("Illegal status response: %s requestId: %s", response.getStatus(), response.getRequestId()), null);
@@ -68,9 +68,9 @@ public class AzureTaskWrapper implements AsyncCloudTask {
 
         public CloudTaskResult get(final long timeout, @NotNull final TimeUnit unit) throws InterruptedException, ExecutionException, TimeoutException {
           final OperationStatusResponse response = call.get(timeout, unit);
-          if (response.getStatus() == OperationStatus.Succeeded) {
+          if (response.getStatus() == OperationStatus.SUCCEEDED) {
             return new CloudTaskResult(response.getId());
-          } else if (response.getStatus() == OperationStatus.Failed) {
+          } else if (response.getStatus() == OperationStatus.FAILED) {
             return new CloudTaskResult(true, response.getError().getMessage(), null);
           } else {
             throw new TimeoutException(String.format("Request %s is still in progress ", response.getId()));

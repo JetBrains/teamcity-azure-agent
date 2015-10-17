@@ -77,16 +77,16 @@ public class ProvisionActionsQueue{
           return true;
         } catch (ServiceException ex){
           LOG.warn("An error occurred while attempting to execute " + getName() + ": " + ex.toString(), ex);
-          if (ex.getErrorMessage() == null) {
+          if (ex.getMessage() == null) {
             action.onError(ex);
             throw ex;
           }
-          final Matcher matcher = CONFLICT_ERROR_PATTERN.matcher(ex.getErrorMessage());
+          final Matcher matcher = CONFLICT_ERROR_PATTERN.matcher(ex.getMessage());
           if (matcher.matches()){
             requestsQueue.get(serviceName).set(matcher.group(1));
             return false;
           } else {
-            Matcher portMatcher = PORT_ERROR_PATTERN.matcher(ex.getErrorMessage());
+            Matcher portMatcher = PORT_ERROR_PATTERN.matcher(ex.getMessage());
             if (portMatcher.matches()){
               return false;
             }
@@ -134,7 +134,7 @@ public class ProvisionActionsQueue{
 
   }
 
-  public static interface InstanceAction{
+  public interface InstanceAction{
     @NotNull String getName();
     @NotNull String action() throws ServiceException, IOException;
     @NotNull ActionIdChecker getActionIdChecker();

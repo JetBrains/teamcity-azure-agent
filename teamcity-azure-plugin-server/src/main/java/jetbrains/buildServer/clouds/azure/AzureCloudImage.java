@@ -147,11 +147,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
           try {
             final OperationStatusResponse statusResponse = myApiConnector.getOperationStatus(myRequestId);
             instance.setStatus(InstanceStatus.STOPPED);
-            if (statusResponse.getStatus()== OperationStatus.Succeeded) {
+            if (statusResponse.getStatus()== OperationStatus.SUCCEEDED) {
               if (myImageDetails.getBehaviour().isDeleteAfterStop()) {
                 deleteInstance(instance);
               }
-            } else if (statusResponse.getStatus() == OperationStatus.Failed) {
+            } else if (statusResponse.getStatus() == OperationStatus.FAILED) {
               instance.setStatus(InstanceStatus.ERROR_CANNOT_STOP);
               final OperationStatusResponse.ErrorDetails error = statusResponse.getError();
               instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(error.getCode(), error.getMessage())));
@@ -261,10 +261,10 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
           public void onFinish() {
             try {
               final OperationStatusResponse operationStatus = myApiConnector.getOperationStatus(operationId);
-              if (operationStatus.getStatus() == OperationStatus.Succeeded){
+              if (operationStatus.getStatus() == OperationStatus.SUCCEEDED){
                 instance.setStatus(InstanceStatus.RUNNING);
                 instance.refreshStartDate();
-              } else if (operationStatus.getStatus() == OperationStatus.Failed){
+              } else if (operationStatus.getStatus() == OperationStatus.FAILED){
                 instance.setStatus(InstanceStatus.ERROR);
                 final OperationStatusResponse.ErrorDetails error = operationStatus.getError();
                 instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(error.getCode(), error.getMessage())));

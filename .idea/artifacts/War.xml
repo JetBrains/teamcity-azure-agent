@@ -9,7 +9,7 @@
           </element>
         </element>
       </element>
-      <element id="dir-copy" path="$PROJECT_DIR$/../../BuildServer/.idea_artifacts/web_deployment_debug" />
+      <element id="dir-copy" path="$PROJECT_DIR$/../../Hajipur-9.1.x/.idea_artifacts/web_deployment_debug" />
     </root>
   </artifact>
 </component>

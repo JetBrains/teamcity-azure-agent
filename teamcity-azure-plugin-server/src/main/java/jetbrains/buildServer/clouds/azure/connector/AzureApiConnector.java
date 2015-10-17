@@ -306,7 +306,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final VirtualMachineCreateDeploymentParameters vmDeployParams = new VirtualMachineCreateDeploymentParameters();
     final Role role = new Role();
     role.setVMImageName(imageDetails.getSourceName());
-    role.setRoleType(VirtualMachineRoleType.PersistentVMRole.name());
+    role.setRoleType(VirtualMachineRoleType.PERSISTENTVMROLE.name());
     role.setRoleName(vmName);
     role.setProvisionGuestAgent(true);
     role.setRoleSize(imageDetails.getVmSize());
@@ -317,7 +317,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     vmDeployParams.setRoles(roleAsList);
     vmDeployParams.setLabel(imageDetails.getSourceName());
     vmDeployParams.setName("teamcityVms");
-    vmDeployParams.setDeploymentSlot(DeploymentSlot.Production);
+    vmDeployParams.setDeploymentSlot(DeploymentSlot.PRODUCTION);
     try {
       return vmOperations.beginCreatingDeployment(imageDetails.getServiceName(), vmDeployParams);
     } catch (ParserConfigurationException e) {
@@ -366,7 +366,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
     final VirtualMachineShutdownParameters shutdownParams = new VirtualMachineShutdownParameters();
-    shutdownParams.setPostShutdownAction(PostShutdownAction.StoppedDeallocated);
+    shutdownParams.setPostShutdownAction(PostShutdownAction.STOPPEDDEALLOCATED);
       final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
       if (serviceDeployment != null) {
         try {
@@ -440,7 +440,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
           return deployment;
         }
         final Role role = roles.get(0);
-        if (VirtualMachineRoleType.PersistentVMRole.name().equals(role.getRoleType()))
+        if (VirtualMachineRoleType.PERSISTENTVMROLE.name().equals(role.getRoleType()))
           return deployment;
         else
           throw new ServiceException("Service is not suitable for VM deployment");
@@ -561,7 +561,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final OperationStatusResponse operationStatus;
     try {
       operationStatus = getOperationStatus(actionId);
-      final boolean isFinished = operationStatus.getStatus() == OperationStatus.Succeeded || operationStatus.getStatus() == OperationStatus.Failed;
+      final boolean isFinished = operationStatus.getStatus() == OperationStatus.SUCCEEDED || operationStatus.getStatus() == OperationStatus.FAILED;
       if (operationStatus.getError() != null){
         LOG.info(String.format("Was an error during executing action %s: %s", actionId, operationStatus.getError().getMessage()));
       }

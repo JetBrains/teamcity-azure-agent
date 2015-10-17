@@ -10,9 +10,13 @@
         <element id="archive" name="azure-cloud-common.jar">
           <element id="module-output" name="teamcity-azure-plugin-common" />
         </element>
-        <element id="library" level="project" name="com.microsoft.windowsazure:microsoft-azure-api-management-compute:0.5.0" />
-        <element id="library" level="project" name="com.microsoft.windowsazure:microsoft-azure-api-management:0.5.0" />
         <element id="library" level="project" name="bcprov-jdk15on-1.51" />
+        <element id="library" level="project" name="com.google.code.gson:gson:2.3" />
+        <element id="library" level="project" name="com.microsoft.azure:azure-management-compute:0.8.0" />
+        <element id="library" level="project" name="com.microsoft.azure:azure-management:0.8.0" />
+        <element id="library" level="project" name="commons-cli-1.2-javadoc" />
+        <element id="library" level="project" name="jsch-0.1.51" />
+        <element id="library" level="project" name="Maven: org.bouncycastle:bcprov-jdk16:1.46" />
       </element>
       <element id="file-copy" path="$PROJECT_DIR$/teamcity-plugin.xml" />
       <element id="directory" name="agent">

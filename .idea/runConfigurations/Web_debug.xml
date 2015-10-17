@@ -1,7 +1,7 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Web-debug" type="#com.intellij.j2ee.web.tomcat.TomcatRunConfigurationFactory" factoryName="Local" APPLICATION_SERVER_NAME="TC Dist" ALTERNATIVE_JRE_ENABLED="false" ALTERNATIVE_JRE_PATH="">
+  <configuration default="false" name="Web-debug" type="#com.intellij.j2ee.web.tomcat.TomcatRunConfigurationFactory" factoryName="Local" APPLICATION_SERVER_NAME="Tomcat 7.0.59" ALTERNATIVE_JRE_ENABLED="false">
     <option name="OPEN_IN_BROWSER" value="false" />
-    <option name="COMMON_VM_ARGUMENTS" value="-ea -Xmx1024m -XX:MaxPermSize=400m -Ddebug=true -server -XX:+HeapDumpOnOutOfMemoryError -Duser.language=en -Duser.country=GB -Dorg.apache.jasper.runtime.BodyContentImpl.LIMIT_BUFFER=true -Djava.awt.headless -DTC.res.disableAll=true -Dteamcity.development.mode=true -Dteamcity.development.shadowCopyClasses=true -Dteamcity_logs=E:\DevData\logs\trunk -Dlog4j.configuration=file:$PROJECT_DIR$/../../BuildServer/common/src/teamcity-server-log4j.xml -Dteamcity.maintenance.backup.file.name=development-backup -Dteamcity.data.path=E:\DevData\trunk" />
+    <option name="COMMON_VM_ARGUMENTS" value="-ea -Xmx1024m -XX:MaxPermSize=400m -Ddebug=true -server -XX:+HeapDumpOnOutOfMemoryError -Duser.language=en -Duser.country=GB -Dorg.apache.jasper.runtime.BodyContentImpl.LIMIT_BUFFER=true -Djava.awt.headless -DTC.res.disableAll=true -Dteamcity.development.mode=true -Dteamcity.data.path=E:/DevData/9.1.x -Dteamcity.development.shadowCopyClasses=true -Dteamcity_logs=E:/DevData/logs/9.1.x -Dlog4j.configuration=file:$PROJECT_DIR$/../../Hajipur-9.1.x/common/src/teamcity-server-log4j.xml -Dteamcity.maintenance.backup.file.name=development-backup" />
     <deployment>
       <artifact name="War">
         <settings>

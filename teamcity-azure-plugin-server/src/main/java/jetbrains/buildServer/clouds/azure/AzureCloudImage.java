@@ -220,8 +220,6 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
       vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix(), getNextIdx());
     }
 
-    final String vnetName = myImageDetails.getVnetName();
-
     if (myImageDetails.getBehaviour().isUseOriginal()) {
       instance = myInstances.get(myImageDetails.getSourceName());
     } else {
@@ -249,7 +247,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
             if (myImageDetails.getBehaviour().isUseOriginal()) {
               response = myApiConnector.startVM(AzureCloudImage.this);
             } else {
-              response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, vnetName, tag, myGeneralized);
+              response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
             }
             instance.setStatus(InstanceStatus.STARTING);
             operationId = response.getRequestId();

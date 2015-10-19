@@ -690,12 +690,6 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
           }
         }.bind(this),
         vnetName: [function () {
-          if (new RegExp(' ').test(this.$vnetNameDataElem.val())) {
-            this.addOptionError('no_spaces', 'vnetName');
-            isValid = false;
-            return true;
-          }
-        }.bind(this), function () {
           if (this.$vnetNameDataElem.val().length > 64) {
             this.addOptionError({ key: 'max_length', props: { length: 64 }}, 'vnetName');
             isValid = false;

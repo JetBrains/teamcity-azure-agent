@@ -1,11 +1,14 @@
 <component name="libraryTable">
-  <library name="com.microsoft.windowsazure:microsoft-azure-api-management-network:0.5.0" type="repository">
+  <library name="com.microsoft.azure:azure-management-network:0.8.0" type="repository">
+    <properties maven-id="com.microsoft.azure:azure-management-network:0.8.0" />
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/lib/microsoft-azure-api-core-0.5.0.jar!/" />
-      <root url="jar://$PROJECT_DIR$/lib/httpclient-4.3.1.jar!/" />
-      <root url="jar://$PROJECT_DIR$/lib/httpcore-4.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/azure-svc-mgmt-network-0.8.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/azure-core-0.8.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/httpclient-4.3.6.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/httpcore-4.3.3.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/commons-logging-1.1.3.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/commons-codec-1.6.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/commons-lang-2.6.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/mail-1.4.5.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/activation-1.1.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/javax.inject-1.jar!/" />
@@ -21,11 +24,12 @@
       <root url="jar://$PROJECT_DIR$/lib/jackson-mapper-asl-1.9.2.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/jackson-jaxrs-1.9.2.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/jackson-xc-1.9.2.jar!/" />
-      <root url="jar://$PROJECT_DIR$/lib/microsoft-azure-api-management-network-0.5.0.jar!/" />
     </CLASSES>
-    <JAVADOC />
+    <JAVADOC>
+      <root url="jar://$PROJECT_DIR$/lib/azure-svc-mgmt-network-0.8.0-javadoc.jar!/" />
+    </JAVADOC>
     <SOURCES>
-      <root url="jar://$PROJECT_DIR$/lib/microsoft-azure-api-management-network-0.5.0-sources.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/azure-svc-mgmt-network-0.8.0-sources.jar!/" />
     </SOURCES>
   </library>
 </component>

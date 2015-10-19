@@ -72,6 +72,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   private static final int MIN_PORT_NUMBER = 9090;
   private static final int MAX_PORT_NUMBER = 9999;
   private static final URI MANAGEMENT_URI = URI.create("https://management.core.windows.net");
+  private static final String PERSISTENT_VM_ROLE = "PersistentVMRole";
   private final KeyStoreType myKeyStoreType;
   private final String mySubscriptionId;
   private Configuration myConfiguration;
@@ -323,7 +324,8 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final VirtualMachineCreateDeploymentParameters vmDeployParams = new VirtualMachineCreateDeploymentParameters();
     final Role role = new Role();
     role.setVMImageName(imageDetails.getSourceName());
-    role.setRoleType(VirtualMachineRoleType.PERSISTENTVMROLE.name());
+    role.setRoleType(PERSISTENT_VM_ROLE);
+//    role.setRoleType(VirtualMachineRoleType.PERSISTENTVMROLE.name());
     role.setRoleName(vmName);
     role.setProvisionGuestAgent(true);
     role.setRoleSize(imageDetails.getVmSize());
@@ -460,7 +462,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
           return deployment;
         }
         final Role role = roles.get(0);
-        if (VirtualMachineRoleType.PERSISTENTVMROLE.name().equals(role.getRoleType()))
+        if (PERSISTENT_VM_ROLE.equals(role.getRoleType()))
           return deployment;
         else
           throw new ServiceException("Service is not suitable for VM deployment");

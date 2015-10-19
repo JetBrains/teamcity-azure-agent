@@ -17,6 +17,7 @@
         <element id="library" level="project" name="commons-cli-1.2-javadoc" />
         <element id="library" level="project" name="jsch-0.1.51" />
         <element id="library" level="project" name="Maven: org.bouncycastle:bcprov-jdk16:1.46" />
+        <element id="library" level="project" name="com.microsoft.azure:azure-management-network:0.8.0" />
       </element>
       <element id="file-copy" path="$PROJECT_DIR$/teamcity-plugin.xml" />
       <element id="directory" name="agent">

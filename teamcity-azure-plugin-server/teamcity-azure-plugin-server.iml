@@ -37,5 +37,6 @@
     <orderEntry type="library" name="com.microsoft.azure:azure-management-compute:0.8.0" level="project" />
     <orderEntry type="module" module-name="teamcity-azure-plugin-common" />
     <orderEntry type="library" name="Maven: org.bouncycastle:bcprov-jdk16:1.46" level="project" />
+    <orderEntry type="library" name="com.microsoft.azure:azure-management-network:0.8.0" level="project" />
   </component>
 </module>

@@ -248,14 +248,13 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   public OperationResponse createVmOrDeployment(@NotNull final AzureCloudImage image,
                                                 @NotNull final String vmName,
-                                                @NotNull final String vnetName,
                                                 @NotNull final CloudInstanceUserData tag,
                                                 final boolean generalized)
     throws ServiceException, IOException {
     final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
     if (serviceDeployment == null) {
-      return createVmDeployment(imageDetails, generalized, vmName, vnetName, tag);
+      return createVmDeployment(imageDetails, generalized, vmName, tag);
     } else  {
       return createVM(imageDetails, generalized, vmName, tag, serviceDeployment);
     }
@@ -317,7 +316,6 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   private OperationResponse createVmDeployment(final AzureCloudImageDetails imageDetails,
                                                   final boolean generalized,
                                                   final String vmName,
-                                                  final String vnetName,
                                                   final CloudInstanceUserData tag) throws IOException, ServiceException {
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final VirtualMachineCreateDeploymentParameters vmDeployParams = new VirtualMachineCreateDeploymentParameters();
@@ -332,6 +330,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final ArrayList<Role> roleAsList = new ArrayList<Role>();
     roleAsList.add(role);
     vmDeployParams.setRoles(roleAsList);
+    final String vnetName = imageDetails.getVnetName();
     if (vnetName != null && vnetName.trim().length() != 0) {
       vmDeployParams.setVirtualNetworkName(vnetName);
     }

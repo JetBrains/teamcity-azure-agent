@@ -157,8 +157,7 @@ public class AzurePropertiesReader {
       addLocalPort(documentElement, instanceName);
       setOwnAddress(documentElement, instanceName);
       myAgentConfiguration.addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, instanceName);
-      myAgentConfiguration.setName(instanceName);
-      LOG.info("Instance name and agent name are set to " + instanceName);
+      LOG.info("Reported azure instance name " + instanceName);
     } else {
       LOG.info("Unable to find azure properties file. Azure integration is disabled");
     }
@@ -175,7 +174,7 @@ public class AzurePropertiesReader {
         myAgentConfiguration.setOwnPort(portValue);
         LOG.info("Own port is set to " + portValue);
       } catch (Exception ex){
-        LOG.warn("Unable to set self port. Azure integration will experience problems");
+        LOG.warnAndDebugDetails("Unable to set self port. Azure integration will experience problems", ex);
       }
     } catch (JDOMException e) {
       LOG.warn("", e);

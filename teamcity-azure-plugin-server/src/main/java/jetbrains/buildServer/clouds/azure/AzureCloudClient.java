@@ -92,6 +92,12 @@ public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, Az
 
   @Nullable
   public String generateAgentName(@NotNull final AgentDescription agent) {
-    return "aaaaa";
+    final String azureInstanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
+    LOG.debug("Reported azure instance name: " + azureInstanceName);
+    if (azureInstanceName != null){
+      return azureInstanceName;
+    } else {
+      return null;
+    }
   }
 }

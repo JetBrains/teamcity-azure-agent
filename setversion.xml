@@ -18,6 +18,7 @@
 
 <project basedir="." default="setVersion">
   <target name="setVersion">
+    <copy file="teamcity-plugin.xml.dist" tofile="teamcity-plugin.xml"/>
     <replace file="teamcity-plugin.xml" token="@Version@" value="${build.number}" />
   </target>
 </project>

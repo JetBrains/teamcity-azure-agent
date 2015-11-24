@@ -1,0 +1,18 @@
+<component name="libraryTable">
+  <library name="azure-svc-mgmt-0.9.0">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/azure-svc-mgmt-0.9.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/azure-svc-mgmt-compute-0.9.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/azure-svc-mgmt-network-0.9.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/azure-core-0.9.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="file://E:/tmp/127_azure_src/azure-sdk-for-java-0.9.0/core/azure-core/src/main/java" />
+      <root url="file://E:/tmp/127_azure_src/azure-sdk-for-java-0.9.0/core/azure-tracing-util/src/main/java" />
+      <root url="file://E:/tmp/127_azure_src/azure-sdk-for-java-0.9.0/service-management/azure-svc-mgmt-compute/src/main/java" />
+      <root url="file://E:/tmp/127_azure_src/azure-sdk-for-java-0.9.0/service-management/azure-svc-mgmt-network/src/main/java" />
+      <root url="file://E:/tmp/127_azure_src/azure-sdk-for-java-0.9.0/service-management/azure-svc-mgmt/src/main/java" />
+    </SOURCES>
+  </library>
+</component>

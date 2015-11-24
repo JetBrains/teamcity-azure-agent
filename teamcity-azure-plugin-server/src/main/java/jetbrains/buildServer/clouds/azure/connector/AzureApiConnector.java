@@ -20,6 +20,7 @@ package jetbrains.buildServer.clouds.azure.connector;
 
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
+import com.intellij.openapi.util.io.StreamUtil;
 import com.microsoft.windowsazure.Configuration;
 import com.microsoft.windowsazure.core.OperationResponse;
 import com.microsoft.windowsazure.core.OperationStatus;
@@ -45,6 +46,8 @@ import javax.xml.transform.TransformerException;
 import com.microsoft.windowsazure.management.network.NetworkManagementClient;
 import com.microsoft.windowsazure.management.network.NetworkManagementService;
 import com.microsoft.windowsazure.management.network.models.NetworkListResponse;
+import com.microsoft.windowsazure.tracing.CloudTracing;
+import com.microsoft.windowsazure.tracing.CloudTracingInterceptor;
 import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
@@ -56,6 +59,10 @@ import jetbrains.buildServer.clouds.azure.errors.InvalidCertificateException;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.apache.commons.lang.math.NumberUtils;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpRequest;
+import org.apache.http.HttpResponse;
+import org.apache.http.entity.BasicHttpEntity;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -303,7 +310,6 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     parameters.setVMImageName(imageDetails.getSourceName());
     final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(imageDetails, generalized, vmName, tag, portNumber);
     parameters.setConfigurationSets(configurationSetList);
-
     try {
       return vmOperations.beginCreating(imageDetails.getServiceName(), deployment.getName(), parameters);
     } catch (ParserConfigurationException e) {
@@ -338,7 +344,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }
     vmDeployParams.setLabel(imageDetails.getSourceName());
     vmDeployParams.setName("teamcityVms");
-    vmDeployParams.setDeploymentSlot(DeploymentSlot.PRODUCTION);
+    vmDeployParams.setDeploymentSlot(DeploymentSlot.Production);
     try {
       return vmOperations.beginCreatingDeployment(imageDetails.getServiceName(), vmDeployParams);
     } catch (ParserConfigurationException e) {
@@ -387,7 +393,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
     final VirtualMachineShutdownParameters shutdownParams = new VirtualMachineShutdownParameters();
-    shutdownParams.setPostShutdownAction(PostShutdownAction.STOPPEDDEALLOCATED);
+    shutdownParams.setPostShutdownAction(PostShutdownAction.StoppedDeallocated);
       final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
       if (serviceDeployment != null) {
         try {
@@ -582,7 +588,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final OperationStatusResponse operationStatus;
     try {
       operationStatus = getOperationStatus(actionId);
-      final boolean isFinished = operationStatus.getStatus() == OperationStatus.SUCCEEDED || operationStatus.getStatus() == OperationStatus.FAILED;
+      final boolean isFinished = operationStatus.getStatus() == OperationStatus.Succeeded || operationStatus.getStatus() == OperationStatus.Failed;
       if (operationStatus.getError() != null){
         LOG.info(String.format("Was an error during executing action %s: %s", actionId, operationStatus.getError().getMessage()));
       }
@@ -591,5 +597,52 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       LOG.warn(e.toString(), e);
       return false;
     }
+  }
+
+  static{
+    CloudTracing.addTracingInterceptor(new CloudTracingInterceptor() {
+      public void information(String s) {
+        LOG.info(s);
+      }
+
+      public void configuration(String s, String s1, String s2) {
+        LOG.info(String.format("Configuration:%s-%s-%s", s, s1, s2));
+      }
+
+      public void enter(String s, Object o, String s1, HashMap<String, Object> hashMap) {
+        LOG.info(String.format("Enter: %s, %s", s, s1));
+      }
+
+      public void sendRequest(String s, HttpRequest httpRequest) {
+        LOG.info(String.format("Request(%s):%n%s", s, httpRequest.getRequestLine().getUri()));
+      }
+
+      public void receiveResponse(String s, HttpResponse httpResponse) {
+        try {
+          final HttpEntity entity = httpResponse.getEntity();
+          final InputStream content = entity.getContent();
+          final String result = StreamUtil.readText(content);
+          LOG.info(String.format("Request(%s):%n%s", s, result));
+          if (!entity.isRepeatable()) {
+            BasicHttpEntity newEntity = new BasicHttpEntity();
+            newEntity.setContent(new ByteArrayInputStream(result.getBytes()));
+            newEntity.setChunked(entity.isChunked());
+            newEntity.setContentLength(result.getBytes().length);
+            newEntity.setContentType(entity.getContentType());
+            httpResponse.setEntity(newEntity);
+          }
+        } catch (IOException e) {
+          LOG.error("Unable to read response entity from %s", s);
+        }
+      }
+
+      public void error(String s, Exception e) {
+        LOG.error(s, e);
+      }
+
+      public void exit(String s, Object o) {
+        LOG.info("Exit: " + s);
+      }
+    });
   }
 }

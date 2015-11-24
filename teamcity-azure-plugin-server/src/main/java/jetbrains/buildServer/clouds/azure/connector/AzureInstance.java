@@ -57,20 +57,21 @@ public class AzureInstance extends AbstractInstance {
   }
 
   @Override
+  @NotNull
   public InstanceStatus getInstanceStatus() {
     switch (myInstance.getPowerState()){
-      case STARTED:
+      case Started:
         return InstanceStatus.RUNNING;
-      case STARTING:
+      case Starting:
         return InstanceStatus.STARTING;
-      case STOPPED:
+      case Stopped:
         return InstanceStatus.STOPPED;
-      case STOPPING:
+      case Stopping:
         return InstanceStatus.STOPPING;
-      case UNKNOWN:
+      case Unknown:
         return InstanceStatus.UNKNOWN;
     }
-    return null;
+    return InstanceStatus.UNKNOWN;
   }
 
   @Nullable

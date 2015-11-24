@@ -141,8 +141,7 @@ public class AzurePropertiesReader {
       }
       readCustomData(documentElement);
     } catch (Exception e) {
-      LOG.info("Unable to read azure custom data. Will use existing parameters: " + customData);
-      LOG.info(e.toString());
+      LOG.info("Unable to read azure custom data. Will use existing parameters.");
       LOG.debug(e.toString(), e);
     }
   }

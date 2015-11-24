@@ -90,7 +90,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     if (myImageDetails.getBehaviour().isUseOriginal() && myInstances.size() != 1){
       throw new TeamCityRuntimeException("Unable to find Azure Virtual Machine " + myImageDetails.getSourceName());
     }
-  }
+}
 
   public AzureCloudImageDetails getImageDetails() {
     return myImageDetails;
@@ -147,11 +147,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
           try {
             final OperationStatusResponse statusResponse = myApiConnector.getOperationStatus(myRequestId);
             instance.setStatus(InstanceStatus.STOPPED);
-            if (statusResponse.getStatus()== OperationStatus.SUCCEEDED) {
+            if (statusResponse.getStatus()== OperationStatus.Succeeded) {
               if (myImageDetails.getBehaviour().isDeleteAfterStop()) {
                 deleteInstance(instance);
               }
-            } else if (statusResponse.getStatus() == OperationStatus.FAILED) {
+            } else if (statusResponse.getStatus() == OperationStatus.Failed) {
               instance.setStatus(InstanceStatus.ERROR_CANNOT_STOP);
               final OperationStatusResponse.ErrorDetails error = statusResponse.getError();
               instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(error.getCode(), error.getMessage())));
@@ -262,10 +262,10 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
           public void onFinish() {
             try {
               final OperationStatusResponse operationStatus = myApiConnector.getOperationStatus(operationId);
-              if (operationStatus.getStatus() == OperationStatus.SUCCEEDED){
+              if (operationStatus.getStatus() == OperationStatus.Succeeded){
                 instance.setStatus(InstanceStatus.RUNNING);
                 instance.refreshStartDate();
-              } else if (operationStatus.getStatus() == OperationStatus.FAILED){
+              } else if (operationStatus.getStatus() == OperationStatus.Failed){
                 instance.setStatus(InstanceStatus.ERROR);
                 final OperationStatusResponse.ErrorDetails error = operationStatus.getError();
                 instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(error.getCode(), error.getMessage())));

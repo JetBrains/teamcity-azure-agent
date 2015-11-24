@@ -1,9 +1,7 @@
 <component name="libraryTable">
-  <library name="com.microsoft.azure:azure-management-network:0.8.0" type="repository">
-    <properties maven-id="com.microsoft.azure:azure-management-network:0.8.0" />
+  <library name="misclibs" type="repository">
+    <properties maven-id="com.microsoft.azure:azure-management:0.8.0" />
     <CLASSES>
-      <root url="jar://$PROJECT_DIR$/lib/azure-svc-mgmt-network-0.8.0.jar!/" />
-      <root url="jar://$PROJECT_DIR$/lib/azure-core-0.8.0.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/httpclient-4.3.6.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/httpcore-4.3.3.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/commons-logging-1.1.3.jar!/" />
@@ -25,11 +23,7 @@
       <root url="jar://$PROJECT_DIR$/lib/jackson-jaxrs-1.9.2.jar!/" />
       <root url="jar://$PROJECT_DIR$/lib/jackson-xc-1.9.2.jar!/" />
     </CLASSES>
-    <JAVADOC>
-      <root url="jar://$PROJECT_DIR$/lib/azure-svc-mgmt-network-0.8.0-javadoc.jar!/" />
-    </JAVADOC>
-    <SOURCES>
-      <root url="jar://$PROJECT_DIR$/lib/azure-svc-mgmt-network-0.8.0-sources.jar!/" />
-    </SOURCES>
+    <JAVADOC />
+    <SOURCES />
   </library>
 </component>

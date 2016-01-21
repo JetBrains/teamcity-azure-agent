@@ -1,0 +1,1 @@
+include 'plugin-azure-agent', 'plugin-azure-common', 'plugin-azure-server'

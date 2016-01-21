@@ -1,9 +1,0 @@
-<component name="libraryTable">
-  <library name="BuildServer">
-    <CLASSES />
-    <JAVADOC />
-    <SOURCES>
-      <root url="file://$PROJECT_DIR$/../../BuildServer" />
-    </SOURCES>
-  </library>
-</component>

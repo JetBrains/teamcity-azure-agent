@@ -1,0 +1,128 @@
+def versionNumber = System.getenv('versionNumber') != null ? System.getenv('versionNumber') :  'SNAPSHOT'
+ext.projectIds = ['group': 'teamcity-azure-plugin', 'version': versionNumber, 'artifact': 'azure-cloud.zip' ]
+
+group = projectIds.group
+version = projectIds.version
+
+allprojects {
+    group = projectIds.group
+    version = projectIds.version
+}
+
+subprojects {
+    apply plugin: 'java'
+    sourceCompatibility = 1.6
+
+    repositories {
+        mavenCentral()
+        maven {
+            name 'JetBrains Maven Repository'
+            url 'http://repository.jetbrains.com/all'
+        }
+        maven {
+            name 'Local Maven Repository'
+            url '../local-repo'
+        }
+    }
+
+    test.useTestNG()
+    jar.version = null
+}
+
+project(':plugin-azure-agent') {
+    dependencies {
+        compile project(':plugin-azure-common')
+        compile 'org.jetbrains.teamcity:agent-api:9.0'
+        compile 'org.jetbrains.teamcity.internal:agent:9.0'
+        compile 'org.jetbrains.teamcity:cloud-api:8.1.2'
+        runtime 'javax.servlet:jstl:1.1.2'
+        testCompile 'org.testng:testng:6.8'
+    }
+    
+    task distrib(type: Zip, dependsOn: jar) {
+        archiveName = projectIds.artifact
+    
+        from (libsDir) {
+            into 'libs'
+        }
+        
+        from (configurations.compile) {
+            include 'plugin-azure-*.jar'
+            into 'libs'
+        }
+        
+        from 'teamcity-plugin.xml'
+        
+        into 'azure-cloud'
+    }
+    
+    artifacts {
+        archives distrib
+    }
+}
+
+project(':plugin-azure-common') {
+}
+
+project(':plugin-azure-server') {
+    dependencies {
+        compile project(':plugin-azure-common')
+        compile 'org.jetbrains.teamcity:server-api:9.0'
+        compile 'org.jetbrains.teamcity:cloud-api:8.1.2'
+        compile 'org.jetbrains.teamcity:cloud-server:9.1.5'
+        compile 'org.jetbrains.teamcity:web:9.1.5'
+        compile 'com.microsoft.azure:azure-core:0.9.1'
+        compile 'com.microsoft.azure:azure-svc-mgmt:0.9.1'
+        compile 'com.microsoft.azure:azure-svc-mgmt-compute:0.9.1'
+        compile 'com.microsoft.azure:azure-svc-mgmt-network:0.9.1'
+        compile 'org.bouncycastle:bcprov-jdk15on:1.54'
+        runtime 'javax.servlet:jstl:1.1.2'
+        testCompile 'org.testng:testng:6.8'
+    }
+    
+    task distrib(type: Zip, dependsOn: [':plugin-azure-agent:assemble', jar]) {
+        archiveName = projectIds.artifact
+    
+        from (libsDir) {
+            into 'server'
+        }
+        
+        from (configurations.compile) {
+            include 'activation-*.jar'
+            include 'azure-*.jar'
+            include 'bcprov-*.jar'
+            include 'cloud-azure-*.jar'
+            include 'commons-cli-*.jar'
+            include 'commons-codec-*.jar'
+            include 'commons-lang-*.jar'
+            include 'commons-logging-*.jar'
+            include 'gson-*.jar'
+            include 'http*.jar'
+            include 'jackson-*.jar'
+            include 'javax*.jar'
+            include 'jaxb-*.jar'
+            include 'jersey-*.jar'
+            include 'jettison-*.jar'
+            include 'jsch-*.jar'
+            include 'mail-*.jar'
+            include 'plugin-azure-*.jar'
+            include 'stax-api-*.jar'
+            into 'server'
+        }
+        
+        from (project(':plugin-azure-agent').file('build/distributions')) {
+            include projectIds.artifact
+            into 'agent'
+        }
+        
+        from ('teamcity-plugin.xml') {
+            filter {
+                it.replaceAll('@Version@', projectIds.version)
+            }
+        }        
+    }
+    
+    artifacts {
+        archives distrib
+    }
+}

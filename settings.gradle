@@ -1,1 +1,1 @@
-include 'plugin-azure-agent', 'plugin-azure-common', 'plugin-azure-server'
+include 'plugin-azure-agent', 'plugin-azure-common', 'plugin-azure-server-asm', 'plugin-azure-server-base'

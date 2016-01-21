@@ -1,5 +1,5 @@
 def versionNumber = System.getenv('versionNumber') != null ? System.getenv('versionNumber') :  'SNAPSHOT'
-ext.projectIds = ['group': 'teamcity-azure-plugin', 'version': versionNumber, 'artifact': 'azure-cloud.zip' ]
+ext.projectIds = ['group': 'teamcity-azure-plugin', 'version': versionNumber, 'artifact': 'cloud-azure' ]
 
 group = projectIds.group
 version = projectIds.version
@@ -40,7 +40,7 @@ project(':plugin-azure-agent') {
     }
     
     task distrib(type: Zip, dependsOn: jar) {
-        archiveName = projectIds.artifact
+        archiveName = projectIds.artifact + '.zip'
     
         from (libsDir) {
             into 'libs'
@@ -53,7 +53,7 @@ project(':plugin-azure-agent') {
         
         from 'teamcity-plugin.xml'
         
-        into 'azure-cloud'
+        into projectIds.artifact
     }
     
     artifacts {
@@ -64,11 +64,18 @@ project(':plugin-azure-agent') {
 project(':plugin-azure-common') {
 }
 
-project(':plugin-azure-server') {
+project(':plugin-azure-server-base') {
     dependencies {
-        compile project(':plugin-azure-common')
         compile 'org.jetbrains.teamcity:server-api:9.0'
         compile 'org.jetbrains.teamcity:cloud-api:8.1.2'
+        testCompile 'org.testng:testng:6.8'
+    }
+}
+
+project(':plugin-azure-server-asm') {
+    dependencies {
+        compile project(':plugin-azure-common')
+        compile project(':plugin-azure-server-base')
         compile 'org.jetbrains.teamcity:cloud-server:9.1.5'
         compile 'org.jetbrains.teamcity:web:9.1.5'
         compile 'com.microsoft.azure:azure-core:0.9.1'
@@ -81,7 +88,7 @@ project(':plugin-azure-server') {
     }
     
     task distrib(type: Zip, dependsOn: [':plugin-azure-agent:assemble', jar]) {
-        archiveName = projectIds.artifact
+        archiveName = projectIds.artifact + '-asm.zip'
     
         from (libsDir) {
             into 'server'
@@ -111,7 +118,7 @@ project(':plugin-azure-server') {
         }
         
         from (project(':plugin-azure-agent').file('build/distributions')) {
-            include projectIds.artifact
+            include projectIds.artifact + '.zip'
             into 'agent'
         }
         

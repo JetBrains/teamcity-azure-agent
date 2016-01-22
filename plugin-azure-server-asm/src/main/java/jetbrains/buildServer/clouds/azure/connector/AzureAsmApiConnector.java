@@ -1,19 +1,17 @@
 /*
+ * Copyright 2000-2016 JetBrains s.r.o.
  *
- *  * Copyright 2000-2014 JetBrains s.r.o.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package jetbrains.buildServer.clouds.azure.connector;
@@ -34,6 +32,7 @@ import com.microsoft.windowsazure.management.compute.*;
 import com.microsoft.windowsazure.management.compute.models.*;
 import com.microsoft.windowsazure.management.configuration.ManagementConfiguration;
 import com.microsoft.windowsazure.management.models.RoleSizeListResponse;
+
 import java.io.*;
 import java.net.*;
 import java.security.KeyStore;
@@ -51,14 +50,13 @@ import com.microsoft.windowsazure.tracing.CloudTracingInterceptor;
 import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
-import jetbrains.buildServer.clouds.azure.AzureCloudImage;
+import jetbrains.buildServer.clouds.azure.AzureAsmCloudImage;
 import jetbrains.buildServer.clouds.azure.AzureCloudImageDetails;
-import jetbrains.buildServer.clouds.azure.AzureCloudInstance;
+import jetbrains.buildServer.clouds.azure.AzureAsmCloudInstance;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.azure.errors.InvalidCertificateException;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
-import org.apache.commons.lang.math.NumberUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
@@ -73,9 +71,9 @@ import org.xml.sax.SAXException;
  *         Date: 8/5/2014
  *         Time: 2:13 PM
  */
-public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, AzureCloudInstance>, ActionIdChecker {
+public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImage, AzureAsmCloudInstance>, ActionIdChecker {
 
-  private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
+  private static final Logger LOG = Logger.getInstance(AzureAsmApiConnector.class.getName());
   private static final int MIN_PORT_NUMBER = 9090;
   private static final int MAX_PORT_NUMBER = 9999;
   private static final URI MANAGEMENT_URI = URI.create("https://management.core.windows.net");
@@ -87,13 +85,13 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   private NetworkManagementClient myNetworkClient;
   private ManagementClient myManagementClient;
 
-  public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final File keyFile, @NotNull final String keyFilePassword) {
+  public AzureAsmApiConnector(@NotNull final String subscriptionId, @NotNull final File keyFile, @NotNull final String keyFilePassword) {
     mySubscriptionId = subscriptionId;
     myKeyStoreType = KeyStoreType.jks;
     initClient(keyFile, keyFilePassword);
   }
 
-  public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final String managementCertificate) throws InvalidCertificateException {
+  public AzureAsmApiConnector(@NotNull final String subscriptionId, @NotNull final String managementCertificate) throws InvalidCertificateException {
     mySubscriptionId = subscriptionId;
     myKeyStoreType = KeyStoreType.pkcs12;
     FileOutputStream fOut;
@@ -137,15 +135,15 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     final HostedServiceOperations servicesOps = myClient.getHostedServicesOperations();
     final long l = System.currentTimeMillis();
     try {
-      servicesOps.checkNameAvailability("abstract_"+l);
+      servicesOps.checkNameAvailability("abstract_" + l);
     } catch (Exception e) {
       throw new CloudException("Ping error", e);
     }
   }
 
-  public InstanceStatus getInstanceStatus(@NotNull final AzureCloudInstance instance) {
-    final Map<String, AzureInstance> instanceMap = listImageInstances(instance.getImage());
-    final AzureInstance instanceData = instanceMap.get(instance.getInstanceId());
+  public InstanceStatus getInstanceStatus(@NotNull final AzureAsmCloudInstance instance) {
+    final Map<String, AzureAsmInstance> instanceMap = listImageInstances(instance.getImage());
+    final AzureAsmInstance instanceData = instanceMap.get(instance.getInstanceId());
     if (instanceData != null) {
       return instanceData.getInstanceStatus();
     } else {
@@ -153,10 +151,10 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }
   }
 
-  public Map<String, AzureInstance> listImageInstances(@NotNull final AzureCloudImage image) throws CloudException{
+  public Map<String, AzureAsmInstance> listImageInstances(@NotNull final AzureAsmCloudImage image) throws CloudException {
     try {
       final AzureCloudImageDetails imageDetails = image.getImageDetails();
-      final Map<String, AzureInstance> retval = new HashMap<String, AzureInstance>();
+      final Map<String, AzureAsmInstance> retval = new HashMap<String, AzureAsmInstance>();
       final HostedServiceGetDetailedResponse serviceDetailed = myClient.getHostedServicesOperations().getDetailed(imageDetails.getServiceName());
       final ArrayList<HostedServiceGetDetailedResponse.Deployment> deployments = serviceDetailed.getDeployments();
 
@@ -165,11 +163,11 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         for (final RoleInstance instance : deployment.getRoleInstances()) {
           if (imageDetails.getBehaviour().isUseOriginal()) {
             if (instance.getInstanceName().equals(imageDetails.getSourceName())) {
-              return Collections.singletonMap(imageDetails.getSourceName(), new AzureInstance(instance));
+              return Collections.singletonMap(imageDetails.getSourceName(), new AzureAsmInstance(instance));
             }
           } else {
             if (instance.getInstanceName().startsWith(imageDetails.getVmNamePrefix())) {
-              retval.put(instance.getInstanceName(), new AzureInstance(instance));
+              retval.put(instance.getInstanceName(), new AzureAsmInstance(instance));
             }
           }
         }
@@ -180,11 +178,11 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }
   }
 
-  public Collection<TypedCloudErrorInfo> checkImage(@NotNull final AzureCloudImage image) {
+  public Collection<TypedCloudErrorInfo> checkImage(@NotNull final AzureAsmCloudImage image) {
     return Collections.emptyList();
   }
 
-  public Collection<TypedCloudErrorInfo> checkInstance(@NotNull final AzureCloudInstance instance) {
+  public Collection<TypedCloudErrorInfo> checkInstance(@NotNull final AzureAsmCloudInstance instance) {
     return Collections.emptyList();
   }
 
@@ -242,8 +240,8 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }};
   }
 
-  public OperationResponse startVM(@NotNull final AzureCloudImage image)
-    throws ServiceException, IOException {
+  public OperationResponse startVM(@NotNull final AzureAsmCloudImage image)
+          throws ServiceException, IOException {
     final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final VirtualMachineOperations vmOps = myClient.getVirtualMachinesOperations();
     final String serviceName = imageDetails.getServiceName();
@@ -254,16 +252,16 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       throw new ServiceException(String.format("Unable to find deployment for service name '%s' and instance '%s'", serviceName, image.getName()));
   }
 
-  public OperationResponse createVmOrDeployment(@NotNull final AzureCloudImage image,
+  public OperationResponse createVmOrDeployment(@NotNull final AzureAsmCloudImage image,
                                                 @NotNull final String vmName,
                                                 @NotNull final CloudInstanceUserData tag,
                                                 final boolean generalized)
-    throws ServiceException, IOException {
+          throws ServiceException, IOException {
     final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
     if (serviceDeployment == null) {
       return createVmDeployment(imageDetails, generalized, vmName, tag);
-    } else  {
+    } else {
       return createVM(imageDetails, generalized, vmName, tag, serviceDeployment);
     }
   }
@@ -278,7 +276,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     for (RoleInstance instance : deployment.getRoleInstances()) {
       for (InstanceEndpoint endpoint : instance.getInstanceEndpoints()) {
         final int port = endpoint.getPort();
-        if (port >= MIN_PORT_NUMBER && port <=MAX_PORT_NUMBER){
+        if (port >= MIN_PORT_NUMBER && port <= MAX_PORT_NUMBER) {
           busyPorts.set(port, false);
         }
       }
@@ -287,7 +285,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       for (ConfigurationSet conf : role.getConfigurationSets()) {
         for (InputEndpoint endpoint : conf.getInputEndpoints()) {
           final int port = endpoint.getPort();
-          if (port >= MIN_PORT_NUMBER && port <=MAX_PORT_NUMBER){
+          if (port >= MIN_PORT_NUMBER && port <= MAX_PORT_NUMBER) {
             busyPorts.set(port, false);
           }
         }
@@ -296,7 +294,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
     int portNumber = MIN_PORT_NUMBER;
     for (int i = MIN_PORT_NUMBER; i <= MAX_PORT_NUMBER; i++) {
-      if (busyPorts.get(i)){
+      if (busyPorts.get(i)) {
         portNumber = i;
         break;
       }
@@ -318,12 +316,13 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
       throw new IOException(e);
     } catch (TransformerException e) {
       throw new IOException(e);
-    }  }
+    }
+  }
 
   private OperationResponse createVmDeployment(final AzureCloudImageDetails imageDetails,
-                                                  final boolean generalized,
-                                                  final String vmName,
-                                                  final CloudInstanceUserData tag) throws IOException, ServiceException {
+                                               final boolean generalized,
+                                               final String vmName,
+                                               final CloudInstanceUserData tag) throws IOException, ServiceException {
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final VirtualMachineCreateDeploymentParameters vmDeployParams = new VirtualMachineCreateDeploymentParameters();
     final Role role = new Role();
@@ -388,38 +387,38 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
   }
 
 
-  public OperationResponse stopVM(@NotNull final AzureCloudInstance instance)
-    throws ServiceException, IOException{
+  public OperationResponse stopVM(@NotNull final AzureAsmCloudInstance instance)
+          throws ServiceException, IOException {
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
     final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
     final VirtualMachineShutdownParameters shutdownParams = new VirtualMachineShutdownParameters();
     shutdownParams.setPostShutdownAction(PostShutdownAction.StoppedDeallocated);
-      final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
-      if (serviceDeployment != null) {
-        try {
-          return vmOperations.beginShutdown(imageDetails.getServiceName(), serviceDeployment.getName(), instance.getName(), shutdownParams);
-        } catch (ParserConfigurationException e) {
-          throw new CloudException(e.getMessage(), e);
-        } catch (SAXException e) {
-          throw new CloudException(e.getMessage(), e);
-        } catch (TransformerException e) {
-          throw new CloudException(e.getMessage(), e);
-        }
-      } else {
-        throw new CloudException(String.format("Unable to find deployment for service '%s' and instance '%s'",
-                                                 imageDetails.getServiceName(), instance.getName()));
+    final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
+    if (serviceDeployment != null) {
+      try {
+        return vmOperations.beginShutdown(imageDetails.getServiceName(), serviceDeployment.getName(), instance.getName(), shutdownParams);
+      } catch (ParserConfigurationException e) {
+        throw new CloudException(e.getMessage(), e);
+      } catch (SAXException e) {
+        throw new CloudException(e.getMessage(), e);
+      } catch (TransformerException e) {
+        throw new CloudException(e.getMessage(), e);
       }
+    } else {
+      throw new CloudException(String.format("Unable to find deployment for service '%s' and instance '%s'",
+              imageDetails.getServiceName(), instance.getName()));
+    }
   }
 
-  public OperationResponse deleteVmOrDeployment(@NotNull final AzureCloudInstance instance) throws IOException, ServiceException {
+  public OperationResponse deleteVmOrDeployment(@NotNull final AzureAsmCloudInstance instance) throws IOException, ServiceException {
     final HostedServiceOperations serviceOps = myClient.getHostedServicesOperations();
     final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
     try {
       final String serviceName = imageDetails.getServiceName();
       final ArrayList<HostedServiceGetDetailedResponse.Deployment> deployments = serviceOps.getDetailed(serviceName).getDeployments();
-      if (deployments.size() == 1){
+      if (deployments.size() == 1) {
         final HostedServiceGetDetailedResponse.Deployment deployment = deployments.get(0);
-        if (deployment.getRoleInstances().size() == 1){
+        if (deployment.getRoleInstances().size() == 1) {
           return deleteVmDeployment(serviceName, deployment.getName());
         } else {
           return deleteVM(serviceName, deployment.getName(), instance.getName());
@@ -453,17 +452,17 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   @Nullable
   private HostedServiceGetDetailedResponse.Deployment getServiceDeployment(String serviceName)
-    throws IOException, ServiceException {
+          throws IOException, ServiceException {
     final HostedServiceOperations serviceOps = myClient.getHostedServicesOperations();
     try {
       final HostedServiceGetDetailedResponse detailed = serviceOps.getDetailed(serviceName);
       final ArrayList<HostedServiceGetDetailedResponse.Deployment> deployments = detailed.getDeployments();
-      if (deployments.size() == 0){
+      if (deployments.size() == 0) {
         return null;
-      } else if (deployments.size() == 1){
+      } else if (deployments.size() == 1) {
         final HostedServiceGetDetailedResponse.Deployment deployment = deployments.get(0);
         final ArrayList<Role> roles = deployment.getRoles();
-        if (roles.size() == 0){
+        if (roles.size() == 0) {
           return deployment;
         }
         final Role role = roles.get(0);
@@ -500,22 +499,6 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
   private boolean isImageGeneralized(final VirtualMachineVMImageListResponse.VirtualMachineVMImage image) {
     return "Generalized".equals(image.getOSDiskConfiguration().getOSState());
-  }
-
-  private Configuration prepareConfiguration(@NotNull final String managementCertificate) throws RuntimeException {
-    try {
-      final File tempFile = File.createTempFile("azk", null);
-      FileOutputStream fOut = new FileOutputStream(tempFile);
-      Random r = new Random();
-      byte[] pwdData = new byte[4];
-      r.nextBytes(pwdData);
-      final String base64pw = Base64.encode(pwdData).substring(0, 6);
-      createKeyStorePKCS12(managementCertificate, fOut, base64pw);
-      return prepareConfiguration(tempFile, base64pw, KeyStoreType.pkcs12);
-    } catch (Exception e) {
-      e.printStackTrace();
-      return null;
-    }
   }
 
   private Configuration prepareConfiguration(@NotNull final File keyStoreFile, @NotNull final String password, @NotNull final KeyStoreType keyStoreType) throws RuntimeException {
@@ -589,7 +572,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     try {
       operationStatus = getOperationStatus(actionId);
       final boolean isFinished = operationStatus.getStatus() == OperationStatus.Succeeded || operationStatus.getStatus() == OperationStatus.Failed;
-      if (operationStatus.getError() != null){
+      if (operationStatus.getError() != null) {
         LOG.info(String.format("Was an error during executing action %s: %s", actionId, operationStatus.getError().getMessage()));
       }
       return isFinished;
@@ -599,7 +582,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }
   }
 
-  static{
+  static {
     CloudTracing.addTracingInterceptor(new CloudTracingInterceptor() {
       public void information(String s) {
         LOG.info(s);

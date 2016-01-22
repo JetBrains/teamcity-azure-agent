@@ -25,15 +25,14 @@ import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
-import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
-import jetbrains.buildServer.clouds.azure.connector.AzureInstance;
+import jetbrains.buildServer.clouds.azure.connector.AzureAsmApiConnector;
+import jetbrains.buildServer.clouds.azure.connector.AzureAsmInstance;
 import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -45,20 +44,20 @@ import java.util.Map;
  *         Date: 7/31/2014
  *         Time: 5:18 PM
  */
-public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails> {
+public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance, AzureCloudImageDetails> {
 
-  private static final Logger LOG = Logger.getInstance(AzureCloudImage.class.getName());
+  private static final Logger LOG = Logger.getInstance(AzureAsmCloudImage.class.getName());
 
   private final AzureCloudImageDetails myImageDetails;
   private final ProvisionActionsQueue myActionsQueue;
-  private final AzureApiConnector myApiConnector;
+  private final AzureAsmApiConnector myApiConnector;
   private final IdProvider myIdProvider;
   private boolean myGeneralized;
 
-  protected AzureCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
-                            @NotNull final ProvisionActionsQueue actionsQueue,
-                            @NotNull final AzureApiConnector apiConnector,
-                            @NotNull final IdProvider idProvider) {
+  protected AzureAsmCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
+                               @NotNull final ProvisionActionsQueue actionsQueue,
+                               @NotNull final AzureAsmApiConnector apiConnector,
+                               @NotNull final IdProvider idProvider) {
     super(imageDetails.getSourceName(), imageDetails.getSourceName());
     myImageDetails = imageDetails;
     myActionsQueue = actionsQueue;
@@ -70,21 +69,21 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     } else {
       myGeneralized = apiConnector.isImageGeneralized(imageDetails.getSourceName());
     }
-    if (myGeneralized){
-      if (StringUtil.isEmpty(imageDetails.getUsername()) || StringUtil.isEmpty(imageDetails.getPassword())){
+    if (myGeneralized) {
+      if (StringUtil.isEmpty(imageDetails.getUsername()) || StringUtil.isEmpty(imageDetails.getPassword())) {
         throw new TeamCityRuntimeException("No credentials supplied for VM creation");
       }
     }
-    final Map<String, AzureInstance> instances = apiConnector.listImageInstances(this);
-    for (AzureInstance azureInstance : instances.values()) {
-      final AzureCloudInstance cloudInstance = new AzureCloudInstance(this, azureInstance.getName(), azureInstance.getName());
+    final Map<String, AzureAsmInstance> instances = apiConnector.listImageInstances(this);
+    for (AzureAsmInstance azureInstance : instances.values()) {
+      final AzureAsmCloudInstance cloudInstance = new AzureAsmCloudInstance(this, azureInstance.getName(), azureInstance.getName());
       cloudInstance.setStatus(azureInstance.getInstanceStatus());
       myInstances.put(azureInstance.getName(), cloudInstance);
     }
-    if (myImageDetails.getBehaviour().isUseOriginal() && myInstances.size() != 1){
+    if (myImageDetails.getBehaviour().isUseOriginal() && myInstances.size() != 1) {
       throw new TeamCityRuntimeException("Unable to find Azure Virtual Machine " + myImageDetails.getSourceName());
     }
-}
+  }
 
   public AzureCloudImageDetails getImageDetails() {
     return myImageDetails;
@@ -95,7 +94,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     for (String instanceName : realInstances.keySet()) {
       if (myInstances.get(instanceName) == null) {
         final AbstractInstance realInstance = realInstances.get(instanceName);
-        final AzureCloudInstance newInstance = new AzureCloudInstance(this, instanceName);
+        final AzureAsmCloudInstance newInstance = new AzureAsmCloudInstance(this, instanceName);
         newInstance.setStatus(realInstance.getInstanceStatus());
         myInstances.put(instanceName, newInstance);
       }
@@ -105,16 +104,16 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   @Override
   public boolean canStartNewInstance() {
     if (myImageDetails.getBehaviour().isUseOriginal()) {
-      final AzureCloudInstance singleInstance = myInstances.get(myImageDetails.getSourceName());
+      final AzureAsmCloudInstance singleInstance = myInstances.get(myImageDetails.getSourceName());
       return singleInstance != null && singleInstance.getStatus() == InstanceStatus.STOPPED;
     } else {
       return myInstances.size() < myImageDetails.getMaxInstances()
-             && myActionsQueue.isLocked(myImageDetails.getServiceName());
+              && myActionsQueue.isLocked(myImageDetails.getServiceName());
     }
   }
 
   @Override
-  public void terminateInstance(@NotNull final AzureCloudInstance instance) {
+  public void terminateInstance(@NotNull final AzureAsmCloudInstance instance) {
     try {
       instance.setStatus(InstanceStatus.STOPPING);
       myActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
@@ -141,7 +140,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
           try {
             final OperationStatusResponse statusResponse = myApiConnector.getOperationStatus(myRequestId);
             instance.setStatus(InstanceStatus.STOPPED);
-            if (statusResponse.getStatus()== OperationStatus.Succeeded) {
+            if (statusResponse.getStatus() == OperationStatus.Succeeded) {
               if (myImageDetails.getBehaviour().isDeleteAfterStop()) {
                 deleteInstance(instance);
               }
@@ -167,11 +166,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   }
 
   @Override
-  public void restartInstance(@NotNull final AzureCloudInstance instance) {
-    throw new NotImplementedException();
+  public void restartInstance(@NotNull final AzureAsmCloudInstance instance) {
+    throw new UnsupportedOperationException();
   }
 
-  private void deleteInstance(@NotNull final AzureCloudInstance instance){
+  private void deleteInstance(@NotNull final AzureAsmCloudInstance instance) {
     myActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
       private String myRequestId;
 
@@ -205,8 +204,8 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   }
 
   @Override
-  public AzureCloudInstance startNewInstance(@NotNull final CloudInstanceUserData tag) {
-    final AzureCloudInstance instance;
+  public AzureAsmCloudInstance startNewInstance(@NotNull final CloudInstanceUserData tag) {
+    final AzureAsmCloudInstance instance;
     final String vmName;
     if (myImageDetails.getBehaviour().isUseOriginal()) {
       vmName = myImageDetails.getSourceName();
@@ -217,8 +216,8 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     if (myImageDetails.getBehaviour().isUseOriginal()) {
       instance = myInstances.get(myImageDetails.getSourceName());
     } else {
-      instance = new AzureCloudInstance(this, vmName);
-      if (myInstances.size() >= myImageDetails.getMaxInstances()){
+      instance = new AzureAsmCloudInstance(this, vmName);
+      if (myInstances.size() >= myImageDetails.getMaxInstances()) {
         throw new TeamCityRuntimeException("Unable to start more instances. Limit reached");
       }
       myInstances.put(instance.getInstanceId(), instance);
@@ -227,63 +226,63 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     instance.refreshStartDate();
     try {
       myActionsQueue.queueAction(
-        myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
-          private String operationId = null;
+              myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
+                private String operationId = null;
 
-          @NotNull
-          public String getName() {
-            return "start new instance: " + instance.getName();
-          }
+                @NotNull
+                public String getName() {
+                  return "start new instance: " + instance.getName();
+                }
 
-          @NotNull
-          public String action() throws ServiceException, IOException {
-            final OperationResponse response;
-            if (myImageDetails.getBehaviour().isUseOriginal()) {
-              response = myApiConnector.startVM(AzureCloudImage.this);
-            } else {
-              response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
-            }
-            instance.setStatus(InstanceStatus.STARTING);
-            operationId = response.getRequestId();
-            return operationId;
-          }
+                @NotNull
+                public String action() throws ServiceException, IOException {
+                  final OperationResponse response;
+                  if (myImageDetails.getBehaviour().isUseOriginal()) {
+                    response = myApiConnector.startVM(AzureAsmCloudImage.this);
+                  } else {
+                    response = myApiConnector.createVmOrDeployment(AzureAsmCloudImage.this, vmName, tag, myGeneralized);
+                  }
+                  instance.setStatus(InstanceStatus.STARTING);
+                  operationId = response.getRequestId();
+                  return operationId;
+                }
 
-          @NotNull
-          public ActionIdChecker getActionIdChecker() {
-            return myApiConnector;
-          }
+                @NotNull
+                public ActionIdChecker getActionIdChecker() {
+                  return myApiConnector;
+                }
 
-          public void onFinish() {
-            try {
-              final OperationStatusResponse operationStatus = myApiConnector.getOperationStatus(operationId);
-              if (operationStatus.getStatus() == OperationStatus.Succeeded){
-                instance.setStatus(InstanceStatus.RUNNING);
-                instance.refreshStartDate();
-              } else if (operationStatus.getStatus() == OperationStatus.Failed){
-                instance.setStatus(InstanceStatus.ERROR);
-                final OperationStatusResponse.ErrorDetails error = operationStatus.getError();
-                instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(error.getCode(), error.getMessage())));
-                LOG.warn(error.getMessage());
-              }
-            } catch (Exception e) {
-              LOG.warn(e.toString(), e);
-              instance.setStatus(InstanceStatus.ERROR);
-              instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(e.getMessage(), e.toString())));
-            }
-          }
+                public void onFinish() {
+                  try {
+                    final OperationStatusResponse operationStatus = myApiConnector.getOperationStatus(operationId);
+                    if (operationStatus.getStatus() == OperationStatus.Succeeded) {
+                      instance.setStatus(InstanceStatus.RUNNING);
+                      instance.refreshStartDate();
+                    } else if (operationStatus.getStatus() == OperationStatus.Failed) {
+                      instance.setStatus(InstanceStatus.ERROR);
+                      final OperationStatusResponse.ErrorDetails error = operationStatus.getError();
+                      instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(error.getCode(), error.getMessage())));
+                      LOG.warn(error.getMessage());
+                    }
+                  } catch (Exception e) {
+                    LOG.warn(e.toString(), e);
+                    instance.setStatus(InstanceStatus.ERROR);
+                    instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(e.getMessage(), e.toString())));
+                  }
+                }
 
-          public void onError(final Throwable th) {
-            instance.setStatus(InstanceStatus.ERROR);
-            instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(th.getMessage(), th.getMessage())));
-          }
-        });
+                public void onError(final Throwable th) {
+                  instance.setStatus(InstanceStatus.ERROR);
+                  instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(th.getMessage(), th.getMessage())));
+                }
+              });
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
     return instance;
   }
 
-  protected boolean isGeneralized(){
+  protected boolean isGeneralized() {
     return myGeneralized;
   }
 }

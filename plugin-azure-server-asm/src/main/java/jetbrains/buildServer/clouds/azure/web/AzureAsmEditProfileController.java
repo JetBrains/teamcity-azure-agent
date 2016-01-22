@@ -28,7 +28,7 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.clouds.CloudException;
-import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.connector.AzureAsmApiConnector;
 import jetbrains.buildServer.clouds.azure.errors.InvalidCertificateException;
 import jetbrains.buildServer.controllers.*;
 import jetbrains.buildServer.controllers.admin.projects.PluginPropertiesUtil;
@@ -47,17 +47,17 @@ import org.springframework.web.servlet.ModelAndView;
  *         Date: 8/6/2014
  *         Time: 3:01 PM
  */
-public class AzureEditProfileController extends BaseFormXmlController {
+public class AzureAsmEditProfileController extends BaseFormXmlController {
 
-  private static final Logger LOG = Logger.getInstance(AzureEditProfileController.class.getName());
+  private static final Logger LOG = Logger.getInstance(AzureAsmEditProfileController.class.getName());
 
   @NotNull private final String myJspPath;
   @NotNull private final String myHtmlPath;
   @NotNull private final PluginDescriptor myPluginDescriptor;
 
-  public AzureEditProfileController(@NotNull final SBuildServer server,
-                                    @NotNull final PluginDescriptor pluginDescriptor,
-                                    @NotNull final WebControllerManager manager) {
+  public AzureAsmEditProfileController(@NotNull final SBuildServer server,
+                                       @NotNull final PluginDescriptor pluginDescriptor,
+                                       @NotNull final WebControllerManager manager) {
     super(server);
     myPluginDescriptor = pluginDescriptor;
     myHtmlPath = pluginDescriptor.getPluginResourcesPath("azure-settings.html");
@@ -117,12 +117,12 @@ public class AzureEditProfileController extends BaseFormXmlController {
     PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true);
 
     final Map<String, String> props = propsBean.getProperties();
-    final String subscriptionId = props.get(AzureWebConstants.SUBSCRIPTION_ID);
-    final String certificate = props.get("secure:"+AzureWebConstants.MANAGEMENT_CERTIFICATE);
+    final String subscriptionId = props.get(AzureAsmWebConstants.SUBSCRIPTION_ID);
+    final String certificate = props.get("secure:"+ AzureAsmWebConstants.MANAGEMENT_CERTIFICATE);
 
-    AzureApiConnector apiConnector;
+    AzureAsmApiConnector apiConnector;
     try {
-      apiConnector = new AzureApiConnector(subscriptionId, certificate);
+      apiConnector = new AzureAsmApiConnector(subscriptionId, certificate);
       apiConnector.ping();
     } catch (InvalidCertificateException ex){
       errors.addError("certificateError", "Invalid Management certificate. Please enter the Management Certificate exactly as it is presented in the subscription file.");

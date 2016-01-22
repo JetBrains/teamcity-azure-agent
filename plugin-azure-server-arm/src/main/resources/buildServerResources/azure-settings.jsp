@@ -7,7 +7,7 @@
 <%@ taglib prefix="bs" tagdir="/WEB-INF/tags" %>
 <%--@elvariable id="resPath" type="java.lang.String"--%>
 </table>
-<jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.web.AzureAsmWebConstants"/>
+<jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.web.AzureArmWebConstants"/>
 <jsp:useBean id="refreshablePath" class="java.lang.String" scope="request"/>
 
 <h2 class="noBorder section-header">Cloud Access Information</h2>

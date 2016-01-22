@@ -1,19 +1,17 @@
 /*
+ * Copyright 2000-2016 JetBrains s.r.o.
  *
- *  * Copyright 2000-2014 JetBrains s.r.o.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package jetbrains.buildServer.clouds.azure;
@@ -22,8 +20,6 @@ import com.google.gson.annotations.SerializedName;
 import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
-import jetbrains.buildServer.serverSide.crypt.EncryptUtil;
-import jetbrains.buildServer.serverSide.crypt.RSACipher;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -66,7 +62,7 @@ public class AzureCloudImageDetails implements CloudImageDetails {
                                 final int maxInstances,
                                 @Nullable final String osType,
                                 @Nullable final String username,
-                                @Nullable final String password){
+                                @Nullable final String password) {
     myBehaviour = cloneTypeName;
     mySourceName = sourceName;
     myServiceName = serviceName;
@@ -79,6 +75,7 @@ public class AzureCloudImageDetails implements CloudImageDetails {
     myMaxInstances = maxInstances;
     validateParams();
   }
+
   public String getSourceName() {
     return mySourceName;
   }
@@ -123,18 +120,18 @@ public class AzureCloudImageDetails implements CloudImageDetails {
     return myBehaviour;
   }
 
-  private void validateParams(){
-    if (!myBehaviour.isUseOriginal()){
+  private void validateParams() {
+    if (!myBehaviour.isUseOriginal()) {
       check(StringUtil.isNotEmpty(myServiceName), "Service name is required");
       check(StringUtil.isNotEmpty(myVmNamePrefix), "Name prefix is required");
       check(StringUtil.isNotEmpty(myVmSize), "VM Size is required");
       check(StringUtil.isNotEmpty(myOsType), "Unable to determine OS Type");
-      check(myMaxInstances>0, "Max instances is less than 1, no VMs of this Image will be started");
+      check(myMaxInstances > 0, "Max instances is less than 1, no VMs of this Image will be started");
     }
   }
 
-  private void check(boolean expression, String errorMessage){
-    if (!expression){
+  private void check(boolean expression, String errorMessage) {
+    if (!expression) {
       throw new TeamCityRuntimeException(errorMessage);
     }
   }

@@ -1,26 +1,26 @@
 /*
+ * Copyright 2000-2016 JetBrains s.r.o.
  *
- *  * Copyright 2000-2014 JetBrains s.r.o.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package jetbrains.buildServer.clouds.azure.connector;
 
 import com.microsoft.windowsazure.management.compute.models.RoleInstance;
+
 import java.net.InetAddress;
 import java.util.Date;
+
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import org.jetbrains.annotations.NotNull;
@@ -31,11 +31,12 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 8/5/2014
  *         Time: 2:14 PM
  */
-public class AzureInstance extends AbstractInstance {
+public class AzureAsmInstance extends AbstractInstance {
 
-  @NotNull private final RoleInstance myInstance;
+  @NotNull
+  private final RoleInstance myInstance;
 
-  public AzureInstance(@NotNull final RoleInstance instance) {
+  public AzureAsmInstance(@NotNull final RoleInstance instance) {
     super(instance.getInstanceName());
     myInstance = instance;
   }
@@ -59,7 +60,7 @@ public class AzureInstance extends AbstractInstance {
   @Override
   @NotNull
   public InstanceStatus getInstanceStatus() {
-    switch (myInstance.getPowerState()){
+    switch (myInstance.getPowerState()) {
       case Started:
         return InstanceStatus.RUNNING;
       case Starting:

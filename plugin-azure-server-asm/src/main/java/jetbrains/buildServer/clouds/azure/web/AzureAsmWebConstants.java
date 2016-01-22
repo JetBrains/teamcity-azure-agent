@@ -23,7 +23,8 @@ package jetbrains.buildServer.clouds.azure.web;
  *         Date: 9/11/2014
  *         Time: 4:04 PM
  */
-public class AzureWebConstants {
+public class AzureAsmWebConstants {
+
   public static final String SUBSCRIPTION_ID = "subscriptionId";
   public static final String MANAGEMENT_CERTIFICATE="managementCertificate";
   public static final String IMAGES_DATA="imagesData";

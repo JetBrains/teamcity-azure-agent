@@ -18,7 +18,7 @@ package jetbrains.buildServer.clouds.azure;
 
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.clouds.CloudClientParameters;
-import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.connector.AzureAsmApiConnector;
 import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
 import jetbrains.buildServer.clouds.base.tasks.UpdateInstancesTask;
@@ -35,19 +35,18 @@ import java.util.concurrent.TimeUnit;
  *         Date: 7/31/2014
  *         Time: 4:28 PM
  */
-public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
+public class AzureAsmCloudClient extends AbstractCloudClient<AzureAsmCloudInstance, AzureAsmCloudImage, AzureCloudImageDetails> {
 
-  private static final Logger LOG = Logger.getInstance(AzureCloudClient.class.getName());
+  private static final Logger LOG = Logger.getInstance(AzureAsmCloudClient.class.getName());
   private final File myAzureIdxStorage;
 
   private boolean myInitialized = false;
   private final ProvisionActionsQueue myActionsQueue;
 
-
-  public AzureCloudClient(@NotNull final CloudClientParameters params,
-                          @NotNull final Collection<AzureCloudImageDetails> images,
-                          @NotNull final AzureApiConnector apiConnector,
-                          @NotNull final File azureIdxStorage) {
+  public AzureAsmCloudClient(@NotNull final CloudClientParameters params,
+                             @NotNull final Collection<AzureCloudImageDetails> images,
+                             @NotNull final AzureAsmApiConnector apiConnector,
+                             @NotNull final File azureIdxStorage) {
     super(params, images, apiConnector);
     myAzureIdxStorage = azureIdxStorage;
     myActionsQueue = new ProvisionActionsQueue(myAsyncTaskExecutor);
@@ -64,24 +63,24 @@ public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, Az
   }
 
   @Override
-  protected AzureCloudImage checkAndCreateImage(@NotNull final AzureCloudImageDetails imageDetails) {
+  protected AzureAsmCloudImage checkAndCreateImage(@NotNull final AzureCloudImageDetails imageDetails) {
     final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, imageDetails.getSourceName() + ".idx"));
-    return new AzureCloudImage(imageDetails, myActionsQueue, (AzureApiConnector) myApiConnector, idProvider);
+    return new AzureAsmCloudImage(imageDetails, myActionsQueue, (AzureAsmApiConnector) myApiConnector, idProvider);
   }
 
   @Override
-  protected UpdateInstancesTask<AzureCloudInstance, AzureCloudImage, ?> createUpdateInstancesTask() {
-    return new UpdateInstancesTask<AzureCloudInstance, AzureCloudImage, AzureCloudClient>(myApiConnector, this);
+  protected UpdateInstancesTask<AzureAsmCloudInstance, AzureAsmCloudImage, ?> createUpdateInstancesTask() {
+    return new UpdateInstancesTask<AzureAsmCloudInstance, AzureAsmCloudImage, AzureAsmCloudClient>(myApiConnector, this);
   }
 
   @Nullable
   @Override
-  public AzureCloudInstance findInstanceByAgent(@NotNull final AgentDescription agent) {
+  public AzureAsmCloudInstance findInstanceByAgent(@NotNull final AgentDescription agent) {
     final String instanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
     if (instanceName == null)
       return null;
-    for (AzureCloudImage image : myImageMap.values()) {
-      final AzureCloudInstance instanceById = image.findInstanceById(instanceName);
+    for (AzureAsmCloudImage image : myImageMap.values()) {
+      final AzureAsmCloudInstance instanceById = image.findInstanceById(instanceName);
       if (instanceById != null) {
         return instanceById;
       }

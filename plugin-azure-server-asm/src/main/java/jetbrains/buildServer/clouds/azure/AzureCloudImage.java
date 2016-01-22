@@ -1,19 +1,17 @@
 /*
+ * Copyright 2000-2016 JetBrains s.r.o.
  *
- *  * Copyright 2000-2014 JetBrains s.r.o.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package jetbrains.buildServer.clouds.azure;
@@ -23,22 +21,24 @@ import com.microsoft.windowsazure.core.OperationResponse;
 import com.microsoft.windowsazure.core.OperationStatus;
 import com.microsoft.windowsazure.core.OperationStatusResponse;
 import com.microsoft.windowsazure.exception.ServiceException;
-import java.io.File;
+import jetbrains.buildServer.TeamCityRuntimeException;
+import jetbrains.buildServer.clouds.CloudInstanceUserData;
+import jetbrains.buildServer.clouds.InstanceStatus;
+import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
+import jetbrains.buildServer.clouds.azure.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.connector.AzureInstance;
+import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
+import jetbrains.buildServer.clouds.base.AbstractCloudImage;
+import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
+import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
+import jetbrains.buildServer.util.StringUtil;
+import org.jetbrains.annotations.NotNull;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Map;
-import jetbrains.buildServer.TeamCityRuntimeException;
-import jetbrains.buildServer.clouds.CloudInstanceUserData;
-import jetbrains.buildServer.clouds.InstanceStatus;
-import jetbrains.buildServer.clouds.azure.connector.*;
-import jetbrains.buildServer.clouds.base.AbstractCloudImage;
-import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
-import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
-import jetbrains.buildServer.util.FileUtil;
-import jetbrains.buildServer.util.StringUtil;
-import org.jetbrains.annotations.NotNull;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * @author Sergey.Pak
@@ -50,27 +50,21 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   private static final Logger LOG = Logger.getInstance(AzureCloudImage.class.getName());
 
   private final AzureCloudImageDetails myImageDetails;
-  @NotNull private final ProvisionActionsQueue myActionsQueue;
-  @NotNull private final File myIdxFile;
+  private final ProvisionActionsQueue myActionsQueue;
   private final AzureApiConnector myApiConnector;
+  private final IdProvider myIdProvider;
   private boolean myGeneralized;
 
   protected AzureCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
                             @NotNull final ProvisionActionsQueue actionsQueue,
                             @NotNull final AzureApiConnector apiConnector,
-                            @NotNull final File azureStorage) {
+                            @NotNull final IdProvider idProvider) {
     super(imageDetails.getSourceName(), imageDetails.getSourceName());
     myImageDetails = imageDetails;
     myActionsQueue = actionsQueue;
-    myIdxFile = new File(azureStorage, imageDetails.getSourceName() + ".idx");
-    if (!myIdxFile.exists()){
-      try {
-        FileUtil.writeFileAndReportErrors(myIdxFile, "1");
-      } catch (IOException e) {
-        LOG.warn(String.format("Unable to write idx file '%s': %s", myIdxFile.getAbsolutePath(), e.toString()));
-      }
-    }
     myApiConnector = apiConnector;
+    myIdProvider = idProvider;
+
     if (myImageDetails.getBehaviour().isUseOriginal()) {
       myGeneralized = false;
     } else {
@@ -217,7 +211,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     if (myImageDetails.getBehaviour().isUseOriginal()) {
       vmName = myImageDetails.getSourceName();
     } else {
-      vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix(), getNextIdx());
+      vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix(), myIdProvider.getNextId());
     }
 
     if (myImageDetails.getBehaviour().isUseOriginal()) {
@@ -287,17 +281,6 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
       throw new RuntimeException(e);
     }
     return instance;
-  }
-
-  private int getNextIdx(){
-    try {
-      final int nextIdx = Integer.parseInt(FileUtil.readText(myIdxFile));
-      FileUtil.writeFileAndReportErrors(myIdxFile, String.valueOf(nextIdx+1));
-      return nextIdx;
-    } catch (Exception e) {
-      LOG.warn("Unable to read idx file: " + e.toString());
-      return 0;
-    }
   }
 
   protected boolean isGeneralized(){

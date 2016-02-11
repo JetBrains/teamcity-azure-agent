@@ -39,12 +39,12 @@ project(':plugin-azure-agent') {
         archiveName = projectIds.artifact + '.zip'
     
         from (libsDir) {
-            into 'libs'
+            into 'lib'
         }
         
         from (configurations.compile) {
             include 'plugin-azure-*.jar'
-            into 'libs'
+            into 'lib'
         }
         
         from 'teamcity-plugin.xml'

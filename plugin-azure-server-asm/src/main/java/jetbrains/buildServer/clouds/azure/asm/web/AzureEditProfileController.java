@@ -1,22 +1,20 @@
 /*
+ * Copyright 2000-2016 JetBrains s.r.o.
  *
- *  * Copyright 2000-2014 JetBrains s.r.o.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure.web;
+package jetbrains.buildServer.clouds.azure.asm.web;
 
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
@@ -28,8 +26,8 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.clouds.CloudException;
-import jetbrains.buildServer.clouds.azure.connector.AzureAsmApiConnector;
-import jetbrains.buildServer.clouds.azure.errors.InvalidCertificateException;
+import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.asm.errors.InvalidCertificateException;
 import jetbrains.buildServer.controllers.*;
 import jetbrains.buildServer.controllers.admin.projects.PluginPropertiesUtil;
 import jetbrains.buildServer.log.Loggers;
@@ -47,17 +45,17 @@ import org.springframework.web.servlet.ModelAndView;
  *         Date: 8/6/2014
  *         Time: 3:01 PM
  */
-public class AzureAsmEditProfileController extends BaseFormXmlController {
+public class AzureEditProfileController extends BaseFormXmlController {
 
-  private static final Logger LOG = Logger.getInstance(AzureAsmEditProfileController.class.getName());
+  private static final Logger LOG = Logger.getInstance(AzureEditProfileController.class.getName());
 
   @NotNull private final String myJspPath;
   @NotNull private final String myHtmlPath;
   @NotNull private final PluginDescriptor myPluginDescriptor;
 
-  public AzureAsmEditProfileController(@NotNull final SBuildServer server,
-                                       @NotNull final PluginDescriptor pluginDescriptor,
-                                       @NotNull final WebControllerManager manager) {
+  public AzureEditProfileController(@NotNull final SBuildServer server,
+                                    @NotNull final PluginDescriptor pluginDescriptor,
+                                    @NotNull final WebControllerManager manager) {
     super(server);
     myPluginDescriptor = pluginDescriptor;
     myHtmlPath = pluginDescriptor.getPluginResourcesPath("azure-settings.html");
@@ -117,12 +115,12 @@ public class AzureAsmEditProfileController extends BaseFormXmlController {
     PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true);
 
     final Map<String, String> props = propsBean.getProperties();
-    final String subscriptionId = props.get(AzureAsmWebConstants.SUBSCRIPTION_ID);
-    final String certificate = props.get("secure:"+ AzureAsmWebConstants.MANAGEMENT_CERTIFICATE);
+    final String subscriptionId = props.get(AzureWebConstants.SUBSCRIPTION_ID);
+    final String certificate = props.get("secure:"+ AzureWebConstants.MANAGEMENT_CERTIFICATE);
 
-    AzureAsmApiConnector apiConnector;
+    AzureApiConnector apiConnector;
     try {
-      apiConnector = new AzureAsmApiConnector(subscriptionId, certificate);
+      apiConnector = new AzureApiConnector(subscriptionId, certificate);
       apiConnector.ping();
     } catch (InvalidCertificateException ex){
       errors.addError("certificateError", "Invalid Management certificate. Please enter the Management Certificate exactly as it is presented in the subscription file.");

@@ -1,5 +1,6 @@
 /*
  * Copyright 2000-2016 JetBrains s.r.o.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure;
+package jetbrains.buildServer.clouds.azure.asm;
 
 import com.google.gson.annotations.SerializedName;
 import jetbrains.buildServer.TeamCityRuntimeException;
@@ -28,7 +29,7 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 8/1/2014
  *         Time: 4:45 PM
  */
-public class AzureAsmCloudImageDetails implements CloudImagePasswordDetails {
+public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
   @SerializedName("sourceName")
   private final String mySourceName;
@@ -51,16 +52,16 @@ public class AzureAsmCloudImageDetails implements CloudImagePasswordDetails {
 
   private String myPassword = null;
 
-  public AzureAsmCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
-                                   @Nullable final String serviceName,
-                                   @NotNull final String sourceName,
-                                   @Nullable final String vmNamePrefix,
-                                   @Nullable final String vnetName,
-                                   @Nullable final String vmSize,
-                                   final int maxInstances,
-                                   @Nullable final String osType,
-                                   @Nullable final String username,
-                                   @Nullable final String password) {
+  public AzureCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
+                                @Nullable final String serviceName,
+                                @NotNull final String sourceName,
+                                @Nullable final String vmNamePrefix,
+                                @Nullable final String vnetName,
+                                @Nullable final String vmSize,
+                                final int maxInstances,
+                                @Nullable final String osType,
+                                @Nullable final String username,
+                                @Nullable final String password) {
     myBehaviour = cloneTypeName;
     mySourceName = sourceName;
     myServiceName = serviceName;

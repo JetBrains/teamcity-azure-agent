@@ -14,11 +14,14 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure;
+package jetbrains.buildServer.clouds.azure.asm;
 
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.clouds.CloudClientParameters;
-import jetbrains.buildServer.clouds.azure.connector.AzureAsmApiConnector;
+import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
+import jetbrains.buildServer.clouds.azure.FileIdProvider;
+import jetbrains.buildServer.clouds.azure.IdProvider;
+import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
 import jetbrains.buildServer.clouds.base.tasks.UpdateInstancesTask;
@@ -35,18 +38,18 @@ import java.util.concurrent.TimeUnit;
  *         Date: 7/31/2014
  *         Time: 4:28 PM
  */
-public class AzureAsmCloudClient extends AbstractCloudClient<AzureAsmCloudInstance, AzureAsmCloudImage, AzureAsmCloudImageDetails> {
+public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
 
-  private static final Logger LOG = Logger.getInstance(AzureAsmCloudClient.class.getName());
+  private static final Logger LOG = Logger.getInstance(AzureCloudClient.class.getName());
   private final File myAzureIdxStorage;
 
   private boolean myInitialized = false;
   private final ProvisionActionsQueue myActionsQueue;
 
-  public AzureAsmCloudClient(@NotNull final CloudClientParameters params,
-                             @NotNull final Collection<AzureAsmCloudImageDetails> images,
-                             @NotNull final AzureAsmApiConnector apiConnector,
-                             @NotNull final File azureIdxStorage) {
+  public AzureCloudClient(@NotNull final CloudClientParameters params,
+                          @NotNull final Collection<AzureCloudImageDetails> images,
+                          @NotNull final AzureApiConnector apiConnector,
+                          @NotNull final File azureIdxStorage) {
     super(params, images, apiConnector);
     myAzureIdxStorage = azureIdxStorage;
     myActionsQueue = new ProvisionActionsQueue(myAsyncTaskExecutor);
@@ -63,24 +66,24 @@ public class AzureAsmCloudClient extends AbstractCloudClient<AzureAsmCloudInstan
   }
 
   @Override
-  protected AzureAsmCloudImage checkAndCreateImage(@NotNull final AzureAsmCloudImageDetails imageDetails) {
+  protected AzureCloudImage checkAndCreateImage(@NotNull final AzureCloudImageDetails imageDetails) {
     final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, imageDetails.getSourceName() + ".idx"));
-    return new AzureAsmCloudImage(imageDetails, myActionsQueue, (AzureAsmApiConnector) myApiConnector, idProvider);
+    return new AzureCloudImage(imageDetails, myActionsQueue, (AzureApiConnector) myApiConnector, idProvider);
   }
 
   @Override
-  protected UpdateInstancesTask<AzureAsmCloudInstance, AzureAsmCloudImage, ?> createUpdateInstancesTask() {
-    return new UpdateInstancesTask<AzureAsmCloudInstance, AzureAsmCloudImage, AzureAsmCloudClient>(myApiConnector, this);
+  protected UpdateInstancesTask<AzureCloudInstance, AzureCloudImage, ?> createUpdateInstancesTask() {
+    return new UpdateInstancesTask<AzureCloudInstance, AzureCloudImage, AzureCloudClient>(myApiConnector, this);
   }
 
   @Nullable
   @Override
-  public AzureAsmCloudInstance findInstanceByAgent(@NotNull final AgentDescription agent) {
+  public AzureCloudInstance findInstanceByAgent(@NotNull final AgentDescription agent) {
     final String instanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
     if (instanceName == null)
       return null;
-    for (AzureAsmCloudImage image : myImageMap.values()) {
-      final AzureAsmCloudInstance instanceById = image.findInstanceById(instanceName);
+    for (AzureCloudImage image : myImageMap.values()) {
+      final AzureCloudInstance instanceById = image.findInstanceById(instanceName);
       if (instanceById != null) {
         return instanceById;
       }

@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure;
+package jetbrains.buildServer.clouds.azure.asm;
 
+import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.base.AbstractCloudInstance;
 import jetbrains.buildServer.serverSide.AgentDescription;
 import org.jetbrains.annotations.NotNull;
@@ -25,13 +26,13 @@ import org.jetbrains.annotations.NotNull;
  *         Date: 7/31/2014
  *         Time: 7:15 PM
  */
-public class AzureAsmCloudInstance extends AbstractCloudInstance<AzureAsmCloudImage> {
+public class AzureCloudInstance extends AbstractCloudInstance<AzureCloudImage> {
 
-  protected AzureAsmCloudInstance(@NotNull final AzureAsmCloudImage image, String name) {
+  protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name) {
     super(image, name, name);
   }
 
-  protected AzureAsmCloudInstance(@NotNull final AzureAsmCloudImage image, String name, String id) {
+  protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name, String id) {
     super(image, name, id);
   }
 

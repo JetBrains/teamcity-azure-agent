@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure.connector;
+package jetbrains.buildServer.clouds.azure.asm.connector;
 
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.util.Pair;
@@ -50,11 +50,12 @@ import com.microsoft.windowsazure.tracing.CloudTracingInterceptor;
 import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
-import jetbrains.buildServer.clouds.azure.AzureAsmCloudImage;
-import jetbrains.buildServer.clouds.azure.AzureAsmCloudImageDetails;
-import jetbrains.buildServer.clouds.azure.AzureAsmCloudInstance;
+import jetbrains.buildServer.clouds.azure.asm.AzureCloudImage;
+import jetbrains.buildServer.clouds.azure.asm.AzureCloudImageDetails;
+import jetbrains.buildServer.clouds.azure.asm.AzureCloudInstance;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
-import jetbrains.buildServer.clouds.azure.errors.InvalidCertificateException;
+import jetbrains.buildServer.clouds.azure.asm.errors.InvalidCertificateException;
+import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.apache.http.HttpEntity;
@@ -71,9 +72,9 @@ import org.xml.sax.SAXException;
  *         Date: 8/5/2014
  *         Time: 2:13 PM
  */
-public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImage, AzureAsmCloudInstance>, ActionIdChecker {
+public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, AzureCloudInstance>, ActionIdChecker {
 
-  private static final Logger LOG = Logger.getInstance(AzureAsmApiConnector.class.getName());
+  private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
   private static final int MIN_PORT_NUMBER = 9090;
   private static final int MAX_PORT_NUMBER = 9999;
   private static final URI MANAGEMENT_URI = URI.create("https://management.core.windows.net");
@@ -85,13 +86,13 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
   private NetworkManagementClient myNetworkClient;
   private ManagementClient myManagementClient;
 
-  public AzureAsmApiConnector(@NotNull final String subscriptionId, @NotNull final File keyFile, @NotNull final String keyFilePassword) {
+  public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final File keyFile, @NotNull final String keyFilePassword) {
     mySubscriptionId = subscriptionId;
     myKeyStoreType = KeyStoreType.jks;
     initClient(keyFile, keyFilePassword);
   }
 
-  public AzureAsmApiConnector(@NotNull final String subscriptionId, @NotNull final String managementCertificate) throws InvalidCertificateException {
+  public AzureApiConnector(@NotNull final String subscriptionId, @NotNull final String managementCertificate) throws InvalidCertificateException {
     mySubscriptionId = subscriptionId;
     myKeyStoreType = KeyStoreType.pkcs12;
     FileOutputStream fOut;
@@ -141,9 +142,9 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
     }
   }
 
-  public InstanceStatus getInstanceStatus(@NotNull final AzureAsmCloudInstance instance) {
-    final Map<String, AzureAsmInstance> instanceMap = listImageInstances(instance.getImage());
-    final AzureAsmInstance instanceData = instanceMap.get(instance.getInstanceId());
+  public InstanceStatus getInstanceStatus(@NotNull final AzureCloudInstance instance) {
+    final Map<String, AzureInstance> instanceMap = listImageInstances(instance.getImage());
+    final AzureInstance instanceData = instanceMap.get(instance.getInstanceId());
     if (instanceData != null) {
       return instanceData.getInstanceStatus();
     } else {
@@ -151,10 +152,10 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
     }
   }
 
-  public Map<String, AzureAsmInstance> listImageInstances(@NotNull final AzureAsmCloudImage image) throws CloudException {
+  public Map<String, AzureInstance> listImageInstances(@NotNull final AzureCloudImage image) throws CloudException {
     try {
-      final AzureAsmCloudImageDetails imageDetails = image.getImageDetails();
-      final Map<String, AzureAsmInstance> retval = new HashMap<String, AzureAsmInstance>();
+      final AzureCloudImageDetails imageDetails = image.getImageDetails();
+      final Map<String, AzureInstance> retval = new HashMap<String, AzureInstance>();
       final HostedServiceGetDetailedResponse serviceDetailed = myClient.getHostedServicesOperations().getDetailed(imageDetails.getServiceName());
       final ArrayList<HostedServiceGetDetailedResponse.Deployment> deployments = serviceDetailed.getDeployments();
 
@@ -163,11 +164,11 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
         for (final RoleInstance instance : deployment.getRoleInstances()) {
           if (imageDetails.getBehaviour().isUseOriginal()) {
             if (instance.getInstanceName().equals(imageDetails.getSourceName())) {
-              return Collections.singletonMap(imageDetails.getSourceName(), new AzureAsmInstance(instance));
+              return Collections.singletonMap(imageDetails.getSourceName(), new AzureInstance(instance));
             }
           } else {
             if (instance.getInstanceName().startsWith(imageDetails.getVmNamePrefix())) {
-              retval.put(instance.getInstanceName(), new AzureAsmInstance(instance));
+              retval.put(instance.getInstanceName(), new AzureInstance(instance));
             }
           }
         }
@@ -178,11 +179,11 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
     }
   }
 
-  public Collection<TypedCloudErrorInfo> checkImage(@NotNull final AzureAsmCloudImage image) {
+  public Collection<TypedCloudErrorInfo> checkImage(@NotNull final AzureCloudImage image) {
     return Collections.emptyList();
   }
 
-  public Collection<TypedCloudErrorInfo> checkInstance(@NotNull final AzureAsmCloudInstance instance) {
+  public Collection<TypedCloudErrorInfo> checkInstance(@NotNull final AzureCloudInstance instance) {
     return Collections.emptyList();
   }
 
@@ -240,9 +241,9 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
     }};
   }
 
-  public OperationResponse startVM(@NotNull final AzureAsmCloudImage image)
+  public OperationResponse startVM(@NotNull final AzureCloudImage image)
           throws ServiceException, IOException {
-    final AzureAsmCloudImageDetails imageDetails = image.getImageDetails();
+    final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final VirtualMachineOperations vmOps = myClient.getVirtualMachinesOperations();
     final String serviceName = imageDetails.getServiceName();
     final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(serviceName);
@@ -252,12 +253,12 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
       throw new ServiceException(String.format("Unable to find deployment for service name '%s' and instance '%s'", serviceName, image.getName()));
   }
 
-  public OperationResponse createVmOrDeployment(@NotNull final AzureAsmCloudImage image,
+  public OperationResponse createVmOrDeployment(@NotNull final AzureCloudImage image,
                                                 @NotNull final String vmName,
                                                 @NotNull final CloudInstanceUserData tag,
                                                 final boolean generalized)
           throws ServiceException, IOException {
-    final AzureAsmCloudImageDetails imageDetails = image.getImageDetails();
+    final AzureCloudImageDetails imageDetails = image.getImageDetails();
     final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
     if (serviceDeployment == null) {
       return createVmDeployment(imageDetails, generalized, vmName, tag);
@@ -266,7 +267,7 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
     }
   }
 
-  private OperationResponse createVM(final AzureAsmCloudImageDetails imageDetails,
+  private OperationResponse createVM(final AzureCloudImageDetails imageDetails,
                                      final boolean generalized,
                                      final String vmName,
                                      final CloudInstanceUserData tag,
@@ -319,7 +320,7 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
     }
   }
 
-  private OperationResponse createVmDeployment(final AzureAsmCloudImageDetails imageDetails,
+  private OperationResponse createVmDeployment(final AzureCloudImageDetails imageDetails,
                                                final boolean generalized,
                                                final String vmName,
                                                final CloudInstanceUserData tag) throws IOException, ServiceException {
@@ -355,7 +356,7 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
     }
   }
 
-  private ArrayList<ConfigurationSet> createConfigurationSetList(final AzureAsmCloudImageDetails imageDetails,
+  private ArrayList<ConfigurationSet> createConfigurationSetList(final AzureCloudImageDetails imageDetails,
                                                                  final boolean generalized,
                                                                  final String vmName,
                                                                  final CloudInstanceUserData tag,
@@ -387,10 +388,10 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
   }
 
 
-  public OperationResponse stopVM(@NotNull final AzureAsmCloudInstance instance)
+  public OperationResponse stopVM(@NotNull final AzureCloudInstance instance)
           throws ServiceException, IOException {
     final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
-    final AzureAsmCloudImageDetails imageDetails = instance.getImage().getImageDetails();
+    final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
     final VirtualMachineShutdownParameters shutdownParams = new VirtualMachineShutdownParameters();
     shutdownParams.setPostShutdownAction(PostShutdownAction.StoppedDeallocated);
     final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
@@ -410,9 +411,9 @@ public class AzureAsmApiConnector implements CloudApiConnector<AzureAsmCloudImag
     }
   }
 
-  public OperationResponse deleteVmOrDeployment(@NotNull final AzureAsmCloudInstance instance) throws IOException, ServiceException {
+  public OperationResponse deleteVmOrDeployment(@NotNull final AzureCloudInstance instance) throws IOException, ServiceException {
     final HostedServiceOperations serviceOps = myClient.getHostedServicesOperations();
-    final AzureAsmCloudImageDetails imageDetails = instance.getImage().getImageDetails();
+    final AzureCloudImageDetails imageDetails = instance.getImage().getImageDetails();
     try {
       final String serviceName = imageDetails.getServiceName();
       final ArrayList<HostedServiceGetDetailedResponse.Deployment> deployments = serviceOps.getDetailed(serviceName).getDeployments();

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure;
+package jetbrains.buildServer.clouds.azure.asm;
 
 import com.intellij.openapi.diagnostic.Logger;
 import com.microsoft.windowsazure.core.OperationResponse;
@@ -24,9 +24,10 @@ import com.microsoft.windowsazure.exception.ServiceException;
 import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
+import jetbrains.buildServer.clouds.azure.IdProvider;
 import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
-import jetbrains.buildServer.clouds.azure.connector.AzureAsmApiConnector;
-import jetbrains.buildServer.clouds.azure.connector.AzureAsmInstance;
+import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.asm.connector.AzureInstance;
 import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
@@ -44,20 +45,20 @@ import java.util.Map;
  *         Date: 7/31/2014
  *         Time: 5:18 PM
  */
-public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance, AzureAsmCloudImageDetails> {
+public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails> {
 
-  private static final Logger LOG = Logger.getInstance(AzureAsmCloudImage.class.getName());
+  private static final Logger LOG = Logger.getInstance(AzureCloudImage.class.getName());
 
-  private final AzureAsmCloudImageDetails myImageDetails;
+  private final AzureCloudImageDetails myImageDetails;
   private final ProvisionActionsQueue myActionsQueue;
-  private final AzureAsmApiConnector myApiConnector;
+  private final AzureApiConnector myApiConnector;
   private final IdProvider myIdProvider;
   private boolean myGeneralized;
 
-  protected AzureAsmCloudImage(@NotNull final AzureAsmCloudImageDetails imageDetails,
-                               @NotNull final ProvisionActionsQueue actionsQueue,
-                               @NotNull final AzureAsmApiConnector apiConnector,
-                               @NotNull final IdProvider idProvider) {
+  protected AzureCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
+                            @NotNull final ProvisionActionsQueue actionsQueue,
+                            @NotNull final AzureApiConnector apiConnector,
+                            @NotNull final IdProvider idProvider) {
     super(imageDetails.getSourceName(), imageDetails.getSourceName());
     myImageDetails = imageDetails;
     myActionsQueue = actionsQueue;
@@ -74,9 +75,9 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
         throw new TeamCityRuntimeException("No credentials supplied for VM creation");
       }
     }
-    final Map<String, AzureAsmInstance> instances = apiConnector.listImageInstances(this);
-    for (AzureAsmInstance azureInstance : instances.values()) {
-      final AzureAsmCloudInstance cloudInstance = new AzureAsmCloudInstance(this, azureInstance.getName(), azureInstance.getName());
+    final Map<String, AzureInstance> instances = apiConnector.listImageInstances(this);
+    for (AzureInstance azureInstance : instances.values()) {
+      final AzureCloudInstance cloudInstance = new AzureCloudInstance(this, azureInstance.getName(), azureInstance.getName());
       cloudInstance.setStatus(azureInstance.getInstanceStatus());
       myInstances.put(azureInstance.getName(), cloudInstance);
     }
@@ -85,7 +86,7 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
     }
   }
 
-  public AzureAsmCloudImageDetails getImageDetails() {
+  public AzureCloudImageDetails getImageDetails() {
     return myImageDetails;
   }
 
@@ -94,7 +95,7 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
     for (String instanceName : realInstances.keySet()) {
       if (myInstances.get(instanceName) == null) {
         final AbstractInstance realInstance = realInstances.get(instanceName);
-        final AzureAsmCloudInstance newInstance = new AzureAsmCloudInstance(this, instanceName);
+        final AzureCloudInstance newInstance = new AzureCloudInstance(this, instanceName);
         newInstance.setStatus(realInstance.getInstanceStatus());
         myInstances.put(instanceName, newInstance);
       }
@@ -104,7 +105,7 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
   @Override
   public boolean canStartNewInstance() {
     if (myImageDetails.getBehaviour().isUseOriginal()) {
-      final AzureAsmCloudInstance singleInstance = myInstances.get(myImageDetails.getSourceName());
+      final AzureCloudInstance singleInstance = myInstances.get(myImageDetails.getSourceName());
       return singleInstance != null && singleInstance.getStatus() == InstanceStatus.STOPPED;
     } else {
       return myInstances.size() < myImageDetails.getMaxInstances()
@@ -113,7 +114,7 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
   }
 
   @Override
-  public void terminateInstance(@NotNull final AzureAsmCloudInstance instance) {
+  public void terminateInstance(@NotNull final AzureCloudInstance instance) {
     try {
       instance.setStatus(InstanceStatus.STOPPING);
       myActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
@@ -166,11 +167,11 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
   }
 
   @Override
-  public void restartInstance(@NotNull final AzureAsmCloudInstance instance) {
+  public void restartInstance(@NotNull final AzureCloudInstance instance) {
     throw new UnsupportedOperationException();
   }
 
-  private void deleteInstance(@NotNull final AzureAsmCloudInstance instance) {
+  private void deleteInstance(@NotNull final AzureCloudInstance instance) {
     myActionsQueue.queueAction(myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
       private String myRequestId;
 
@@ -204,8 +205,8 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
   }
 
   @Override
-  public AzureAsmCloudInstance startNewInstance(@NotNull final CloudInstanceUserData tag) {
-    final AzureAsmCloudInstance instance;
+  public AzureCloudInstance startNewInstance(@NotNull final CloudInstanceUserData tag) {
+    final AzureCloudInstance instance;
     final String vmName;
     if (myImageDetails.getBehaviour().isUseOriginal()) {
       vmName = myImageDetails.getSourceName();
@@ -216,7 +217,7 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
     if (myImageDetails.getBehaviour().isUseOriginal()) {
       instance = myInstances.get(myImageDetails.getSourceName());
     } else {
-      instance = new AzureAsmCloudInstance(this, vmName);
+      instance = new AzureCloudInstance(this, vmName);
       if (myInstances.size() >= myImageDetails.getMaxInstances()) {
         throw new TeamCityRuntimeException("Unable to start more instances. Limit reached");
       }
@@ -238,9 +239,9 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
                 public String action() throws ServiceException, IOException {
                   final OperationResponse response;
                   if (myImageDetails.getBehaviour().isUseOriginal()) {
-                    response = myApiConnector.startVM(AzureAsmCloudImage.this);
+                    response = myApiConnector.startVM(AzureCloudImage.this);
                   } else {
-                    response = myApiConnector.createVmOrDeployment(AzureAsmCloudImage.this, vmName, tag, myGeneralized);
+                    response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
                   }
                   instance.setStatus(InstanceStatus.STARTING);
                   operationId = response.getRequestId();

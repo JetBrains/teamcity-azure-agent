@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure.connector;
+package jetbrains.buildServer.clouds.azure.asm.connector;
 
 import com.microsoft.windowsazure.management.compute.models.RoleInstance;
 
@@ -31,12 +31,12 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 8/5/2014
  *         Time: 2:14 PM
  */
-public class AzureAsmInstance extends AbstractInstance {
+public class AzureInstance extends AbstractInstance {
 
   @NotNull
   private final RoleInstance myInstance;
 
-  public AzureAsmInstance(@NotNull final RoleInstance instance) {
+  public AzureInstance(@NotNull final RoleInstance instance) {
     super(instance.getInstanceName());
     myInstance = instance;
   }

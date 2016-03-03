@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure;
+package jetbrains.buildServer.clouds.azure.asm;
 
 import jetbrains.buildServer.clouds.*;
-import jetbrains.buildServer.clouds.azure.connector.AzureAsmApiConnector;
-import jetbrains.buildServer.clouds.azure.errors.InvalidCertificateException;
+import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
+import jetbrains.buildServer.clouds.azure.AzureUtils;
+import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.asm.errors.InvalidCertificateException;
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.clouds.server.impl.CloudManagerBase;
@@ -39,17 +41,17 @@ import java.util.Map;
  *         Date: 7/31/2014
  *         Time: 4:35 PM
  */
-public class AzureAsmCloudClientFactory extends AbstractCloudClientFactory<AzureAsmCloudImageDetails, AzureAsmCloudClient> {
+public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudClient> {
 
   private final String myHtmlPath;
   private final File myAzureStorage;
 
 
-  public AzureAsmCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
-                                    @NotNull final EventDispatcher<BuildServerListener> serverDispatcher,
-                                    @NotNull final CloudManagerBase cloudManager,
-                                    @NotNull final PluginDescriptor pluginDescriptor,
-                                    @NotNull final ServerPaths serverPaths) {
+  public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
+                                 @NotNull final EventDispatcher<BuildServerListener> serverDispatcher,
+                                 @NotNull final CloudManagerBase cloudManager,
+                                 @NotNull final PluginDescriptor pluginDescriptor,
+                                 @NotNull final ServerPaths serverPaths) {
     super(cloudRegistrar);
 
     myAzureStorage = new File(serverPaths.getPluginDataDirectory(), "azureIdx");
@@ -84,37 +86,37 @@ public class AzureAsmCloudClientFactory extends AbstractCloudClientFactory<Azure
   }
 
   @Override
-  public AzureAsmCloudClient createNewClient(@NotNull final CloudState state, @NotNull final Collection<AzureAsmCloudImageDetails> imageDetailsList, @NotNull final CloudClientParameters params) {
+  public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final Collection<AzureCloudImageDetails> imageDetailsList, @NotNull final CloudClientParameters params) {
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
-    final AzureAsmApiConnector apiConnector;
+    final AzureApiConnector apiConnector;
     try {
-      apiConnector = new AzureAsmApiConnector(subscriptionId, managementCertificate);
+      apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
     } catch (InvalidCertificateException e) {
       throw new RuntimeException(e);
     }
-    return new AzureAsmCloudClient(params, imageDetailsList, apiConnector, myAzureStorage);
+    return new AzureCloudClient(params, imageDetailsList, apiConnector, myAzureStorage);
   }
 
   @Override
-  public AzureAsmCloudClient createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params, final TypedCloudErrorInfo[] profileErrors) {
+  public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params, final TypedCloudErrorInfo[] profileErrors) {
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
-    final AzureAsmApiConnector apiConnector;
+    final AzureApiConnector apiConnector;
     try {
-      apiConnector = new AzureAsmApiConnector(subscriptionId, managementCertificate);
+      apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
     } catch (InvalidCertificateException e) {
       throw new RuntimeException(e);
     }
-    final AzureAsmCloudClient azureCloudClient = new AzureAsmCloudClient(params, Collections.<AzureAsmCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
+    final AzureCloudClient azureCloudClient = new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
     azureCloudClient.updateErrors(Arrays.asList(profileErrors));
     return azureCloudClient;
   }
 
 
   @Override
-  public Collection<AzureAsmCloudImageDetails> parseImageData(final CloudClientParameters params) {
-    return AzureUtils.parseImageData(AzureAsmCloudImageDetails.class, params);
+  public Collection<AzureCloudImageDetails> parseImageData(final CloudClientParameters params) {
+    return AzureUtils.parseImageData(AzureCloudImageDetails.class, params);
   }
 
   @Nullable

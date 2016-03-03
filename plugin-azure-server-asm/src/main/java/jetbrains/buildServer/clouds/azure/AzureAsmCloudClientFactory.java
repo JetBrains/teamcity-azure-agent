@@ -39,7 +39,7 @@ import java.util.Map;
  *         Date: 7/31/2014
  *         Time: 4:35 PM
  */
-public class AzureAsmCloudClientFactory extends AbstractCloudClientFactory<AzureCloudImageDetails, AzureAsmCloudClient> {
+public class AzureAsmCloudClientFactory extends AbstractCloudClientFactory<AzureAsmCloudImageDetails, AzureAsmCloudClient> {
 
   private final String myHtmlPath;
   private final File myAzureStorage;
@@ -54,6 +54,7 @@ public class AzureAsmCloudClientFactory extends AbstractCloudClientFactory<Azure
 
     myAzureStorage = new File(serverPaths.getPluginDataDirectory(), "azureIdx");
     if (!myAzureStorage.exists()) {
+      //noinspection ResultOfMethodCallIgnored
       myAzureStorage.mkdirs();
     }
 
@@ -83,7 +84,7 @@ public class AzureAsmCloudClientFactory extends AbstractCloudClientFactory<Azure
   }
 
   @Override
-  public AzureAsmCloudClient createNewClient(@NotNull final CloudState state, @NotNull final Collection<AzureCloudImageDetails> imageDetailsList, @NotNull final CloudClientParameters params) {
+  public AzureAsmCloudClient createNewClient(@NotNull final CloudState state, @NotNull final Collection<AzureAsmCloudImageDetails> imageDetailsList, @NotNull final CloudClientParameters params) {
     final String managementCertificate = params.getParameter("managementCertificate");
     final String subscriptionId = params.getParameter("subscriptionId");
     final AzureAsmApiConnector apiConnector;
@@ -105,15 +106,15 @@ public class AzureAsmCloudClientFactory extends AbstractCloudClientFactory<Azure
     } catch (InvalidCertificateException e) {
       throw new RuntimeException(e);
     }
-    final AzureAsmCloudClient azureCloudClient = new AzureAsmCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
+    final AzureAsmCloudClient azureCloudClient = new AzureAsmCloudClient(params, Collections.<AzureAsmCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
     azureCloudClient.updateErrors(Arrays.asList(profileErrors));
     return azureCloudClient;
   }
 
 
   @Override
-  public Collection<AzureCloudImageDetails> parseImageData(final CloudClientParameters params) {
-    return AzureUtils.parseImageData(params);
+  public Collection<AzureAsmCloudImageDetails> parseImageData(final CloudClientParameters params) {
+    return AzureUtils.parseImageData(AzureAsmCloudImageDetails.class, params);
   }
 
   @Nullable

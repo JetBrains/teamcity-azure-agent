@@ -35,7 +35,7 @@ import java.util.concurrent.TimeUnit;
  *         Date: 7/31/2014
  *         Time: 4:28 PM
  */
-public class AzureAsmCloudClient extends AbstractCloudClient<AzureAsmCloudInstance, AzureAsmCloudImage, AzureCloudImageDetails> {
+public class AzureAsmCloudClient extends AbstractCloudClient<AzureAsmCloudInstance, AzureAsmCloudImage, AzureAsmCloudImageDetails> {
 
   private static final Logger LOG = Logger.getInstance(AzureAsmCloudClient.class.getName());
   private final File myAzureIdxStorage;
@@ -44,7 +44,7 @@ public class AzureAsmCloudClient extends AbstractCloudClient<AzureAsmCloudInstan
   private final ProvisionActionsQueue myActionsQueue;
 
   public AzureAsmCloudClient(@NotNull final CloudClientParameters params,
-                             @NotNull final Collection<AzureCloudImageDetails> images,
+                             @NotNull final Collection<AzureAsmCloudImageDetails> images,
                              @NotNull final AzureAsmApiConnector apiConnector,
                              @NotNull final File azureIdxStorage) {
     super(params, images, apiConnector);
@@ -63,7 +63,7 @@ public class AzureAsmCloudClient extends AbstractCloudClient<AzureAsmCloudInstan
   }
 
   @Override
-  protected AzureAsmCloudImage checkAndCreateImage(@NotNull final AzureCloudImageDetails imageDetails) {
+  protected AzureAsmCloudImage checkAndCreateImage(@NotNull final AzureAsmCloudImageDetails imageDetails) {
     final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, imageDetails.getSourceName() + ".idx"));
     return new AzureAsmCloudImage(imageDetails, myActionsQueue, (AzureAsmApiConnector) myApiConnector, idProvider);
   }

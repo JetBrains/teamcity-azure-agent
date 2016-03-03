@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure.connector;
+package jetbrains.buildServer.clouds.azure.arm.connector;
 
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
@@ -28,9 +28,9 @@ import java.util.Date;
  *         Date: 8/5/2014
  *         Time: 2:14 PM
  */
-public class AzureArmInstance extends AbstractInstance {
+public class AzureInstance extends AbstractInstance {
 
-  public AzureArmInstance() {
+  public AzureInstance() {
     super("name");
   }
 

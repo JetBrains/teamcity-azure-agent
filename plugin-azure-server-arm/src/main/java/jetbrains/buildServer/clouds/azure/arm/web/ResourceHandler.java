@@ -13,14 +13,16 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure;
+package jetbrains.buildServer.clouds.azure.arm.web;
+
+import org.jdom.Content;
+import org.jetbrains.annotations.NotNull;
+
+import javax.servlet.http.HttpServletRequest;
 
 /**
- * @author Sergey.Pak
- *         Date: 4/23/2014
- *         Time: 6:42 PM
+ * Request handler.
  */
-public interface AzurePropertiesNames {
-  String INSTANCE_NAME = "azure.instance.name";
-  String ENDPOINT_NAME = "TC Agent";
+public interface ResourceHandler {
+    Content handle(@NotNull HttpServletRequest request);
 }

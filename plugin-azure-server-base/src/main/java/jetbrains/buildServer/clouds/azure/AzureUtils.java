@@ -20,37 +20,67 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.intellij.openapi.util.text.StringUtil;
 import jetbrains.buildServer.clouds.CloudClientParameters;
+import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
+import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
 
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Provides utils for azure services.
  */
 public final class AzureUtils {
-  private static final Type stringStringMapType = new TypeToken<Map<String, String>>() {
-  }.getType();
+    private static final Type stringStringMapType = new TypeToken<Map<String, String>>() {
+    }.getType();
 
-  public static Collection<AzureCloudImageDetails> parseImageData(final CloudClientParameters params) {
-    Gson gson = new Gson();
-    final String imageData = params.getParameter("images_data");
-    if (StringUtil.isEmpty(imageData)) {
-      return Collections.emptyList();
-    }
-    final AzureCloudImageDetails[] images = gson.fromJson(imageData, AzureCloudImageDetails[].class);
-
-    final String passwordData = params.getParameter("secure:passwords_data");
-    final Map<String, String> data = gson.fromJson(passwordData, stringStringMapType);
-    if (data != null) {
-      for (AzureCloudImageDetails image : images) {
-        if (data.get(image.getSourceName()) != null) {
-          image.setPassword(data.get(image.getSourceName()));
+    public static <T extends CloudImageDetails> Collection<T> parseImageData(Class<T> clazz, final CloudClientParameters params) {
+        Gson gson = new Gson();
+        final String imageData = params.getParameter("images_data");
+        if (StringUtil.isEmpty(imageData)) {
+            return Collections.emptyList();
         }
-      }
+
+        final ListParameterizedType listType = new ListParameterizedType(clazz);
+        final List<T> images = gson.fromJson(imageData, listType);
+        if (CloudImagePasswordDetails.class.isAssignableFrom(clazz)){
+            final String passwordData = params.getParameter("secure:passwords_data");
+            final Map<String, String> data = gson.fromJson(passwordData, stringStringMapType);
+            if (data != null) {
+                for (T image : images) {
+                    final CloudImagePasswordDetails userImage = (CloudImagePasswordDetails)image;
+                    if (data.get(image.getSourceName()) != null) {
+                        userImage.setPassword(data.get(image.getSourceName()));
+                    }
+                }
+            }
+        }
+
+        return new ArrayList<T>(images);
     }
-    return Arrays.asList(images);
-  }
-}
+
+    private static class ListParameterizedType implements ParameterizedType {
+
+        private Type type;
+
+        private ListParameterizedType(Type type) {
+            this.type = type;
+        }
+
+        @Override
+        public Type[] getActualTypeArguments() {
+            return new Type[] {type};
+        }
+
+        @Override
+        public Type getRawType() {
+            return ArrayList.class;
+        }
+
+        @Override
+        public Type getOwnerType() {
+            return null;
+        }
+
+        // implement equals method too! (as per javadoc)
+    }}

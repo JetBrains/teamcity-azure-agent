@@ -1,32 +1,28 @@
 /*
+ * Copyright 2000-2016 JetBrains s.r.o.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *  * Copyright 2000-2014 JetBrains s.r.o.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 .inline-block {
     display: inline-block;
 }
 
-.section-header {
-    margin: 13px 0 13px 8px;
+.longField.hidden {
+    display: none !important;
 }
 
-.toggle-certificate {
-    display: none;
-    line-height: 21px;
+.section-header {
+    margin: 13px 0 13px 8px;
 }
 
 .runnerFormTable .loader-wrapper {
@@ -99,10 +95,18 @@
 .editImageLink_disabled {
     color: #ccc;
 }
+
 .settings .maxInstances,
 .settings .maxInstances.name {
     width: 80px;
     max-width: 80px;
-    padding: 1px 6px;
+}
+
+table.settings th.name.center{
     text-align: center;
+    padding: 0;
+}
+
+.AzureImageDialog label {
+    white-space: nowrap;
 }

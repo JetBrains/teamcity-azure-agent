@@ -19,17 +19,13 @@
 package jetbrains.buildServer.clouds;
 
 import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
+
 import java.io.IOException;
-import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
-import jetbrains.buildServer.clouds.azure.AzureCloudImageDetails;
-import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
-import jetbrains.buildServer.serverSide.crypt.EncryptUtil;
+
 import jetbrains.buildServer.serverSide.crypt.RSACipher;
 import org.apache.commons.codec.DecoderException;
-import org.apache.commons.codec.binary.Hex;
 import org.testng.annotations.Test;
 
 /**

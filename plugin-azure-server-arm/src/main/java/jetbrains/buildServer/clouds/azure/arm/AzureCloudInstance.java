@@ -1,6 +1,5 @@
 /*
  * Copyright 2000-2016 JetBrains s.r.o.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -14,8 +13,9 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure;
+package jetbrains.buildServer.clouds.azure.arm;
 
+import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.base.AbstractCloudInstance;
 import jetbrains.buildServer.serverSide.AgentDescription;
 import org.jetbrains.annotations.NotNull;
@@ -25,13 +25,13 @@ import org.jetbrains.annotations.NotNull;
  *         Date: 7/31/2014
  *         Time: 7:15 PM
  */
-public class AzureArmCloudInstance extends AbstractCloudInstance<AzureArmCloudImage> {
+public class AzureCloudInstance extends AbstractCloudInstance<AzureCloudImage> {
 
-  protected AzureArmCloudInstance(@NotNull final AzureArmCloudImage image, String name) {
+  protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name) {
     super(image, name, name);
   }
 
-  protected AzureArmCloudInstance(@NotNull final AzureArmCloudImage image, String name, String id) {
+  protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name, String id) {
     super(image, name, id);
   }
 

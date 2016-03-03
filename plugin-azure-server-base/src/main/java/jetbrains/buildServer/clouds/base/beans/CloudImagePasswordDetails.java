@@ -13,14 +13,13 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure;
+package jetbrains.buildServer.clouds.base.beans;
 
 /**
- * @author Sergey.Pak
- *         Date: 4/23/2014
- *         Time: 6:42 PM
+ * Defines cloud image details with password.
  */
-public interface AzurePropertiesNames {
-  String INSTANCE_NAME = "azure.instance.name";
-  String ENDPOINT_NAME = "TC Agent";
+public interface CloudImagePasswordDetails extends CloudImageDetails {
+    String getPassword();
+
+    void setPassword(final String password);
 }

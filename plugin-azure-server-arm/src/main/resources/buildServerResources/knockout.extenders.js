@@ -13,14 +13,11 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure;
-
-/**
- * @author Sergey.Pak
- *         Date: 4/23/2014
- *         Time: 6:42 PM
- */
-public interface AzurePropertiesNames {
-  String INSTANCE_NAME = "azure.instance.name";
-  String ENDPOINT_NAME = "TC Agent";
-}
+ko.bindingHandlers.initializeValue = {
+    init: function (element, valueAccessor) {
+        var value = valueAccessor();
+        if (ko.isObservable(value)) {
+            value(element.value);
+        }
+    }
+};

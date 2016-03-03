@@ -1,6 +1,5 @@
 /*
  * Copyright 2000-2016 JetBrains s.r.o.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,7 +17,7 @@ package jetbrains.buildServer.clouds.azure;
 
 import com.google.gson.annotations.SerializedName;
 import jetbrains.buildServer.TeamCityRuntimeException;
-import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
+import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
@@ -29,7 +28,7 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 8/1/2014
  *         Time: 4:45 PM
  */
-public class AzureCloudImageDetails implements CloudImageDetails {
+public class AzureAsmCloudImageDetails implements CloudImagePasswordDetails {
 
   @SerializedName("sourceName")
   private final String mySourceName;
@@ -47,22 +46,21 @@ public class AzureCloudImageDetails implements CloudImageDetails {
   private final int myMaxInstances;
   @SerializedName("behaviour")
   private final CloneBehaviour myBehaviour;
-
   @SerializedName("username")
   private final String myUsername;
 
   private String myPassword = null;
 
-  public AzureCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
-                                @Nullable final String serviceName,
-                                @NotNull final String sourceName,
-                                @Nullable final String vmNamePrefix,
-                                @Nullable final String vnetName,
-                                @Nullable final String vmSize,
-                                final int maxInstances,
-                                @Nullable final String osType,
-                                @Nullable final String username,
-                                @Nullable final String password) {
+  public AzureAsmCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
+                                   @Nullable final String serviceName,
+                                   @NotNull final String sourceName,
+                                   @Nullable final String vmNamePrefix,
+                                   @Nullable final String vnetName,
+                                   @Nullable final String vmSize,
+                                   final int maxInstances,
+                                   @Nullable final String osType,
+                                   @Nullable final String username,
+                                   @Nullable final String password) {
     myBehaviour = cloneTypeName;
     mySourceName = sourceName;
     myServiceName = serviceName;

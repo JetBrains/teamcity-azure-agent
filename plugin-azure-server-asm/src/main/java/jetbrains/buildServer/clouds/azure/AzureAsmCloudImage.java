@@ -44,17 +44,17 @@ import java.util.Map;
  *         Date: 7/31/2014
  *         Time: 5:18 PM
  */
-public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance, AzureCloudImageDetails> {
+public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance, AzureAsmCloudImageDetails> {
 
   private static final Logger LOG = Logger.getInstance(AzureAsmCloudImage.class.getName());
 
-  private final AzureCloudImageDetails myImageDetails;
+  private final AzureAsmCloudImageDetails myImageDetails;
   private final ProvisionActionsQueue myActionsQueue;
   private final AzureAsmApiConnector myApiConnector;
   private final IdProvider myIdProvider;
   private boolean myGeneralized;
 
-  protected AzureAsmCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
+  protected AzureAsmCloudImage(@NotNull final AzureAsmCloudImageDetails imageDetails,
                                @NotNull final ProvisionActionsQueue actionsQueue,
                                @NotNull final AzureAsmApiConnector apiConnector,
                                @NotNull final IdProvider idProvider) {
@@ -85,7 +85,7 @@ public class AzureAsmCloudImage extends AbstractCloudImage<AzureAsmCloudInstance
     }
   }
 
-  public AzureCloudImageDetails getImageDetails() {
+  public AzureAsmCloudImageDetails getImageDetails() {
     return myImageDetails;
   }
 

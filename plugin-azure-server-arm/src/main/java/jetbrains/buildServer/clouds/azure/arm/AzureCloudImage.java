@@ -20,17 +20,11 @@ import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.IdProvider;
-import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance;
-import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
-import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
-import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
-import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -43,32 +37,23 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     private static final Logger LOG = Logger.getInstance(AzureCloudImage.class.getName());
 
     private final AzureCloudImageDetails myImageDetails;
-    private final ProvisionActionsQueue myActionsQueue;
     private final AzureApiConnector myApiConnector;
     private final IdProvider myIdProvider;
 
     protected AzureCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
-                              @NotNull final ProvisionActionsQueue actionsQueue,
                               @NotNull final AzureApiConnector apiConnector,
                               @NotNull final IdProvider idProvider) {
         super(imageDetails.getSourceName(), imageDetails.getSourceName());
         myImageDetails = imageDetails;
-        myActionsQueue = actionsQueue;
         myApiConnector = apiConnector;
         myIdProvider = idProvider;
 
-        if (StringUtil.isEmpty(imageDetails.getUsername()) || StringUtil.isEmpty(imageDetails.getPassword())) {
-            throw new TeamCityRuntimeException("No credentials supplied for VM creation");
-        }
-
         final Map<String, AzureInstance> instances = apiConnector.listImageInstances(this);
         for (AzureInstance azureInstance : instances.values()) {
-            final AzureCloudInstance cloudInstance = new AzureCloudInstance(this, azureInstance.getName(), azureInstance.getName());
+            final String name = azureInstance.getName();
+            final AzureCloudInstance cloudInstance = new AzureCloudInstance(this, name, name);
             cloudInstance.setStatus(azureInstance.getInstanceStatus());
-            myInstances.put(azureInstance.getName(), cloudInstance);
-        }
-        if (myImageDetails.getBehaviour().isUseOriginal() && myInstances.size() != 1) {
-            throw new TeamCityRuntimeException("Unable to find Azure Virtual Machine " + myImageDetails.getSourceName());
+            myInstances.put(name, cloudInstance);
         }
     }
 
@@ -77,69 +62,64 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     }
 
     @Override
-    public void detectNewInstances(final Map<String, AbstractInstance> realInstances) {
-        for (String instanceName : realInstances.keySet()) {
-            if (myInstances.get(instanceName) == null) {
-                final AbstractInstance realInstance = realInstances.get(instanceName);
-                final AzureCloudInstance newInstance = new AzureCloudInstance(this, instanceName);
-                newInstance.setStatus(realInstance.getInstanceStatus());
-                myInstances.put(instanceName, newInstance);
-            }
-        }
+    public AzureCloudInstance getCloudInstance(@NotNull String name) {
+        return new AzureCloudInstance(this, name);
     }
 
     @Override
     public boolean canStartNewInstance() {
-        if (myImageDetails.getBehaviour().isUseOriginal()) {
-            final AzureCloudInstance singleInstance = myInstances.get(myImageDetails.getSourceName());
-            return singleInstance != null && singleInstance.getStatus() == InstanceStatus.STOPPED;
-        } else {
-            return myInstances.size() < myImageDetails.getMaxInstances()
-                    && myActionsQueue.isLocked(myImageDetails.getGroupId());
-        }
+        return myInstances.size() < myImageDetails.getMaxInstances();
     }
 
     @Override
     public void terminateInstance(@NotNull final AzureCloudInstance instance) {
+        instance.setStatus(InstanceStatus.STOPPING);
+
         try {
-            instance.setStatus(InstanceStatus.STOPPING);
-            myActionsQueue.queueAction(myImageDetails.getGroupId(), new ProvisionActionsQueue.InstanceAction() {
-
-                @NotNull
-                public String getName() {
-                    return "stop instance " + instance.getName();
-                }
-
-                @NotNull
-                public String action() throws Exception {
-                    return null;
-                }
-
-                @NotNull
-                public ActionIdChecker getActionIdChecker() {
-                    return myApiConnector;
-                }
-
-                public void onFinish() {
-                }
-
-                public void onError(final Throwable th) {
-                    instance.setStatus(InstanceStatus.ERROR);
-                    instance.updateErrors(Collections.singletonList(new TypedCloudErrorInfo(th.getMessage(), th.getMessage())));
-                }
-            });
+            myApiConnector.deleteVm(instance);
+            instance.setStatus(InstanceStatus.STOPPED);
         } catch (Exception e) {
             instance.setStatus(InstanceStatus.ERROR);
+            throw new RuntimeException(e);
         }
+
+        myInstances.remove(instance.getInstanceId());
     }
 
     @Override
     public void restartInstance(@NotNull final AzureCloudInstance instance) {
-        throw new UnsupportedOperationException();
+        instance.setStatus(InstanceStatus.RESTARTING);
+
+        try {
+            myApiConnector.restartVm(instance);
+            myApiConnector.updateVmStatus(instance);
+        } catch (Exception e) {
+            instance.setStatus(InstanceStatus.ERROR);
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
     public AzureCloudInstance startNewInstance(@NotNull final CloudInstanceUserData tag) {
-        return null;
+        if (!canStartNewInstance()) {
+            throw new TeamCityRuntimeException("Unable to start more instances. Limit reached");
+        }
+
+        final String vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix(), myIdProvider.getNextId());
+        final AzureCloudInstance instance = new AzureCloudInstance(this, vmName);
+        instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
+        instance.refreshStartDate();
+
+        try {
+            myApiConnector.createVm(instance, tag);
+            myApiConnector.updateVmStatus(instance);
+        } catch (Exception e) {
+            instance.setStatus(InstanceStatus.ERROR);
+            throw new RuntimeException(e);
+        }
+
+        myInstances.put(instance.getInstanceId(), instance);
+
+        return instance;
     }
 }

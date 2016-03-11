@@ -32,6 +32,7 @@ public class AzureConstants {
     public static final String VM_NAME_PREFIX = "vmNamePrefix";
     public static final String VM_USERNAME = "vmUsername";
     public static final String VM_PASSWORD = "vmPassword";
+    public static final String OS_TYPE = "osType";
 
     public String getTenantId() {
         return TENANT_ID;
@@ -79,5 +80,9 @@ public class AzureConstants {
 
     public String getVmPassword() {
         return VM_PASSWORD;
+    }
+
+    public String getOsType() {
+        return OS_TYPE;
     }
 }

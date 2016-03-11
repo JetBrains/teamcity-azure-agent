@@ -17,7 +17,6 @@ subprojects {
     repositories {
         mavenCentral()
         maven { url 'http://repository.jetbrains.com/all' }
-        maven { url 'http://adxsnapshots.azurewebsites.net/repo' }
         maven { url '../local-repo' }
     }
 
@@ -135,12 +134,13 @@ project(':plugin-azure-server-arm') {
         compile project(':plugin-azure-server-base')
         compile 'org.jetbrains.teamcity:cloud-server:9.1.5'
         compile 'org.jetbrains.teamcity:web:9.1.5'
-        compile 'com.microsoft.azure:azure-mgmt-compute:1.0.0-SNAPSHOT'
-        compile 'com.microsoft.azure:azure-mgmt-network:1.0.0-SNAPSHOT'
-        compile 'com.microsoft.azure:azure-mgmt-resources:1.0.0-SNAPSHOT'
-        compile 'com.microsoft.azure:azure-mgmt-storage:1.0.0-SNAPSHOT'
-        compile 'com.microsoft.azure:azure-client-authentication:1.0.0-SNAPSHOT'
-        compile 'com.microsoft.azure:azure-client-runtime:1.0.0-SNAPSHOT'
+        compile 'com.microsoft.azure:azure-mgmt-compute:1.0.0-beta1'
+        compile 'com.microsoft.azure:azure-mgmt-network:1.0.0-beta1'
+        compile 'com.microsoft.azure:azure-mgmt-resources:1.0.0-beta1'
+        compile 'com.microsoft.azure:azure-mgmt-storage:1.0.0-beta1'
+        compile 'com.microsoft.azure:azure-client-authentication:1.0.0-beta1'
+        compile 'com.microsoft.azure:azure-client-runtime:1.0.0-beta1'
+        compile 'com.microsoft.azure:azure-storage:4.0.0'
         runtime 'javax.servlet:jstl:1.1.2'
         testCompile 'org.testng:testng:6.8'
     }
@@ -168,6 +168,7 @@ project(':plugin-azure-server-arm') {
             include 'ok*.jar'
             include 'plugin-azure-*.jar'
             include 'retrofit-*.jar'
+            include 'guava-18*.jar'
             into 'server'
         }
         

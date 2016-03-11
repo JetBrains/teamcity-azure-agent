@@ -110,6 +110,14 @@
                 </td>
             </tr>
             <tr>
+                <th><label for="${cons.osType}">OS type: <l:star/></label></th>
+                <td>
+                    <select name="${cons.osType}" class="longField"
+                            data-bind="options: osTypes, value: image().osType"></select>
+                    <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingOsType()}"></i>
+                </td>
+            </tr>
+            <tr>
                 <th><label for="${cons.maxInstancesCount}">Max # of instances: <l:star/></label></th>
                 <td>
                     <div>
@@ -183,7 +191,13 @@
                 <tbody data-bind="foreach: images">
                 <tr>
                     <td data-bind="text: groupId"></td>
-                    <td data-bind="text: $parent.getSourceName(storageId, imagePath)"></td>
+                    <td>
+                        <span class="osIcon osIconSmall"
+                              data-bind="attr: {title: osType},
+                              style: {backgroundImage: 'url(\'/img/os/' + (osType == 'Linux' ? 'lin' : 'win') + '-small-bw.png\')'}"/>
+                        </span>
+                        <span data-bind="text: $parent.getSourceName(storageId, imagePath)"></span>
+                    </td>
                     <td data-bind="text: vmNamePrefix"></td>
                     <td data-bind="text: maxInstances"></td>
                     <td class="edit">
@@ -230,7 +244,7 @@
             $j.getScript("<c:url value="${resPath}images.vm.js"/>")
     ).then(function () {
         var dialog = document.getElementById("arm-setting");
-        ko.applyBindings(new ArmImagesViewModel($j, ko, "<c:url value='${basePath}'/>", BS.ArmImageDialog), dialog);
+        ko.applyBindings(new ArmImagesViewModel($j, ko, "<c:url value='${basePath}'/>", BS.ArmImageDialog, BS.Crypto.hex_md5), dialog);
     });
 </script>
 <table class="runnerFormTable">

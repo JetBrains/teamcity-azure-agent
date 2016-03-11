@@ -16,48 +16,74 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector;
 
+import com.microsoft.azure.management.compute.models.NetworkInterfaceReference;
+import com.microsoft.azure.management.compute.models.VirtualMachine;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * @author Sergey.Pak
- *         Date: 8/5/2014
- *         Time: 2:14 PM
+ * Azure cloud instance.
  */
 public class AzureInstance extends AbstractInstance {
 
-  public AzureInstance() {
-    super("name");
-  }
+    private final static Map<String, InstanceStatus> STATUS_MAP;
+    private final VirtualMachine myMachine;
 
-  @Override
-  public boolean isInitialized() {
-    return true;
-  }
+    public AzureInstance(VirtualMachine machine) {
+        super(machine.getName());
+        myMachine = machine;
+    }
 
-  @Override
-  public Date getStartDate() {
-    return null;
-  } //TODO fix, when API will allow this
+    @Override
+    public boolean isInitialized() {
+        return true;
+    }
 
-  @Override
-  public String getIpAddress() {
-    return null;
-  }
+    @Override
+    public Date getStartDate() {
+        return null;
+    } //TODO fix, when API will allow this
 
-  @Override
-  @NotNull
-  public InstanceStatus getInstanceStatus() {
-    return InstanceStatus.UNKNOWN;
-  }
+    @Override
+    public String getIpAddress() {
+        final List<NetworkInterfaceReference> networkInterfaces = myMachine.getNetworkProfile().getNetworkInterfaces();
+        if (networkInterfaces.size() == 0) {
+            return null;
+        }
 
-  @Nullable
-  @Override
-  public String getProperty(final String name) {
-    return null;
-  }
+        return networkInterfaces.get(0).getId();
+    }
+
+    @Override
+    @NotNull
+    public InstanceStatus getInstanceStatus() {
+        final String state = myMachine.getProvisioningState();
+        if (STATUS_MAP.containsKey(state)) {
+            return STATUS_MAP.get(state);
+        }
+
+        return InstanceStatus.UNKNOWN;
+    }
+
+    @Nullable
+    @Override
+    public String getProperty(final String name) {
+        return null;
+    }
+
+    static {
+        STATUS_MAP = new HashMap<String, InstanceStatus>();
+        STATUS_MAP.put("Succeeded", InstanceStatus.RUNNING);
+        STATUS_MAP.put("InProgress", InstanceStatus.STARTING);
+        STATUS_MAP.put("Creating", InstanceStatus.STARTING);
+        STATUS_MAP.put("Failed", InstanceStatus.ERROR);
+        STATUS_MAP.put("Canceled", InstanceStatus.ERROR);
+    }
 }

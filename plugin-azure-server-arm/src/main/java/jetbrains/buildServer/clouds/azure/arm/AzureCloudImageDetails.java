@@ -18,6 +18,7 @@ package jetbrains.buildServer.clouds.azure.arm;
 import com.google.gson.annotations.SerializedName;
 import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
+import jetbrains.buildServer.serverSide.crypt.EncryptUtil;
 import org.jetbrains.annotations.NotNull;
 
 /**
@@ -25,25 +26,28 @@ import org.jetbrains.annotations.NotNull;
  */
 public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
-    @SerializedName("groupId")
+    @SerializedName(AzureConstants.GROUP_ID)
     private final String myGroupId;
-    @SerializedName("storageId")
+    @SerializedName(AzureConstants.STORAGE_ID)
     private final String myStorageId;
-    @SerializedName("imagePath")
+    @SerializedName(AzureConstants.IMAGE_PATH)
     private final String myImagePath;
-    @SerializedName("maxInstances")
+    @SerializedName(AzureConstants.OS_TYPE)
+    private final String myOsType;
+    @SerializedName(AzureConstants.MAX_INSTANCES_COUNT)
     private final int myMaxInstances;
-    @SerializedName("vmSize")
+    @SerializedName(AzureConstants.VM_SIZE)
     private final String myVmSize;
-    @SerializedName("vmNamePrefix")
-    private final String myVmPrefix;
-    @SerializedName("vmUsername")
+    @SerializedName(AzureConstants.VM_NAME_PREFIX)
+    private final String myVmNamePrefix;
+    @SerializedName(AzureConstants.VM_USERNAME)
     private final String myUsername;
     private String myPassword = null;
 
     public AzureCloudImageDetails(@NotNull final String groupId,
                                   @NotNull final String storageId,
                                   @NotNull final String imagePath,
+                                  @NotNull final String osType,
                                   @NotNull final String vmNamePrefix,
                                   @NotNull final String vmSize,
                                   final int maxInstances,
@@ -51,7 +55,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
         myGroupId = groupId;
         myStorageId = storageId;
         myImagePath = imagePath;
-        myVmPrefix = vmNamePrefix;
+        myOsType = osType;
+        myVmNamePrefix = vmNamePrefix;
         myVmSize = vmSize;
         myMaxInstances = maxInstances;
         myUsername = username;
@@ -69,8 +74,12 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
         return myImagePath;
     }
 
-    public String getVmPrefix() {
-        return myVmPrefix;
+    public String getOsType() {
+        return myOsType;
+    }
+
+    public String getVmNamePrefix() {
+        return myVmNamePrefix;
     }
 
     public String getVmSize() {
@@ -95,7 +104,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
     @Override
     public String getSourceName() {
-        return String.format("https://%s.blob.core.windows.net/%s", myStorageId, myImagePath);
+        final String source = String.format("https://%s.blob.core.windows.net/%s", myStorageId, myImagePath);
+        return EncryptUtil.md5(source);
     }
 
     public CloneBehaviour getBehaviour() {

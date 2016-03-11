@@ -18,13 +18,8 @@
 
 package jetbrains.buildServer.clouds.base;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudImage;
-import jetbrains.buildServer.clouds.CloudInstance;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
@@ -33,6 +28,11 @@ import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.clouds.base.errors.UpdatableCloudErrorProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Sergey.Pak
@@ -95,7 +95,18 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
 
   public abstract G getImageDetails();
 
-  public abstract void detectNewInstances(final Map<String, AbstractInstance> realInstances);
+  public void detectNewInstances(final Map<String, AbstractInstance> realInstances){
+    for (String instanceName : realInstances.keySet()) {
+      if (myInstances.get(instanceName) == null) {
+        final AbstractInstance realInstance = realInstances.get(instanceName);
+        final T newInstance = getCloudInstance(instanceName);
+        newInstance.setStatus(realInstance.getInstanceStatus());
+        myInstances.put(instanceName, newInstance);
+      }
+    }
+  }
+
+  public abstract T getCloudInstance(@NotNull final String name);
 
   public String toString() {
     return getClass().getSimpleName() +"{" +"myName='" + getId() + '\'' +'}';

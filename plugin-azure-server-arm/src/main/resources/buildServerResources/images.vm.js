@@ -13,11 +13,12 @@
  * limitations under the License.
  */
 
-function ArmImagesViewModel($, ko, baseUrl, dialog) {
+function ArmImagesViewModel($, ko, baseUrl, dialog, hash) {
     var self = this;
 
     self.loadingGroups = ko.observable(false);
     self.loadingResources = ko.observable(false);
+    self.loadingOsType = ko.observable(false);
     self.errorLoadingGroups = ko.observable("");
     self.errorLoadingResources = ko.observable("");
 
@@ -38,6 +39,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         groupId: ko.observable().extend({required: true}),
         storageId: ko.observable().extend({required: true}),
         imagePath: ko.observable().extend({required: true}),
+        osType: ko.observable().extend({required: true}),
         maxInstances: ko.observable(1).extend({required: true, min: 1}),
         vmNamePrefix: ko.observable().extend({required: true}),
         vmSize: ko.observable().extend({required: true}),
@@ -49,6 +51,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.groups = ko.observableArray([]);
     self.storages = ko.observableArray([]);
     self.vmSizes = ko.observableArray([]);
+    self.osTypes = ko.observableArray(["Linux", "Windows"]);
 
     // Hidden fields for serialized values
     self.images_data = ko.observable();
@@ -77,6 +80,14 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         loadResourcesByGroup(group);
     });
 
+    self.image().imagePath.subscribe(function (path) {
+        var groupId = self.image().groupId();
+        var storageId = self.image().storageId();
+        if (!path || !groupId || !storageId) return;
+
+        loadOsType(groupId, storageId, path);
+    });
+
     self.images_data.subscribe(function (data) {
         var images = ko.utils.parseJson(data || "[]");
         self.images(images);
@@ -102,11 +113,12 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         });
 
         model.imagePath(image.imagePath);
+        model.osType(image.osType);
         model.maxInstances(image.maxInstances);
         model.vmNamePrefix(image.vmNamePrefix);
         model.vmUsername(image.vmUsername);
 
-        var key = self.getSourceName(image.storageId, image.imagePath);
+        var key = hash(self.getSourceName(image.storageId, image.imagePath));
         var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
         model.vmPassword(password);
 
@@ -132,6 +144,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             groupId: model.groupId(),
             storageId: model.storageId(),
             imagePath: model.imagePath(),
+            osType: model.osType(),
             maxInstances: model.maxInstances(),
             vmNamePrefix: model.vmNamePrefix(),
             vmSize: model.vmSize(),
@@ -141,14 +154,14 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         var originalImage = self.originalImage;
         if (originalImage) {
             self.images.replace(originalImage, image);
-            var originalKey = self.getSourceName(originalImage.storageId, originalImage.imagePath);
+            var originalKey = hash(self.getSourceName(originalImage.storageId, originalImage.imagePath));
             delete self.passwords[originalKey];
         } else {
             self.images.push(image);
         }
         self.images_data(JSON.stringify(self.images()));
 
-        var key = self.getSourceName(image.storageId, image.imagePath);
+        var key = hash(self.getSourceName(image.storageId, image.imagePath));
         self.passwords[key] = model.vmPassword();
         self.passwords_data(JSON.stringify(self.passwords));
 
@@ -157,7 +170,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     };
 
     self.deleteImage = function (image) {
-        var message = "Do you really want to delete image based on VHD " + image.imagePath + " in storage " + image.storageId + "?";
+        var message = "Do you really want to delete agent image based on VHD " + self.getSourceName(image.storageId, image.imagePath) + "?";
         var remove = confirm(message);
         if (!remove) {
             return false;
@@ -166,7 +179,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         self.images.remove(image);
         self.images_data(JSON.stringify(self.images()));
 
-        var key = self.getSourceName(image.storageId, image.imagePath);
+        var key = hash(self.getSourceName(image.storageId, image.imagePath));
         delete self.passwords[key];
         self.passwords_data(JSON.stringify(self.passwords));
 
@@ -243,6 +256,35 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
         request.always(function () {
             self.loadingResources(false);
+        });
+
+        return request;
+    }
+
+    function loadOsType(group, storage, path) {
+        self.loadingOsType(true);
+
+        var url = getBasePath() +
+            "&resource=osType&group=" + group +
+            "&storage=" + storage +
+            "&path=" + path;
+
+        var request = $.post(url).then(function (response) {
+            var $response = $j(response);
+            var errors = getErrors($response);
+            if (errors) {
+                return;
+            }
+
+            var osType = $response.find("osType").text();
+            self.image().osType(osType);
+        }, function (error) {
+            self.errorLoadingResources("Failed to load data: " + error.message);
+            console.log(error);
+        });
+
+        request.always(function () {
+            self.loadingOsType(false);
         });
 
         return request;

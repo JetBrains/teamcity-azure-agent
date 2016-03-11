@@ -112,7 +112,7 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
 
   @Nullable
   public String getNetworkIdentity() {
-    return null;
+    return myNetworkIdentify;
   }
 
   @Override

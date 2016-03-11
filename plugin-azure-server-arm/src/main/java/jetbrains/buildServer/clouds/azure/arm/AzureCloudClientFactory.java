@@ -42,7 +42,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     private final PluginDescriptor myPluginDescriptor;
     private static final List<String> SKIP_PARAMETERS = Arrays.asList(AzureConstants.GROUP_ID, AzureConstants.STORAGE_ID,
             AzureConstants.IMAGE_PATH, AzureConstants.MAX_INSTANCES_COUNT, AzureConstants.VM_NAME_PREFIX,
-            AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD);
+            AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD, AzureConstants.OS_TYPE);
 
     public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
                                    @NotNull final EventDispatcher<BuildServerListener> serverDispatcher,
@@ -50,7 +50,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
                                    @NotNull final PluginDescriptor pluginDescriptor,
                                    @NotNull final ServerPaths serverPaths) {
         super(cloudRegistrar);
-        myAzureStorage = new File(serverPaths.getPluginDataDirectory(), "cloud-azure/indexes");
+        myAzureStorage = new File(serverPaths.getPluginDataDirectory(), "cloud-" + getCloudCode() + "/indices");
         if (!myAzureStorage.exists()) {
             //noinspection ResultOfMethodCallIgnored
             myAzureStorage.mkdirs();
@@ -108,7 +108,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
         final String subscriptionId = getParameter(params, AzureConstants.SUBSCRIPTION_ID);
 
         final CloudApiConnector apiConnector = new AzureApiConnector(tenantId, clientId, clientSecret, subscriptionId);
-        final AzureCloudClient azureCloudClient = new AzureCloudClient(params, images, apiConnector);
+        final AzureCloudClient azureCloudClient = new AzureCloudClient(params, images, apiConnector, myAzureStorage);
         azureCloudClient.updateErrors(errors);
 
         return azureCloudClient;
@@ -136,7 +136,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
 
     @NotNull
     public String getCloudCode() {
-        return "cloud-azure-arm";
+        return "arm";
     }
 
     @NotNull

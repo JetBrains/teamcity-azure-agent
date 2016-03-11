@@ -25,12 +25,11 @@ import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.IdProvider;
-import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureInstance;
+import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
 import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
-import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
@@ -91,15 +90,8 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   }
 
   @Override
-  public void detectNewInstances(final Map<String, AbstractInstance> realInstances) {
-    for (String instanceName : realInstances.keySet()) {
-      if (myInstances.get(instanceName) == null) {
-        final AbstractInstance realInstance = realInstances.get(instanceName);
-        final AzureCloudInstance newInstance = new AzureCloudInstance(this, instanceName);
-        newInstance.setStatus(realInstance.getInstanceStatus());
-        myInstances.put(instanceName, newInstance);
-      }
-    }
+  public AzureCloudInstance getCloudInstance(@NotNull String name) {
+    return new AzureCloudInstance(this, name);
   }
 
   @Override

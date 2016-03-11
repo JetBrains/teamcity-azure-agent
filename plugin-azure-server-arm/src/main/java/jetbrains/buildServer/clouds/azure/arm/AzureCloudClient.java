@@ -16,6 +16,9 @@
 package jetbrains.buildServer.clouds.azure.arm;
 
 import jetbrains.buildServer.clouds.CloudClientParameters;
+import jetbrains.buildServer.clouds.azure.FileIdProvider;
+import jetbrains.buildServer.clouds.azure.IdProvider;
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.tasks.UpdateInstancesTask;
@@ -23,6 +26,7 @@ import jetbrains.buildServer.serverSide.AgentDescription;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.File;
 import java.util.Collection;
 
 /**
@@ -30,15 +34,20 @@ import java.util.Collection;
  */
 public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
 
+    private final File myAzureIdxStorage;
+
     public AzureCloudClient(@NotNull final CloudClientParameters params,
                             @NotNull final Collection<AzureCloudImageDetails> images,
-                            @NotNull final CloudApiConnector apiConnector) {
+                            @NotNull final CloudApiConnector apiConnector,
+                            @NotNull final File azureIdxStorage) {
         super(params, images, apiConnector);
+        myAzureIdxStorage = azureIdxStorage;
     }
 
     @Override
     protected AzureCloudImage checkAndCreateImage(@NotNull AzureCloudImageDetails imageDetails) {
-        return null;
+        final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, imageDetails.getSourceName() + ".idx"));
+        return new AzureCloudImage(imageDetails, (AzureApiConnector) myApiConnector, idProvider);
     }
 
     @Override

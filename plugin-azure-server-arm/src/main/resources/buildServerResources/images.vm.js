@@ -277,7 +277,10 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             var $response = $j(response);
             var errors = getErrors($response);
             if (errors) {
+                self.image().imagePath.setError(errors);
                 return;
+            } else {
+                self.image().imagePath.clearError();
             }
 
             var osType = $response.find("osType").text();

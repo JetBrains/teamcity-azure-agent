@@ -296,7 +296,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         networkSecurityGroup.setLocation(location);
         networkSecurityGroup.setSecurityRules(new ArrayList<SecurityRule>());
 
-        if ("Windows".equalsIgnoreCase(details.getOsType())){
+        if ("Windows".equalsIgnoreCase(details.getOsType())) {
             final SecurityRule rdpRule = new SecurityRule();
             rdpRule.setName("default-allow-rdp");
             rdpRule.setDirection("Inbound");
@@ -455,7 +455,12 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     public String getVhdOsType(@NotNull final String group,
                                @NotNull final String storage,
                                @NotNull final String filePath) {
-        for (CloudBlob blob : getBlobs(group, storage, filePath)) {
+        final List<CloudBlob> blobs = getBlobs(group, storage, filePath);
+        if (blobs.size() == 0) {
+            throw new CloudException("VHD file not found in storage account");
+        }
+
+        for (CloudBlob blob : blobs) {
             try {
                 blob.downloadAttributes();
             } catch (Exception e) {

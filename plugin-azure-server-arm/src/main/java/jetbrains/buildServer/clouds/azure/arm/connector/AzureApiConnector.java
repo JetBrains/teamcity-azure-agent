@@ -317,7 +317,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
             sshRule.setSourceAddressPrefix("*");
             sshRule.setSourcePortRange("*");
             sshRule.setDestinationAddressPrefix("*");
-            sshRule.setDestinationPortRange("21");
+            sshRule.setDestinationPortRange("22");
             sshRule.setAccess("Allow");
             networkSecurityGroup.getSecurityRules().add(sshRule);
         }

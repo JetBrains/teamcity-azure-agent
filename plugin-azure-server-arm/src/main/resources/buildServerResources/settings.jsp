@@ -196,10 +196,10 @@
                               data-bind="attr: {title: osType},
                               style: {backgroundImage: 'url(\'/img/os/' + (osType == 'Linux' ? 'lin' : 'win') + '-small-bw.png\')'}"/>
                         </span>
-                        <span data-bind="text: $parent.getSourceName(storageId, imagePath).slice(-90),
+                        <span data-bind="text: $parent.getSourceName(storageId, imagePath).slice(-80),
                         attr: {title: $parent.getSourceName(storageId, imagePath)}"></span>
                     </td>
-                    <td data-bind="text: vmNamePrefix"></td>
+                    <td class="nowrap" data-bind="text: vmNamePrefix"></td>
                     <td data-bind="text: maxInstances"></td>
                     <td class="edit">
                         <a href="#"

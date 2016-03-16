@@ -104,8 +104,7 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
     @Override
     public String getSourceName() {
-        final String source = String.format("https://%s.blob.core.windows.net/%s", myStorageId, myImagePath);
-        return EncryptUtil.md5(source);
+        return String.format("%s/%s", myGroupId, myVmNamePrefix);
     }
 
     public CloneBehaviour getBehaviour() {

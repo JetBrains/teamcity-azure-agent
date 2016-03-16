@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-function ArmImagesViewModel($, ko, baseUrl, dialog, hash) {
+function ArmImagesViewModel($, ko, baseUrl, dialog) {
     var self = this;
 
     self.loadingGroups = ko.observable(false);
@@ -41,9 +41,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog, hash) {
         imagePath: ko.observable().extend({required: true}),
         osType: ko.observable().extend({required: true}),
         maxInstances: ko.observable(1).extend({required: true, min: 1}),
-        vmNamePrefix: ko.observable().extend({required: true}),
+        vmNamePrefix: ko.observable().extend({required: true, maxLength: 12}),
         vmSize: ko.observable().extend({required: true}),
-        vmUsername: ko.observable().extend({required: true}),
+        vmUsername: ko.observable().extend({required: true, maxLength: 12}),
         vmPassword: ko.observable().extend({required: true})
     });
 
@@ -118,7 +118,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog, hash) {
         model.vmNamePrefix(image.vmNamePrefix);
         model.vmUsername(image.vmUsername);
 
-        var key = hash(self.getSourceName(image.storageId, image.imagePath));
+        var key = getSourceKey(image.groupId, image.vmNamePrefix);
         var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
         model.vmPassword(password);
 
@@ -154,14 +154,14 @@ function ArmImagesViewModel($, ko, baseUrl, dialog, hash) {
         var originalImage = self.originalImage;
         if (originalImage) {
             self.images.replace(originalImage, image);
-            var originalKey = hash(self.getSourceName(originalImage.storageId, originalImage.imagePath));
+            var originalKey = getSourceKey(originalImage.groupId, originalImage.vmNamePrefix);
             delete self.passwords[originalKey];
         } else {
             self.images.push(image);
         }
         self.images_data(JSON.stringify(self.images()));
 
-        var key = hash(self.getSourceName(image.storageId, image.imagePath));
+        var key = getSourceKey(image.groupId, image.vmNamePrefix);
         self.passwords[key] = model.vmPassword();
         self.passwords_data(JSON.stringify(self.passwords));
 
@@ -179,7 +179,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog, hash) {
         self.images.remove(image);
         self.images_data(JSON.stringify(self.images()));
 
-        var key = hash(self.getSourceName(image.storageId, image.imagePath));
+        var key = getSourceKey(image.groupId, image.vmNamePrefix);
         delete self.passwords[key];
         self.passwords_data(JSON.stringify(self.passwords));
 
@@ -189,6 +189,10 @@ function ArmImagesViewModel($, ko, baseUrl, dialog, hash) {
     self.getSourceName = function (storageId, imagePath) {
         return "https://" + storageId + ".blob.core.windows.net/" + imagePath;
     };
+
+    function getSourceKey(groupId, namePrefix){
+        return groupId + "/" + namePrefix;
+    }
 
     function getBasePath() {
         var credentials = self.credentials();
@@ -267,7 +271,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog, hash) {
         var url = getBasePath() +
             "&resource=osType&group=" + group +
             "&storage=" + storage +
-            "&path=" + path;
+            "&path=" + encodeURIComponent(path);
 
         var request = $.post(url).then(function (response) {
             var $response = $j(response);

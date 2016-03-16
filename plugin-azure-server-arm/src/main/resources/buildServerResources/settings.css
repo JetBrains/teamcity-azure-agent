@@ -85,8 +85,8 @@
     cursor: pointer;
 }
 
-.settings .remove,
-.edit {
+table.settings .remove,
+table.settings .edit {
     width: 5%;
     padding: 0.5em;
     text-align: center;
@@ -96,15 +96,20 @@
     color: #ccc;
 }
 
-.settings .maxInstances,
-.settings .maxInstances.name {
+table.settings .maxInstances,
+table.settings .maxInstances.name {
     width: 80px;
     max-width: 80px;
 }
 
-table.settings th.name.center{
+table.settings th.name.center {
     text-align: center;
     padding: 0;
+}
+
+table.settings .nowrap {
+    white-space: nowrap;
+    overflow-x: hidden;
 }
 
 .AzureImageDialog label {

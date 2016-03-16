@@ -16,18 +16,13 @@
 
 package jetbrains.buildServer.clouds.azure.asm;
 
-import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.clouds.CloudClientParameters;
-import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
+import jetbrains.buildServer.clouds.azure.AzureCloudClientBase;
 import jetbrains.buildServer.clouds.azure.FileIdProvider;
 import jetbrains.buildServer.clouds.azure.IdProvider;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
-import jetbrains.buildServer.clouds.base.AbstractCloudClient;
-import jetbrains.buildServer.clouds.base.tasks.UpdateInstancesTask;
-import jetbrains.buildServer.serverSide.AgentDescription;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.util.Collection;
@@ -38,67 +33,25 @@ import java.util.concurrent.TimeUnit;
  *         Date: 7/31/2014
  *         Time: 4:28 PM
  */
-public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
+public class AzureCloudClient extends AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
 
-  private static final Logger LOG = Logger.getInstance(AzureCloudClient.class.getName());
-  private final File myAzureIdxStorage;
+    private final File myAzureIdxStorage;
 
-  private boolean myInitialized = false;
-  private final ProvisionActionsQueue myActionsQueue;
+    private final ProvisionActionsQueue myActionsQueue;
 
-  public AzureCloudClient(@NotNull final CloudClientParameters params,
-                          @NotNull final Collection<AzureCloudImageDetails> images,
-                          @NotNull final AzureApiConnector apiConnector,
-                          @NotNull final File azureIdxStorage) {
-    super(params, images, apiConnector);
-    myAzureIdxStorage = azureIdxStorage;
-    myActionsQueue = new ProvisionActionsQueue(myAsyncTaskExecutor);
-    myAsyncTaskExecutor.scheduleWithFixedDelay(myActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
-    myInitialized = true;
-  }
-
-  public void dispose() {
-    super.dispose();
-  }
-
-  public boolean isInitialized() {
-    return myInitialized;
-  }
-
-  @Override
-  protected AzureCloudImage checkAndCreateImage(@NotNull final AzureCloudImageDetails imageDetails) {
-    final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, imageDetails.getSourceName() + ".idx"));
-    return new AzureCloudImage(imageDetails, myActionsQueue, (AzureApiConnector) myApiConnector, idProvider);
-  }
-
-  @Override
-  protected UpdateInstancesTask<AzureCloudInstance, AzureCloudImage, ?> createUpdateInstancesTask() {
-    return new UpdateInstancesTask<AzureCloudInstance, AzureCloudImage, AzureCloudClient>(myApiConnector, this);
-  }
-
-  @Nullable
-  @Override
-  public AzureCloudInstance findInstanceByAgent(@NotNull final AgentDescription agent) {
-    final String instanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
-    if (instanceName == null)
-      return null;
-    for (AzureCloudImage image : myImageMap.values()) {
-      final AzureCloudInstance instanceById = image.findInstanceById(instanceName);
-      if (instanceById != null) {
-        return instanceById;
-      }
+    public AzureCloudClient(@NotNull final CloudClientParameters params,
+                            @NotNull final Collection<AzureCloudImageDetails> images,
+                            @NotNull final AzureApiConnector apiConnector,
+                            @NotNull final File azureIdxStorage) {
+        super(params, images, apiConnector);
+        myAzureIdxStorage = azureIdxStorage;
+        myActionsQueue = new ProvisionActionsQueue(myAsyncTaskExecutor);
+        myAsyncTaskExecutor.scheduleWithFixedDelay(myActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
     }
-    return null;
-  }
 
-  @Nullable
-  public String generateAgentName(@NotNull final AgentDescription agent) {
-    final String azureInstanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
-    LOG.debug("Reported azure instance name: " + azureInstanceName);
-    if (azureInstanceName != null) {
-      return azureInstanceName;
-    } else {
-      return null;
+    @Override
+    protected AzureCloudImage checkAndCreateImage(@NotNull final AzureCloudImageDetails imageDetails) {
+        final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, imageDetails.getSourceName() + ".idx"));
+        return new AzureCloudImage(imageDetails, myActionsQueue, (AzureApiConnector) myApiConnector, idProvider);
     }
-  }
 }

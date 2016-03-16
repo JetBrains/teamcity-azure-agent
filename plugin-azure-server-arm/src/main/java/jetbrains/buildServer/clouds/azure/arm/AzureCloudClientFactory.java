@@ -15,16 +15,19 @@
 
 package jetbrains.buildServer.clouds.azure.arm;
 
-import jetbrains.buildServer.clouds.*;
+import jetbrains.buildServer.clouds.CloudClientParameters;
+import jetbrains.buildServer.clouds.CloudRegistrar;
+import jetbrains.buildServer.clouds.CloudState;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.azure.AzureUtils;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
-import jetbrains.buildServer.clouds.server.impl.CloudManagerBase;
-import jetbrains.buildServer.serverSide.*;
-import jetbrains.buildServer.util.EventDispatcher;
+import jetbrains.buildServer.serverSide.AgentDescription;
+import jetbrains.buildServer.serverSide.InvalidProperty;
+import jetbrains.buildServer.serverSide.PropertiesProcessor;
+import jetbrains.buildServer.serverSide.ServerPaths;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
@@ -45,8 +48,6 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
             AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD, AzureConstants.OS_TYPE);
 
     public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
-                                   @NotNull final EventDispatcher<BuildServerListener> serverDispatcher,
-                                   @NotNull final CloudManagerBase cloudManager,
                                    @NotNull final PluginDescriptor pluginDescriptor,
                                    @NotNull final ServerPaths serverPaths) {
         super(cloudRegistrar);
@@ -57,30 +58,6 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
         }
 
         myPluginDescriptor = pluginDescriptor;
-
-        serverDispatcher.addListener(new BuildServerAdapter() {
-            @Override
-            public void agentStatusChanged(@NotNull final SBuildAgent agent, final boolean wasEnabled, final boolean wasAuthorized) {
-                if (!agent.isAuthorized() || wasAuthorized) {
-                    return;
-                }
-
-                final Map<String, String> config = agent.getConfigurationParameters();
-                if (config.containsKey(AzurePropertiesNames.INSTANCE_NAME) && !config.containsKey(CloudContants.PROFILE_ID)) {
-                    // windows azure agent connected
-                    for (CloudProfile profile : cloudManager.listProfiles()) {
-                        final CloudClientEx existingClient = cloudManager.getClientIfExists(profile.getProfileId());
-                        if (existingClient == null)
-                            continue;
-                        final CloudInstance instanceByAgent = existingClient.findInstanceByAgent(agent);
-                        if (instanceByAgent != null) {
-                            // we found instance and profile. Now updating parameters
-                            return;
-                        }
-                    }
-                }
-            }
-        });
     }
 
     @Override

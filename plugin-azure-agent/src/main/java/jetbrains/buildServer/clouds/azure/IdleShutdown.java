@@ -113,7 +113,7 @@ public class IdleShutdown {
         "shutdown /s /t 1 /c \"TeamCity Agent Azure Instance shutdown on idle time\" /f"
       };
     }
-    LOG.warn("No command fow shutdown. Add '" + SHUTDOWN_COMMAND_KEY + "' property to the buildAgent.properties file with shutdown command");
+    LOG.warn("No command for shutdown. Add '" + SHUTDOWN_COMMAND_KEY + "' property to the buildAgent.properties file with shutdown command");
     return new String[0];
   }
 }

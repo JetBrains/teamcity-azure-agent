@@ -155,8 +155,10 @@ public class AzurePropertiesReader {
       final String instanceName = nameAttr.getValue();
       addLocalPort(documentElement, instanceName);
       setOwnAddress(documentElement, instanceName);
-      myAgentConfiguration.addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, instanceName);
-      LOG.info("Reported azure instance name " + instanceName);
+      final String agentName = StringUtil.trimStart(instanceName, "_");
+      LOG.info("Reported azure instance name " + agentName);
+      myAgentConfiguration.setName(agentName);
+      myAgentConfiguration.addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, agentName);
     } else {
       LOG.info("Unable to find azure properties file. Azure integration is disabled");
     }
@@ -168,6 +170,10 @@ public class AzurePropertiesReader {
         "string(//Instances/Instance[@id='%s']/InputEndpoints/Endpoint[@name='%s']/LocalPorts/LocalPortRange/@from)",
         selfInstanceName, AzurePropertiesNames.ENDPOINT_NAME));
       final Object value = xPath.selectSingleNode(documentElement);
+      if (value == null){
+        LOG.info("No input endpoints found");
+      }
+
       try {
         final int portValue = Integer.parseInt(String.valueOf(value));
         myAgentConfiguration.setOwnPort(portValue);

@@ -86,8 +86,9 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>, T extends A
           if (instance.getStartDate() != null) {
             cloudInstance.setStartDate(instance.getStartDate());
           }
-          if (instance.getIpAddress() != null) {
-            cloudInstance.setNetworkIdentify(instance.getIpAddress());
+          final String ipAddress = instance.getIpAddress();
+          if (ipAddress != null) {
+            cloudInstance.setNetworkIdentify(ipAddress);
           }
         }
         for (String instanceName : instancesToRemove) {

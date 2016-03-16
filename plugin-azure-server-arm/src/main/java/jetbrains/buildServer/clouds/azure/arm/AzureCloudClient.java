@@ -16,15 +16,13 @@
 package jetbrains.buildServer.clouds.azure.arm;
 
 import jetbrains.buildServer.clouds.CloudClientParameters;
+import jetbrains.buildServer.clouds.azure.AzureCloudClientBase;
 import jetbrains.buildServer.clouds.azure.FileIdProvider;
 import jetbrains.buildServer.clouds.azure.IdProvider;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
-import jetbrains.buildServer.clouds.base.AbstractCloudClient;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
-import jetbrains.buildServer.clouds.base.tasks.UpdateInstancesTask;
-import jetbrains.buildServer.serverSide.AgentDescription;
+import jetbrains.buildServer.serverSide.crypt.EncryptUtil;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.util.Collection;
@@ -32,7 +30,7 @@ import java.util.Collection;
 /**
  * ARM cloud client.
  */
-public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
+public class AzureCloudClient extends AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
 
     private final File myAzureIdxStorage;
 
@@ -46,29 +44,8 @@ public class AzureCloudClient extends AbstractCloudClient<AzureCloudInstance, Az
 
     @Override
     protected AzureCloudImage checkAndCreateImage(@NotNull AzureCloudImageDetails imageDetails) {
-        final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, imageDetails.getSourceName() + ".idx"));
+        final String fileName = EncryptUtil.md5(imageDetails.getSourceName()) + ".idx";
+        final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, fileName));
         return new AzureCloudImage(imageDetails, (AzureApiConnector) myApiConnector, idProvider);
-    }
-
-    @Override
-    protected UpdateInstancesTask<AzureCloudInstance, AzureCloudImage, ?> createUpdateInstancesTask() {
-        return new UpdateInstancesTask<AzureCloudInstance, AzureCloudImage, AzureCloudClient>(myApiConnector, this);
-    }
-
-    @Override
-    public boolean isInitialized() {
-        return true;
-    }
-
-    @Nullable
-    @Override
-    public AzureCloudInstance findInstanceByAgent(@NotNull AgentDescription agent) {
-        return null;
-    }
-
-    @Nullable
-    @Override
-    public String generateAgentName(@NotNull AgentDescription agentDescription) {
-        return null;
     }
 }

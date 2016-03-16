@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector;
 
+import com.intellij.openapi.diagnostic.Logger;
 import com.microsoft.azure.credentials.ApplicationTokenCredentials;
 import com.microsoft.azure.management.compute.ComputeManagementClient;
 import com.microsoft.azure.management.compute.ComputeManagementClientImpl;
@@ -47,6 +48,7 @@ import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.filters.Filter;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.*;
@@ -56,7 +58,11 @@ import java.util.*;
  */
 public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, AzureCloudInstance>, ActionIdChecker {
 
+    private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
     private static final int RESOURCES_NUMBER = 100;
+    private static final String BLOBS_CONTAINER = "vhds";
+    private static final String NETWORK_IP_SUFFIX = "-net";
+    private static final String PUBLIC_IP_SUFFIX = "-pip";
     private final ResourceManagementClient myArmClient;
     private final StorageManagementClient myStorageClient;
     private final ComputeManagementClient myComputeClient;
@@ -105,9 +111,11 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         }
 
         for (VirtualMachine virtualMachine : response.getBody()) {
+            if (!virtualMachine.getName().startsWith(imageDetails.getVmNamePrefix())) continue;
+
             final Map<String, String> tags = virtualMachine.getTags();
-            if (tags.containsKey("teamcity")) {
-                final AzureInstance instance = new AzureInstance(virtualMachine);
+            if (tags != null && tags.containsKey("teamcity")) {
+                final AzureInstance instance = new AzureInstance(virtualMachine, image, this);
                 instances.put(virtualMachine.getName(), instance);
             }
         }
@@ -122,7 +130,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
     @Override
     public Collection<TypedCloudErrorInfo> checkInstance(@NotNull AzureCloudInstance instance) {
-        if (instance.getStatus() != InstanceStatus.ERROR){
+        if (instance.getStatus() != InstanceStatus.ERROR) {
             return Collections.emptyList();
         }
 
@@ -203,9 +211,10 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         final String subnetName = namePrefix + "-subnet";
         final String securityGroupName = namePrefix + "-sgn";
         final String vmName = instance.getName();
-        final String nicName = vmName + "-net";
+        final String nicName = vmName + NETWORK_IP_SUFFIX;
+        final String publicIpName = vmName + PUBLIC_IP_SUFFIX;
         final String osDiskName = vmName + "-os";
-        final String osDiskVhdName = String.format("https://%s.blob.core.windows.net/vhds/%s-os.vhd", storageId, vmName);
+        final String osDiskVhdName = String.format("https://%s.blob.core.windows.net/" + BLOBS_CONTAINER + "/%s-os.vhd", storageId, vmName);
         final String userImageName = String.format("https://%s.blob.core.windows.net/%s", storageId, imagePath);
         final String customData = new String(Base64.getEncoder().encode(tag.serialize().getBytes()));
 
@@ -258,6 +267,20 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
             throw new CloudException("Failed to create virtual network " + vNetName);
         }
 
+        // Create public IP
+        PublicIPAddress publicIPAddress = new PublicIPAddress();
+        publicIPAddress.setLocation(location);
+        publicIPAddress.setPublicIPAllocationMethod("Dynamic");
+        publicIPAddress.setDnsSettings(new PublicIPAddressDnsSettings());
+        publicIPAddress.getDnsSettings().setDomainNameLabel(publicIpName);
+
+        try {
+            myNetworkClient.getPublicIPAddressesOperations().createOrUpdate(groupId, publicIpName, publicIPAddress);
+            publicIPAddress = myNetworkClient.getPublicIPAddressesOperations().get(groupId, publicIpName, null).getBody();
+        } catch (Exception e) {
+            throw new CloudException("Failed to create public IP address " + e.getMessage(), e);
+        }
+
         // Create network interface
         NetworkInterface nic = new NetworkInterface();
         nic.setLocation(location);
@@ -266,9 +289,39 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         configuration.setName(nicName + "-config");
         configuration.setPrivateIPAllocationMethod("Dynamic");
         configuration.setSubnet(subnet);
+        configuration.setPublicIPAddress(publicIPAddress);
         nic.getIpConfigurations().add(configuration);
+
         NetworkSecurityGroup networkSecurityGroup = new NetworkSecurityGroup();
         networkSecurityGroup.setLocation(location);
+        networkSecurityGroup.setSecurityRules(new ArrayList<SecurityRule>());
+
+        if ("Windows".equalsIgnoreCase(details.getOsType())){
+            final SecurityRule rdpRule = new SecurityRule();
+            rdpRule.setName("default-allow-rdp");
+            rdpRule.setDirection("Inbound");
+            rdpRule.setPriority(999);
+            rdpRule.setProtocol("TCP");
+            rdpRule.setSourceAddressPrefix("*");
+            rdpRule.setSourcePortRange("*");
+            rdpRule.setDestinationAddressPrefix("*");
+            rdpRule.setDestinationPortRange("3389");
+            rdpRule.setAccess("Allow");
+            networkSecurityGroup.getSecurityRules().add(rdpRule);
+        } else {
+            final SecurityRule sshRule = new SecurityRule();
+            sshRule.setName("default-allow-ssh");
+            sshRule.setDirection("Inbound");
+            sshRule.setPriority(1000);
+            sshRule.setProtocol("TCP");
+            sshRule.setSourceAddressPrefix("*");
+            sshRule.setSourcePortRange("*");
+            sshRule.setDestinationAddressPrefix("*");
+            sshRule.setDestinationPortRange("21");
+            sshRule.setAccess("Allow");
+            networkSecurityGroup.getSecurityRules().add(sshRule);
+        }
+
         final ServiceResponse<List<Subnet>> subnetsResponse;
         try {
             subnetsResponse = myNetworkClient.getSubnetsOperations().list(groupId, vNetName);
@@ -344,7 +397,8 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }
 
     public void updateVmStatus(AzureCloudInstance instance) {
-        final String groupId = instance.getImage().getImageDetails().getGroupId();
+        final AzureCloudImage image = instance.getImage();
+        final String groupId = image.getImageDetails().getGroupId();
         final ServiceResponse<VirtualMachine> response;
         try {
             response = myComputeClient.getVirtualMachinesOperations().get(groupId, instance.getName(), null);
@@ -352,23 +406,80 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
             throw new CloudException("Failed to get virtual machine status: " + e.getMessage(), e);
         }
 
-        final AzureInstance azureInstance = new AzureInstance(response.getBody());
+        final AzureInstance azureInstance = new AzureInstance(response.getBody(), image, this);
         instance.setStatus(azureInstance.getInstanceStatus());
     }
 
-    public void deleteVm(AzureCloudInstance instance) {
-        final String groupId = instance.getImage().getImageDetails().getGroupId();
+    public void deleteVm(@NotNull final AzureCloudInstance instance) {
+        final AzureCloudImageDetails details = instance.getImage().getImageDetails();
+        final String groupId = details.getGroupId();
+        final String storageId = details.getStorageId();
+        final String filePrefix = String.format("%s/%s", BLOBS_CONTAINER, instance.getName());
         try {
             myComputeClient.getVirtualMachinesOperations().delete(groupId, instance.getName());
-            myNetworkClient.getNetworkInterfacesOperations().delete(groupId, instance.getName() + "-net");
         } catch (Throwable e) {
-            throw new CloudException("Failed to delete virtual machine: " + e.getMessage(), e);
+            LOG.warnAndDebugDetails("Failed to delete virtual machine", e);
+        }
+
+        try {
+            myNetworkClient.getNetworkInterfacesOperations().delete(groupId, instance.getName() + NETWORK_IP_SUFFIX);
+        } catch (Throwable e) {
+            LOG.warnAndDebugDetails("Failed to delete network interface", e);
+        }
+
+        try {
+            myNetworkClient.getPublicIPAddressesOperations().delete(groupId, instance.getName() + PUBLIC_IP_SUFFIX);
+        } catch (Throwable e) {
+            LOG.warnAndDebugDetails("Failed to delete public ip address", e);
+        }
+
+        for (CloudBlob blob : getBlobs(groupId, storageId, filePrefix)) {
+            try {
+                blob.deleteIfExists();
+            } catch (Exception e) {
+                LOG.warnAndDebugDetails("Failed to delete blob", e);
+            }
         }
     }
 
-    public String getVhdOsType(String group, String storage, String filePath) {
-        final int slash = filePath.lastIndexOf("/");
-        if (slash < 0){
+    public void restartVm(@NotNull final AzureCloudInstance instance) {
+        final String groupId = instance.getImage().getImageDetails().getGroupId();
+        try {
+            myComputeClient.getVirtualMachinesOperations().restart(groupId, instance.getName());
+        } catch (Throwable e) {
+            throw new CloudException("Failed to restart virtual machine: " + e.getMessage(), e);
+        }
+    }
+
+    @Nullable
+    public String getVhdOsType(@NotNull final String group,
+                               @NotNull final String storage,
+                               @NotNull final String filePath) {
+        for (CloudBlob blob : getBlobs(group, storage, filePath)) {
+            try {
+                blob.downloadAttributes();
+            } catch (Exception e) {
+                throw new CloudException("Failed to access storage blob: " + e.getMessage(), e);
+            }
+
+            final HashMap<String, String> metadata = blob.getMetadata();
+            if (!"OSDisk".equals(metadata.get("MicrosoftAzureCompute_ImageType"))) {
+                return null;
+            }
+
+            if (!"Generalized".equals(metadata.get("MicrosoftAzureCompute_OSState"))) {
+                throw new CloudException("VHD image should be generalized.");
+            }
+
+            return metadata.get("MicrosoftAzureCompute_OSType");
+        }
+
+        return null;
+    }
+
+    private List<CloudBlob> getBlobs(final String group, final String storage, final String filesPrefix) {
+        final int slash = filesPrefix.indexOf("/");
+        if (slash <= 0) {
             throw new CloudException("File path must include container name");
         }
 
@@ -384,11 +495,11 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         try {
             storageAccount = new CloudStorageAccount(credentials);
         } catch (Exception e) {
-            throw new CloudException("Failed to connect to storage account: "+ e.getMessage(), e);
+            throw new CloudException("Failed to connect to storage account: " + e.getMessage(), e);
         }
 
         final CloudBlobClient blobClient = storageAccount.createCloudBlobClient();
-        final String containerName = filePath.substring(0, slash);
+        final String containerName = filesPrefix.substring(0, slash);
         final CloudBlobContainer container;
         try {
             container = blobClient.getContainerReference(containerName);
@@ -396,36 +507,29 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
             throw new CloudException("Failed to access storage container: " + e.getMessage(), e);
         }
 
-        final String blobName = filePath.substring(slash + 1);
-        for (ListBlobItem item : container.listBlobs(blobName)) {
-            final CloudBlob blob = (CloudBlob) item;
-            try {
-                blob.downloadAttributes();
-            } catch (Exception e) {
-                throw new CloudException("Failed to access storage blob: " + e.getMessage(), e);
+        final String blobName = filesPrefix.substring(slash + 1);
+        final List<CloudBlob> blobs = new ArrayList<CloudBlob>();
+        try {
+            for (ListBlobItem item : container.listBlobs(blobName)) {
+                blobs.add((CloudBlob) item);
             }
+        } catch (Exception e) {
+            throw new CloudException("Failed to list container blobs: " + e.getMessage(), e);
+        }
 
-            final HashMap<String, String> metadata = blob.getMetadata();
-            if (!"OSDisk".equals(metadata.get("MicrosoftAzureCompute_ImageType"))){
-                return null;
-            }
+        return blobs;
+    }
 
-            if (!"Generalized".equals(metadata.get("MicrosoftAzureCompute_OSState"))){
-                throw new CloudException("VHD image should be generalized.");
-            }
-
-            return metadata.get("MicrosoftAzureCompute_OSType");
+    @Nullable
+    public String getIpAddress(String groupId, String machineName) {
+        final String nicName = machineName + PUBLIC_IP_SUFFIX;
+        try {
+            final ServiceResponse<PublicIPAddress> response = myNetworkClient.getPublicIPAddressesOperations().get(groupId, nicName, null);
+            return response.getBody().getIpAddress();
+        } catch (Exception e) {
+            LOG.warnAndDebugDetails("Failed to get public ip address", e);
         }
 
         return null;
-    }
-
-    public void restartVm(AzureCloudInstance instance) {
-        final String groupId = instance.getImage().getImageDetails().getGroupId();
-        try {
-            myComputeClient.getVirtualMachinesOperations().restart(groupId, instance.getName());
-        } catch (Throwable e) {
-            throw new CloudException("Failed to restart virtual machine: " + e.getMessage(), e);
-        }
     }
 }

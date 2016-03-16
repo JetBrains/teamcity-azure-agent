@@ -105,7 +105,7 @@
                     <input type="text" name="${cons.imagePath}" class="longField"
                            data-bind="textInput: image().imagePath"/>
                     <img src="/img/tree/popup-artifacts-tree.png" class="handle vcsTreeHandle" title="Choose VHD image">
-                    <span class="smallNote">Generalized VHD image URL.</span>
+                    <span class="smallNote">Generalized VHD image URL, e.g. vhds/generalized.vhd</span>
                     <span class="error option-error" data-bind="validationMessage: image().imagePath"></span>
                 </td>
             </tr>
@@ -190,13 +190,14 @@
                 </thead>
                 <tbody data-bind="foreach: images">
                 <tr>
-                    <td data-bind="text: groupId"></td>
-                    <td>
+                    <td class="nowrap" data-bind="text: groupId"></td>
+                    <td class="nowrap">
                         <span class="osIcon osIconSmall"
                               data-bind="attr: {title: osType},
                               style: {backgroundImage: 'url(\'/img/os/' + (osType == 'Linux' ? 'lin' : 'win') + '-small-bw.png\')'}"/>
                         </span>
-                        <span data-bind="text: $parent.getSourceName(storageId, imagePath)"></span>
+                        <span data-bind="text: $parent.getSourceName(storageId, imagePath).slice(-90),
+                        attr: {title: $parent.getSourceName(storageId, imagePath)}"></span>
                     </td>
                     <td data-bind="text: vmNamePrefix"></td>
                     <td data-bind="text: maxInstances"></td>
@@ -244,7 +245,7 @@
             $j.getScript("<c:url value="${resPath}images.vm.js"/>")
     ).then(function () {
         var dialog = document.getElementById("arm-setting");
-        ko.applyBindings(new ArmImagesViewModel($j, ko, "<c:url value='${basePath}'/>", BS.ArmImageDialog, BS.Crypto.hex_md5), dialog);
+        ko.applyBindings(new ArmImagesViewModel($j, ko, "<c:url value='${basePath}'/>", BS.ArmImageDialog), dialog);
     });
 </script>
 <table class="runnerFormTable">

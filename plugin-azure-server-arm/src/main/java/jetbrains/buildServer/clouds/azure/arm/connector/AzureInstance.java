@@ -16,29 +16,62 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector;
 
-import com.microsoft.azure.management.compute.models.NetworkInterfaceReference;
+import com.microsoft.azure.management.compute.models.InstanceViewStatus;
 import com.microsoft.azure.management.compute.models.VirtualMachine;
+import com.microsoft.azure.management.compute.models.VirtualMachineInstanceView;
 import jetbrains.buildServer.clouds.InstanceStatus;
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
+import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joda.time.DateTime;
 
 import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Azure cloud instance.
  */
 public class AzureInstance extends AbstractInstance {
 
-    private final static Map<String, InstanceStatus> STATUS_MAP;
+    private static Map<String, InstanceStatus> PROVISIONING_STATES;
+    private static Map<String, InstanceStatus> POWER_STATES;
+    private static final String PROVISIONING_STATE = "ProvisioningState/";
+    private static final String POWER_STATE = "PowerState/";
     private final VirtualMachine myMachine;
+    private final AzureCloudImage myImage;
+    private final AzureApiConnector myConnector;
+    private String myProvisioningState;
+    private Date myProvisioningDate;
+    private String myPowerState;
 
-    public AzureInstance(VirtualMachine machine) {
+    public AzureInstance(@NotNull final VirtualMachine machine,
+                         @NotNull final AzureCloudImage image,
+                         @NotNull final AzureApiConnector connector) {
         super(machine.getName());
         myMachine = machine;
+        myImage = image;
+        myConnector = connector;
+        myProvisioningState = myMachine.getProvisioningState();
+
+        final VirtualMachineInstanceView instanceView = myMachine.getInstanceView();
+        if (instanceView != null) {
+            for (InstanceViewStatus status : instanceView.getStatuses()) {
+                final String code = status.getCode();
+                if (code.startsWith(PROVISIONING_STATE)) {
+                    myProvisioningState = code.substring(PROVISIONING_STATE.length());
+                    final DateTime dateTime = status.getTime();
+                    if (dateTime != null) {
+                        myProvisioningDate = dateTime.toDate();
+                    }
+                }
+                if (code.startsWith(POWER_STATE)) {
+                    myPowerState = code.substring(POWER_STATE.length());
+                }
+            }
+        }
     }
 
     @Override
@@ -48,28 +81,27 @@ public class AzureInstance extends AbstractInstance {
 
     @Override
     public Date getStartDate() {
-        return null;
-    } //TODO fix, when API will allow this
+        return myProvisioningDate;
+    }
 
     @Override
     public String getIpAddress() {
-        final List<NetworkInterfaceReference> networkInterfaces = myMachine.getNetworkProfile().getNetworkInterfaces();
-        if (networkInterfaces.size() == 0) {
-            return null;
-        }
-
-        return networkInterfaces.get(0).getId();
+        final String groupId = myImage.getImageDetails().getGroupId();
+        return myConnector.getIpAddress(groupId, myMachine.getName());
     }
 
     @Override
     @NotNull
     public InstanceStatus getInstanceStatus() {
-        final String state = myMachine.getProvisioningState();
-        if (STATUS_MAP.containsKey(state)) {
-            return STATUS_MAP.get(state);
+        if (!StringUtil.isEmpty(myProvisioningState) && PROVISIONING_STATES.containsKey(myProvisioningState)) {
+            return PROVISIONING_STATES.get(myProvisioningState);
         }
 
-        return InstanceStatus.UNKNOWN;
+        if (!StringUtil.isEmpty(myPowerState) && POWER_STATES.containsKey(myPowerState)) {
+            return POWER_STATES.get(myPowerState);
+        }
+
+        return InstanceStatus.RUNNING;
     }
 
     @Nullable
@@ -79,11 +111,19 @@ public class AzureInstance extends AbstractInstance {
     }
 
     static {
-        STATUS_MAP = new HashMap<String, InstanceStatus>();
-        STATUS_MAP.put("Succeeded", InstanceStatus.RUNNING);
-        STATUS_MAP.put("InProgress", InstanceStatus.STARTING);
-        STATUS_MAP.put("Creating", InstanceStatus.STARTING);
-        STATUS_MAP.put("Failed", InstanceStatus.ERROR);
-        STATUS_MAP.put("Canceled", InstanceStatus.ERROR);
+        PROVISIONING_STATES = new TreeMap<String, InstanceStatus>(String.CASE_INSENSITIVE_ORDER);
+        PROVISIONING_STATES.put("InProgress", InstanceStatus.SCHEDULED_TO_START);
+        PROVISIONING_STATES.put("Creating", InstanceStatus.SCHEDULED_TO_START);
+        PROVISIONING_STATES.put("Failed", InstanceStatus.ERROR);
+        PROVISIONING_STATES.put("Canceled", InstanceStatus.ERROR);
+
+        POWER_STATES = new TreeMap<String, InstanceStatus>(String.CASE_INSENSITIVE_ORDER);
+        POWER_STATES.put("Starting", InstanceStatus.STARTING);
+        POWER_STATES.put("Running", InstanceStatus.RUNNING);
+        POWER_STATES.put("Restarting", InstanceStatus.RESTARTING);
+        POWER_STATES.put("Stopping", InstanceStatus.STOPPING);
+        POWER_STATES.put("Deallocating", InstanceStatus.STOPPING);
+        POWER_STATES.put("Stopped", InstanceStatus.STOPPED);
+        POWER_STATES.put("Deallocated", InstanceStatus.STOPPED);
     }
 }

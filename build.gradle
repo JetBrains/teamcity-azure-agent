@@ -29,7 +29,8 @@ project(':plugin-azure-agent') {
         compile project(':plugin-azure-common')
         compile 'org.jetbrains.teamcity:agent-api:9.0'
         compile 'org.jetbrains.teamcity.internal:agent:9.0'
-        compile 'org.jetbrains.teamcity:cloud-api:8.1.2'
+        compile 'org.jetbrains.teamcity:cloud-interface:9.1.5'
+        compile 'org.jetbrains.teamcity:cloud-shared:9.1.5'
         runtime 'javax.servlet:jstl:1.1.2'
         testCompile 'org.testng:testng:6.8'
     }
@@ -63,7 +64,8 @@ project(':plugin-azure-server-base') {
     dependencies {
         compile project(':plugin-azure-common')
         compile 'org.jetbrains.teamcity:server-api:9.0'
-        compile 'org.jetbrains.teamcity:cloud-api:8.1.2'
+        compile 'org.jetbrains.teamcity:cloud-interface:9.1.5'
+        compile 'org.jetbrains.teamcity:cloud-shared:9.1.5'
         testCompile 'org.testng:testng:6.8'
     }
 }

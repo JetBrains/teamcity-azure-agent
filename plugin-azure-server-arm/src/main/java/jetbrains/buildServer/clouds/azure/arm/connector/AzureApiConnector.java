@@ -72,7 +72,8 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     private final StorageManagementClient myStorageClient;
     private final ComputeManagementClient myComputeClient;
     private final NetworkManagementClient myNetworkClient;
-    private String myServerUid = null;
+    private String myServerId = null;
+    private String myProfileId = null;
 
     public AzureApiConnector(@NotNull final String tenantId,
                              @NotNull final String clientId,
@@ -124,8 +125,11 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
             final Map<String, String> tags = virtualMachine.getTags();
             if (tags == null) continue;
 
-            final String serverUid = tags.get(AzureConstants.TAG_SERVER);
-            if (!StringUtil.areEqual(serverUid, myServerUid)) continue;
+            final String serverId = tags.get(AzureConstants.TAG_SERVER);
+            if (!StringUtil.areEqual(serverId, myServerId)) continue;
+
+            final String profileId = tags.get(AzureConstants.TAG_PROFILE);
+            if (!StringUtil.areEqual(profileId, myProfileId)) continue;
 
             final String sourceName = tags.get(AzureConstants.TAG_SOURCE);
             if (!StringUtil.areEqual(sourceName, details.getSourceName())) continue;
@@ -407,7 +411,8 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
         // Set tags
         machine.setTags(new HashMap<String, String>());
-        machine.getTags().put(AzureConstants.TAG_SERVER, myServerUid);
+        machine.getTags().put(AzureConstants.TAG_SERVER, myServerId);
+        machine.getTags().put(AzureConstants.TAG_PROFILE, tag.getProfileId());
         machine.getTags().put(AzureConstants.TAG_SOURCE, details.getSourceName());
 
         final ServiceResponse<VirtualMachine> response;
@@ -568,7 +573,11 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         return null;
     }
 
-    public void setServerUid(@Nullable final String serverUid) {
-        myServerUid = serverUid;
+    public void setServerId(@Nullable final String serverId) {
+        myServerId = serverId;
+    }
+
+    public void setProfileId(@Nullable final String profileId) {
+        myProfileId = profileId;
     }
 }

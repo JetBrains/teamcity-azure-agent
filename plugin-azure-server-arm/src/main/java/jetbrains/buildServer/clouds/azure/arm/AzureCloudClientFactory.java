@@ -22,7 +22,6 @@ import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.azure.AzureUtils;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory;
-import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.serverSide.AgentDescription;
 import jetbrains.buildServer.serverSide.InvalidProperty;
@@ -69,18 +68,19 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
                                             @NotNull final Collection<AzureCloudImageDetails> images,
                                             @NotNull final CloudClientParameters params) {
 
-        return createNewClient(params, images, Collections.<TypedCloudErrorInfo>emptyList());
+        return createNewClient(state, params, images, Collections.<TypedCloudErrorInfo>emptyList());
     }
 
     @Override
     public AzureCloudClient createNewClient(@NotNull final CloudState state,
                                             @NotNull final CloudClientParameters params,
                                             @NotNull final TypedCloudErrorInfo[] errors) {
-        return createNewClient(params, Collections.<AzureCloudImageDetails>emptyList(), Arrays.asList(errors));
+        return createNewClient(state, params, Collections.<AzureCloudImageDetails>emptyList(), Arrays.asList(errors));
     }
 
     @NotNull
-    private AzureCloudClient createNewClient(final CloudClientParameters params,
+    private AzureCloudClient createNewClient(@NotNull final CloudState state,
+                                             final CloudClientParameters params,
                                              final Collection<AzureCloudImageDetails> images,
                                              final List<TypedCloudErrorInfo> errors) {
         final String tenantId = getParameter(params, AzureConstants.TENANT_ID);
@@ -89,7 +89,8 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
         final String subscriptionId = getParameter(params, AzureConstants.SUBSCRIPTION_ID);
 
         final AzureApiConnector apiConnector = new AzureApiConnector(tenantId, clientId, clientSecret, subscriptionId);
-        apiConnector.setServerUid(mySettings.getServerUUID());
+        apiConnector.setServerId(mySettings.getServerUUID());
+        apiConnector.setProfileId(state.getProfileId());
 
         final AzureCloudClient azureCloudClient = new AzureCloudClient(params, images, apiConnector, myAzureStorage);
         azureCloudClient.updateErrors(errors);
@@ -141,7 +142,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     public PropertiesProcessor getPropertiesProcessor() {
         return new PropertiesProcessor() {
             public Collection<InvalidProperty> process(Map<String, String> properties) {
-                final List<String> keys = new ArrayList<String>(properties.keySet());
+                final List<String> keys = new ArrayList<>(properties.keySet());
                 for (String key : keys) {
                     if (SKIP_PARAMETERS.contains(key)) {
                         properties.remove(key);

@@ -25,6 +25,9 @@ subprojects {
 }
 
 project(':plugin-azure-agent') {
+    sourceCompatibility = 1.6
+    targetCompatibility = 1.6
+
     dependencies {
         compile project(':plugin-azure-common')
         compile 'org.jetbrains.teamcity:agent-api:9.0'
@@ -58,6 +61,8 @@ project(':plugin-azure-agent') {
 }
 
 project(':plugin-azure-common') {
+    sourceCompatibility = 1.6
+    targetCompatibility = 1.6
 }
 
 project(':plugin-azure-server-base') {

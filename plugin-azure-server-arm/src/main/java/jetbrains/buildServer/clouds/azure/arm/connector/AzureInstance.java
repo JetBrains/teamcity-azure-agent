@@ -47,9 +47,9 @@ public class AzureInstance extends AbstractInstance {
     private Date myProvisioningDate;
     private String myPowerState;
 
-    public AzureInstance(@NotNull final VirtualMachine machine,
-                         @NotNull final AzureCloudImage image,
-                         @NotNull final AzureApiConnector connector) {
+    AzureInstance(@NotNull final VirtualMachine machine,
+                  @NotNull final AzureCloudImage image,
+                  @NotNull final AzureApiConnector connector) {
         super(machine.getName());
         myMachine = machine;
         myImage = image;
@@ -101,7 +101,7 @@ public class AzureInstance extends AbstractInstance {
             return POWER_STATES.get(myPowerState);
         }
 
-        return InstanceStatus.RUNNING;
+        return InstanceStatus.UNKNOWN;
     }
 
     @Nullable
@@ -111,13 +111,14 @@ public class AzureInstance extends AbstractInstance {
     }
 
     static {
-        PROVISIONING_STATES = new TreeMap<String, InstanceStatus>(String.CASE_INSENSITIVE_ORDER);
+        PROVISIONING_STATES = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         PROVISIONING_STATES.put("InProgress", InstanceStatus.SCHEDULED_TO_START);
         PROVISIONING_STATES.put("Creating", InstanceStatus.SCHEDULED_TO_START);
+        PROVISIONING_STATES.put("Deleting", InstanceStatus.SCHEDULED_TO_STOP);
         PROVISIONING_STATES.put("Failed", InstanceStatus.ERROR);
         PROVISIONING_STATES.put("Canceled", InstanceStatus.ERROR);
 
-        POWER_STATES = new TreeMap<String, InstanceStatus>(String.CASE_INSENSITIVE_ORDER);
+        POWER_STATES = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
         POWER_STATES.put("Starting", InstanceStatus.STARTING);
         POWER_STATES.put("Running", InstanceStatus.RUNNING);
         POWER_STATES.put("Restarting", InstanceStatus.RESTARTING);

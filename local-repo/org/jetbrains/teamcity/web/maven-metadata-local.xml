@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <metadata>
   <groupId>org.jetbrains.teamcity</groupId>
-  <artifactId>cloud-server</artifactId>
+  <artifactId>web</artifactId>
   <versioning>
     <release>9.1.5</release>
     <versions>

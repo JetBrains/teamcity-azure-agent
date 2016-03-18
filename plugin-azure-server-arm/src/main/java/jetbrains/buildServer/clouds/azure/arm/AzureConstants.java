@@ -33,6 +33,8 @@ public class AzureConstants {
     public static final String VM_USERNAME = "vmUsername";
     public static final String VM_PASSWORD = "vmPassword";
     public static final String OS_TYPE = "osType";
+    public static final String TAG_SERVER = "teamcity-server";
+    public static final String TAG_SOURCE = "teamcity-source";
 
     public String getTenantId() {
         return TENANT_ID;

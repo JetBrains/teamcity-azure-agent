@@ -134,6 +134,7 @@ project(':plugin-azure-server-arm') {
         compile project(':plugin-azure-server-base')
         compile 'org.jetbrains.teamcity:cloud-server:9.1.5'
         compile 'org.jetbrains.teamcity:web:9.1.5'
+        compile 'org.jetbrains.teamcity:server:9.1.5'
         compile 'com.microsoft.azure:azure-mgmt-compute:1.0.0-beta1'
         compile 'com.microsoft.azure:azure-mgmt-network:1.0.0-beta1'
         compile 'com.microsoft.azure:azure-mgmt-resources:1.0.0-beta1'

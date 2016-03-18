@@ -20,9 +20,12 @@ import com.intellij.openapi.diagnostic.Logger;
 import com.microsoft.azure.credentials.ApplicationTokenCredentials;
 import com.microsoft.azure.management.compute.ComputeManagementClient;
 import com.microsoft.azure.management.compute.ComputeManagementClientImpl;
+import com.microsoft.azure.management.compute.VirtualMachinesOperations;
 import com.microsoft.azure.management.compute.models.*;
 import com.microsoft.azure.management.network.NetworkManagementClient;
 import com.microsoft.azure.management.network.NetworkManagementClientImpl;
+import com.microsoft.azure.management.network.NetworkSecurityGroupsOperations;
+import com.microsoft.azure.management.network.PublicIPAddressesOperations;
 import com.microsoft.azure.management.network.models.*;
 import com.microsoft.azure.management.resources.ResourceManagementClient;
 import com.microsoft.azure.management.resources.ResourceManagementClientImpl;
@@ -42,10 +45,12 @@ import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage;
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails;
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance;
+import jetbrains.buildServer.clouds.azure.arm.AzureConstants;
 import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.CollectionsUtil;
+import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.filters.Filter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -67,6 +72,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     private final StorageManagementClient myStorageClient;
     private final ComputeManagementClient myComputeClient;
     private final NetworkManagementClient myNetworkClient;
+    private String myServerUid = null;
 
     public AzureApiConnector(@NotNull final String tenantId,
                              @NotNull final String clientId,
@@ -100,24 +106,40 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
     @Override
     public Map<String, AzureInstance> listImageInstances(@NotNull AzureCloudImage image) throws CloudException {
-        final AzureCloudImageDetails imageDetails = image.getImageDetails();
-        final Map<String, AzureInstance> instances = new HashMap<String, AzureInstance>();
-        final ServiceResponse<List<VirtualMachine>> response;
+        final AzureCloudImageDetails details = image.getImageDetails();
+        final Map<String, AzureInstance> instances = new HashMap<>();
+        final ServiceResponse<List<VirtualMachine>> vmsResponse;
+        final VirtualMachinesOperations operations = myComputeClient.getVirtualMachinesOperations();
 
         try {
-            response = myComputeClient.getVirtualMachinesOperations().list(imageDetails.getGroupId());
+            vmsResponse = operations.list(details.getGroupId());
         } catch (Throwable e) {
             throw new CloudException("Failed to get list of virtual machines: " + e.getMessage(), e);
         }
 
-        for (VirtualMachine virtualMachine : response.getBody()) {
-            if (!virtualMachine.getName().startsWith(imageDetails.getVmNamePrefix())) continue;
+        for (VirtualMachine virtualMachine : vmsResponse.getBody()) {
+            final String name = virtualMachine.getName();
+            if (!name.startsWith(details.getVmNamePrefix())) continue;
 
             final Map<String, String> tags = virtualMachine.getTags();
-            if (tags != null && tags.containsKey("teamcity")) {
-                final AzureInstance instance = new AzureInstance(virtualMachine, image, this);
-                instances.put(virtualMachine.getName(), instance);
+            if (tags == null) continue;
+
+            final String serverUid = tags.get(AzureConstants.TAG_SERVER);
+            if (!StringUtil.areEqual(serverUid, myServerUid)) continue;
+
+            final String sourceName = tags.get(AzureConstants.TAG_SOURCE);
+            if (!StringUtil.areEqual(sourceName, details.getSourceName())) continue;
+
+            try {
+                final ServiceResponse<VirtualMachine> response = operations.get(details.getGroupId(), name, "InstanceView");
+                virtualMachine = response.getBody();
+            } catch (Exception e) {
+                LOG.warnAndDebugDetails("Failed to receive virtual machine info", e);
+                continue;
             }
+
+            final AzureInstance instance = new AzureInstance(virtualMachine, image, this);
+            instances.put(name, instance);
         }
 
         return instances;
@@ -152,7 +174,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         }
 
         final List<ResourceGroup> resourceGroups = response.getBody();
-        final List<String> groups = new ArrayList<String>(resourceGroups.size());
+        final List<String> groups = new ArrayList<>(resourceGroups.size());
         for (ResourceGroup resourceGroup : resourceGroups) {
             groups.add(resourceGroup.getName());
         }
@@ -170,7 +192,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         }
 
         final List<StorageAccount> accounts = response.getBody();
-        final List<String> storages = new ArrayList<String>(accounts.size());
+        final List<String> storages = new ArrayList<>(accounts.size());
         for (StorageAccount storageAccount : accounts) {
             storages.add(storageAccount.getName());
         }
@@ -190,7 +212,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         }
 
         final List<VirtualMachineSize> vmSizes = response.getBody();
-        final List<String> sizes = new ArrayList<String>(vmSizes.size());
+        final List<String> sizes = new ArrayList<>(vmSizes.size());
         for (VirtualMachineSize vmSize : vmSizes) {
             sizes.add(vmSize.getName());
         }
@@ -332,7 +354,8 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         networkSecurityGroup.setSubnets(subnetsResponse.getBody());
 
         try {
-            networkSecurityGroup = myNetworkClient.getNetworkSecurityGroupsOperations().createOrUpdate(groupId, securityGroupName, networkSecurityGroup).getBody();
+            final NetworkSecurityGroupsOperations operations = myNetworkClient.getNetworkSecurityGroupsOperations();
+            networkSecurityGroup = operations.createOrUpdate(groupId, securityGroupName, networkSecurityGroup).getBody();
         } catch (Throwable e) {
             throw new CloudException("Failed to create network security group: " + e.getMessage(), e);
         }
@@ -384,7 +407,8 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
 
         // Set tags
         machine.setTags(new HashMap<String, String>());
-        machine.getTags().put("teamcity", tag.getServerAddress());
+        machine.getTags().put(AzureConstants.TAG_SERVER, myServerUid);
+        machine.getTags().put(AzureConstants.TAG_SOURCE, details.getSourceName());
 
         final ServiceResponse<VirtualMachine> response;
         try {
@@ -400,8 +424,10 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         final AzureCloudImage image = instance.getImage();
         final String groupId = image.getImageDetails().getGroupId();
         final ServiceResponse<VirtualMachine> response;
+
         try {
-            response = myComputeClient.getVirtualMachinesOperations().get(groupId, instance.getName(), null);
+            final VirtualMachinesOperations operations = myComputeClient.getVirtualMachinesOperations();
+            response = operations.get(groupId, instance.getName(), "InstanceView");
         } catch (Throwable e) {
             throw new CloudException("Failed to get virtual machine status: " + e.getMessage(), e);
         }
@@ -415,6 +441,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         final String groupId = details.getGroupId();
         final String storageId = details.getStorageId();
         final String filePrefix = String.format("%s/%s", BLOBS_CONTAINER, instance.getName());
+
         try {
             myComputeClient.getVirtualMachinesOperations().delete(groupId, instance.getName());
         } catch (Throwable e) {
@@ -495,7 +522,8 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
             throw new CloudException("Failed to access storage account: " + e.getMessage(), e);
         }
 
-        final StorageCredentialsAccountAndKey credentials = new StorageCredentialsAccountAndKey(storage, keysResponse.getBody().getKey1());
+        final String storageKey = keysResponse.getBody().getKey1();
+        final StorageCredentialsAccountAndKey credentials = new StorageCredentialsAccountAndKey(storage, storageKey);
         final CloudStorageAccount storageAccount;
         try {
             storageAccount = new CloudStorageAccount(credentials);
@@ -513,7 +541,7 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         }
 
         final String blobName = filesPrefix.substring(slash + 1);
-        final List<CloudBlob> blobs = new ArrayList<CloudBlob>();
+        final List<CloudBlob> blobs = new ArrayList<>();
         try {
             for (ListBlobItem item : container.listBlobs(blobName)) {
                 blobs.add((CloudBlob) item);
@@ -526,15 +554,21 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }
 
     @Nullable
-    public String getIpAddress(String groupId, String machineName) {
+    String getIpAddress(String groupId, String machineName) {
         final String nicName = machineName + PUBLIC_IP_SUFFIX;
+
         try {
-            final ServiceResponse<PublicIPAddress> response = myNetworkClient.getPublicIPAddressesOperations().get(groupId, nicName, null);
+            final PublicIPAddressesOperations operations = myNetworkClient.getPublicIPAddressesOperations();
+            final ServiceResponse<PublicIPAddress> response = operations.get(groupId, nicName, null);
             return response.getBody().getIpAddress();
         } catch (Exception e) {
             LOG.warnAndDebugDetails("Failed to get public ip address", e);
         }
 
         return null;
+    }
+
+    public void setServerUid(@Nullable final String serverUid) {
+        myServerUid = serverUid;
     }
 }

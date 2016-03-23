@@ -25,20 +25,18 @@ import jetbrains.buildServer.serverSide.crypt.EncryptUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
-import java.util.Collection;
 
 /**
  * ARM cloud client.
  */
-public class AzureCloudClient extends AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
+class AzureCloudClient extends AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
 
     private final File myAzureIdxStorage;
 
-    public AzureCloudClient(@NotNull final CloudClientParameters params,
-                            @NotNull final Collection<AzureCloudImageDetails> images,
-                            @NotNull final CloudApiConnector apiConnector,
-                            @NotNull final File azureIdxStorage) {
-        super(params, images, apiConnector);
+    AzureCloudClient(@NotNull final CloudClientParameters params,
+                     @NotNull final CloudApiConnector<AzureCloudImage, AzureCloudInstance> apiConnector,
+                     @NotNull final File azureIdxStorage) {
+        super(params, apiConnector);
         myAzureIdxStorage = azureIdxStorage;
     }
 

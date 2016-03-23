@@ -30,13 +30,12 @@ import jetbrains.buildServer.clouds.azure.asm.connector.AzureInstance;
 import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
 import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
+import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -54,10 +53,10 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   private final IdProvider myIdProvider;
   private boolean myGeneralized;
 
-  protected AzureCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
-                            @NotNull final ProvisionActionsQueue actionsQueue,
-                            @NotNull final AzureApiConnector apiConnector,
-                            @NotNull final IdProvider idProvider) {
+  AzureCloudImage(@NotNull final AzureCloudImageDetails imageDetails,
+                  @NotNull final ProvisionActionsQueue actionsQueue,
+                  @NotNull final AzureApiConnector apiConnector,
+                  @NotNull final IdProvider idProvider) {
     super(imageDetails.getSourceName(), imageDetails.getSourceName());
     myImageDetails = imageDetails;
     myActionsQueue = actionsQueue;
@@ -90,8 +89,8 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
   }
 
   @Override
-  public AzureCloudInstance getCloudInstance(@NotNull String name) {
-    return new AzureCloudInstance(this, name);
+  protected AzureCloudInstance createInstanceFromReal(AbstractInstance realInstance) {
+    return new AzureCloudInstance(this, realInstance.getName());
   }
 
   @Override
@@ -140,17 +139,17 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
             } else if (statusResponse.getStatus() == OperationStatus.Failed) {
               instance.setStatus(InstanceStatus.ERROR_CANNOT_STOP);
               final OperationStatusResponse.ErrorDetails error = statusResponse.getError();
-              instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(error.getCode(), error.getMessage())));
+              instance.updateErrors(new TypedCloudErrorInfo(error.getCode(), error.getMessage()));
             }
           } catch (Exception e) {
             instance.setStatus(InstanceStatus.ERROR_CANNOT_STOP);
-            instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(e.getMessage(), e.toString())));
+            instance.updateErrors(new TypedCloudErrorInfo(e.getMessage(), e.toString()));
           }
         }
 
         public void onError(final Throwable th) {
           instance.setStatus(InstanceStatus.ERROR);
-          instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(th.getMessage(), th.getMessage())));
+          instance.updateErrors(new TypedCloudErrorInfo(th.getMessage(), th.getMessage()));
         }
       });
     } catch (Exception e) {
@@ -190,7 +189,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
 
       public void onError(final Throwable th) {
         instance.setStatus(InstanceStatus.ERROR);
-        instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(th.getMessage(), th.getMessage())));
+        instance.updateErrors(new TypedCloudErrorInfo(th.getMessage(), th.getMessage()));
       }
     });
 
@@ -216,7 +215,6 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
       myInstances.put(instance.getInstanceId(), instance);
     }
     instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
-    instance.refreshStartDate();
     try {
       myActionsQueue.queueAction(
               myImageDetails.getServiceName(), new ProvisionActionsQueue.InstanceAction() {
@@ -250,23 +248,22 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
                     final OperationStatusResponse operationStatus = myApiConnector.getOperationStatus(operationId);
                     if (operationStatus.getStatus() == OperationStatus.Succeeded) {
                       instance.setStatus(InstanceStatus.RUNNING);
-                      instance.refreshStartDate();
                     } else if (operationStatus.getStatus() == OperationStatus.Failed) {
                       instance.setStatus(InstanceStatus.ERROR);
                       final OperationStatusResponse.ErrorDetails error = operationStatus.getError();
-                      instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(error.getCode(), error.getMessage())));
+                      instance.updateErrors(new TypedCloudErrorInfo(error.getCode(), error.getMessage()));
                       LOG.warn(error.getMessage());
                     }
                   } catch (Exception e) {
                     LOG.warn(e.toString(), e);
                     instance.setStatus(InstanceStatus.ERROR);
-                    instance.updateErrors(Collections.singleton(new TypedCloudErrorInfo(e.getMessage(), e.toString())));
+                    instance.updateErrors(new TypedCloudErrorInfo(e.getMessage(), e.toString()));
                   }
                 }
 
                 public void onError(final Throwable th) {
                   instance.setStatus(InstanceStatus.ERROR);
-                  instance.updateErrors(Arrays.asList(new TypedCloudErrorInfo(th.getMessage(), th.getMessage())));
+                  instance.updateErrors(new TypedCloudErrorInfo(th.getMessage(), th.getMessage()));
                 }
               });
     } catch (Exception e) {

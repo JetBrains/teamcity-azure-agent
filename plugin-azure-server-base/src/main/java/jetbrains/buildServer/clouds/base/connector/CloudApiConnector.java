@@ -1,31 +1,30 @@
 /*
+ * Copyright 2000-2016 JetBrains s.r.o.
  *
- *  * Copyright 2000-2014 JetBrains s.r.o.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package jetbrains.buildServer.clouds.base.connector;
 
 import java.util.Collection;
 import java.util.Map;
-import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.AbstractCloudInstance;
+import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * @author Sergey.Pak
@@ -34,13 +33,20 @@ import org.jetbrains.annotations.NotNull;
  */
 public interface CloudApiConnector<T extends AbstractCloudImage, G extends AbstractCloudInstance> {
 
-  void ping() throws CloudException;
+  void test() throws CheckedCloudException;
 
-  InstanceStatus getInstanceStatus(@NotNull final G instance);
+  @Nullable
+  InstanceStatus getInstanceStatusIfExists(@NotNull G instance);
 
-  Map<String, ? extends AbstractInstance> listImageInstances(@NotNull final T image) throws CloudException;
+  @NotNull
+  <R extends AbstractInstance> Map<String, R> fetchInstances(@NotNull final T image) throws CheckedCloudException;
 
-  Collection<TypedCloudErrorInfo> checkImage(@NotNull final T image);
+  @NotNull
+  <R extends AbstractInstance> Map<T, Map<String, R>> fetchInstances(@NotNull final Collection<T> images) throws CheckedCloudException;
 
-  Collection<TypedCloudErrorInfo> checkInstance(@NotNull final G instance);
+  @NotNull
+  TypedCloudErrorInfo[] checkImage(@NotNull final T image);
+
+  @NotNull
+  TypedCloudErrorInfo[] checkInstance(@NotNull final G instance);
 }

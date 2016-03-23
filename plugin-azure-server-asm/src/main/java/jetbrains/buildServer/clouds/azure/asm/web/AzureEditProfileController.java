@@ -28,6 +28,7 @@ import javax.servlet.http.HttpServletResponse;
 import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.asm.errors.InvalidCertificateException;
+import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.controllers.*;
 import jetbrains.buildServer.controllers.admin.projects.PluginPropertiesUtil;
 import jetbrains.buildServer.log.Loggers;
@@ -121,14 +122,14 @@ public class AzureEditProfileController extends BaseFormXmlController {
     AzureApiConnector apiConnector;
     try {
       apiConnector = new AzureApiConnector(subscriptionId, certificate);
-      apiConnector.ping();
+      apiConnector.test();
     } catch (InvalidCertificateException ex){
       errors.addError("certificateError", "Invalid Management certificate. Please enter the Management Certificate exactly as it is presented in the subscription file.");
       writeErrors(xmlResponse, errors);
       LOG.warn("An error during initializing connection: " + ex.toString());
       LOG.debug("An error during initializing connection: ", ex);
       return;
-    } catch (CloudException ex){
+    } catch (CheckedCloudException ex){
       errors.addError("pingError", "Error connecting to Microsoft Azure. Please check that your Management Certificate and Subscription ID are valid.");
       writeErrors(xmlResponse, errors);
       LOG.warn("An error during initializing connection: " + ex.toString());

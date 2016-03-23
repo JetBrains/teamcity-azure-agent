@@ -46,8 +46,9 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage;
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails;
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance;
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants;
-import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
-import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
+import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase;
+import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
+import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
@@ -61,13 +62,14 @@ import java.util.*;
 /**
  * Provides azure arm management capabilities.
  */
-public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, AzureCloudInstance>, ActionIdChecker {
+public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance> {
 
     private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
     private static final int RESOURCES_NUMBER = 100;
     private static final String BLOBS_CONTAINER = "vhds";
     private static final String NETWORK_IP_SUFFIX = "-net";
     private static final String PUBLIC_IP_SUFFIX = "-pip";
+    private static final String INSTANCE_VIEW = "InstanceView";
     private final ResourceManagementClient myArmClient;
     private final StorageManagementClient myStorageClient;
     private final ComputeManagementClient myComputeClient;
@@ -95,77 +97,95 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
     }
 
     @Override
-    public void ping() throws CloudException {
+    public void test() throws CloudException {
         getResourceGroups();
     }
 
+    @Nullable
     @Override
-    public InstanceStatus getInstanceStatus(@NotNull AzureCloudInstance instance) {
-        updateVmStatus(instance);
-        return instance.getStatus();
-    }
-
-    @Override
-    public Map<String, AzureInstance> listImageInstances(@NotNull AzureCloudImage image) throws CloudException {
+    public InstanceStatus getInstanceStatusIfExists(@NotNull AzureCloudInstance instance) {
+        final AzureCloudImage image = instance.getImage();
         final AzureCloudImageDetails details = image.getImageDetails();
-        final Map<String, AzureInstance> instances = new HashMap<>();
-        final ServiceResponse<List<VirtualMachine>> vmsResponse;
         final VirtualMachinesOperations operations = myComputeClient.getVirtualMachinesOperations();
+        final ServiceResponse<VirtualMachine> vmResponse;
 
         try {
-            vmsResponse = operations.list(details.getGroupId());
-        } catch (Throwable e) {
-            throw new CloudException("Failed to get list of virtual machines: " + e.getMessage(), e);
+            vmResponse = operations.get(details.getGroupId(), instance.getName(), INSTANCE_VIEW);
+            final AzureInstance azureInstance = new AzureInstance(vmResponse.getBody(), image, this);
+            return azureInstance.getInstanceStatus();
+        } catch (Exception e) {
+            LOG.warnAndDebugDetails("Failed to get virtual machine " + instance.getName(), e);
         }
 
-        for (VirtualMachine virtualMachine : vmsResponse.getBody()) {
-            final String name = virtualMachine.getName();
-            if (!name.startsWith(details.getVmNamePrefix())) continue;
+        return null;
+    }
 
-            final Map<String, String> tags = virtualMachine.getTags();
-            if (tags == null) continue;
+    @NotNull
+    @Override
+    @SuppressWarnings("unchecked")
+    public <R extends AbstractInstance> Map<AzureCloudImage, Map<String, R>> fetchInstances(@NotNull Collection<AzureCloudImage> images) throws CheckedCloudException {
+        final HashMap<AzureCloudImage, Map<String, R>> imageMap = new HashMap<>();
 
-            final String serverId = tags.get(AzureConstants.TAG_SERVER);
-            if (!StringUtil.areEqual(serverId, myServerId)) continue;
-
-            final String profileId = tags.get(AzureConstants.TAG_PROFILE);
-            if (!StringUtil.areEqual(profileId, myProfileId)) continue;
-
-            final String sourceName = tags.get(AzureConstants.TAG_SOURCE);
-            if (!StringUtil.areEqual(sourceName, details.getSourceName())) continue;
+        for (AzureCloudImage image : images) {
+            final AzureCloudImageDetails details = image.getImageDetails();
+            final Map<String, R> instances = new HashMap<>();
+            final ServiceResponse<List<VirtualMachine>> vmsResponse;
+            final VirtualMachinesOperations operations = myComputeClient.getVirtualMachinesOperations();
 
             try {
-                final ServiceResponse<VirtualMachine> response = operations.get(details.getGroupId(), name, "InstanceView");
-                virtualMachine = response.getBody();
-            } catch (Exception e) {
-                LOG.warnAndDebugDetails("Failed to receive virtual machine info", e);
-                continue;
+                vmsResponse = operations.list(details.getGroupId());
+            } catch (Throwable e) {
+                throw new CloudException("Failed to get list of virtual machines: " + e.getMessage(), e);
             }
 
-            final AzureInstance instance = new AzureInstance(virtualMachine, image, this);
-            instances.put(name, instance);
+            for (VirtualMachine virtualMachine : vmsResponse.getBody()) {
+                final String name = virtualMachine.getName();
+                if (!name.startsWith(details.getVmNamePrefix())) continue;
+
+                final Map<String, String> tags = virtualMachine.getTags();
+                if (tags == null) continue;
+
+                final String serverId = tags.get(AzureConstants.TAG_SERVER);
+                if (!StringUtil.areEqual(serverId, myServerId)) continue;
+
+                final String profileId = tags.get(AzureConstants.TAG_PROFILE);
+                if (!StringUtil.areEqual(profileId, myProfileId)) continue;
+
+                final String sourceName = tags.get(AzureConstants.TAG_SOURCE);
+                if (!StringUtil.areEqual(sourceName, details.getSourceName())) continue;
+
+                try {
+                    final ServiceResponse<VirtualMachine> response = operations.get(details.getGroupId(), name, INSTANCE_VIEW);
+                    virtualMachine = response.getBody();
+                } catch (Exception e) {
+                    LOG.warnAndDebugDetails("Failed to receive virtual machine info", e);
+                    continue;
+                }
+
+                final AzureInstance instance = new AzureInstance(virtualMachine, image, this);
+                instances.put(name, (R)instance);
+            }
+
+            imageMap.put(image, instances);
         }
 
-        return instances;
+        return imageMap;
     }
 
+    @NotNull
     @Override
-    public Collection<TypedCloudErrorInfo> checkImage(@NotNull AzureCloudImage image) {
-        return Collections.emptyList();
+    public TypedCloudErrorInfo[] checkImage(@NotNull AzureCloudImage image) {
+        return new TypedCloudErrorInfo[]{};
     }
 
+    @NotNull
     @Override
-    public Collection<TypedCloudErrorInfo> checkInstance(@NotNull AzureCloudInstance instance) {
+    public TypedCloudErrorInfo[] checkInstance(@NotNull AzureCloudInstance instance) {
         if (instance.getStatus() != InstanceStatus.ERROR) {
-            return Collections.emptyList();
+            return new TypedCloudErrorInfo[]{};
         }
 
-        return Collections.singletonList(new TypedCloudErrorInfo("error", "Error occurred while VM provisioning"));
-    }
-
-    @Override
-    public boolean isActionFinished(@NotNull String actionId) {
-        return false;
+        return new TypedCloudErrorInfo[]{new TypedCloudErrorInfo("error", "Error occurred while VM provisioning")};
     }
 
     @NotNull
@@ -423,22 +443,6 @@ public class AzureApiConnector implements CloudApiConnector<AzureCloudImage, Azu
         }
 
         return response.getBody().getName();
-    }
-
-    public void updateVmStatus(AzureCloudInstance instance) {
-        final AzureCloudImage image = instance.getImage();
-        final String groupId = image.getImageDetails().getGroupId();
-        final ServiceResponse<VirtualMachine> response;
-
-        try {
-            final VirtualMachinesOperations operations = myComputeClient.getVirtualMachinesOperations();
-            response = operations.get(groupId, instance.getName(), "InstanceView");
-        } catch (Throwable e) {
-            throw new CloudException("Failed to get virtual machine status: " + e.getMessage(), e);
-        }
-
-        final AzureInstance azureInstance = new AzureInstance(response.getBody(), image, this);
-        instance.setStatus(azureInstance.getInstanceStatus());
     }
 
     public void deleteVm(@NotNull final AzureCloudInstance instance) {

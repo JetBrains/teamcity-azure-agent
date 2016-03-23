@@ -18,7 +18,6 @@ package jetbrains.buildServer.clouds.azure.arm;
 import com.google.gson.annotations.SerializedName;
 import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
-import jetbrains.buildServer.serverSide.crypt.EncryptUtil;
 import org.jetbrains.annotations.NotNull;
 
 /**

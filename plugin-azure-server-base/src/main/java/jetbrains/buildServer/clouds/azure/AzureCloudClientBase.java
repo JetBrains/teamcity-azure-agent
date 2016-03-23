@@ -28,8 +28,6 @@ import jetbrains.buildServer.serverSide.AgentDescription;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collection;
-
 /**
  * Azure cloud client base.
  */
@@ -39,14 +37,13 @@ public abstract class AzureCloudClientBase<G extends AbstractCloudInstance<T>, T
     private static final Logger LOG = Logger.getInstance(AzureCloudClientBase.class.getName());
 
     public AzureCloudClientBase(@NotNull final CloudClientParameters params,
-                                @NotNull final Collection<D> imageDetails,
-                                @NotNull final CloudApiConnector apiConnector) {
-        super(params, imageDetails, apiConnector);
+                                @NotNull final CloudApiConnector<T, G> apiConnector) {
+        super(params, apiConnector);
     }
 
     @Override
     protected UpdateInstancesTask<G, T, ?> createUpdateInstancesTask() {
-        return new UpdateInstancesTask<G, T, AzureCloudClientBase<G, T, D>>(myApiConnector, this);
+        return new UpdateInstancesTask<>(myApiConnector, this);
     }
 
     @Override

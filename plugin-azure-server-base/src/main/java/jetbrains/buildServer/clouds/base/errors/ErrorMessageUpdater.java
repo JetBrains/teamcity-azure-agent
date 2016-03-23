@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.base.beans;
-
-import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
+package jetbrains.buildServer.clouds.base.errors;
 
 /**
  * @author Sergey.Pak
- *         Date: 8/1/2014
- *         Time: 4:45 PM
+ *         Date: 11/13/2014
+ *         Time: 2:13 PM
  */
-public interface CloudImageDetails {
+public interface ErrorMessageUpdater {
 
-  CloneBehaviour getBehaviour();
+  String getFriendlyErrorMessage(String message);
 
-  int getMaxInstances();
+  String getFriendlyErrorMessage(String message, String defaultMessage);
 
-  String getSourceName();
+  String getFriendlyErrorMessage(Throwable th);
+
+  String getFriendlyErrorMessage(Throwable th, String defaultMessage);
 }

@@ -68,21 +68,13 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
                                             @NotNull final Collection<AzureCloudImageDetails> images,
                                             @NotNull final CloudClientParameters params) {
 
-        return createNewClient(state, params, images, Collections.<TypedCloudErrorInfo>emptyList());
+        return createNewClient(state, params, new TypedCloudErrorInfo[]{});
     }
 
     @Override
     public AzureCloudClient createNewClient(@NotNull final CloudState state,
                                             @NotNull final CloudClientParameters params,
                                             @NotNull final TypedCloudErrorInfo[] errors) {
-        return createNewClient(state, params, Collections.<AzureCloudImageDetails>emptyList(), Arrays.asList(errors));
-    }
-
-    @NotNull
-    private AzureCloudClient createNewClient(@NotNull final CloudState state,
-                                             final CloudClientParameters params,
-                                             final Collection<AzureCloudImageDetails> images,
-                                             final List<TypedCloudErrorInfo> errors) {
         final String tenantId = getParameter(params, AzureConstants.TENANT_ID);
         final String clientId = getParameter(params, AzureConstants.CLIENT_ID);
         final String clientSecret = getParameter(params, AzureConstants.CLIENT_SECRET);
@@ -92,7 +84,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
         apiConnector.setServerId(mySettings.getServerUUID());
         apiConnector.setProfileId(state.getProfileId());
 
-        final AzureCloudClient azureCloudClient = new AzureCloudClient(params, images, apiConnector, myAzureStorage);
+        final AzureCloudClient azureCloudClient = new AzureCloudClient(params, apiConnector, myAzureStorage);
         azureCloudClient.updateErrors(errors);
 
         return azureCloudClient;

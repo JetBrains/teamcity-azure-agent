@@ -37,16 +37,15 @@ public class ProvisionActionsQueue {
   private static final Pattern CONFLICT_ERROR_PATTERN = Pattern.compile("Windows Azure is currently performing an operation with x-ms-requestid ([0-9a-f]{32}) on this deployment that requires exclusive access.");
   private static final Pattern PORT_ERROR_PATTERN = Pattern.compile("Port (\\d+) is already in use by one of the endpoints in this deployment. Ensure that the port numbers are unique across endpoints within a deployment.");
 
-  private final Map<String, AtomicReference<String>> requestsQueue = new HashMap<String, AtomicReference<String>>();
+  private final Map<String, AtomicReference<String>> requestsQueue = new HashMap<>();
   private final ConditionalRunner myRunner = new ConditionalRunner();
 
   public ProvisionActionsQueue(final CloudAsyncTaskExecutor asyncTaskExecutor) {
-    asyncTaskExecutor.scheduleWithFixedDelay(myRunner, 0, 5, TimeUnit.SECONDS);
+    asyncTaskExecutor.scheduleWithFixedDelay("Update instances", myRunner, 0, 5, TimeUnit.SECONDS);
   }
 
   public boolean isLocked(@NotNull final String serviceName) {
-    final String key = serviceName;
-    return requestsQueue.get(key) == null || requestsQueue.get(key).get() == null;
+    return requestsQueue.get(serviceName) == null || requestsQueue.get(serviceName).get() == null;
   }
 
   public synchronized void queueAction(@NotNull final String serviceName, @NotNull final InstanceAction action) {

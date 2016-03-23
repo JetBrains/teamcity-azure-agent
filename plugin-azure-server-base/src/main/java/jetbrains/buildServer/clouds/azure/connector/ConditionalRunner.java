@@ -27,10 +27,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
  *         Date: 8/14/2014
  *         Time: 4:50 PM
  */
-public class ConditionalRunner implements Runnable {
+class ConditionalRunner implements Runnable {
   private static final Logger LOG = Logger.getInstance(ConditionalRunner.class.getName());
 
-  private final List<Conditional> myItems = new CopyOnWriteArrayList<Conditional>();
+  private final List<Conditional> myItems = new CopyOnWriteArrayList<>();
 
 
   public void run() {
@@ -51,12 +51,12 @@ public class ConditionalRunner implements Runnable {
     }
   }
 
-  public void addConditional(Conditional conditional) {
+  void addConditional(Conditional conditional) {
     myItems.add(conditional);
     LOG.info(String.format("Added conditional '%s'", conditional.getName()));
   }
 
-  public interface Conditional {
+  interface Conditional {
 
     @NotNull
     String getName();

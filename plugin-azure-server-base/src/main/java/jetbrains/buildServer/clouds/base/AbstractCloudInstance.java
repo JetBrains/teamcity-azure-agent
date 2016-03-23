@@ -1,35 +1,33 @@
 /*
+ * Copyright 2000-2016 JetBrains s.r.o.
  *
- *  * Copyright 2000-2014 JetBrains s.r.o.
- *  *
- *  * Licensed under the Apache License, Version 2.0 (the "License");
- *  * you may not use this file except in compliance with the License.
- *  * You may obtain a copy of the License at
- *  *
- *  * http://www.apache.org/licenses/LICENSE-2.0
- *  *
- *  * Unless required by applicable law or agreed to in writing, software
- *  * distributed under the License is distributed on an "AS IS" BASIS,
- *  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  * See the License for the specific language governing permissions and
- *  * limitations under the License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package jetbrains.buildServer.clouds.base;
 
-import java.util.Collection;
-import java.util.Date;
-import java.util.Map;
+import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.clouds.CloudErrorInfo;
-import jetbrains.buildServer.clouds.CloudImage;
 import jetbrains.buildServer.clouds.CloudInstance;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.errors.CloudErrorMap;
+import jetbrains.buildServer.clouds.base.errors.DefaultErrorMessageUpdater;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.clouds.base.errors.UpdatableCloudErrorProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.Date;
 
 /**
  * @author Sergey.Pak
@@ -37,86 +35,100 @@ import org.jetbrains.annotations.Nullable;
  *         Time: 1:51 PM
  */
 public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implements CloudInstance, UpdatableCloudErrorProvider {
+    private static final Logger LOG = Logger.getInstance(AbstractCloudInstance.class.getName());
 
-  private UpdatableCloudErrorProvider myErrorProvider;
-  protected InstanceStatus myStatus = InstanceStatus.UNKNOWN;
+    private final UpdatableCloudErrorProvider myErrorProvider;
+    protected InstanceStatus myStatus = InstanceStatus.UNKNOWN;
 
-  @NotNull
-  protected final T myImage;
-  private Date myStartDate = new Date();
-  private String myNetworkIdentify = null;
-  private final String myName;
-  private final String myInstanceId;
+    @NotNull
+    protected final T myImage;
+    private Date myStartDate = new Date();
+    private Date myStatusUpdateTime = new Date();
+    private String myNetworkIdentify = null;
+    private final String myName;
+    private final String myInstanceId;
 
-  protected AbstractCloudInstance(@NotNull final T image, @NotNull final String name, @NotNull final String instanceId) {
-    myImage = image;
-    myName = name;
-    myInstanceId = instanceId;
-    myErrorProvider = new CloudErrorMap();
-  }
+    protected AbstractCloudInstance(@NotNull final T image,
+                                    @NotNull final String name,
+                                    @NotNull final String instanceId) {
+        myImage = image;
+        myName = name;
+        myInstanceId = instanceId;
+        myErrorProvider = new CloudErrorMap(new DefaultErrorMessageUpdater(), "Unable to get instance details. See details");
+    }
 
-  @NotNull
-  public String getName() {
-    return myName;
-  }
+    @NotNull
+    public String getName() {
+        return myName;
+    }
 
-  @NotNull
-  public String getInstanceId() {
-    return myInstanceId;
-  }
+    @NotNull
+    public String getInstanceId() {
+        return myInstanceId;
+    }
 
-  public void updateErrors(@Nullable final Collection<TypedCloudErrorInfo> errors) {
-    myErrorProvider.updateErrors(errors);
-  }
 
-  @NotNull
-  public T getImage() {
-    return myImage;
-  }
+    public void updateErrors(TypedCloudErrorInfo... errors) {
+        myErrorProvider.updateErrors(errors);
+    }
 
-  @NotNull
-  public String getImageId() {
-    return myImage.getId();
-  }
+    @NotNull
+    public T getImage() {
+        return myImage;
+    }
 
-  @Nullable
-  public CloudErrorInfo getErrorInfo() {
-    return myErrorProvider.getErrorInfo();
-  }
+    @NotNull
+    public String getImageId() {
+        return myImage.getId();
+    }
 
-  @NotNull
-  public InstanceStatus getStatus() {
-    return myStatus;
-  }
+    @Nullable
+    public CloudErrorInfo getErrorInfo() {
+        return myErrorProvider.getErrorInfo();
+    }
 
-  public void setStatus(@NotNull final InstanceStatus status) {
-    myStatus = status;
-  }
+    @NotNull
+    public InstanceStatus getStatus() {
+        return myStatus;
+    }
 
-  @NotNull
-  public Date getStartedTime() {
-    return myStartDate;
-  }
+    public void setStatus(@NotNull final InstanceStatus status) {
+        if (myStatus == status) {
+            return;
+        }
+        LOG.info(String.format("Changing %s(%x) status from %s to %s ", getName(), hashCode(), myStatus, status));
+        myStatus = status;
+        myStatusUpdateTime = new Date();
+    }
 
-  public void refreshStartDate(){
-    setStartDate(new Date());
-  }
+    @NotNull
+    public Date getStartedTime() {
+        return myStartDate;
+    }
 
-  public void setStartDate(final Date startDate) {
-    myStartDate = startDate;
-  }
+    public void setStartDate(final Date startDate) {
+        if (startDate.after(myStartDate)) {
+            myStartDate = startDate;
+        } else if (startDate.before(myStartDate)) {
+            LOG.debug(String.format("Attempted to set start date to %s from %s", startDate.toString(), myStartDate.toString()));
+        }
+    }
 
-  public void setNetworkIdentify(final String networkIdentify) {
-    myNetworkIdentify = networkIdentify;
-  }
+    public Date getStatusUpdateTime() {
+        return myStatusUpdateTime;
+    }
 
-  @Nullable
-  public String getNetworkIdentity() {
-    return myNetworkIdentify;
-  }
+    public void setNetworkIdentify(final String networkIdentify) {
+        myNetworkIdentify = networkIdentify;
+    }
 
-  @Override
-  public String toString() {
-    return getClass().getSimpleName() +"{" +"myName='" + getInstanceId() + '\'' +'}';
-  }
+    @Nullable
+    public String getNetworkIdentity() {
+        return null;
+    }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "{" + "myName='" + getInstanceId() + '\'' + '}';
+    }
 }

@@ -27,11 +27,11 @@ import org.jetbrains.annotations.NotNull;
  */
 public class AzureCloudInstance extends AbstractCloudInstance<AzureCloudImage> {
 
-  protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name) {
+  AzureCloudInstance(@NotNull final AzureCloudImage image, String name) {
     super(image, name, name);
   }
 
-  protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name, String id) {
+  AzureCloudInstance(@NotNull final AzureCloudImage image, String name, String id) {
     super(image, name, id);
   }
 

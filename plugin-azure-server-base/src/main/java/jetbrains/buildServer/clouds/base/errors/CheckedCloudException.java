@@ -14,20 +14,24 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.base.beans;
-
-import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
+package jetbrains.buildServer.clouds.base.errors;
 
 /**
  * @author Sergey.Pak
- *         Date: 8/1/2014
- *         Time: 4:45 PM
+ *         Date: 11/12/2014
+ *         Time: 5:54 PM
  */
-public interface CloudImageDetails {
+public class CheckedCloudException extends Exception {
 
-  CloneBehaviour getBehaviour();
+  public CheckedCloudException(final Throwable cause) {
+    super(cause);
+  }
 
-  int getMaxInstances();
+  public CheckedCloudException(final String message) {
+    super(message);
+  }
 
-  String getSourceName();
+  public CheckedCloudException(final String message, final Throwable cause) {
+    super(message, cause);
+  }
 }

@@ -34,8 +34,7 @@ import java.util.TreeMap;
 /**
  * Azure cloud instance.
  */
-public class AzureInstance extends AbstractInstance {
-
+public class AzureInstance implements AbstractInstance {
     private static Map<String, InstanceStatus> PROVISIONING_STATES;
     private static Map<String, InstanceStatus> POWER_STATES;
     private static final String PROVISIONING_STATE = "ProvisioningState/";
@@ -50,7 +49,6 @@ public class AzureInstance extends AbstractInstance {
     AzureInstance(@NotNull final VirtualMachine machine,
                   @NotNull final AzureCloudImage image,
                   @NotNull final AzureApiConnector connector) {
-        super(machine.getName());
         myMachine = machine;
         myImage = image;
         myConnector = connector;
@@ -72,6 +70,12 @@ public class AzureInstance extends AbstractInstance {
                 }
             }
         }
+    }
+
+    @NotNull
+    @Override
+    public String getName() {
+        return myMachine.getName();
     }
 
     @Override

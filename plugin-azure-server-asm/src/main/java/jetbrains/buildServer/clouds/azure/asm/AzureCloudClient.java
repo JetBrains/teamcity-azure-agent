@@ -43,10 +43,10 @@ public class AzureCloudClient extends AzureCloudClientBase<AzureCloudInstance, A
                             @NotNull final Collection<AzureCloudImageDetails> images,
                             @NotNull final AzureApiConnector apiConnector,
                             @NotNull final File azureIdxStorage) {
-        super(params, images, apiConnector);
+        super(params, apiConnector);
         myAzureIdxStorage = azureIdxStorage;
         myActionsQueue = new ProvisionActionsQueue(myAsyncTaskExecutor);
-        myAsyncTaskExecutor.scheduleWithFixedDelay(myActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
+        myAsyncTaskExecutor.scheduleWithFixedDelay("Update instances", myActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
     }
 
     @Override

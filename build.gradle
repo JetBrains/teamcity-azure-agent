@@ -149,6 +149,7 @@ project(':plugin-azure-server-arm') {
         compile 'com.microsoft.azure:azure-client-authentication:1.0.0-beta1'
         compile 'com.microsoft.azure:azure-client-runtime:1.0.0-beta1'
         compile 'com.microsoft.azure:azure-storage:4.0.0'
+        compile 'org.jdeferred:jdeferred-core:1.2.4'
         runtime 'javax.servlet:jstl:1.1.2'
         testCompile 'org.testng:testng:6.8'
     }
@@ -177,6 +178,7 @@ project(':plugin-azure-server-arm') {
             include 'plugin-azure-*.jar'
             include 'retrofit-*.jar'
             include 'guava-18*.jar'
+            include 'jdeferred-core-*.jar'
             into 'server'
         }
         

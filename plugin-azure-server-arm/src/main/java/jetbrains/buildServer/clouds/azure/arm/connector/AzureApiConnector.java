@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.connector;
 
 import com.intellij.openapi.diagnostic.Logger;
+import com.microsoft.azure.ListOperationCallback;
 import com.microsoft.azure.credentials.ApplicationTokenCredentials;
 import com.microsoft.azure.management.compute.ComputeManagementClient;
 import com.microsoft.azure.management.compute.ComputeManagementClientImpl;
@@ -24,7 +25,6 @@ import com.microsoft.azure.management.compute.VirtualMachinesOperations;
 import com.microsoft.azure.management.compute.models.*;
 import com.microsoft.azure.management.network.NetworkManagementClient;
 import com.microsoft.azure.management.network.NetworkManagementClientImpl;
-import com.microsoft.azure.management.network.NetworkSecurityGroupsOperations;
 import com.microsoft.azure.management.network.PublicIPAddressesOperations;
 import com.microsoft.azure.management.network.models.*;
 import com.microsoft.azure.management.resources.ResourceManagementClient;
@@ -37,6 +37,7 @@ import com.microsoft.azure.management.storage.models.StorageAccountKeys;
 import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageCredentialsAccountAndKey;
 import com.microsoft.azure.storage.blob.*;
+import com.microsoft.rest.ServiceCallback;
 import com.microsoft.rest.ServiceResponse;
 import com.microsoft.rest.credentials.ServiceClientCredentials;
 import jetbrains.buildServer.clouds.CloudException;
@@ -53,6 +54,12 @@ import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.filters.Filter;
+import org.jdeferred.*;
+import org.jdeferred.impl.DefaultDeferredManager;
+import org.jdeferred.impl.DeferredObject;
+import org.jdeferred.multiple.MasterProgress;
+import org.jdeferred.multiple.MultipleResults;
+import org.jdeferred.multiple.OneReject;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
@@ -77,6 +84,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     private final StorageManagementClient myStorageClient;
     private final ComputeManagementClient myComputeClient;
     private final NetworkManagementClient myNetworkClient;
+    private final DefaultDeferredManager myManager;
     private String myServerId = null;
     private String myProfileId = null;
 
@@ -97,6 +105,8 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
         myNetworkClient = new NetworkManagementClientImpl(credentials);
         myNetworkClient.setSubscriptionId(subscriptionId);
+
+        myManager = new DefaultDeferredManager();
     }
 
     @Override
@@ -277,9 +287,8 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     }
 
     @NotNull
-    public String createVm(AzureCloudInstance instance, CloudInstanceUserData tag) throws IOException {
+    public void createVm(final AzureCloudInstance instance, final CloudInstanceUserData tag) throws IOException {
         final AzureCloudImageDetails details = instance.getImage().getImageDetails();
-        final ServiceResponse<Boolean> existenceResponse;
         final String groupId = details.getGroupId();
         final String storageId = details.getStorageId();
         final String imagePath = details.getImagePath();
@@ -297,192 +306,303 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         final String userImageName = String.format("https://%s.blob.core.windows.net/%s", storageId, imagePath);
         final String customData = new String(Base64.getEncoder().encode(tag.serialize().getBytes()));
 
-        // Check resource group
-        try {
-            existenceResponse = myArmClient.getResourceGroupsOperations().checkExistence(groupId);
-        } catch (Throwable e) {
-            throw new CloudException("Failed to check group existence: " + e.getMessage(), e);
-        }
-
-        if (!existenceResponse.getBody()) {
-            throw new CloudException(String.format("Resource group %s does not exist.", groupId));
-        }
-
-        // Check storage
-        final ServiceResponse<List<StorageAccount>> storagesResponse;
-        try {
-            storagesResponse = myStorageClient.getStorageAccountsOperations().listByResourceGroup(groupId);
-        } catch (Throwable e) {
-            throw new CloudException("Failed to get storage information: " + e.getMessage(), e);
-        }
-
-        final StorageAccount storage = CollectionsUtil.findFirst(storagesResponse.getBody(), new Filter<StorageAccount>() {
+        // Check storage account
+        final Promise<VirtualMachine, Throwable, Object> machinePromise = getStoragesByGroupAsync(groupId).then(new DonePipe<List<StorageAccount>, VirtualMachine, Throwable, Object>() {
             @Override
-            public boolean accept(@NotNull StorageAccount storage) {
-                return storage.getName().equalsIgnoreCase(storageId);
+            public Promise<VirtualMachine, Throwable, Object> pipeDone(List<StorageAccount> storages) {
+                final StorageAccount storage = CollectionsUtil.findFirst(storages, new Filter<StorageAccount>() {
+                    @Override
+                    public boolean accept(@NotNull StorageAccount storage) {
+                        return storage.getName().equalsIgnoreCase(storageId);
+                    }
+                });
+                if (storage == null) {
+                    final CloudException exception = new CloudException(String.format("Storage %s does not exist in resource group %s", storageId, groupId));
+                    return new DeferredObject<VirtualMachine, Throwable, Object>().reject(exception);
+                }
+
+                final String location = storage.getLocation();
+
+                // Create virtual network
+                final VirtualNetwork vNet = new VirtualNetwork();
+                vNet.setLocation(location);
+                vNet.setAddressSpace(new AddressSpace());
+                vNet.getAddressSpace().setAddressPrefixes(new ArrayList<String>());
+                vNet.getAddressSpace().getAddressPrefixes().add("10.0.0.0/16");
+                vNet.setSubnets(new ArrayList<Subnet>());
+                Subnet subnet = new Subnet();
+                subnet.setName(subnetName);
+                subnet.setAddressPrefix("10.0.0.0/24");
+                vNet.getSubnets().add(subnet);
+
+                final Promise<Subnet, Throwable, Object> subnetPromise = createVirtualNetworkAsync(groupId, vNetName, subnetName, vNet);
+                final Promise<PublicIPAddress, Throwable, Object> publicIPAddressPromise;
+
+                // Create public IP
+                if (publicIp) {
+                    final PublicIPAddress publicIPAddress = new PublicIPAddress();
+                    publicIPAddress.setLocation(location);
+                    publicIPAddress.setPublicIPAllocationMethod("Dynamic");
+                    publicIPAddress.setDnsSettings(new PublicIPAddressDnsSettings());
+                    publicIPAddress.getDnsSettings().setDomainNameLabel(publicIpName);
+
+                    publicIPAddressPromise = createPublicIpAsync(groupId, publicIpName, publicIPAddress);
+                } else {
+                    publicIPAddressPromise = new DeferredObject<PublicIPAddress, Throwable, Object>().resolve(null);
+                }
+
+                return myManager.when(subnetPromise, publicIPAddressPromise).then(new DonePipe<MultipleResults, NetworkInterface, Throwable, Object>() {
+                    @Override
+                    public Promise<NetworkInterface, Throwable, Object> pipeDone(MultipleResults result) {
+                        final Subnet subnet = (Subnet) result.get(0).getResult();
+                        final PublicIPAddress publicIPAddress = (PublicIPAddress) result.get(1).getResult();
+                        if (publicIPAddress != null){
+                            instance.setNetworkIdentify(publicIPAddress.getIpAddress());
+                        }
+
+                        NetworkInterface nic = new NetworkInterface();
+                        nic.setLocation(location);
+                        nic.setIpConfigurations(new ArrayList<NetworkInterfaceIPConfiguration>());
+                        NetworkInterfaceIPConfiguration configuration = new NetworkInterfaceIPConfiguration();
+                        configuration.setName(nicName + "-config");
+                        configuration.setPrivateIPAllocationMethod("Dynamic");
+                        configuration.setSubnet(subnet);
+                        configuration.setPublicIPAddress(publicIPAddress);
+                        nic.getIpConfigurations().add(configuration);
+
+                        NetworkSecurityGroup networkSecurityGroup = new NetworkSecurityGroup();
+                        networkSecurityGroup.setLocation(location);
+
+                        if (publicIp) {
+                            networkSecurityGroup.setSecurityRules(new ArrayList<SecurityRule>());
+
+                            if ("Windows".equalsIgnoreCase(details.getOsType())) {
+                                final SecurityRule rdpRule = new SecurityRule();
+                                rdpRule.setName("default-allow-rdp");
+                                rdpRule.setDirection("Inbound");
+                                rdpRule.setPriority(999);
+                                rdpRule.setProtocol("TCP");
+                                rdpRule.setSourceAddressPrefix("*");
+                                rdpRule.setSourcePortRange("*");
+                                rdpRule.setDestinationAddressPrefix("*");
+                                rdpRule.setDestinationPortRange("3389");
+                                rdpRule.setAccess("Allow");
+                                networkSecurityGroup.getSecurityRules().add(rdpRule);
+                            } else {
+                                final SecurityRule sshRule = new SecurityRule();
+                                sshRule.setName("default-allow-ssh");
+                                sshRule.setDirection("Inbound");
+                                sshRule.setPriority(1000);
+                                sshRule.setProtocol("TCP");
+                                sshRule.setSourceAddressPrefix("*");
+                                sshRule.setSourcePortRange("*");
+                                sshRule.setDestinationAddressPrefix("*");
+                                sshRule.setDestinationPortRange("22");
+                                sshRule.setAccess("Allow");
+                                networkSecurityGroup.getSecurityRules().add(sshRule);
+                            }
+                        }
+
+                        return createNetworkAsync(groupId, vNetName, securityGroupName, networkSecurityGroup, nicName, nic);
+                    }
+                }).then(new DonePipe<NetworkInterface, VirtualMachine, Throwable, Object>() {
+                    @Override
+                    public Promise<VirtualMachine, Throwable, Object> pipeDone(NetworkInterface nic) {
+                        // Create VM
+                        final VirtualMachine machine = new VirtualMachine();
+                        machine.setLocation(location);
+
+                        // Set vm os profile
+                        machine.setOsProfile(new OSProfile());
+                        machine.getOsProfile().setComputerName(vmName);
+                        machine.getOsProfile().setAdminUsername(details.getUsername());
+                        machine.getOsProfile().setAdminPassword(details.getPassword());
+                        machine.getOsProfile().setCustomData(customData);
+
+                        // Set vm hardware profile
+                        machine.setHardwareProfile(new HardwareProfile());
+                        machine.getHardwareProfile().setVmSize(details.getVmSize());
+
+                        // Set vm storage profile
+                        machine.setStorageProfile(new StorageProfile());
+                        machine.getStorageProfile().setDataDisks(null);
+                        machine.getStorageProfile().setOsDisk(new OSDisk());
+                        machine.getStorageProfile().getOsDisk().setName(osDiskName);
+                        machine.getStorageProfile().getOsDisk().setOsType(osType);
+                        machine.getStorageProfile().getOsDisk().setCaching("None");
+                        machine.getStorageProfile().getOsDisk().setCreateOption("fromImage");
+                        machine.getStorageProfile().getOsDisk().setImage(new VirtualHardDisk());
+                        machine.getStorageProfile().getOsDisk().getImage().setUri(userImageName);
+                        machine.getStorageProfile().getOsDisk().setVhd(new VirtualHardDisk());
+                        machine.getStorageProfile().getOsDisk().getVhd().setUri(osDiskVhdName);
+
+                        // Set vm network interface reference
+                        machine.setNetworkProfile(new NetworkProfile());
+                        machine.getNetworkProfile().setNetworkInterfaces(new ArrayList<NetworkInterfaceReference>());
+                        NetworkInterfaceReference nir = new NetworkInterfaceReference();
+                        nir.setPrimary(true);
+                        nir.setId(nic.getId());
+                        machine.getNetworkProfile().getNetworkInterfaces().add(nir);
+
+                        // Set tags
+                        machine.setTags(new HashMap<String, String>());
+                        machine.getTags().put(AzureConstants.TAG_SERVER, myServerId);
+                        machine.getTags().put(AzureConstants.TAG_PROFILE, tag.getProfileId());
+                        machine.getTags().put(AzureConstants.TAG_SOURCE, details.getSourceName());
+
+                        return createVirtualMachineAsync(groupId, vmName, machine);
+                    }
+                });
             }
         });
-        if (storage == null) {
-            throw new CloudException(String.format("Storage %s does not exist in resource group %s", storageId, groupId));
-        }
 
-        // Create virtual network
-        final String location = storage.getLocation();
-        final VirtualNetwork vNet = new VirtualNetwork();
-        vNet.setLocation(location);
-        vNet.setAddressSpace(new AddressSpace());
-        vNet.getAddressSpace().setAddressPrefixes(new ArrayList<String>());
-        vNet.getAddressSpace().getAddressPrefixes().add("10.0.0.0/16");
-        vNet.setSubnets(new ArrayList<Subnet>());
-        Subnet subnet = new Subnet();
-        subnet.setName(subnetName);
-        subnet.setAddressPrefix("10.0.0.0/24");
-        vNet.getSubnets().add(subnet);
-
-        try {
-            myNetworkClient.getVirtualNetworksOperations().createOrUpdate(groupId, vNetName, vNet);
-            subnet = myNetworkClient.getSubnetsOperations().get(groupId, vNetName, subnetName, null).getBody();
-        } catch (Throwable e) {
-            throw new CloudException("Failed to create virtual network " + vNetName);
-        }
-
-        // Create public IP
-        PublicIPAddress publicIPAddress = null;
-        if (publicIp) {
-            publicIPAddress = new PublicIPAddress();
-            publicIPAddress.setLocation(location);
-            publicIPAddress.setPublicIPAllocationMethod("Dynamic");
-            publicIPAddress.setDnsSettings(new PublicIPAddressDnsSettings());
-            publicIPAddress.getDnsSettings().setDomainNameLabel(publicIpName);
-
-            try {
-                myNetworkClient.getPublicIPAddressesOperations().createOrUpdate(groupId, publicIpName, publicIPAddress);
-                publicIPAddress = myNetworkClient.getPublicIPAddressesOperations().get(groupId, publicIpName, null).getBody();
-                instance.setNetworkIdentify(publicIPAddress.getIpAddress());
-            } catch (Exception e) {
-                throw new CloudException("Failed to create public IP address " + e.getMessage(), e);
+        myManager.when(machinePromise).fail(new FailCallback<Throwable>() {
+            @Override
+            public void onFail(Throwable result) {
+                instance.setStatus(InstanceStatus.ERROR);
+                instance.updateErrors(TypedCloudErrorInfo.fromException(result));
             }
-        }
+        });
+    }
 
-        // Create network interface
-        NetworkInterface nic = new NetworkInterface();
-        nic.setLocation(location);
-        nic.setIpConfigurations(new ArrayList<NetworkInterfaceIPConfiguration>());
-        NetworkInterfaceIPConfiguration configuration = new NetworkInterfaceIPConfiguration();
-        configuration.setName(nicName + "-config");
-        configuration.setPrivateIPAllocationMethod("Dynamic");
-        configuration.setSubnet(subnet);
-        configuration.setPublicIPAddress(publicIPAddress);
-        nic.getIpConfigurations().add(configuration);
-
-        NetworkSecurityGroup networkSecurityGroup = new NetworkSecurityGroup();
-        networkSecurityGroup.setLocation(location);
-
-        if (publicIp){
-            networkSecurityGroup.setSecurityRules(new ArrayList<SecurityRule>());
-
-            if ("Windows".equalsIgnoreCase(details.getOsType())) {
-                final SecurityRule rdpRule = new SecurityRule();
-                rdpRule.setName("default-allow-rdp");
-                rdpRule.setDirection("Inbound");
-                rdpRule.setPriority(999);
-                rdpRule.setProtocol("TCP");
-                rdpRule.setSourceAddressPrefix("*");
-                rdpRule.setSourcePortRange("*");
-                rdpRule.setDestinationAddressPrefix("*");
-                rdpRule.setDestinationPortRange("3389");
-                rdpRule.setAccess("Allow");
-                networkSecurityGroup.getSecurityRules().add(rdpRule);
-            } else {
-                final SecurityRule sshRule = new SecurityRule();
-                sshRule.setName("default-allow-ssh");
-                sshRule.setDirection("Inbound");
-                sshRule.setPriority(1000);
-                sshRule.setProtocol("TCP");
-                sshRule.setSourceAddressPrefix("*");
-                sshRule.setSourcePortRange("*");
-                sshRule.setDestinationAddressPrefix("*");
-                sshRule.setDestinationPortRange("22");
-                sshRule.setAccess("Allow");
-                networkSecurityGroup.getSecurityRules().add(sshRule);
+    private Promise<List<StorageAccount>, Throwable, Object> getStoragesByGroupAsync(String groupId) {
+        final Deferred<List<StorageAccount>, Throwable, Object> deferred = new DeferredObject<>();
+        myStorageClient.getStorageAccountsOperations().listByResourceGroupAsync(groupId, new ServiceCallback<List<StorageAccount>>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get list of storages " + t.getMessage(), t);
+                deferred.reject(exception);
             }
-        }
 
-        final ServiceResponse<List<Subnet>> subnetsResponse;
-        try {
-            subnetsResponse = myNetworkClient.getSubnetsOperations().list(groupId, vNetName);
-        } catch (Throwable e) {
-            throw new CloudException("Failed to get list of sub networks: " + e.getMessage(), e);
-        }
+            @Override
+            public void success(ServiceResponse<List<StorageAccount>> result) {
+                deferred.resolve(result.getBody());
+            }
+        });
 
-        networkSecurityGroup.setSubnets(subnetsResponse.getBody());
+        return deferred.promise();
+    }
 
-        try {
-            final NetworkSecurityGroupsOperations operations = myNetworkClient.getNetworkSecurityGroupsOperations();
-            networkSecurityGroup = operations.createOrUpdate(groupId, securityGroupName, networkSecurityGroup).getBody();
-        } catch (Throwable e) {
-            throw new CloudException("Failed to create network security group: " + e.getMessage(), e);
-        }
+    private Promise<Subnet, Throwable, Object> createVirtualNetworkAsync(final String groupId,
+                                                                         final String vNetName,
+                                                                         final String subnetName,
+                                                                         final VirtualNetwork vNet) {
+        final Deferred<Subnet, Throwable, Object> deferred = new DeferredObject<>();
+        myNetworkClient.getVirtualNetworksOperations().createOrUpdateAsync(groupId, vNetName, vNet, new ServiceCallback<VirtualNetwork>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to create virtual network " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
 
-        nic.setNetworkSecurityGroup(networkSecurityGroup);
+            @Override
+            public void success(ServiceResponse<VirtualNetwork> result) {
+                myNetworkClient.getSubnetsOperations().getAsync(groupId, vNetName, subnetName, null, new ServiceCallback<Subnet>() {
+                    @Override
+                    public void failure(Throwable t) {
+                        final CloudException exception = new CloudException("Failed to get subnet " + t.getMessage(), t);
+                        deferred.reject(exception);
+                    }
 
-        try {
-            myNetworkClient.getNetworkInterfacesOperations().createOrUpdate(groupId, nicName, nic);
-            nic = myNetworkClient.getNetworkInterfacesOperations().get(groupId, nicName, null).getBody();
-        } catch (Throwable e) {
-            throw new CloudException("Failed to create network interface: " + e.getMessage(), e);
-        }
+                    @Override
+                    public void success(ServiceResponse<Subnet> result) {
+                        deferred.resolve(result.getBody());
+                    }
+                });
+            }
+        });
 
-        // Create VM
-        final VirtualMachine machine = new VirtualMachine();
-        machine.setLocation(location);
+        return deferred.promise();
+    }
 
-        // Set vm os profile
-        machine.setOsProfile(new OSProfile());
-        machine.getOsProfile().setComputerName(vmName);
-        machine.getOsProfile().setAdminUsername(details.getUsername());
-        machine.getOsProfile().setAdminPassword(details.getPassword());
-        machine.getOsProfile().setCustomData(customData);
+    private Promise<NetworkInterface, Throwable, Object> createNetworkAsync(final String groupId,
+                                                                            final String vNetName,
+                                                                            final String securityGroupName,
+                                                                            final NetworkSecurityGroup securityGroup,
+                                                                            final String nicName,
+                                                                            final NetworkInterface nic) {
+        final Deferred<NetworkInterface, Throwable, Object> deferred = new DeferredObject<>();
+        myNetworkClient.getSubnetsOperations().listAsync(groupId, vNetName, new ListOperationCallback<Subnet>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get list of sub networks: " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
 
-        // Set vm hardware profile
-        machine.setHardwareProfile(new HardwareProfile());
-        machine.getHardwareProfile().setVmSize(details.getVmSize());
+            @Override
+            public void success(ServiceResponse<List<Subnet>> result) {
+                securityGroup.setSubnets(result.getBody());
+                myNetworkClient.getNetworkSecurityGroupsOperations().createOrUpdateAsync(groupId, securityGroupName, securityGroup, new ServiceCallback<NetworkSecurityGroup>() {
+                    @Override
+                    public void failure(Throwable t) {
+                        final CloudException exception = new CloudException("Failed to create network security group: " + t.getMessage(), t);
+                        deferred.reject(exception);
+                    }
 
-        // Set vm storage profile
-        machine.setStorageProfile(new StorageProfile());
-        machine.getStorageProfile().setDataDisks(null);
-        machine.getStorageProfile().setOsDisk(new OSDisk());
-        machine.getStorageProfile().getOsDisk().setName(osDiskName);
-        machine.getStorageProfile().getOsDisk().setOsType(osType);
-        machine.getStorageProfile().getOsDisk().setCaching("None");
-        machine.getStorageProfile().getOsDisk().setCreateOption("fromImage");
-        machine.getStorageProfile().getOsDisk().setImage(new VirtualHardDisk());
-        machine.getStorageProfile().getOsDisk().getImage().setUri(userImageName);
-        machine.getStorageProfile().getOsDisk().setVhd(new VirtualHardDisk());
-        machine.getStorageProfile().getOsDisk().getVhd().setUri(osDiskVhdName);
+                    @Override
+                    public void success(ServiceResponse<NetworkSecurityGroup> result) {
+                        nic.setNetworkSecurityGroup(result.getBody());
+                        myNetworkClient.getNetworkInterfacesOperations().createOrUpdateAsync(groupId, nicName, nic, new ServiceCallback<NetworkInterface>() {
+                            @Override
+                            public void failure(Throwable t) {
+                                final CloudException exception = new CloudException("Failed to create network interface: " + t.getMessage(), t);
+                                deferred.reject(exception);
+                            }
 
-        // Set vm network interface reference
-        machine.setNetworkProfile(new NetworkProfile());
-        machine.getNetworkProfile().setNetworkInterfaces(new ArrayList<NetworkInterfaceReference>());
-        NetworkInterfaceReference nir = new NetworkInterfaceReference();
-        nir.setPrimary(true);
-        nir.setId(nic.getId());
-        machine.getNetworkProfile().getNetworkInterfaces().add(nir);
+                            @Override
+                            public void success(ServiceResponse<NetworkInterface> result) {
+                                //nic = myNetworkClient.getNetworkInterfacesOperations().get(groupId, nicName, null).getBody();
+                                deferred.resolve(result.getBody());
+                            }
+                        });
 
-        // Set tags
-        machine.setTags(new HashMap<String, String>());
-        machine.getTags().put(AzureConstants.TAG_SERVER, myServerId);
-        machine.getTags().put(AzureConstants.TAG_PROFILE, tag.getProfileId());
-        machine.getTags().put(AzureConstants.TAG_SOURCE, details.getSourceName());
+                    }
+                });
+            }
+        });
 
-        final ServiceResponse<VirtualMachine> response;
-        try {
-            response = myComputeClient.getVirtualMachinesOperations().createOrUpdate(groupId, vmName, machine);
-        } catch (Throwable e) {
-            throw new CloudException("Failed to create virtual machine: " + e.getMessage(), e);
-        }
+        return deferred.promise();
+    }
 
-        return response.getBody().getName();
+    private Promise<VirtualMachine, Throwable, Object> createVirtualMachineAsync(final String groupId,
+                                                                                 final String vmName,
+                                                                                 final VirtualMachine machine) {
+        final Deferred<VirtualMachine, Throwable, Object> deferred = new DeferredObject<>();
+        myComputeClient.getVirtualMachinesOperations().createOrUpdateAsync(groupId, vmName, machine, new ServiceCallback<VirtualMachine>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to create virtual machine: " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
+
+            @Override
+            public void success(ServiceResponse<VirtualMachine> result) {
+                deferred.resolve(result.getBody());
+            }
+        });
+
+        return deferred.promise();
+    }
+
+    private Promise<PublicIPAddress, Throwable, Object> createPublicIpAsync(final String groupId,
+                                                                            final String publicIpName,
+                                                                            final PublicIPAddress publicIPAddress) {
+        final Deferred<PublicIPAddress, Throwable, Object> deferred = new DeferredObject<>();
+        myNetworkClient.getPublicIPAddressesOperations().createOrUpdateAsync(groupId, publicIpName, publicIPAddress, new ServiceCallback<PublicIPAddress>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to create public ip address " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
+
+            @Override
+            public void success(ServiceResponse<PublicIPAddress> result) {
+                //publicIPAddress = myNetworkClient.getPublicIPAddressesOperations().get(groupId, publicIpName, null).getBody();
+                deferred.resolve(result.getBody());
+            }
+        });
+
+        return deferred.promise();
     }
 
     public void deleteVm(@NotNull final AzureCloudInstance instance) {
@@ -491,42 +611,112 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         final String storageId = details.getStorageId();
         final String filePrefix = String.format("%s/%s", BLOBS_CONTAINER, instance.getName());
 
-        try {
-            myComputeClient.getVirtualMachinesOperations().delete(groupId, instance.getName());
-        } catch (Throwable e) {
-            LOG.warnAndDebugDetails("Failed to delete virtual machine", e);
-        }
+        final Promise<MultipleResults, OneReject, MasterProgress> deleteMachinePromise = deleteVirtualMachineAsync(groupId, instance.getName()).then(new DonePipe<Void, MultipleResults, OneReject, MasterProgress>() {
+            @Override
+            public Promise<MultipleResults, OneReject, MasterProgress> pipeDone(Void result) {
+                final Promise<Void, Throwable, Void> deleteBlobsPromise = myManager.when(new Runnable() {
+                    @Override
+                    public void run() {
+                        for (CloudBlob blob : getBlobs(groupId, storageId, filePrefix)) {
+                            try {
+                                blob.deleteIfExists();
+                            } catch (Exception e) {
+                                LOG.warnAndDebugDetails("Failed to delete blob", e);
+                            }
+                        }
+                    }
+                });
 
-        try {
-            myNetworkClient.getNetworkInterfacesOperations().delete(groupId, instance.getName() + NETWORK_IP_SUFFIX);
-        } catch (Throwable e) {
-            LOG.warnAndDebugDetails("Failed to delete network interface", e);
-        }
-
-        if (!StringUtil.isEmpty(instance.getNetworkIdentity())){
-            try {
-                myNetworkClient.getPublicIPAddressesOperations().delete(groupId, instance.getName() + PUBLIC_IP_SUFFIX);
-            } catch (Throwable e) {
-                LOG.warnAndDebugDetails("Failed to delete public ip address", e);
+                return myManager.when(deleteNetworkAsync(groupId, instance.getName() + NETWORK_IP_SUFFIX), deleteBlobsPromise);
             }
+        });
+
+        final Promise<Void, Throwable, Object> deletePublicIpPromise;
+        if (StringUtil.isEmpty(instance.getNetworkIdentity())) {
+            DeferredObject<Void, Throwable, Object> deferred = new DeferredObject<>();
+            deferred.resolve(null);
+            deletePublicIpPromise = deferred;
+        } else {
+            deletePublicIpPromise = deletePublicIpAsync(groupId, instance.getName() + PUBLIC_IP_SUFFIX);
         }
 
-        for (CloudBlob blob : getBlobs(groupId, storageId, filePrefix)) {
-            try {
-                blob.deleteIfExists();
-            } catch (Exception e) {
-                LOG.warnAndDebugDetails("Failed to delete blob", e);
+        myManager.when(deleteMachinePromise, deletePublicIpPromise).fail(new FailCallback<OneReject>() {
+            @Override
+            public void onFail(OneReject result) {
+                instance.setStatus(InstanceStatus.ERROR_CANNOT_STOP);
+                instance.updateErrors(TypedCloudErrorInfo.fromException((Throwable) result.getReject()));
             }
-        }
+        });
+    }
+
+    private Promise<Void, Throwable, Object> deletePublicIpAsync(String groupId, String name) {
+        final DeferredObject<Void, Throwable, Object> deferred = new DeferredObject<>();
+        myNetworkClient.getPublicIPAddressesOperations().deleteAsync(groupId, name, new ServiceCallback<Void>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to delete public ip address " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
+
+            @Override
+            public void success(ServiceResponse<Void> result) {
+                deferred.resolve(result.getBody());
+            }
+        });
+
+        return deferred.promise();
+    }
+
+    private Promise<Void, Throwable, Object> deleteVirtualMachineAsync(String groupId, String name) {
+        final DeferredObject<Void, Throwable, Object> deferred = new DeferredObject<>();
+        myComputeClient.getVirtualMachinesOperations().deleteAsync(groupId, name, new ServiceCallback<Void>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to delete virtual machine " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
+
+            @Override
+            public void success(ServiceResponse<Void> result) {
+                deferred.resolve(result.getBody());
+            }
+        });
+
+        return deferred.promise();
+    }
+
+    private Promise<Void, Throwable, Object> deleteNetworkAsync(String groupId, String name) {
+        final DeferredObject<Void, Throwable, Object> deferred = new DeferredObject<>();
+        myNetworkClient.getNetworkInterfacesOperations().deleteAsync(groupId, name, new ServiceCallback<Void>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to delete network interface", t);
+                deferred.reject(exception);
+            }
+
+            @Override
+            public void success(ServiceResponse<Void> result) {
+                deferred.resolve(result.getBody());
+            }
+        });
+
+        return deferred.promise();
     }
 
     public void restartVm(@NotNull final AzureCloudInstance instance) {
         final String groupId = instance.getImage().getImageDetails().getGroupId();
-        try {
-            myComputeClient.getVirtualMachinesOperations().restart(groupId, instance.getName());
-        } catch (Throwable e) {
-            throw new CloudException("Failed to restart virtual machine: " + e.getMessage(), e);
-        }
+        myComputeClient.getVirtualMachinesOperations().restartAsync(groupId, instance.getName(), new ServiceCallback<Void>() {
+            @Override
+            public void failure(Throwable t) {
+                instance.setStatus(InstanceStatus.ERROR);
+                final CloudException exception = new CloudException("Failed to restart virtual machine " + t.getMessage(), t);
+                instance.updateErrors(TypedCloudErrorInfo.fromException(exception));
+            }
+
+            @Override
+            public void success(ServiceResponse<Void> result) {
+            }
+        });
     }
 
     @Nullable

@@ -18,6 +18,7 @@ package jetbrains.buildServer.clouds.azure.arm;
 import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
+import jetbrains.buildServer.clouds.QuotaException;
 import jetbrains.buildServer.clouds.azure.IdProvider;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance;
@@ -79,9 +80,9 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     }
 
     @Override
-    public AzureCloudInstance startNewInstance(@NotNull final CloudInstanceUserData tag) {
+    public AzureCloudInstance startNewInstance(@NotNull final CloudInstanceUserData userData) {
         if (!canStartNewInstance()) {
-            throw new TeamCityRuntimeException("Unable to start more instances. Limit reached");
+            throw new QuotaException("Unable to start more instances. Limit reached");
         }
 
         final String vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix(), myIdProvider.getNextId());
@@ -89,7 +90,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
 
         try {
-            myApiConnector.createVm(instance, tag);
+            myApiConnector.createVm(instance, userData);
         } catch (Exception e) {
             instance.setStatus(InstanceStatus.ERROR);
             throw new RuntimeException(e);

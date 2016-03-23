@@ -41,8 +41,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         imagePath: ko.observable().extend({required: true}),
         osType: ko.observable().extend({required: true}),
         maxInstances: ko.observable(1).extend({required: true, min: 1}),
-        vmNamePrefix: ko.observable().extend({required: true, maxLength: 12}),
         vmSize: ko.observable().extend({required: true}),
+        vmNamePrefix: ko.observable().extend({required: true, maxLength: 12}),
+        vmPublicIp: ko.observable(false),
         vmUsername: ko.observable().extend({required: true, maxLength: 12}),
         vmPassword: ko.observable().extend({required: true})
     });
@@ -104,7 +105,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         self.originalImage = data;
 
         var model = self.image();
-        var image = data || {maxInstances: 1};
+        var image = data || {maxInstances: 1, publicId: false};
 
         model.groupId(image.groupId);
         loadResourcesByGroup(model.groupId()).then(function () {
@@ -116,6 +117,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         model.osType(image.osType);
         model.maxInstances(image.maxInstances);
         model.vmNamePrefix(image.vmNamePrefix);
+        model.vmPublicIp(image.vmPublicIp);
         model.vmUsername(image.vmUsername);
 
         var key = getSourceKey(image.groupId, image.vmNamePrefix);
@@ -147,6 +149,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             osType: model.osType(),
             maxInstances: model.maxInstances(),
             vmNamePrefix: model.vmNamePrefix(),
+            vmPublicIp: model.vmPublicIp(),
             vmSize: model.vmSize(),
             vmUsername: model.vmUsername()
         };

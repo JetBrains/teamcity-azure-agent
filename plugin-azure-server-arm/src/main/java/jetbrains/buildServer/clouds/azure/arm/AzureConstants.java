@@ -30,6 +30,7 @@ public class AzureConstants {
     public static final String MAX_INSTANCES_COUNT = "maxInstances";
     public static final String VM_SIZE = "vmSize";
     public static final String VM_NAME_PREFIX = "vmNamePrefix";
+    public static final String VM_PUBLIC_IP = "vmPublicIp";
     public static final String VM_USERNAME = "vmUsername";
     public static final String VM_PASSWORD = "vmPassword";
     public static final String OS_TYPE = "osType";
@@ -69,12 +70,16 @@ public class AzureConstants {
         return IMAGE_PATH;
     }
 
+    public String getVmSize() {
+        return VM_SIZE;
+    }
+
     public String getVmNamePrefix() {
         return VM_NAME_PREFIX;
     }
 
-    public String getVmSize() {
-        return VM_SIZE;
+    public String getVmPublicIp() {
+        return VM_PUBLIC_IP;
     }
 
     public String getVmUsername() {

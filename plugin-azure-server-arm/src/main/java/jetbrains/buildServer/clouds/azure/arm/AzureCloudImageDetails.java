@@ -39,6 +39,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
     private final String myVmSize;
     @SerializedName(AzureConstants.VM_NAME_PREFIX)
     private final String myVmNamePrefix;
+    @SerializedName(AzureConstants.VM_PUBLIC_IP)
+    private final boolean myVmPublicIp;
     @SerializedName(AzureConstants.VM_USERNAME)
     private final String myUsername;
     private String myPassword = null;
@@ -49,6 +51,7 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
                                   @NotNull final String osType,
                                   @NotNull final String vmNamePrefix,
                                   @NotNull final String vmSize,
+                                  final boolean vmPublicIp,
                                   final int maxInstances,
                                   @NotNull final String username) {
         myGroupId = groupId;
@@ -57,6 +60,7 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
         myOsType = osType;
         myVmNamePrefix = vmNamePrefix;
         myVmSize = vmSize;
+        myVmPublicIp = vmPublicIp;
         myMaxInstances = maxInstances;
         myUsername = username;
     }
@@ -83,6 +87,10 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
     public String getVmSize() {
         return myVmSize;
+    }
+
+    public boolean getVmPublicIp() {
+        return myVmPublicIp;
     }
 
     public int getMaxInstances() {

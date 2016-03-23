@@ -16,16 +16,11 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector;
 
-import com.microsoft.azure.management.compute.models.InstanceViewStatus;
-import com.microsoft.azure.management.compute.models.VirtualMachine;
-import com.microsoft.azure.management.compute.models.VirtualMachineInstanceView;
 import jetbrains.buildServer.clouds.InstanceStatus;
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.joda.time.DateTime;
 
 import java.util.Date;
 import java.util.Map;
@@ -37,45 +32,20 @@ import java.util.TreeMap;
 public class AzureInstance implements AbstractInstance {
     private static Map<String, InstanceStatus> PROVISIONING_STATES;
     private static Map<String, InstanceStatus> POWER_STATES;
-    private static final String PROVISIONING_STATE = "ProvisioningState/";
-    private static final String POWER_STATE = "PowerState/";
-    private final VirtualMachine myMachine;
-    private final AzureCloudImage myImage;
-    private final AzureApiConnector myConnector;
+    private final String myName;
     private String myProvisioningState;
-    private Date myProvisioningDate;
-    private String myPowerState;
+    private Date myStartDate = null;
+    private String myPowerState = null;
+    private String myIpAddress = null;
 
-    AzureInstance(@NotNull final VirtualMachine machine,
-                  @NotNull final AzureCloudImage image,
-                  @NotNull final AzureApiConnector connector) {
-        myMachine = machine;
-        myImage = image;
-        myConnector = connector;
-        myProvisioningState = myMachine.getProvisioningState();
-
-        final VirtualMachineInstanceView instanceView = myMachine.getInstanceView();
-        if (instanceView != null) {
-            for (InstanceViewStatus status : instanceView.getStatuses()) {
-                final String code = status.getCode();
-                if (code.startsWith(PROVISIONING_STATE)) {
-                    myProvisioningState = code.substring(PROVISIONING_STATE.length());
-                    final DateTime dateTime = status.getTime();
-                    if (dateTime != null) {
-                        myProvisioningDate = dateTime.toDate();
-                    }
-                }
-                if (code.startsWith(POWER_STATE)) {
-                    myPowerState = code.substring(POWER_STATE.length());
-                }
-            }
-        }
+    AzureInstance(@NotNull final String name) {
+        myName = name;
     }
 
     @NotNull
     @Override
     public String getName() {
-        return myMachine.getName();
+        return myName;
     }
 
     @Override
@@ -85,13 +55,20 @@ public class AzureInstance implements AbstractInstance {
 
     @Override
     public Date getStartDate() {
-        return myProvisioningDate;
+        return myStartDate;
+    }
+
+    void setStartDate(@NotNull final Date startDate) {
+        myStartDate = startDate;
     }
 
     @Override
     public String getIpAddress() {
-        final String groupId = myImage.getImageDetails().getGroupId();
-        return myConnector.getIpAddress(groupId, myMachine.getName());
+        return myIpAddress;
+    }
+
+    void setIpAddress(@NotNull final String ipAddress) {
+        myIpAddress = ipAddress;
     }
 
     @Override
@@ -106,6 +83,14 @@ public class AzureInstance implements AbstractInstance {
         }
 
         return InstanceStatus.UNKNOWN;
+    }
+
+    void setProvisioningState(@NotNull final String provisioningState) {
+        myProvisioningState = provisioningState;
+    }
+
+    void setPowerState(@NotNull final String powerState) {
+        myPowerState = powerState;
     }
 
     @Nullable

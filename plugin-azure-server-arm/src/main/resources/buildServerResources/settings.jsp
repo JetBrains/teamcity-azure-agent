@@ -144,6 +144,14 @@
                 </td>
             </tr>
             <tr>
+                <th>Network:</th>
+                <td>
+                    <input type="checkbox" name="${cons.vmPublicIp}" class="behaviourRadio"
+                           data-bind="checked: image().vmPublicIp"/>
+                    <label for="${cons.vmPublicIp}">Create public IP address</label>
+                </td>
+            </tr>
+            <tr>
                 <th></th>
                 <td></td>
             </tr>

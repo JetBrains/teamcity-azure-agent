@@ -55,6 +55,7 @@ import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.filters.Filter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joda.time.DateTime;
 
 import java.io.IOException;
 import java.util.*;
@@ -69,6 +70,8 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     private static final String BLOBS_CONTAINER = "vhds";
     private static final String NETWORK_IP_SUFFIX = "-net";
     private static final String PUBLIC_IP_SUFFIX = "-pip";
+    private static final String PROVISIONING_STATE = "ProvisioningState/";
+    private static final String POWER_STATE = "PowerState/";
     private static final String INSTANCE_VIEW = "InstanceView";
     private final ResourceManagementClient myArmClient;
     private final StorageManagementClient myStorageClient;
@@ -104,14 +107,9 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     @Nullable
     @Override
     public InstanceStatus getInstanceStatusIfExists(@NotNull AzureCloudInstance instance) {
-        final AzureCloudImage image = instance.getImage();
-        final AzureCloudImageDetails details = image.getImageDetails();
-        final VirtualMachinesOperations operations = myComputeClient.getVirtualMachinesOperations();
-        final ServiceResponse<VirtualMachine> vmResponse;
-
         try {
-            vmResponse = operations.get(details.getGroupId(), instance.getName(), INSTANCE_VIEW);
-            final AzureInstance azureInstance = new AzureInstance(vmResponse.getBody(), image, this);
+            final AzureInstance azureInstance = new AzureInstance(instance.getName());
+            retrieveInstanceData(azureInstance, instance.getImage().getImageDetails());
             return azureInstance.getInstanceStatus();
         } catch (Exception e) {
             LOG.warnAndDebugDetails("Failed to get virtual machine " + instance.getName(), e);
@@ -154,22 +152,56 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                 final String sourceName = tags.get(AzureConstants.TAG_SOURCE);
                 if (!StringUtil.areEqual(sourceName, details.getSourceName())) continue;
 
-                try {
-                    final ServiceResponse<VirtualMachine> response = operations.get(details.getGroupId(), name, INSTANCE_VIEW);
-                    virtualMachine = response.getBody();
-                } catch (Exception e) {
-                    LOG.warnAndDebugDetails("Failed to receive virtual machine info", e);
-                    continue;
-                }
+                final AzureInstance instance = new AzureInstance(name);
+                retrieveInstanceData(instance, details);
 
-                final AzureInstance instance = new AzureInstance(virtualMachine, image, this);
-                instances.put(name, (R)instance);
+                instances.put(name, (R) instance);
             }
 
             imageMap.put(image, instances);
         }
 
         return imageMap;
+    }
+
+    private void retrieveInstanceData(final AzureInstance instance, final AzureCloudImageDetails details) {
+        final VirtualMachine virtualMachine;
+        final String groupId = details.getGroupId();
+        final String name = instance.getName();
+
+        try {
+            final VirtualMachinesOperations operations = myComputeClient.getVirtualMachinesOperations();
+            virtualMachine = operations.get(groupId, name, INSTANCE_VIEW).getBody();
+        } catch (Exception e) {
+            throw new CloudException("Failed to get instance state " + e.getMessage(), e);
+        }
+
+        for (InstanceViewStatus status : virtualMachine.getInstanceView().getStatuses()) {
+            final String code = status.getCode();
+            if (code.startsWith(PROVISIONING_STATE)) {
+                instance.setProvisioningState(code.substring(PROVISIONING_STATE.length()));
+                final DateTime dateTime = status.getTime();
+                if (dateTime != null) {
+                    instance.setStartDate(dateTime.toDate());
+                }
+            }
+            if (code.startsWith(POWER_STATE)) {
+                instance.setPowerState(code.substring(POWER_STATE.length()));
+            }
+        }
+
+        if (!details.getVmPublicIp()) {
+            return;
+        }
+
+        final String nicName = name + PUBLIC_IP_SUFFIX;
+        try {
+            final PublicIPAddressesOperations operations = myNetworkClient.getPublicIPAddressesOperations();
+            final PublicIPAddress ipAddress = operations.get(groupId, nicName, null).getBody();
+            instance.setIpAddress(ipAddress.getIpAddress());
+        } catch (Exception e) {
+            LOG.warnAndDebugDetails("Failed to get public ip address", e);
+        }
     }
 
     @NotNull
@@ -252,6 +284,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         final String storageId = details.getStorageId();
         final String imagePath = details.getImagePath();
         final String osType = details.getOsType();
+        final boolean publicIp = details.getVmPublicIp();
         final String namePrefix = details.getVmNamePrefix();
         final String vNetName = namePrefix + "-vnet";
         final String subnetName = namePrefix + "-subnet";
@@ -314,17 +347,21 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         }
 
         // Create public IP
-        PublicIPAddress publicIPAddress = new PublicIPAddress();
-        publicIPAddress.setLocation(location);
-        publicIPAddress.setPublicIPAllocationMethod("Dynamic");
-        publicIPAddress.setDnsSettings(new PublicIPAddressDnsSettings());
-        publicIPAddress.getDnsSettings().setDomainNameLabel(publicIpName);
+        PublicIPAddress publicIPAddress = null;
+        if (publicIp) {
+            publicIPAddress = new PublicIPAddress();
+            publicIPAddress.setLocation(location);
+            publicIPAddress.setPublicIPAllocationMethod("Dynamic");
+            publicIPAddress.setDnsSettings(new PublicIPAddressDnsSettings());
+            publicIPAddress.getDnsSettings().setDomainNameLabel(publicIpName);
 
-        try {
-            myNetworkClient.getPublicIPAddressesOperations().createOrUpdate(groupId, publicIpName, publicIPAddress);
-            publicIPAddress = myNetworkClient.getPublicIPAddressesOperations().get(groupId, publicIpName, null).getBody();
-        } catch (Exception e) {
-            throw new CloudException("Failed to create public IP address " + e.getMessage(), e);
+            try {
+                myNetworkClient.getPublicIPAddressesOperations().createOrUpdate(groupId, publicIpName, publicIPAddress);
+                publicIPAddress = myNetworkClient.getPublicIPAddressesOperations().get(groupId, publicIpName, null).getBody();
+                instance.setNetworkIdentify(publicIPAddress.getIpAddress());
+            } catch (Exception e) {
+                throw new CloudException("Failed to create public IP address " + e.getMessage(), e);
+            }
         }
 
         // Create network interface
@@ -340,32 +377,35 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
         NetworkSecurityGroup networkSecurityGroup = new NetworkSecurityGroup();
         networkSecurityGroup.setLocation(location);
-        networkSecurityGroup.setSecurityRules(new ArrayList<SecurityRule>());
 
-        if ("Windows".equalsIgnoreCase(details.getOsType())) {
-            final SecurityRule rdpRule = new SecurityRule();
-            rdpRule.setName("default-allow-rdp");
-            rdpRule.setDirection("Inbound");
-            rdpRule.setPriority(999);
-            rdpRule.setProtocol("TCP");
-            rdpRule.setSourceAddressPrefix("*");
-            rdpRule.setSourcePortRange("*");
-            rdpRule.setDestinationAddressPrefix("*");
-            rdpRule.setDestinationPortRange("3389");
-            rdpRule.setAccess("Allow");
-            networkSecurityGroup.getSecurityRules().add(rdpRule);
-        } else {
-            final SecurityRule sshRule = new SecurityRule();
-            sshRule.setName("default-allow-ssh");
-            sshRule.setDirection("Inbound");
-            sshRule.setPriority(1000);
-            sshRule.setProtocol("TCP");
-            sshRule.setSourceAddressPrefix("*");
-            sshRule.setSourcePortRange("*");
-            sshRule.setDestinationAddressPrefix("*");
-            sshRule.setDestinationPortRange("22");
-            sshRule.setAccess("Allow");
-            networkSecurityGroup.getSecurityRules().add(sshRule);
+        if (publicIp){
+            networkSecurityGroup.setSecurityRules(new ArrayList<SecurityRule>());
+
+            if ("Windows".equalsIgnoreCase(details.getOsType())) {
+                final SecurityRule rdpRule = new SecurityRule();
+                rdpRule.setName("default-allow-rdp");
+                rdpRule.setDirection("Inbound");
+                rdpRule.setPriority(999);
+                rdpRule.setProtocol("TCP");
+                rdpRule.setSourceAddressPrefix("*");
+                rdpRule.setSourcePortRange("*");
+                rdpRule.setDestinationAddressPrefix("*");
+                rdpRule.setDestinationPortRange("3389");
+                rdpRule.setAccess("Allow");
+                networkSecurityGroup.getSecurityRules().add(rdpRule);
+            } else {
+                final SecurityRule sshRule = new SecurityRule();
+                sshRule.setName("default-allow-ssh");
+                sshRule.setDirection("Inbound");
+                sshRule.setPriority(1000);
+                sshRule.setProtocol("TCP");
+                sshRule.setSourceAddressPrefix("*");
+                sshRule.setSourcePortRange("*");
+                sshRule.setDestinationAddressPrefix("*");
+                sshRule.setDestinationPortRange("22");
+                sshRule.setAccess("Allow");
+                networkSecurityGroup.getSecurityRules().add(sshRule);
+            }
         }
 
         final ServiceResponse<List<Subnet>> subnetsResponse;
@@ -463,10 +503,12 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             LOG.warnAndDebugDetails("Failed to delete network interface", e);
         }
 
-        try {
-            myNetworkClient.getPublicIPAddressesOperations().delete(groupId, instance.getName() + PUBLIC_IP_SUFFIX);
-        } catch (Throwable e) {
-            LOG.warnAndDebugDetails("Failed to delete public ip address", e);
+        if (!StringUtil.isEmpty(instance.getNetworkIdentity())){
+            try {
+                myNetworkClient.getPublicIPAddressesOperations().delete(groupId, instance.getName() + PUBLIC_IP_SUFFIX);
+            } catch (Throwable e) {
+                LOG.warnAndDebugDetails("Failed to delete public ip address", e);
+            }
         }
 
         for (CloudBlob blob : getBlobs(groupId, storageId, filePrefix)) {
@@ -560,21 +602,6 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         }
 
         return blobs;
-    }
-
-    @Nullable
-    String getIpAddress(String groupId, String machineName) {
-        final String nicName = machineName + PUBLIC_IP_SUFFIX;
-
-        try {
-            final PublicIPAddressesOperations operations = myNetworkClient.getPublicIPAddressesOperations();
-            final ServiceResponse<PublicIPAddress> response = operations.get(groupId, nicName, null);
-            return response.getBody().getIpAddress();
-        } catch (Exception e) {
-            LOG.warnAndDebugDetails("Failed to get public ip address", e);
-        }
-
-        return null;
     }
 
     public void setServerId(@Nullable final String serverId) {

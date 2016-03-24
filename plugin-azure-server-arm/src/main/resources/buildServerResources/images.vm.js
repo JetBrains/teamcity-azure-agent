@@ -54,6 +54,11 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.storages = ko.observableArray([]);
     self.vmSizes = ko.observableArray([]);
     self.osTypes = ko.observableArray(["Linux", "Windows"]);
+    self.osType = ko.observable();
+    self.osTypeImage = {
+        "Linux": "/img/os/lin-small-bw.png",
+        "Windows": "/img/os/win-small-bw.png"
+    };
 
     // Hidden fields for serialized values
     self.images_data = ko.observable();
@@ -203,6 +208,10 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         return "https://" + storageId + ".blob.core.windows.net/" + imagePath;
     };
 
+    self.getOsImage = function (osType) {
+        return "url('" + self.osTypeImage[osType] + "')";
+    };
+
     self.loadSubscriptions = function () {
         self.loadingGroups(true);
 
@@ -324,6 +333,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             }
 
             var osType = $response.find("osType").text();
+            self.osType(osType);
             self.image().osType(osType);
         }, function (error) {
             self.errorLoadingResources("Failed to load data: " + error.message);

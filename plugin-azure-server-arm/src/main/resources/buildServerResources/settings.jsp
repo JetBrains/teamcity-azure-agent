@@ -110,17 +110,21 @@
                 <td>
                     <input type="text" name="${cons.imagePath}" class="longField"
                            data-bind="textInput: image().imagePath"/>
-                    <img src="/img/tree/popup-artifacts-tree.png" class="handle vcsTreeHandle" title="Choose VHD image">
+                    <span class="osIcon osIconSmall"
+                          data-bind="attr: {title: image().osType}, css: {invisible: !image().osType()},
+                          style: {backgroundImage: getOsImage(image().osType())}"/>
+                    </span>
                     <span class="smallNote">Generalized VHD image URL, e.g. vhds/generalized.vhd</span>
                     <span class="error option-error" data-bind="validationMessage: image().imagePath"></span>
                 </td>
             </tr>
-            <tr>
+            <tr data-bind="css: {hidden: osType()}">
                 <th><label for="${cons.osType}">OS type: <l:star/></label></th>
                 <td>
                     <select name="${cons.osType}" class="longField"
-                            data-bind="options: osTypes, value: image().osType"></select>
+                            data-bind="options: osTypes, optionsCaption: 'Select', value: image().osType"></select>
                     <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingOsType()}"></i>
+                    <span class="error option-error" data-bind="validationMessage: image().osType"></span>
                 </td>
             </tr>
             <tr>
@@ -208,7 +212,7 @@
                     <td class="nowrap">
                         <span class="osIcon osIconSmall"
                               data-bind="attr: {title: osType},
-                              style: {backgroundImage: 'url(\'/img/os/' + (osType == 'Linux' ? 'lin' : 'win') + '-small-bw.png\')'}"/>
+                              style: {backgroundImage: $parent.getOsImage(osType)}"/>
                         </span>
                         <span data-bind="text: $parent.getSourceName(storageId, imagePath).slice(-80),
                         attr: {title: $parent.getSourceName(storageId, imagePath)}"></span>

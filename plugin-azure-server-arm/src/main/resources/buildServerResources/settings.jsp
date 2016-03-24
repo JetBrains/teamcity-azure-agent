@@ -55,12 +55,18 @@
         </tr>
 
         <tr>
-            <th><label for="${cons.subscriptionId}">Subscription ID: <l:star/></label></th>
+            <th><label for="${cons.subscriptionId}">Subscription: <l:star/></label></th>
             <td>
-                <input type="text" name="prop:${cons.subscriptionId}" class="longField"
+                <select name="prop:${cons.subscriptionId}" class="longField"
+                        data-bind="options: $parent.subscriptions, optionsText: 'text', optionsValue: 'id',
+                        value: subscriptionId, enable: $parent.subscriptions().length > 0"></select>
+                <a href="#" title="Reload subscriptions"
+                   data-bind="click: $parent.loadSubscriptions, css: {invisible: $parent.loadingGroups()}">
+                    <i class="icon-refresh"></i>
+                </a>
+                <input type="hidden" class="longField"
                        value="${propertiesBean.properties[cons.subscriptionId]}"
-                       data-bind="initializeValue: subscriptionId, textInput: subscriptionId"/>
-                <span class="smallNote">Azure subscription ID</span>
+                       data-bind="initializeValue: subscriptionId"/>
                 <span class="error option-error" data-bind="validationMessage: subscriptionId"></span>
             </td>
         </tr>

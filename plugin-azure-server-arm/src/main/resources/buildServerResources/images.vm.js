@@ -50,6 +50,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
     // Data from Azure APIs
     self.groups = ko.observableArray([]);
+    self.subscriptions = ko.observableArray([]);
     self.storages = ko.observableArray([]);
     self.vmSizes = ko.observableArray([]);
     self.osTypes = ko.observableArray(["Linux", "Windows"]);
@@ -61,6 +62,15 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     // Deserialized values
     self.images = ko.observableArray();
     self.passwords = {};
+
+    // Reload subscriptions on credentials change
+    ko.computed(function () {
+        if (!self.credentials().tenantId() || !self.credentials().clientId() || !self.credentials().clientSecret()) {
+            return;
+        }
+
+        self.loadSubscriptions();
+    });
 
     // Reload groups on credentials change
     ko.computed(function () {
@@ -193,7 +203,34 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         return "https://" + storageId + ".blob.core.windows.net/" + imagePath;
     };
 
-    function getSourceKey(groupId, namePrefix){
+    self.loadSubscriptions = function () {
+        self.loadingGroups(true);
+
+        var url = getBasePath() + "&resource=subscriptions";
+        $.post(url).then(function (response) {
+            var $response = $j(response);
+            var errors = getErrors($response);
+            if (errors) {
+                self.errorLoadingGroups(errors);
+                return;
+            } else {
+                self.errorLoadingGroups("");
+            }
+
+            var subscriptions = $response.find("subscriptions:eq(0) subscription").map(function () {
+                return {id: $(this).attr("id"), text: $(this).text()};
+            }).get();
+
+            self.subscriptions(subscriptions);
+        }, function (error) {
+            self.errorLoadingGroups("Failed to load data: " + error.message);
+            console.log(error);
+        }).always(function () {
+            self.loadingGroups(false);
+        });
+    };
+
+    function getSourceKey(groupId, namePrefix) {
         return groupId + "/" + namePrefix;
     }
 

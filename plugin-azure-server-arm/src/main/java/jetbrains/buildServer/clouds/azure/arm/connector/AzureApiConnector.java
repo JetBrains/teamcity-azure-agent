@@ -27,7 +27,10 @@ import com.microsoft.azure.management.network.NetworkManagementClientImpl;
 import com.microsoft.azure.management.network.models.*;
 import com.microsoft.azure.management.resources.ResourceManagementClient;
 import com.microsoft.azure.management.resources.ResourceManagementClientImpl;
+import com.microsoft.azure.management.resources.SubscriptionClient;
+import com.microsoft.azure.management.resources.SubscriptionClientImpl;
 import com.microsoft.azure.management.resources.models.ResourceGroup;
+import com.microsoft.azure.management.resources.models.Subscription;
 import com.microsoft.azure.management.storage.StorageManagementClient;
 import com.microsoft.azure.management.storage.StorageManagementClientImpl;
 import com.microsoft.azure.management.storage.models.StorageAccount;
@@ -81,6 +84,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     private final StorageManagementClient myStorageClient;
     private final ComputeManagementClient myComputeClient;
     private final NetworkManagementClient myNetworkClient;
+    private final SubscriptionClient mySubscriptionClient;
     private final DefaultDeferredManager myManager;
     private String myServerId = null;
     private String myProfileId = null;
@@ -88,7 +92,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     public AzureApiConnector(@NotNull final String tenantId,
                              @NotNull final String clientId,
                              @NotNull final String secret,
-                             @NotNull final String subscriptionId) {
+                             @Nullable final String subscriptionId) {
         final ServiceClientCredentials credentials = new ApplicationTokenCredentials(clientId, tenantId, secret, null);
 
         myArmClient = new ResourceManagementClientImpl(credentials);
@@ -102,6 +106,8 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
         myNetworkClient = new NetworkManagementClientImpl(credentials);
         myNetworkClient.setSubscriptionId(subscriptionId);
+
+        mySubscriptionClient = new SubscriptionClientImpl(credentials);
 
         myManager = new DefaultDeferredManager();
     }
@@ -961,5 +967,25 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
      */
     public void setProfileId(@Nullable final String profileId) {
         myProfileId = profileId;
+    }
+
+    /**
+     * Gets a list of subscriptions.
+     * @return subscriptions.
+     */
+    public Map<String, String> getSubscriptions() {
+        final HashMap<String, String> subscriptions = new HashMap<>();
+        final ServiceResponse<List<Subscription>> subscriptionsResponse;
+        try {
+            subscriptionsResponse = mySubscriptionClient.getSubscriptionsOperations().list();
+        } catch (Exception e) {
+            throw new CloudException("Failed to get list of subscriptions " + e.getMessage(), e);
+        }
+
+        for (Subscription subscription : subscriptionsResponse.getBody()) {
+            subscriptions.put(subscription.getSubscriptionId(), subscription.getDisplayName());
+        }
+
+        return subscriptions;
     }
 }

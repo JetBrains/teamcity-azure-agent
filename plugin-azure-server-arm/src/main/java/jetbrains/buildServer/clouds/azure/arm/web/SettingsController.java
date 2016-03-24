@@ -47,6 +47,7 @@ public class SettingsController extends BaseFormXmlController {
         HANDLERS.put("storages", new StoragesHandler());
         HANDLERS.put("vmSizes", new VmSizesHandler());
         HANDLERS.put("osType", new OsTypeHandler());
+        HANDLERS.put("subscriptions", new SubscriptionsHandler());
     }
 
     @NotNull

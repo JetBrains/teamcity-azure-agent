@@ -15,7 +15,6 @@
 
 package jetbrains.buildServer.clouds.azure.arm;
 
-import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.QuotaException;
@@ -26,6 +25,8 @@ import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
+import org.jdeferred.DoneCallback;
+import org.jdeferred.FailCallback;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
@@ -58,10 +59,9 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         }
 
         for (AzureInstance azureInstance : realInstances.values()) {
-            final String name = azureInstance.getName();
-            final AzureCloudInstance cloudInstance = new AzureCloudInstance(this, name, name);
-            cloudInstance.setStatus(azureInstance.getInstanceStatus());
-            myInstances.put(name, cloudInstance);
+            AzureCloudInstance instance = createInstanceFromReal(azureInstance);
+            instance.setStatus(azureInstance.getInstanceStatus());
+            myInstances.put(instance.getInstanceId(), instance);
         }
     }
 
@@ -85,16 +85,17 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
             throw new QuotaException("Unable to start more instances. Limit reached");
         }
 
-        final String vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix(), myIdProvider.getNextId());
-        final AzureCloudInstance instance = new AzureCloudInstance(this, vmName);
+        final String name = String.format("%s-%d", myImageDetails.getVmNamePrefix(), myIdProvider.getNextId());
+        final AzureCloudInstance instance = new AzureCloudInstance(this, name);
         instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
 
-        try {
-            myApiConnector.createVm(instance, userData);
-        } catch (Exception e) {
-            instance.setStatus(InstanceStatus.ERROR);
-            throw new RuntimeException(e);
-        }
+        myApiConnector.createVmAsync(instance, userData).fail(new FailCallback<Throwable>() {
+            @Override
+            public void onFail(Throwable result) {
+                instance.setStatus(InstanceStatus.ERROR);
+                instance.updateErrors(TypedCloudErrorInfo.fromException(result));
+            }
+        });
 
         myInstances.put(instance.getInstanceId(), instance);
 
@@ -105,26 +106,31 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     public void restartInstance(@NotNull final AzureCloudInstance instance) {
         instance.setStatus(InstanceStatus.RESTARTING);
 
-        try {
-            myApiConnector.restartVm(instance);
-        } catch (Exception e) {
-            instance.setStatus(InstanceStatus.ERROR);
-            throw new RuntimeException(e);
-        }
+        myApiConnector.restartVmAsync(instance).fail(new FailCallback<Throwable>() {
+            @Override
+            public void onFail(Throwable result) {
+                instance.setStatus(InstanceStatus.ERROR);
+                instance.updateErrors(TypedCloudErrorInfo.fromException(result));
+            }
+        });
     }
 
     @Override
     public void terminateInstance(@NotNull final AzureCloudInstance instance) {
         instance.setStatus(InstanceStatus.STOPPING);
 
-        try {
-            myApiConnector.deleteVm(instance);
-            instance.setStatus(InstanceStatus.STOPPED);
-        } catch (Exception e) {
-            instance.setStatus(InstanceStatus.ERROR);
-            throw new RuntimeException(e);
-        }
-
-        myInstances.remove(instance.getInstanceId());
+        myApiConnector.deleteVmAsync(instance).done(new DoneCallback<Void>() {
+            @Override
+            public void onDone(Void result) {
+                instance.setStatus(InstanceStatus.STOPPED);
+                myInstances.remove(instance.getInstanceId());
+            }
+        }).fail(new FailCallback<Throwable>() {
+            @Override
+            public void onFail(Throwable result) {
+                instance.setStatus(InstanceStatus.ERROR);
+                instance.updateErrors(TypedCloudErrorInfo.fromException(result));
+            }
+        });
     }
 }

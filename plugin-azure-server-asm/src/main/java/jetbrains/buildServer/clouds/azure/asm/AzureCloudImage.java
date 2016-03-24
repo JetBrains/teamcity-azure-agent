@@ -75,9 +75,9 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     }
     final Map<String, AzureInstance> instances = apiConnector.listImageInstances(this);
     for (AzureInstance azureInstance : instances.values()) {
-      final AzureCloudInstance cloudInstance = new AzureCloudInstance(this, azureInstance.getName(), azureInstance.getName());
-      cloudInstance.setStatus(azureInstance.getInstanceStatus());
-      myInstances.put(azureInstance.getName(), cloudInstance);
+      final AzureCloudInstance instance = createInstanceFromReal(azureInstance);
+      instance.setStatus(azureInstance.getInstanceStatus());
+      myInstances.put(instance.getInstanceId(), instance);
     }
     if (myImageDetails.getBehaviour().isUseOriginal() && myInstances.size() != 1) {
       throw new TeamCityRuntimeException("Unable to find Azure Virtual Machine " + myImageDetails.getSourceName());

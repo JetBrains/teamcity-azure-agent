@@ -31,10 +31,6 @@ public class AzureCloudInstance extends AbstractCloudInstance<AzureCloudImage> {
     super(image, name, name);
   }
 
-  AzureCloudInstance(@NotNull final AzureCloudImage image, String name, String id) {
-    super(image, name, id);
-  }
-
   public boolean containsAgent(@NotNull final AgentDescription agent) {
     final String agentInstanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
     return getName().equals(agentInstanceName);

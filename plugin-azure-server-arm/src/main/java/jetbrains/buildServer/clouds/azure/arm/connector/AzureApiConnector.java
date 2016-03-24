@@ -21,11 +21,9 @@ import com.microsoft.azure.ListOperationCallback;
 import com.microsoft.azure.credentials.ApplicationTokenCredentials;
 import com.microsoft.azure.management.compute.ComputeManagementClient;
 import com.microsoft.azure.management.compute.ComputeManagementClientImpl;
-import com.microsoft.azure.management.compute.VirtualMachinesOperations;
 import com.microsoft.azure.management.compute.models.*;
 import com.microsoft.azure.management.network.NetworkManagementClient;
 import com.microsoft.azure.management.network.NetworkManagementClientImpl;
-import com.microsoft.azure.management.network.PublicIPAddressesOperations;
 import com.microsoft.azure.management.network.models.*;
 import com.microsoft.azure.management.resources.ResourceManagementClient;
 import com.microsoft.azure.management.resources.ResourceManagementClientImpl;
@@ -33,13 +31,13 @@ import com.microsoft.azure.management.resources.models.ResourceGroup;
 import com.microsoft.azure.management.storage.StorageManagementClient;
 import com.microsoft.azure.management.storage.StorageManagementClientImpl;
 import com.microsoft.azure.management.storage.models.StorageAccount;
-import com.microsoft.azure.management.storage.models.StorageAccountKeys;
 import com.microsoft.azure.storage.CloudStorageAccount;
 import com.microsoft.azure.storage.StorageCredentialsAccountAndKey;
 import com.microsoft.azure.storage.blob.*;
 import com.microsoft.rest.ServiceCallback;
 import com.microsoft.rest.ServiceResponse;
 import com.microsoft.rest.credentials.ServiceClientCredentials;
+import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
@@ -64,7 +62,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
 
-import java.io.IOException;
 import java.util.*;
 
 /**
@@ -116,13 +113,22 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
     @Nullable
     @Override
-    public InstanceStatus getInstanceStatusIfExists(@NotNull AzureCloudInstance instance) {
+    public InstanceStatus getInstanceStatusIfExists(@NotNull final AzureCloudInstance instance) {
+        final AzureInstance azureInstance = new AzureInstance(instance.getName());
+        final AzureCloudImageDetails details = instance.getImage().getImageDetails();
+
         try {
-            final AzureInstance azureInstance = new AzureInstance(instance.getName());
-            retrieveInstanceData(azureInstance, instance.getImage().getImageDetails());
+            myManager.when(getInstanceDataAsync(azureInstance, details)).fail(new FailCallback<Throwable>() {
+                @Override
+                public void onFail(Throwable result) {
+                    instance.setStatus(InstanceStatus.ERROR);
+                    instance.updateErrors(TypedCloudErrorInfo.fromException(result));
+                }
+            }).waitSafely();
             return azureInstance.getInstanceStatus();
-        } catch (Exception e) {
-            LOG.warnAndDebugDetails("Failed to get virtual machine " + instance.getName(), e);
+        } catch (InterruptedException e) {
+            final CloudException exception = new CloudException("Failed to get virtual machine info " + e.getMessage(), e);
+            instance.updateErrors(TypedCloudErrorInfo.fromException(exception));
         }
 
         return null;
@@ -132,106 +138,214 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     @Override
     @SuppressWarnings("unchecked")
     public <R extends AbstractInstance> Map<AzureCloudImage, Map<String, R>> fetchInstances(@NotNull Collection<AzureCloudImage> images) throws CheckedCloudException {
-        final HashMap<AzureCloudImage, Map<String, R>> imageMap = new HashMap<>();
+        final Map<AzureCloudImage, Map<String, R>> imageMap = new HashMap<>();
+        final List<Promise<Void, Throwable, Object>> promises = new ArrayList<>();
 
-        for (AzureCloudImage image : images) {
-            final AzureCloudImageDetails details = image.getImageDetails();
-            final Map<String, R> instances = new HashMap<>();
-            final ServiceResponse<List<VirtualMachine>> vmsResponse;
-            final VirtualMachinesOperations operations = myComputeClient.getVirtualMachinesOperations();
+        for (final AzureCloudImage image : images) {
+            final Promise<Void, Throwable, Object> promise = fetchInstancesAsync(image).fail(new FailCallback<Throwable>() {
+                @Override
+                public void onFail(Throwable result) {
+                    image.updateErrors(TypedCloudErrorInfo.fromException(result));
+                }
+            }).then(new DonePipe<Map<String, AbstractInstance>, Void, Throwable, Object>() {
+                @Override
+                public Promise<Void, Throwable, Object> pipeDone(Map<String, AbstractInstance> result) {
+                    imageMap.put(image, (Map<String, R>) result);
+                    return new DeferredObject<Void, Throwable, Object>().resolve(null);
+                }
+            });
 
+            promises.add(promise);
+        }
+
+        if (promises.size() != 0){
             try {
-                vmsResponse = operations.list(details.getGroupId());
-            } catch (Throwable e) {
-                throw new CloudException("Failed to get list of virtual machines: " + e.getMessage(), e);
+                myManager.when(promises.toArray(new Promise[]{})).waitSafely();
+            } catch (InterruptedException e) {
+                throw new CloudException("Failed to get list of images " + e.getMessage(), e);
             }
-
-            for (VirtualMachine virtualMachine : vmsResponse.getBody()) {
-                final String name = virtualMachine.getName();
-                if (!name.startsWith(details.getVmNamePrefix())) continue;
-
-                final Map<String, String> tags = virtualMachine.getTags();
-                if (tags == null) continue;
-
-                final String serverId = tags.get(AzureConstants.TAG_SERVER);
-                if (!StringUtil.areEqual(serverId, myServerId)) continue;
-
-                final String profileId = tags.get(AzureConstants.TAG_PROFILE);
-                if (!StringUtil.areEqual(profileId, myProfileId)) continue;
-
-                final String sourceName = tags.get(AzureConstants.TAG_SOURCE);
-                if (!StringUtil.areEqual(sourceName, details.getSourceName())) continue;
-
-                final AzureInstance instance = new AzureInstance(name);
-                retrieveInstanceData(instance, details);
-
-                instances.put(name, (R) instance);
-            }
-
-            imageMap.put(image, instances);
         }
 
         return imageMap;
     }
 
-    private void retrieveInstanceData(final AzureInstance instance, final AzureCloudImageDetails details) {
-        final VirtualMachine virtualMachine;
-        final String groupId = details.getGroupId();
-        final String name = instance.getName();
+    @SuppressWarnings("unchecked")
+    private <R extends AbstractInstance> Promise<Map<String, R>, Throwable, Object> fetchInstancesAsync(final AzureCloudImage image) {
+        final DeferredObject<Map<String, R>, Throwable, Object> deferred = new DeferredObject<>();
+        final List<Promise<Void, Throwable, Object>> promises = new ArrayList<>();
+        final Map<String, R> instances = new HashMap<>();
+        final List<Throwable> exceptions = new ArrayList<>();
+        final AzureCloudImageDetails details = image.getImageDetails();
 
-        try {
-            final VirtualMachinesOperations operations = myComputeClient.getVirtualMachinesOperations();
-            virtualMachine = operations.get(groupId, name, INSTANCE_VIEW).getBody();
-        } catch (Exception e) {
-            throw new CloudException("Failed to get instance state " + e.getMessage(), e);
-        }
+        myComputeClient.getVirtualMachinesOperations().listAsync(details.getGroupId(), new ListOperationCallback<VirtualMachine>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get list of virtual machines: " + t.getMessage(), t);
+                exceptions.add(exception);
+                deferred.reject(exception);
+            }
 
-        for (InstanceViewStatus status : virtualMachine.getInstanceView().getStatuses()) {
-            final String code = status.getCode();
-            if (code.startsWith(PROVISIONING_STATE)) {
-                instance.setProvisioningState(code.substring(PROVISIONING_STATE.length()));
-                final DateTime dateTime = status.getTime();
-                if (dateTime != null) {
-                    instance.setStartDate(dateTime.toDate());
+            @Override
+            public void success(ServiceResponse<List<VirtualMachine>> result) {
+                for (VirtualMachine virtualMachine : result.getBody()) {
+                    final String name = virtualMachine.getName();
+                    if (!name.startsWith(details.getVmNamePrefix())) continue;
+
+                    final Map<String, String> tags = virtualMachine.getTags();
+                    if (tags == null) continue;
+
+                    final String serverId = tags.get(AzureConstants.TAG_SERVER);
+                    if (!StringUtil.areEqual(serverId, myServerId)) continue;
+
+                    final String profileId = tags.get(AzureConstants.TAG_PROFILE);
+                    if (!StringUtil.areEqual(profileId, myProfileId)) continue;
+
+                    final String sourceName = tags.get(AzureConstants.TAG_SOURCE);
+                    if (!StringUtil.areEqual(sourceName, details.getSourceName())) continue;
+
+                    final AzureInstance instance = new AzureInstance(name);
+                    final Promise<Void, Throwable, Object> promise = getInstanceDataAsync(instance, details);
+                    promise.fail(new FailCallback<Throwable>() {
+                        @Override
+                        public void onFail(Throwable result) {
+                            exceptions.add(result);
+                        }
+                    });
+
+                    promises.add(promise);
+                    instances.put(name, (R) instance);
+                }
+
+                if (promises.size() == 0){
+                    deferred.resolve(instances);
+                } else {
+                    myManager.when(promises.toArray(new Promise[]{})).always(new AlwaysCallback<MultipleResults, OneReject>() {
+                        @Override
+                        public void onAlways(Promise.State state, MultipleResults resolved, OneReject rejected) {
+                            final TypedCloudErrorInfo[] errors = new TypedCloudErrorInfo[exceptions.size()];
+                            for (int i = 0; i < exceptions.size(); i++) {
+                                errors[i] = TypedCloudErrorInfo.fromException(exceptions.get(i));
+                            }
+
+                            image.updateErrors(errors);
+                            deferred.resolve(instances);
+                        }
+                    });
                 }
             }
-            if (code.startsWith(POWER_STATE)) {
-                instance.setPowerState(code.substring(POWER_STATE.length()));
+        });
+
+        return deferred.promise();
+    }
+
+    private Promise<Void, Throwable, Object> getInstanceDataAsync(final AzureInstance instance, final AzureCloudImageDetails details) {
+        final String groupId = details.getGroupId();
+        final String name = instance.getName();
+        final DeferredObject<Void, Throwable, Object> instanceViewPromise = new DeferredObject<>();
+
+        myComputeClient.getVirtualMachinesOperations().getAsync(groupId, name, INSTANCE_VIEW, new ServiceCallback<VirtualMachine>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get virtual machine info " + t.getMessage(), t);
+                instanceViewPromise.reject(exception);
             }
+
+            @Override
+            public void success(ServiceResponse<VirtualMachine> result) {
+                for (InstanceViewStatus status : result.getBody().getInstanceView().getStatuses()) {
+                    final String code = status.getCode();
+                    if (code.startsWith(PROVISIONING_STATE)) {
+                        instance.setProvisioningState(code.substring(PROVISIONING_STATE.length()));
+                        final DateTime dateTime = status.getTime();
+                        if (dateTime != null) {
+                            instance.setStartDate(dateTime.toDate());
+                        }
+                    }
+                    if (code.startsWith(POWER_STATE)) {
+                        instance.setPowerState(code.substring(POWER_STATE.length()));
+                    }
+                }
+
+                instanceViewPromise.resolve(null);
+            }
+        });
+
+        final Promise<Void, Throwable, Object> publicIpPromise;
+        if (details.getVmPublicIp()) {
+            publicIpPromise = getPublicIpAsync(groupId, name + PUBLIC_IP_SUFFIX).then(new DonePipe<String, Void, Throwable, Object>() {
+                @Override
+                public Promise<Void, Throwable, Object> pipeDone(String result) {
+                    if (!StringUtil.isEmpty(result)){
+                        instance.setIpAddress(result);
+                    }
+
+                    return new DeferredObject<Void, Throwable, Object>().resolve(null);
+                }
+            });
+        } else {
+            publicIpPromise = new DeferredObject<Void, Throwable, Object>().resolve(null);
         }
 
-        if (!details.getVmPublicIp()) {
-            return;
-        }
+        return myManager.when(instanceViewPromise, publicIpPromise).then(new DonePipe<MultipleResults, Void, Throwable, Object>() {
+            @Override
+            public Promise<Void, Throwable, Object> pipeDone(MultipleResults result) {
+                return new DeferredObject<Void, Throwable, Object>().resolve(null);
+            }
+        }, new FailPipe<OneReject, Void, Throwable, Object>() {
+            @Override
+            public Promise<Void, Throwable, Object> pipeFail(OneReject result) {
+                return new DeferredObject<Void, Throwable, Object>().reject((Throwable) result.getReject());
+            }
+        });
+    }
 
-        final String nicName = name + PUBLIC_IP_SUFFIX;
-        try {
-            final PublicIPAddressesOperations operations = myNetworkClient.getPublicIPAddressesOperations();
-            final PublicIPAddress ipAddress = operations.get(groupId, nicName, null).getBody();
-            instance.setIpAddress(ipAddress.getIpAddress());
-        } catch (Exception e) {
-            LOG.warnAndDebugDetails("Failed to get public ip address", e);
-        }
+    private Promise<String, Throwable, Object> getPublicIpAsync(final String groupId, final String name){
+        final DeferredObject<String, Throwable, Object> deferred = new DeferredObject<>();
+        myNetworkClient.getPublicIPAddressesOperations().getAsync(groupId, name, null, new ServiceCallback<PublicIPAddress>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get public ip address info " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
+
+            @Override
+            public void success(ServiceResponse<PublicIPAddress> result) {
+                deferred.resolve(result.getBody().getIpAddress());
+            }
+        });
+
+        return deferred.promise();
     }
 
     @NotNull
     @Override
     public TypedCloudErrorInfo[] checkImage(@NotNull AzureCloudImage image) {
-        return new TypedCloudErrorInfo[]{};
+        final CloudErrorInfo error = image.getErrorInfo();
+        if (error == null) {
+            return new TypedCloudErrorInfo[]{};
+        }
+
+        return new TypedCloudErrorInfo[]{new TypedCloudErrorInfo("error", error.getMessage(), error.getDetailedMessage())};
     }
 
     @NotNull
     @Override
     public TypedCloudErrorInfo[] checkInstance(@NotNull AzureCloudInstance instance) {
-        if (instance.getStatus() != InstanceStatus.ERROR) {
+        final CloudErrorInfo error = instance.getErrorInfo();
+        if (error == null) {
             return new TypedCloudErrorInfo[]{};
         }
 
-        return new TypedCloudErrorInfo[]{new TypedCloudErrorInfo("error", "Error occurred while VM provisioning")};
+        return new TypedCloudErrorInfo[]{new TypedCloudErrorInfo("error", error.getMessage(), error.getDetailedMessage())};
     }
 
+    /**
+     * Gets a list of available resource groups.
+     *
+     * @return list of resource groups.
+     */
     @NotNull
-    public List<String> getResourceGroups() throws CloudException {
+    public List<String> getResourceGroups() {
         final ServiceResponse<List<ResourceGroup>> response;
         try {
             response = myArmClient.getResourceGroupsOperations().list(null, RESOURCES_NUMBER);
@@ -248,6 +362,12 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         return groups;
     }
 
+    /**
+     * Gets a list of storage accounts in the resource group.
+     *
+     * @param groupName is a resource group name.
+     * @return list of storages.
+     */
     @NotNull
     public List<String> getStoragesByGroup(@NotNull final String groupName) {
         final ServiceResponse<List<StorageAccount>> response;
@@ -266,6 +386,12 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         return storages;
     }
 
+    /**
+     * Gets a list of VM sizes in the resource group.
+     *
+     * @param groupName is a resource group name.
+     * @return list of sizes.
+     */
     @NotNull
     public List<String> getVmSizesByGroup(String groupName) {
         final ServiceResponse<List<VirtualMachineSize>> response;
@@ -286,8 +412,15 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         return sizes;
     }
 
+    /**
+     * Creates a new cloud instance.
+     *
+     * @param instance is a cloud instance.
+     * @param userData is a custom data.
+     * @return promise.
+     */
     @NotNull
-    public void createVm(final AzureCloudInstance instance, final CloudInstanceUserData tag) throws IOException {
+    public Promise<Void, Throwable, Object> createVmAsync(final AzureCloudInstance instance, final CloudInstanceUserData userData) {
         final AzureCloudImageDetails details = instance.getImage().getImageDetails();
         final String groupId = details.getGroupId();
         final String storageId = details.getStorageId();
@@ -304,7 +437,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         final String osDiskName = vmName + "-os";
         final String osDiskVhdName = String.format("https://%s.blob.core.windows.net/" + BLOBS_CONTAINER + "/%s-os.vhd", storageId, vmName);
         final String userImageName = String.format("https://%s.blob.core.windows.net/%s", storageId, imagePath);
-        final String customData = new String(Base64.getEncoder().encode(tag.serialize().getBytes()));
+        final String customData = new String(Base64.getEncoder().encode(userData.serialize().getBytes()));
 
         // Check storage account
         final Promise<VirtualMachine, Throwable, Object> machinePromise = getStoragesByGroupAsync(groupId).then(new DonePipe<List<StorageAccount>, VirtualMachine, Throwable, Object>() {
@@ -356,9 +489,6 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                     public Promise<NetworkInterface, Throwable, Object> pipeDone(MultipleResults result) {
                         final Subnet subnet = (Subnet) result.get(0).getResult();
                         final PublicIPAddress publicIPAddress = (PublicIPAddress) result.get(1).getResult();
-                        if (publicIPAddress != null){
-                            instance.setNetworkIdentify(publicIPAddress.getIpAddress());
-                        }
 
                         NetworkInterface nic = new NetworkInterface();
                         nic.setLocation(location);
@@ -447,7 +577,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                         // Set tags
                         machine.setTags(new HashMap<String, String>());
                         machine.getTags().put(AzureConstants.TAG_SERVER, myServerId);
-                        machine.getTags().put(AzureConstants.TAG_PROFILE, tag.getProfileId());
+                        machine.getTags().put(AzureConstants.TAG_PROFILE, userData.getProfileId());
                         machine.getTags().put(AzureConstants.TAG_SOURCE, details.getSourceName());
 
                         return createVirtualMachineAsync(groupId, vmName, machine);
@@ -456,11 +586,20 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             }
         });
 
-        myManager.when(machinePromise).fail(new FailCallback<Throwable>() {
+        return myManager.when(machinePromise).then(new DonePipe<VirtualMachine, Void, Throwable, Object>() {
             @Override
-            public void onFail(Throwable result) {
-                instance.setStatus(InstanceStatus.ERROR);
-                instance.updateErrors(TypedCloudErrorInfo.fromException(result));
+            public Promise<Void, Throwable, Object> pipeDone(VirtualMachine result) {
+                if (publicIp){
+                    return getPublicIpAsync(groupId, publicIpName).then(new DonePipe<String, Void, Throwable, Object>() {
+                        @Override
+                        public Promise<Void, Throwable, Object> pipeDone(String result) {
+                            instance.setNetworkIdentify(result);
+                            return new DeferredObject<Void, Throwable, Object>().resolve(null);
+                        }
+                    });
+                }
+
+                return new DeferredObject<Void, Throwable, Object>().resolve(null);
             }
         });
     }
@@ -551,7 +690,6 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
                             @Override
                             public void success(ServiceResponse<NetworkInterface> result) {
-                                //nic = myNetworkClient.getNetworkInterfacesOperations().get(groupId, nicName, null).getBody();
                                 deferred.resolve(result.getBody());
                             }
                         });
@@ -597,7 +735,6 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
             @Override
             public void success(ServiceResponse<PublicIPAddress> result) {
-                //publicIPAddress = myNetworkClient.getPublicIPAddressesOperations().get(groupId, publicIpName, null).getBody();
                 deferred.resolve(result.getBody());
             }
         });
@@ -605,13 +742,19 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         return deferred.promise();
     }
 
-    public void deleteVm(@NotNull final AzureCloudInstance instance) {
+    /**
+     * Deletes a cloud instance.
+     *
+     * @param instance is a cloud instance.
+     * @return promise.
+     */
+    public Promise<Void, Throwable, Object> deleteVmAsync(@NotNull final AzureCloudInstance instance) {
         final AzureCloudImageDetails details = instance.getImage().getImageDetails();
         final String groupId = details.getGroupId();
         final String storageId = details.getStorageId();
         final String filePrefix = String.format("%s/%s", BLOBS_CONTAINER, instance.getName());
 
-        final Promise<MultipleResults, OneReject, MasterProgress> deleteMachinePromise = deleteVirtualMachineAsync(groupId, instance.getName()).then(new DonePipe<Void, MultipleResults, OneReject, MasterProgress>() {
+        return deleteVirtualMachineAsync(groupId, instance.getName()).then(new DonePipe<Void, MultipleResults, OneReject, MasterProgress>() {
             @Override
             public Promise<MultipleResults, OneReject, MasterProgress> pipeDone(Void result) {
                 final Promise<Void, Throwable, Void> deleteBlobsPromise = myManager.when(new Runnable() {
@@ -627,24 +770,23 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                     }
                 });
 
-                return myManager.when(deleteNetworkAsync(groupId, instance.getName() + NETWORK_IP_SUFFIX), deleteBlobsPromise);
+                final Promise<Void, Throwable, Object> networkPromise = deleteNetworkAsync(groupId, instance.getName() + NETWORK_IP_SUFFIX).then(new DonePipe<Void, Void, Throwable, Object>() {
+                    @Override
+                    public Promise<Void, Throwable, Object> pipeDone(Void result) {
+                        if (StringUtil.isEmpty(instance.getNetworkIdentity())) {
+                            return new DeferredObject<Void, Throwable, Object>().resolve(null);
+                        } else {
+                            return deletePublicIpAsync(groupId, instance.getName() + PUBLIC_IP_SUFFIX);
+                        }
+                    }
+                });
+
+                return myManager.when(networkPromise, deleteBlobsPromise);
             }
-        });
-
-        final Promise<Void, Throwable, Object> deletePublicIpPromise;
-        if (StringUtil.isEmpty(instance.getNetworkIdentity())) {
-            DeferredObject<Void, Throwable, Object> deferred = new DeferredObject<>();
-            deferred.resolve(null);
-            deletePublicIpPromise = deferred;
-        } else {
-            deletePublicIpPromise = deletePublicIpAsync(groupId, instance.getName() + PUBLIC_IP_SUFFIX);
-        }
-
-        myManager.when(deleteMachinePromise, deletePublicIpPromise).fail(new FailCallback<OneReject>() {
+        }).then(new DonePipe<MultipleResults, Void, Throwable, Object>() {
             @Override
-            public void onFail(OneReject result) {
-                instance.setStatus(InstanceStatus.ERROR_CANNOT_STOP);
-                instance.updateErrors(TypedCloudErrorInfo.fromException((Throwable) result.getReject()));
+            public Promise<Void, Throwable, Object> pipeDone(MultipleResults result) {
+                return new DeferredObject<Void, Throwable, Object>().resolve(null);
             }
         });
     }
@@ -703,22 +845,40 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         return deferred.promise();
     }
 
-    public void restartVm(@NotNull final AzureCloudInstance instance) {
+    /**
+     * Restarts an instance.
+     *
+     * @param instance is a cloud instance.
+     * @return promise.
+     */
+    @NotNull
+    public Promise<Void, Throwable, Object> restartVmAsync(@NotNull final AzureCloudInstance instance) {
+        final DeferredObject<Void, Throwable, Object> deferred = new DeferredObject<>();
         final String groupId = instance.getImage().getImageDetails().getGroupId();
         myComputeClient.getVirtualMachinesOperations().restartAsync(groupId, instance.getName(), new ServiceCallback<Void>() {
             @Override
             public void failure(Throwable t) {
-                instance.setStatus(InstanceStatus.ERROR);
                 final CloudException exception = new CloudException("Failed to restart virtual machine " + t.getMessage(), t);
-                instance.updateErrors(TypedCloudErrorInfo.fromException(exception));
+                deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<Void> result) {
+                deferred.resolve(result.getBody());
             }
         });
+
+        return deferred.promise();
     }
 
+    /**
+     * Gets an OS type of VHD image.
+     *
+     * @param group    is a resource group name.
+     * @param storage  is a storage name.
+     * @param filePath is a file path.
+     * @return OS type (Linux, Windows).
+     */
     @Nullable
     public String getVhdOsType(@NotNull final String group,
                                @NotNull final String storage,
@@ -727,27 +887,27 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         if (blobs.size() == 0) {
             throw new CloudException("VHD file not found in storage account");
         }
-
-        for (CloudBlob blob : blobs) {
-            try {
-                blob.downloadAttributes();
-            } catch (Exception e) {
-                throw new CloudException("Failed to access storage blob: " + e.getMessage(), e);
-            }
-
-            final HashMap<String, String> metadata = blob.getMetadata();
-            if (!"OSDisk".equals(metadata.get("MicrosoftAzureCompute_ImageType"))) {
-                return null;
-            }
-
-            if (!"Generalized".equals(metadata.get("MicrosoftAzureCompute_OSState"))) {
-                throw new CloudException("VHD image should be generalized.");
-            }
-
-            return metadata.get("MicrosoftAzureCompute_OSType");
+        if (blobs.size() > 1) {
+            return null;
         }
 
-        return null;
+        final CloudBlob blob = blobs.get(0);
+        try {
+            blob.downloadAttributes();
+        } catch (Exception e) {
+            throw new CloudException("Failed to access storage blob: " + e.getMessage(), e);
+        }
+
+        final HashMap<String, String> metadata = blob.getMetadata();
+        if (!"OSDisk".equals(metadata.get("MicrosoftAzureCompute_ImageType"))) {
+            return null;
+        }
+
+        if (!"Generalized".equals(metadata.get("MicrosoftAzureCompute_OSState"))) {
+            throw new CloudException("VHD image should be generalized.");
+        }
+
+        return metadata.get("MicrosoftAzureCompute_OSType");
     }
 
     private List<CloudBlob> getBlobs(final String group, final String storage, final String filesPrefix) {
@@ -756,29 +916,20 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             throw new CloudException("File path must include container name");
         }
 
-        final ServiceResponse<StorageAccountKeys> keysResponse;
+        final String storageKey;
         try {
-            keysResponse = myStorageClient.getStorageAccountsOperations().listKeys(group, storage);
+            storageKey = myStorageClient.getStorageAccountsOperations().listKeys(group, storage).getBody().getKey1();
         } catch (Exception e) {
             throw new CloudException("Failed to access storage account: " + e.getMessage(), e);
         }
 
-        final String storageKey = keysResponse.getBody().getKey1();
         final StorageCredentialsAccountAndKey credentials = new StorageCredentialsAccountAndKey(storage, storageKey);
-        final CloudStorageAccount storageAccount;
-        try {
-            storageAccount = new CloudStorageAccount(credentials);
-        } catch (Exception e) {
-            throw new CloudException("Failed to connect to storage account: " + e.getMessage(), e);
-        }
-
-        final CloudBlobClient blobClient = storageAccount.createCloudBlobClient();
         final String containerName = filesPrefix.substring(0, slash);
         final CloudBlobContainer container;
         try {
-            container = blobClient.getContainerReference(containerName);
+            container = new CloudStorageAccount(credentials).createCloudBlobClient().getContainerReference(containerName);
         } catch (Exception e) {
-            throw new CloudException("Failed to access storage container: " + e.getMessage(), e);
+            throw new CloudException("Failed to connect to storage account: " + e.getMessage(), e);
         }
 
         final String blobName = filesPrefix.substring(slash + 1);
@@ -794,10 +945,20 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         return blobs;
     }
 
+    /**
+     * Sets a server identifier.
+     *
+     * @param serverId identifier.
+     */
     public void setServerId(@Nullable final String serverId) {
         myServerId = serverId;
     }
 
+    /**
+     * Sets a profile identifier.
+     *
+     * @param profileId identifier.
+     */
     public void setProfileId(@Nullable final String profileId) {
         myProfileId = profileId;
     }

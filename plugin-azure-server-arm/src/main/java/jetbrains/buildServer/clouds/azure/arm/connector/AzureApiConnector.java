@@ -65,6 +65,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
 
+import java.net.URISyntaxException;
 import java.util.*;
 
 /**
@@ -899,6 +900,10 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
         final CloudBlob blob = blobs.get(0);
         try {
+            if (!filePath.endsWith(blob.getName())){
+                return null;
+            }
+
             blob.downloadAttributes();
         } catch (Exception e) {
             throw new CloudException("Failed to access storage blob: " + e.getMessage(), e);

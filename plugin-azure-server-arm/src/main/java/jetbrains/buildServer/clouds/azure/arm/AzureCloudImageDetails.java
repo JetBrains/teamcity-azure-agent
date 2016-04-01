@@ -29,6 +29,10 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
     private final String myGroupId;
     @SerializedName(AzureConstants.STORAGE_ID)
     private final String myStorageId;
+    @SerializedName(AzureConstants.NETWORK_ID)
+    private final String myNetworkId;
+    @SerializedName(AzureConstants.SUBNET_ID)
+    private final String mySubnetId;
     @SerializedName(AzureConstants.IMAGE_PATH)
     private final String myImagePath;
     @SerializedName(AzureConstants.OS_TYPE)
@@ -47,6 +51,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
     public AzureCloudImageDetails(@NotNull final String groupId,
                                   @NotNull final String storageId,
+                                  @NotNull final String networkId,
+                                  @NotNull final String subnetId,
                                   @NotNull final String imagePath,
                                   @NotNull final String osType,
                                   @NotNull final String vmNamePrefix,
@@ -56,6 +62,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
                                   @NotNull final String username) {
         myGroupId = groupId;
         myStorageId = storageId;
+        myNetworkId = networkId;
+        mySubnetId = subnetId;
         myImagePath = imagePath;
         myOsType = osType;
         myVmNamePrefix = vmNamePrefix;
@@ -71,6 +79,14 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
     public String getStorageId() {
         return myStorageId;
+    }
+
+    public String getNetworkId() {
+        return myNetworkId;
+    }
+
+    public String getSubnetId() {
+        return mySubnetId;
     }
 
     public String getImagePath() {

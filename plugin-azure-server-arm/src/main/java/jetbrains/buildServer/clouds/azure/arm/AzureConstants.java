@@ -26,6 +26,8 @@ public class AzureConstants {
     public static final String SUBSCRIPTION_ID = "subscriptionId";
     public static final String GROUP_ID = "groupId";
     public static final String STORAGE_ID = "storageId";
+    public static final String NETWORK_ID = "networkId";
+    public static final String SUBNET_ID = "subnetId";
     public static final String IMAGE_PATH = "imagePath";
     public static final String MAX_INSTANCES_COUNT = "maxInstances";
     public static final String VM_SIZE = "vmSize";
@@ -64,6 +66,14 @@ public class AzureConstants {
 
     public String getStorageId() {
         return STORAGE_ID;
+    }
+
+    public String getNetworkId() {
+        return NETWORK_ID;
+    }
+
+    public String getSubnetId() {
+        return SUBNET_ID;
     }
 
     public String getImagePath() {

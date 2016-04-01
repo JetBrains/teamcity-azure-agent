@@ -162,6 +162,28 @@
                 </td>
             </tr>
             <tr>
+                <th><label for="${cons.networkId}">Virtual network: <l:star/></label></th>
+                <td>
+                    <select name="${cons.networkId}" class="longField"
+                            data-bind="options: networks, value: image().networkId, css: {hidden: networks().length == 0}"></select>
+                    <div class="longField inline-block" data-bind="css: {hidden: networks().length > 0}">
+                        <span class="error option-error">No virtual networks found in the resource group</span>
+                    </div>
+                    <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingResources()}"></i>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="${cons.subnetId}">Sub network: <l:star/></label></th>
+                <td>
+                    <select name="${cons.subnetId}" class="longField"
+                            data-bind="options: subNetworks, value: image().subnetId, css: {hidden: subNetworks().length == 0}"></select>
+                    <div class="longField inline-block" data-bind="css: {hidden: subNetworks().length > 0}">
+                        <span class="error option-error">No sub networks found in the virtual network</span>
+                    </div>
+                    <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingResources()}"></i>
+                </td>
+            </tr>
+            <tr>
                 <th></th>
                 <td></td>
             </tr>

@@ -38,6 +38,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.image = ko.validatedObservable({
         groupId: ko.observable().extend({required: true}),
         storageId: ko.observable().extend({required: true}),
+        networkId: ko.observable().extend({required: true}),
+        subnetId: ko.observable().extend({required: true}),
         imagePath: ko.observable().extend({required: true}),
         osType: ko.observable().extend({required: true}),
         maxInstances: ko.observable(1).extend({required: true, min: 1}),
@@ -52,6 +54,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.groups = ko.observableArray([]);
     self.subscriptions = ko.observableArray([]);
     self.storages = ko.observableArray([]);
+    self.networks = ko.observableArray([]);
+    self.subNetworks = ko.observableArray([]);
     self.vmSizes = ko.observableArray([]);
     self.osTypes = ko.observableArray(["Linux", "Windows"]);
     self.osType = ko.observable();
@@ -66,6 +70,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
     // Deserialized values
     self.images = ko.observableArray();
+    self.nets = {};
     self.passwords = {};
 
     // Reload subscriptions on credentials change
@@ -103,6 +108,11 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
         loadOsType(groupId, storageId, path);
     });
+    
+    self.image().networkId.subscribe(function (networkId) {
+        var subNetworks = self.nets[networkId] || [];
+        self.subNetworks(subNetworks);
+    });
 
     self.images_data.subscribe(function (data) {
         var images = ko.utils.parseJson(data || "[]");
@@ -125,6 +135,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         model.groupId(image.groupId);
         loadResourcesByGroup(model.groupId()).then(function () {
             model.storageId(image.storageId);
+            model.networkId(image.networkId);
+            model.subnetId(image.subnetId);
             model.vmSize(image.vmSize);
         });
 
@@ -160,6 +172,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         var image = {
             groupId: model.groupId(),
             storageId: model.storageId(),
+            networkId: model.networkId(),
+            subnetId: model.subnetId(),
             imagePath: model.imagePath(),
             osType: model.osType(),
             maxInstances: model.maxInstances(),
@@ -226,10 +240,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
                 self.errorLoadingGroups("");
             }
 
-            var subscriptions = $response.find("subscriptions:eq(0) subscription").map(function () {
-                return {id: $(this).attr("id"), text: $(this).text()};
-            }).get();
-
+            var subscriptions = getSubscriptions($response);
             self.subscriptions(subscriptions);
         }, function (error) {
             self.errorLoadingGroups("Failed to load data: " + error.message);
@@ -266,10 +277,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
                 self.errorLoadingGroups("");
             }
 
-            var groups = $response.find("groups:eq(0) group").map(function () {
-                return $(this).text();
-            }).get();
-
+            var groups = getGroups($response);
             self.groups(groups);
         }, function (error) {
             self.errorLoadingGroups("Failed to load data: " + error.message);
@@ -281,8 +289,12 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
     function loadResourcesByGroup(group) {
         self.loadingResources(true);
+        var url = getBasePath() +
+            "&resource=storages" +
+            "&resource=vmSizes" +
+            "&resource=networks" +
+            "&group=" + group;
 
-        var url = getBasePath() + "&resource=storages&resource=vmSizes&group=" + group;
         var request = $.post(url).then(function (response) {
             var $response = $j(response);
             var errors = getErrors($response);
@@ -293,15 +305,17 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
                 self.errorLoadingResources("");
             }
 
-            var storages = $response.find("storages:eq(0) storage").map(function () {
-                return $(this).text();
-            }).get();
+            var storages = getStorages($response);
             self.storages(storages);
 
-            var vmSizes = $response.find("vmSizes:eq(0) vmSize").map(function () {
-                return $(this).text();
-            }).get();
+            var vmSizes = getVmSizes($response);
             self.vmSizes(vmSizes);
+
+            debugger;
+
+            var networks = getNetworks($response);
+            self.networks(networks);
+            self.image().networkId.valueHasMutated();
         }, function (error) {
             self.errorLoadingResources("Failed to load data: " + error.message);
             console.log(error);
@@ -354,5 +368,43 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         }
 
         return "";
+    }
+
+    function getSubscriptions($response) {
+        return $response.find("subscriptions:eq(0) subscription").map(function () {
+            return {id: $(this).attr("id"), text: $(this).text()};
+        }).get();
+    }
+
+    function getGroups($response) {
+        return $response.find("groups:eq(0) group").map(function () {
+            return $(this).text();
+        }).get();
+    }
+
+    function getStorages($response) {
+        return $response.find("storages:eq(0) storage").map(function () {
+            return $(this).text();
+        }).get();
+    }
+
+    function getVmSizes($response) {
+        return $response.find("vmSizes:eq(0) vmSize").map(function () {
+            return $(this).text();
+        }).get();
+    }
+
+    function getNetworks($response) {
+        self.nets = {};
+
+        return $response.find("networks:eq(0) network").map(function () {
+
+            var id = $(this).attr("id");
+            self.nets[id] = $(this).find("subnet").map(function () {
+                return $(this).text();
+            }).get();
+
+            return id;
+        }).get();
     }
 }

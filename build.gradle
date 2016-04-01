@@ -17,6 +17,7 @@ subprojects {
     repositories {
         mavenCentral()
         maven { url 'http://repository.jetbrains.com/all' }
+        maven { url 'http://adxsnapshots.azurewebsites.net/' }
         maven { url '../local-repo' }
     }
 
@@ -142,12 +143,12 @@ project(':plugin-azure-server-arm') {
         compile 'org.jetbrains.teamcity:cloud-server:9.1.5'
         compile 'org.jetbrains.teamcity:web:9.1.5'
         compile 'org.jetbrains.teamcity:server:9.1.5'
-        compile 'com.microsoft.azure:azure-mgmt-compute:1.0.0-beta1'
-        compile 'com.microsoft.azure:azure-mgmt-network:1.0.0-beta1'
-        compile 'com.microsoft.azure:azure-mgmt-resources:1.0.0-beta1'
-        compile 'com.microsoft.azure:azure-mgmt-storage:1.0.0-beta1'
-        compile 'com.microsoft.azure:azure-client-authentication:1.0.0-beta1'
-        compile 'com.microsoft.azure:azure-client-runtime:1.0.0-beta1'
+        compile 'com.microsoft.azure:azure-mgmt-compute:1.0.0-SNAPSHOT'
+        compile 'com.microsoft.azure:azure-mgmt-network:1.0.0-SNAPSHOT'
+        compile 'com.microsoft.azure:azure-mgmt-resources:1.0.0-SNAPSHOT'
+        compile 'com.microsoft.azure:azure-mgmt-storage:1.0.0-SNAPSHOT'
+        compile 'com.microsoft.azure:azure-client-authentication:1.0.0-SNAPSHOT'
+        compile 'com.microsoft.azure:azure-client-runtime:1.0.0-SNAPSHOT'
         compile 'com.microsoft.azure:azure-storage:4.0.0'
         compile 'org.jdeferred:jdeferred-core:1.2.4'
         runtime 'javax.servlet:jstl:1.1.2'

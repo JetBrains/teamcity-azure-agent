@@ -16,6 +16,9 @@
 package jetbrains.buildServer.clouds.azure.arm.web;
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
+import org.jdeferred.DonePipe;
+import org.jdeferred.Promise;
+import org.jdeferred.impl.DeferredObject;
 import org.jdom.Content;
 import org.jdom.Element;
 
@@ -25,19 +28,22 @@ import java.util.List;
 /**
  * Handles resource groups request.
  */
-public class ResourceGroupsHandler extends AzureResourceHandler {
+class ResourceGroupsHandler extends AzureResourceHandler {
 
     @Override
-    protected Content handle(AzureApiConnector connector, HttpServletRequest request) {
-        final List<String> groups = connector.getResourceGroups();
+    protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
+        return connector.getResourceGroupsAsync().then(new DonePipe<List<String>, Content, Throwable, Object>() {
+            @Override
+            public Promise<Content, Throwable, Object> pipeDone(List<String> groups) {
+                final Element groupsElement = new Element("groups");
+                for (String group : groups) {
+                    final Element groupElement = new Element("group");
+                    groupElement.setText(group);
+                    groupsElement.addContent(groupElement);
+                }
 
-        final Element groupsElement = new Element("groups");
-        for (String group : groups) {
-            final Element groupElement = new Element("group");
-            groupElement.setText(group);
-            groupsElement.addContent(groupElement);
-        }
-
-        return groupsElement;
+                return new DeferredObject<Content, Throwable, Object>().resolve(groupsElement);
+            }
+        });
     }
 }

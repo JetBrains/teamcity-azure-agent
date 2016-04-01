@@ -17,27 +17,33 @@
 package jetbrains.buildServer.clouds.azure.arm.web;
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
+import org.jdeferred.DonePipe;
+import org.jdeferred.Promise;
+import org.jdeferred.impl.DeferredObject;
 import org.jdom.Content;
 import org.jdom.Element;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
 
 /**
  * Handles storage blob request.
  */
-public class OsTypeHandler extends AzureResourceHandler {
+class OsTypeHandler extends AzureResourceHandler {
 
     @Override
-    protected Content handle(AzureApiConnector connector, HttpServletRequest request) {
+    protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
         final String group = request.getParameter("group");
         final String storage = request.getParameter("storage");
         final String filePath = request.getParameter("path");
-        final String osType = connector.getVhdOsType(group, storage, filePath);
 
-        final Element osTypeElement = new Element("osType");
-        osTypeElement.setText(osType);
+        return connector.getVhdOsTypeAsync(group, storage, filePath).then(new DonePipe<String, Content, Throwable, Object>() {
+            @Override
+            public Promise<Content, Throwable, Object> pipeDone(String osType) {
+                final Element osTypeElement = new Element("osType");
+                osTypeElement.setText(osType);
 
-        return osTypeElement;
+                return new DeferredObject<Content, Throwable, Object>().resolve(osTypeElement);
+            }
+        });
     }
 }

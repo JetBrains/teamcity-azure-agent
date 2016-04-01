@@ -19,6 +19,7 @@ import jetbrains.buildServer.clouds.azure.arm.AzureConstants;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
 import jetbrains.buildServer.controllers.admin.projects.PluginPropertiesUtil;
+import org.jdeferred.Promise;
 import org.jdom.Content;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,9 +29,10 @@ import java.util.Map;
 /**
  * Azure resource handler.
  */
-public abstract class AzureResourceHandler implements ResourceHandler {
+abstract class AzureResourceHandler implements ResourceHandler {
+
     @Override
-    public Content handle(@NotNull HttpServletRequest request) {
+    public Promise<Content, Throwable, Object> handle(@NotNull HttpServletRequest request) {
         BasePropertiesBean propsBean = new BasePropertiesBean(null);
         PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true);
 
@@ -39,11 +41,10 @@ public abstract class AzureResourceHandler implements ResourceHandler {
         final String clientId = props.get(AzureConstants.CLIENT_ID);
         final String clientSecret = props.get("secure:" + AzureConstants.CLIENT_SECRET);
         final String subscriptionId = props.get(AzureConstants.SUBSCRIPTION_ID);
-
         final AzureApiConnector apiConnector = new AzureApiConnector(tenantId, clientId, clientSecret, subscriptionId);
 
         return handle(apiConnector, request);
     }
 
-    protected abstract Content handle(AzureApiConnector connector, HttpServletRequest request);
+    protected abstract Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request);
 }

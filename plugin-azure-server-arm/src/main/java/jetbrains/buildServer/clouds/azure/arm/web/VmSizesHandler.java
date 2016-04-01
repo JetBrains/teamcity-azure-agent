@@ -16,6 +16,9 @@
 package jetbrains.buildServer.clouds.azure.arm.web;
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
+import org.jdeferred.DonePipe;
+import org.jdeferred.Promise;
+import org.jdeferred.impl.DeferredObject;
 import org.jdom.Content;
 import org.jdom.Element;
 
@@ -25,20 +28,23 @@ import java.util.List;
 /**
  * Handles vm sizes request.
  */
-public class VmSizesHandler extends AzureResourceHandler {
+class VmSizesHandler extends AzureResourceHandler {
 
     @Override
-    protected Content handle(AzureApiConnector connector, HttpServletRequest request) {
+    protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
         final String group = request.getParameter("group");
-        final List<String> sizes = connector.getVmSizesByGroup(group);
+        return connector.getVmSizesByGroupAsync(group).then(new DonePipe<List<String>, Content, Throwable, Object>() {
+            @Override
+            public Promise<Content, Throwable, Object> pipeDone(List<String> sizes) {
+                final Element sizesElement = new Element("vmSizes");
+                for (String size : sizes) {
+                    final Element sizeElement = new Element("vmSize");
+                    sizeElement.setText(size);
+                    sizesElement.addContent(sizeElement);
+                }
 
-        final Element sizesElement = new Element("vmSizes");
-        for (String size : sizes) {
-            final Element sizeElement = new Element("vmSize");
-            sizeElement.setText(size);
-            sizesElement.addContent(sizeElement);
-        }
-
-        return sizesElement;
+                return new DeferredObject<Content, Throwable, Object>().resolve(sizesElement);
+            }
+        });
     }
 }

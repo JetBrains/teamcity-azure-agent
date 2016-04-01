@@ -16,13 +16,18 @@
 
 package jetbrains.buildServer.clouds.azure.arm.web;
 
-import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
+import org.jdeferred.AlwaysCallback;
+import org.jdeferred.FailCallback;
+import org.jdeferred.Promise;
+import org.jdeferred.impl.DefaultDeferredManager;
+import org.jdeferred.multiple.MultipleResults;
+import org.jdeferred.multiple.OneReject;
+import org.jdeferred.multiple.OneResult;
 import org.jdom.Content;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
@@ -30,6 +35,8 @@ import org.springframework.web.servlet.ModelAndView;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
@@ -38,9 +45,8 @@ import java.util.TreeMap;
  */
 public class SettingsController extends BaseFormXmlController {
 
-    private static final Logger LOG = Logger.getInstance(SettingsController.class.getName());
-    private static final Map<String, ResourceHandler> HANDLERS =
-            new TreeMap<String, ResourceHandler>(String.CASE_INSENSITIVE_ORDER);
+    private static final Map<String, ResourceHandler> HANDLERS = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+    private final DefaultDeferredManager myManager;
 
     static {
         HANDLERS.put("groups", new ResourceGroupsHandler());
@@ -67,6 +73,7 @@ public class SettingsController extends BaseFormXmlController {
         myJspPath = pluginDescriptor.getPluginResourcesPath("settings.jsp");
 
         manager.registerController(myHtmlPath, this);
+        myManager = new DefaultDeferredManager();
     }
 
     @Override
@@ -83,21 +90,38 @@ public class SettingsController extends BaseFormXmlController {
                           @NotNull final HttpServletResponse response,
                           @NotNull final Element xmlResponse) {
         final ActionErrors errors = new ActionErrors();
-
         final String[] resources = request.getParameterValues("resource");
-        for (String resource : resources) {
+        final List<Promise<Content, Throwable, Object>> promises = new ArrayList<>(resources.length);
+
+        for (final String resource : resources) {
             final ResourceHandler handler = HANDLERS.get(resource);
             if (handler == null) continue;
-            try {
-                final Content content = handler.handle(request);
-                xmlResponse.addContent(content);
-            } catch (CloudException e) {
-                errors.addError(resource, e.getMessage());
-                LOG.warnAndDebugDetails("An error occurred during request processing", e);
-            }
+
+            final Promise<Content, Throwable, Object> promise = handler.handle(request).fail(new FailCallback<Throwable>() {
+                @Override
+                public void onFail(Throwable result) {
+                    errors.addError(resource, result.getMessage());
+                }
+            });
+
+            promises.add(promise);
         }
 
-        if (errors.hasErrors()) {
+        try {
+            myManager.when(promises.toArray(new Promise[]{})).always(new AlwaysCallback<MultipleResults, OneReject>() {
+                @Override
+                public void onAlways(Promise.State state, MultipleResults resolved, OneReject rejected) {
+                    if (errors.hasErrors()){
+                        writeErrors(xmlResponse, errors);
+                    } else{
+                        for (OneResult oneResult : resolved) {
+                            xmlResponse.addContent((Content)oneResult.getResult());
+                        }
+                    }
+                }
+            }).waitSafely();
+        } catch (InterruptedException e) {
+            errors.addError("handler", e.getMessage());
             writeErrors(xmlResponse, errors);
         }
     }

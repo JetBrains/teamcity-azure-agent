@@ -15,6 +15,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.web;
 
+import org.jdeferred.Promise;
 import org.jdom.Content;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,6 +24,6 @@ import javax.servlet.http.HttpServletRequest;
 /**
  * Request handler.
  */
-public interface ResourceHandler {
-    Content handle(@NotNull HttpServletRequest request);
+interface ResourceHandler {
+    Promise<Content, Throwable, Object> handle(@NotNull HttpServletRequest request);
 }

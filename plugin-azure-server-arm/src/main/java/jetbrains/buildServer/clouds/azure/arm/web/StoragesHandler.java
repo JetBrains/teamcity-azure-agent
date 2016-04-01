@@ -16,6 +16,9 @@
 package jetbrains.buildServer.clouds.azure.arm.web;
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
+import org.jdeferred.DonePipe;
+import org.jdeferred.Promise;
+import org.jdeferred.impl.DeferredObject;
 import org.jdom.Content;
 import org.jdom.Element;
 
@@ -25,20 +28,23 @@ import java.util.List;
 /**
  * Handles storages request.
  */
-public class StoragesHandler extends AzureResourceHandler {
+class StoragesHandler extends AzureResourceHandler {
 
     @Override
-    protected Content handle(AzureApiConnector connector, HttpServletRequest request) {
+    protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
         final String group = request.getParameter("group");
-        final List<String> storages = connector.getStoragesByGroup(group);
+        return connector.getStoragesByGroupAsync(group).then(new DonePipe<List<String>, Content, Throwable, Object>() {
+            @Override
+            public Promise<Content, Throwable, Object> pipeDone(List<String> storages) {
+                final Element storagesElement = new Element("storages");
+                for (String storage : storages) {
+                    final Element storageElement = new Element("storage");
+                    storageElement.setText(storage);
+                    storagesElement.addContent(storageElement);
+                }
 
-        final Element storagesElement = new Element("storages");
-        for (String storage : storages) {
-            final Element storageElement = new Element("storage");
-            storageElement.setText(storage);
-            storagesElement.addContent(storageElement);
-        }
-
-        return storagesElement;
+                return new DeferredObject<Content, Throwable, Object>().resolve(storagesElement);
+            }
+        });
     }
 }

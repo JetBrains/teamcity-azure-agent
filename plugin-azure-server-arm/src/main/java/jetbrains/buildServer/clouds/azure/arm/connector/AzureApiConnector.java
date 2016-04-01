@@ -29,8 +29,7 @@ import com.microsoft.azure.management.resources.ResourceManagementClient;
 import com.microsoft.azure.management.resources.ResourceManagementClientImpl;
 import com.microsoft.azure.management.resources.SubscriptionClient;
 import com.microsoft.azure.management.resources.SubscriptionClientImpl;
-import com.microsoft.azure.management.resources.models.ResourceGroup;
-import com.microsoft.azure.management.resources.models.Subscription;
+import com.microsoft.azure.management.resources.models.*;
 import com.microsoft.azure.management.storage.StorageManagementClient;
 import com.microsoft.azure.management.storage.StorageManagementClientImpl;
 import com.microsoft.azure.management.storage.models.StorageAccount;
@@ -48,13 +47,13 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage;
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails;
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance;
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants;
+import jetbrains.buildServer.clouds.azure.arm.connector.models.JsonValue;
+import jetbrains.buildServer.clouds.azure.arm.connector.models.RawJsonValue;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
-import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
-import jetbrains.buildServer.util.filters.Filter;
 import org.jdeferred.*;
 import org.jdeferred.impl.DefaultDeferredManager;
 import org.jdeferred.impl.DeferredObject;
@@ -65,8 +64,8 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
 
-import java.net.URISyntaxException;
 import java.util.*;
+import java.util.concurrent.Callable;
 
 /**
  * Provides azure arm management capabilities.
@@ -81,6 +80,9 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     private static final String PROVISIONING_STATE = "ProvisioningState/";
     private static final String POWER_STATE = "PowerState/";
     private static final String INSTANCE_VIEW = "InstanceView";
+    private static final List<InstanceStatus> PROVISIONING_STATES = Arrays.asList(
+            InstanceStatus.SCHEDULED_TO_START,
+            InstanceStatus.SCHEDULED_TO_STOP);
     private final ResourceManagementClient myArmClient;
     private final StorageManagementClient myStorageClient;
     private final ComputeManagementClient myComputeClient;
@@ -115,7 +117,11 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
     @Override
     public void test() throws CloudException {
-        getResourceGroups();
+        try {
+            myArmClient.getResourceGroupsOperations().list(null, RESOURCES_NUMBER);
+        } catch (Exception e) {
+            throw new CloudException("Failed to get list of groups: " + e.getMessage(), e);
+        }
     }
 
     @Nullable
@@ -128,6 +134,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             myManager.when(getInstanceDataAsync(azureInstance, details)).fail(new FailCallback<Throwable>() {
                 @Override
                 public void onFail(Throwable result) {
+                    if (PROVISIONING_STATES.contains(instance.getStatus())) return;
                     instance.setStatus(InstanceStatus.ERROR);
                     instance.updateErrors(TypedCloudErrorInfo.fromException(result));
                 }
@@ -165,7 +172,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             promises.add(promise);
         }
 
-        if (promises.size() != 0){
+        if (promises.size() != 0) {
             try {
                 myManager.when(promises.toArray(new Promise[]{})).waitSafely();
             } catch (InterruptedException e) {
@@ -223,7 +230,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                     instances.put(name, (R) instance);
                 }
 
-                if (promises.size() == 0){
+                if (promises.size() == 0) {
                     deferred.resolve(instances);
                 } else {
                     myManager.when(promises.toArray(new Promise[]{})).always(new AlwaysCallback<MultipleResults, OneReject>() {
@@ -282,7 +289,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             publicIpPromise = getPublicIpAsync(groupId, name + PUBLIC_IP_SUFFIX).then(new DonePipe<String, Void, Throwable, Object>() {
                 @Override
                 public Promise<Void, Throwable, Object> pipeDone(String result) {
-                    if (!StringUtil.isEmpty(result)){
+                    if (!StringUtil.isEmpty(result)) {
                         instance.setIpAddress(result);
                     }
 
@@ -306,7 +313,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         });
     }
 
-    private Promise<String, Throwable, Object> getPublicIpAsync(final String groupId, final String name){
+    private Promise<String, Throwable, Object> getPublicIpAsync(final String groupId, final String name) {
         final DeferredObject<String, Throwable, Object> deferred = new DeferredObject<>();
         myNetworkClient.getPublicIPAddressesOperations().getAsync(groupId, name, null, new ServiceCallback<PublicIPAddress>() {
             @Override
@@ -352,21 +359,28 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
      * @return list of resource groups.
      */
     @NotNull
-    public List<String> getResourceGroups() {
-        final ServiceResponse<List<ResourceGroup>> response;
-        try {
-            response = myArmClient.getResourceGroupsOperations().list(null, RESOURCES_NUMBER);
-        } catch (Throwable e) {
-            throw new CloudException("Failed to get list of groups: " + e.getMessage(), e);
-        }
+    public Promise<List<String>, Throwable, Void> getResourceGroupsAsync() {
+        final DeferredObject<List<String>, Throwable, Void> deferred = new DeferredObject<>();
+        myArmClient.getResourceGroupsOperations().listAsync(null, RESOURCES_NUMBER, new ListOperationCallback<ResourceGroup>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get list of groups: " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
 
-        final List<ResourceGroup> resourceGroups = response.getBody();
-        final List<String> groups = new ArrayList<>(resourceGroups.size());
-        for (ResourceGroup resourceGroup : resourceGroups) {
-            groups.add(resourceGroup.getName());
-        }
+            @Override
+            public void success(ServiceResponse<List<ResourceGroup>> result) {
+                final List<ResourceGroup> resourceGroups = result.getBody();
+                final List<String> groups = new ArrayList<>(resourceGroups.size());
+                for (ResourceGroup resourceGroup : resourceGroups) {
+                    groups.add(resourceGroup.getName());
+                }
 
-        return groups;
+                deferred.resolve(groups);
+            }
+        });
+
+        return deferred.promise();
     }
 
     /**
@@ -376,21 +390,29 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
      * @return list of storages.
      */
     @NotNull
-    public List<String> getStoragesByGroup(@NotNull final String groupName) {
-        final ServiceResponse<List<StorageAccount>> response;
-        try {
-            response = myStorageClient.getStorageAccountsOperations().listByResourceGroup(groupName);
-        } catch (Throwable e) {
-            throw new CloudException("Failed to get list of storages: " + e.getMessage(), e);
-        }
+    public Promise<List<String>, Throwable, Object> getStoragesByGroupAsync(@NotNull final String groupName) {
+        final DeferredObject<List<String>, Throwable, Object> deferred = new DeferredObject<>();
 
-        final List<StorageAccount> accounts = response.getBody();
-        final List<String> storages = new ArrayList<>(accounts.size());
-        for (StorageAccount storageAccount : accounts) {
-            storages.add(storageAccount.getName());
-        }
+        myStorageClient.getStorageAccountsOperations().listByResourceGroupAsync(groupName, new ServiceCallback<List<StorageAccount>>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get list of storages: " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
 
-        return storages;
+            @Override
+            public void success(ServiceResponse<List<StorageAccount>> result) {
+                final List<StorageAccount> accounts = result.getBody();
+                final List<String> storages = new ArrayList<>(accounts.size());
+                for (StorageAccount storageAccount : accounts) {
+                    storages.add(storageAccount.getName());
+                }
+
+                deferred.resolve(storages);
+            }
+        });
+
+        return deferred.promise();
     }
 
     /**
@@ -400,23 +422,39 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
      * @return list of sizes.
      */
     @NotNull
-    public List<String> getVmSizesByGroup(String groupName) {
-        final ServiceResponse<List<VirtualMachineSize>> response;
-        try {
-            final ServiceResponse<ResourceGroup> groupResponse = myArmClient.getResourceGroupsOperations().get(groupName);
-            final String location = groupResponse.getBody().getLocation();
-            response = myComputeClient.getVirtualMachineSizesOperations().list(location);
-        } catch (Throwable e) {
-            throw new CloudException("Failed to get list of vm sizes: " + e.getMessage(), e);
-        }
+    public Promise<List<String>, Throwable, Object> getVmSizesByGroupAsync(String groupName) {
+        final DeferredObject<List<String>, Throwable, Object> deferred = new DeferredObject<>();
+        myArmClient.getResourceGroupsOperations().getAsync(groupName, new ServiceCallback<ResourceGroup>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get resource group location: " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
 
-        final List<VirtualMachineSize> vmSizes = response.getBody();
-        final List<String> sizes = new ArrayList<>(vmSizes.size());
-        for (VirtualMachineSize vmSize : vmSizes) {
-            sizes.add(vmSize.getName());
-        }
+            @Override
+            public void success(ServiceResponse<ResourceGroup> result) {
+                myComputeClient.getVirtualMachineSizesOperations().listAsync(result.getBody().getLocation(), new ListOperationCallback<VirtualMachineSize>() {
+                    @Override
+                    public void failure(Throwable t) {
+                        final CloudException exception = new CloudException("Failed to get list of vm sizes: " + t.getMessage(), t);
+                        deferred.reject(exception);
+                    }
 
-        return sizes;
+                    @Override
+                    public void success(ServiceResponse<List<VirtualMachineSize>> result) {
+                        final List<VirtualMachineSize> vmSizes = result.getBody();
+                        final List<String> sizes = new ArrayList<>(vmSizes.size());
+                        for (VirtualMachineSize vmSize : vmSizes) {
+                            sizes.add(vmSize.getName());
+                        }
+
+                        deferred.resolve(sizes);
+                    }
+                });
+            }
+        });
+
+        return deferred.promise();
     }
 
     /**
@@ -430,173 +468,43 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     public Promise<Void, Throwable, Object> createVmAsync(final AzureCloudInstance instance, final CloudInstanceUserData userData) {
         final AzureCloudImageDetails details = instance.getImage().getImageDetails();
         final String groupId = details.getGroupId();
-        final String storageId = details.getStorageId();
-        final String imagePath = details.getImagePath();
-        final String osType = details.getOsType();
         final boolean publicIp = details.getVmPublicIp();
-        final String namePrefix = details.getVmNamePrefix();
-        final String vNetName = namePrefix + "-vnet";
-        final String subnetName = namePrefix + "-subnet";
-        final String securityGroupName = namePrefix + "-sgn";
-        final String vmName = instance.getName();
-        final String nicName = vmName + NETWORK_IP_SUFFIX;
-        final String publicIpName = vmName + PUBLIC_IP_SUFFIX;
-        final String osDiskName = vmName + "-os";
-        final String osDiskVhdName = String.format("https://%s.blob.core.windows.net/" + BLOBS_CONTAINER + "/%s-os.vhd", storageId, vmName);
-        final String userImageName = String.format("https://%s.blob.core.windows.net/%s", storageId, imagePath);
+        final String publicIpName = instance.getName() + PUBLIC_IP_SUFFIX;
+        final String networkName = instance.getName() + NETWORK_IP_SUFFIX;
         final String customData = new String(Base64.getEncoder().encode(userData.serialize().getBytes()));
+        final String templateName = publicIp ? "/templates/vm-template-pip.json" : "/templates/vm-template.json";
+        final String templateValue = AzureUtils.getResourceAsString(templateName);
 
-        // Check storage account
-        final Promise<VirtualMachine, Throwable, Object> machinePromise = getStoragesByGroupAsync(groupId).then(new DonePipe<List<StorageAccount>, VirtualMachine, Throwable, Object>() {
+        final Map<String, JsonValue> params = new HashMap<>();
+        params.put("storageAccountName", new JsonValue(details.getStorageId()));
+        params.put("vhdImagePath", new JsonValue(details.getImagePath()));
+        params.put("vmName", new JsonValue(instance.getName()));
+        params.put("vNetName", new JsonValue(details.getNetworkId()));
+        params.put("subnetName", new JsonValue(details.getSubnetId()));
+        params.put("nicName", new JsonValue(networkName));
+        params.put("adminUserName", new JsonValue(details.getUsername()));
+        params.put("adminPassword", new JsonValue(details.getPassword()));
+        params.put("osType", new JsonValue(details.getOsType()));
+        params.put("vmSize", new JsonValue(details.getVmSize()));
+        params.put("customData", new JsonValue(customData));
+        params.put("serverId", new JsonValue(myServerId));
+        params.put("profileId", new JsonValue(userData.getProfileId()));
+        params.put("sourceId", new JsonValue(details.getSourceName()));
+        if (publicIp){
+            params.put("publicIpName", new JsonValue(publicIpName));
+        }
+
+        final String parameters = AzureUtils.serializeObject(params);
+        final Deployment deployment = new Deployment();
+        deployment.setProperties(new DeploymentProperties());
+        deployment.getProperties().setMode(DeploymentMode.INCREMENTAL);
+        deployment.getProperties().setTemplate(new RawJsonValue(templateValue));
+        deployment.getProperties().setParameters(new RawJsonValue(parameters));
+
+        return createDeploymentAsync(groupId, instance.getName(), deployment).then(new DonePipe<Void, Void, Throwable, Object>() {
             @Override
-            public Promise<VirtualMachine, Throwable, Object> pipeDone(List<StorageAccount> storages) {
-                final StorageAccount storage = CollectionsUtil.findFirst(storages, new Filter<StorageAccount>() {
-                    @Override
-                    public boolean accept(@NotNull StorageAccount storage) {
-                        return storage.getName().equalsIgnoreCase(storageId);
-                    }
-                });
-                if (storage == null) {
-                    final CloudException exception = new CloudException(String.format("Storage %s does not exist in resource group %s", storageId, groupId));
-                    return new DeferredObject<VirtualMachine, Throwable, Object>().reject(exception);
-                }
-
-                final String location = storage.getLocation();
-
-                // Create virtual network
-                final VirtualNetwork vNet = new VirtualNetwork();
-                vNet.setLocation(location);
-                vNet.setAddressSpace(new AddressSpace());
-                vNet.getAddressSpace().setAddressPrefixes(new ArrayList<String>());
-                vNet.getAddressSpace().getAddressPrefixes().add("10.0.0.0/16");
-                vNet.setSubnets(new ArrayList<Subnet>());
-                Subnet subnet = new Subnet();
-                subnet.setName(subnetName);
-                subnet.setAddressPrefix("10.0.0.0/24");
-                vNet.getSubnets().add(subnet);
-
-                final Promise<Subnet, Throwable, Object> subnetPromise = createVirtualNetworkAsync(groupId, vNetName, subnetName, vNet);
-                final Promise<PublicIPAddress, Throwable, Object> publicIPAddressPromise;
-
-                // Create public IP
+            public Promise<Void, Throwable, Object> pipeDone(Void result) {
                 if (publicIp) {
-                    final PublicIPAddress publicIPAddress = new PublicIPAddress();
-                    publicIPAddress.setLocation(location);
-                    publicIPAddress.setPublicIPAllocationMethod("Dynamic");
-                    publicIPAddress.setDnsSettings(new PublicIPAddressDnsSettings());
-                    publicIPAddress.getDnsSettings().setDomainNameLabel(publicIpName);
-
-                    publicIPAddressPromise = createPublicIpAsync(groupId, publicIpName, publicIPAddress);
-                } else {
-                    publicIPAddressPromise = new DeferredObject<PublicIPAddress, Throwable, Object>().resolve(null);
-                }
-
-                return myManager.when(subnetPromise, publicIPAddressPromise).then(new DonePipe<MultipleResults, NetworkInterface, Throwable, Object>() {
-                    @Override
-                    public Promise<NetworkInterface, Throwable, Object> pipeDone(MultipleResults result) {
-                        final Subnet subnet = (Subnet) result.get(0).getResult();
-                        final PublicIPAddress publicIPAddress = (PublicIPAddress) result.get(1).getResult();
-
-                        NetworkInterface nic = new NetworkInterface();
-                        nic.setLocation(location);
-                        nic.setIpConfigurations(new ArrayList<NetworkInterfaceIPConfiguration>());
-                        NetworkInterfaceIPConfiguration configuration = new NetworkInterfaceIPConfiguration();
-                        configuration.setName(nicName + "-config");
-                        configuration.setPrivateIPAllocationMethod("Dynamic");
-                        configuration.setSubnet(subnet);
-                        configuration.setPublicIPAddress(publicIPAddress);
-                        nic.getIpConfigurations().add(configuration);
-
-                        NetworkSecurityGroup networkSecurityGroup = new NetworkSecurityGroup();
-                        networkSecurityGroup.setLocation(location);
-
-                        if (publicIp) {
-                            networkSecurityGroup.setSecurityRules(new ArrayList<SecurityRule>());
-
-                            if ("Windows".equalsIgnoreCase(details.getOsType())) {
-                                final SecurityRule rdpRule = new SecurityRule();
-                                rdpRule.setName("default-allow-rdp");
-                                rdpRule.setDirection("Inbound");
-                                rdpRule.setPriority(999);
-                                rdpRule.setProtocol("TCP");
-                                rdpRule.setSourceAddressPrefix("*");
-                                rdpRule.setSourcePortRange("*");
-                                rdpRule.setDestinationAddressPrefix("*");
-                                rdpRule.setDestinationPortRange("3389");
-                                rdpRule.setAccess("Allow");
-                                networkSecurityGroup.getSecurityRules().add(rdpRule);
-                            } else {
-                                final SecurityRule sshRule = new SecurityRule();
-                                sshRule.setName("default-allow-ssh");
-                                sshRule.setDirection("Inbound");
-                                sshRule.setPriority(1000);
-                                sshRule.setProtocol("TCP");
-                                sshRule.setSourceAddressPrefix("*");
-                                sshRule.setSourcePortRange("*");
-                                sshRule.setDestinationAddressPrefix("*");
-                                sshRule.setDestinationPortRange("22");
-                                sshRule.setAccess("Allow");
-                                networkSecurityGroup.getSecurityRules().add(sshRule);
-                            }
-                        }
-
-                        return createNetworkAsync(groupId, vNetName, securityGroupName, networkSecurityGroup, nicName, nic);
-                    }
-                }).then(new DonePipe<NetworkInterface, VirtualMachine, Throwable, Object>() {
-                    @Override
-                    public Promise<VirtualMachine, Throwable, Object> pipeDone(NetworkInterface nic) {
-                        // Create VM
-                        final VirtualMachine machine = new VirtualMachine();
-                        machine.setLocation(location);
-
-                        // Set vm os profile
-                        machine.setOsProfile(new OSProfile());
-                        machine.getOsProfile().setComputerName(vmName);
-                        machine.getOsProfile().setAdminUsername(details.getUsername());
-                        machine.getOsProfile().setAdminPassword(details.getPassword());
-                        machine.getOsProfile().setCustomData(customData);
-
-                        // Set vm hardware profile
-                        machine.setHardwareProfile(new HardwareProfile());
-                        machine.getHardwareProfile().setVmSize(details.getVmSize());
-
-                        // Set vm storage profile
-                        machine.setStorageProfile(new StorageProfile());
-                        machine.getStorageProfile().setDataDisks(null);
-                        machine.getStorageProfile().setOsDisk(new OSDisk());
-                        machine.getStorageProfile().getOsDisk().setName(osDiskName);
-                        machine.getStorageProfile().getOsDisk().setOsType(osType);
-                        machine.getStorageProfile().getOsDisk().setCaching("None");
-                        machine.getStorageProfile().getOsDisk().setCreateOption("fromImage");
-                        machine.getStorageProfile().getOsDisk().setImage(new VirtualHardDisk());
-                        machine.getStorageProfile().getOsDisk().getImage().setUri(userImageName);
-                        machine.getStorageProfile().getOsDisk().setVhd(new VirtualHardDisk());
-                        machine.getStorageProfile().getOsDisk().getVhd().setUri(osDiskVhdName);
-
-                        // Set vm network interface reference
-                        machine.setNetworkProfile(new NetworkProfile());
-                        machine.getNetworkProfile().setNetworkInterfaces(new ArrayList<NetworkInterfaceReference>());
-                        NetworkInterfaceReference nir = new NetworkInterfaceReference();
-                        nir.setPrimary(true);
-                        nir.setId(nic.getId());
-                        machine.getNetworkProfile().getNetworkInterfaces().add(nir);
-
-                        // Set tags
-                        machine.setTags(new HashMap<String, String>());
-                        machine.getTags().put(AzureConstants.TAG_SERVER, myServerId);
-                        machine.getTags().put(AzureConstants.TAG_PROFILE, userData.getProfileId());
-                        machine.getTags().put(AzureConstants.TAG_SOURCE, details.getSourceName());
-
-                        return createVirtualMachineAsync(groupId, vmName, machine);
-                    }
-                });
-            }
-        });
-
-        return myManager.when(machinePromise).then(new DonePipe<VirtualMachine, Void, Throwable, Object>() {
-            @Override
-            public Promise<Void, Throwable, Object> pipeDone(VirtualMachine result) {
-                if (publicIp){
                     return getPublicIpAsync(groupId, publicIpName).then(new DonePipe<String, Void, Throwable, Object>() {
                         @Override
                         public Promise<Void, Throwable, Object> pipeDone(String result) {
@@ -611,138 +519,18 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         });
     }
 
-    private Promise<List<StorageAccount>, Throwable, Object> getStoragesByGroupAsync(String groupId) {
-        final Deferred<List<StorageAccount>, Throwable, Object> deferred = new DeferredObject<>();
-        myStorageClient.getStorageAccountsOperations().listByResourceGroupAsync(groupId, new ServiceCallback<List<StorageAccount>>() {
+    private Promise<Void, Throwable, Object> createDeploymentAsync(String groupId, String deploymentId, Deployment deployment) {
+        final DeferredObject<Void, Throwable, Object> deferred = new DeferredObject<>();
+        myArmClient.getDeploymentsOperations().createOrUpdateAsync(groupId, deploymentId, deployment, new ServiceCallback<DeploymentExtended>() {
             @Override
             public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to get list of storages " + t.getMessage(), t);
+                final CloudException exception = new CloudException("Failed to create template deployment " + t.getMessage(), t);
                 deferred.reject(exception);
             }
 
             @Override
-            public void success(ServiceResponse<List<StorageAccount>> result) {
-                deferred.resolve(result.getBody());
-            }
-        });
-
-        return deferred.promise();
-    }
-
-    private Promise<Subnet, Throwable, Object> createVirtualNetworkAsync(final String groupId,
-                                                                         final String vNetName,
-                                                                         final String subnetName,
-                                                                         final VirtualNetwork vNet) {
-        final Deferred<Subnet, Throwable, Object> deferred = new DeferredObject<>();
-        myNetworkClient.getVirtualNetworksOperations().createOrUpdateAsync(groupId, vNetName, vNet, new ServiceCallback<VirtualNetwork>() {
-            @Override
-            public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to create virtual network " + t.getMessage(), t);
-                deferred.reject(exception);
-            }
-
-            @Override
-            public void success(ServiceResponse<VirtualNetwork> result) {
-                myNetworkClient.getSubnetsOperations().getAsync(groupId, vNetName, subnetName, null, new ServiceCallback<Subnet>() {
-                    @Override
-                    public void failure(Throwable t) {
-                        final CloudException exception = new CloudException("Failed to get subnet " + t.getMessage(), t);
-                        deferred.reject(exception);
-                    }
-
-                    @Override
-                    public void success(ServiceResponse<Subnet> result) {
-                        deferred.resolve(result.getBody());
-                    }
-                });
-            }
-        });
-
-        return deferred.promise();
-    }
-
-    private Promise<NetworkInterface, Throwable, Object> createNetworkAsync(final String groupId,
-                                                                            final String vNetName,
-                                                                            final String securityGroupName,
-                                                                            final NetworkSecurityGroup securityGroup,
-                                                                            final String nicName,
-                                                                            final NetworkInterface nic) {
-        final Deferred<NetworkInterface, Throwable, Object> deferred = new DeferredObject<>();
-        myNetworkClient.getSubnetsOperations().listAsync(groupId, vNetName, new ListOperationCallback<Subnet>() {
-            @Override
-            public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to get list of sub networks: " + t.getMessage(), t);
-                deferred.reject(exception);
-            }
-
-            @Override
-            public void success(ServiceResponse<List<Subnet>> result) {
-                securityGroup.setSubnets(result.getBody());
-                myNetworkClient.getNetworkSecurityGroupsOperations().createOrUpdateAsync(groupId, securityGroupName, securityGroup, new ServiceCallback<NetworkSecurityGroup>() {
-                    @Override
-                    public void failure(Throwable t) {
-                        final CloudException exception = new CloudException("Failed to create network security group: " + t.getMessage(), t);
-                        deferred.reject(exception);
-                    }
-
-                    @Override
-                    public void success(ServiceResponse<NetworkSecurityGroup> result) {
-                        nic.setNetworkSecurityGroup(result.getBody());
-                        myNetworkClient.getNetworkInterfacesOperations().createOrUpdateAsync(groupId, nicName, nic, new ServiceCallback<NetworkInterface>() {
-                            @Override
-                            public void failure(Throwable t) {
-                                final CloudException exception = new CloudException("Failed to create network interface: " + t.getMessage(), t);
-                                deferred.reject(exception);
-                            }
-
-                            @Override
-                            public void success(ServiceResponse<NetworkInterface> result) {
-                                deferred.resolve(result.getBody());
-                            }
-                        });
-
-                    }
-                });
-            }
-        });
-
-        return deferred.promise();
-    }
-
-    private Promise<VirtualMachine, Throwable, Object> createVirtualMachineAsync(final String groupId,
-                                                                                 final String vmName,
-                                                                                 final VirtualMachine machine) {
-        final Deferred<VirtualMachine, Throwable, Object> deferred = new DeferredObject<>();
-        myComputeClient.getVirtualMachinesOperations().createOrUpdateAsync(groupId, vmName, machine, new ServiceCallback<VirtualMachine>() {
-            @Override
-            public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to create virtual machine: " + t.getMessage(), t);
-                deferred.reject(exception);
-            }
-
-            @Override
-            public void success(ServiceResponse<VirtualMachine> result) {
-                deferred.resolve(result.getBody());
-            }
-        });
-
-        return deferred.promise();
-    }
-
-    private Promise<PublicIPAddress, Throwable, Object> createPublicIpAsync(final String groupId,
-                                                                            final String publicIpName,
-                                                                            final PublicIPAddress publicIPAddress) {
-        final Deferred<PublicIPAddress, Throwable, Object> deferred = new DeferredObject<>();
-        myNetworkClient.getPublicIPAddressesOperations().createOrUpdateAsync(groupId, publicIpName, publicIPAddress, new ServiceCallback<PublicIPAddress>() {
-            @Override
-            public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to create public ip address " + t.getMessage(), t);
-                deferred.reject(exception);
-            }
-
-            @Override
-            public void success(ServiceResponse<PublicIPAddress> result) {
-                deferred.resolve(result.getBody());
+            public void success(ServiceResponse<DeploymentExtended> result) {
+                deferred.resolve(null);
             }
         });
 
@@ -886,39 +674,44 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
      * @param filePath is a file path.
      * @return OS type (Linux, Windows).
      */
-    @Nullable
-    public String getVhdOsType(@NotNull final String group,
-                               @NotNull final String storage,
-                               @NotNull final String filePath) {
-        final List<CloudBlob> blobs = getBlobs(group, storage, filePath);
-        if (blobs.size() == 0) {
-            throw new CloudException("VHD file not found in storage account");
-        }
-        if (blobs.size() > 1) {
-            return null;
-        }
+    @NotNull
+    public Promise<String, Throwable, Void> getVhdOsTypeAsync(@NotNull final String group,
+                                                              @NotNull final String storage,
+                                                              @NotNull final String filePath) {
+        return myManager.when(new Callable<String>() {
+            @Override
+            public String call() throws Exception {
+                final List<CloudBlob> blobs = getBlobs(group, storage, filePath);
+                if (blobs.size() == 0) {
+                    throw new CloudException("VHD file not found in storage account");
+                }
+                if (blobs.size() > 1) {
+                    return null;
+                }
 
-        final CloudBlob blob = blobs.get(0);
-        try {
-            if (!filePath.endsWith(blob.getName())){
-                return null;
+                final CloudBlob blob = blobs.get(0);
+                try {
+                    if (!filePath.endsWith(blob.getName())) {
+                        return null;
+                    }
+
+                    blob.downloadAttributes();
+                } catch (Exception e) {
+                    throw new CloudException("Failed to access storage blob: " + e.getMessage(), e);
+                }
+
+                final HashMap<String, String> metadata = blob.getMetadata();
+                if (!"OSDisk".equals(metadata.get("MicrosoftAzureCompute_ImageType"))) {
+                    return null;
+                }
+
+                if (!"Generalized".equals(metadata.get("MicrosoftAzureCompute_OSState"))) {
+                    throw new CloudException("VHD image should be generalized.");
+                }
+
+                return metadata.get("MicrosoftAzureCompute_OSType");
             }
-
-            blob.downloadAttributes();
-        } catch (Exception e) {
-            throw new CloudException("Failed to access storage blob: " + e.getMessage(), e);
-        }
-
-        final HashMap<String, String> metadata = blob.getMetadata();
-        if (!"OSDisk".equals(metadata.get("MicrosoftAzureCompute_ImageType"))) {
-            return null;
-        }
-
-        if (!"Generalized".equals(metadata.get("MicrosoftAzureCompute_OSState"))) {
-            throw new CloudException("VHD image should be generalized.");
-        }
-
-        return metadata.get("MicrosoftAzureCompute_OSType");
+        });
     }
 
     private List<CloudBlob> getBlobs(final String group, final String storage, final String filesPrefix) {
@@ -976,21 +769,65 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
     /**
      * Gets a list of subscriptions.
+     *
      * @return subscriptions.
      */
-    public Map<String, String> getSubscriptions() {
-        final HashMap<String, String> subscriptions = new HashMap<>();
-        final ServiceResponse<List<Subscription>> subscriptionsResponse;
-        try {
-            subscriptionsResponse = mySubscriptionClient.getSubscriptionsOperations().list();
-        } catch (Exception e) {
-            throw new CloudException("Failed to get list of subscriptions " + e.getMessage(), e);
-        }
+    public Promise<Map<String, String>, Throwable, Object> getSubscriptionsAsync() {
+        final DeferredObject<Map<String, String>, Throwable, Object> deferred = new DeferredObject<>();
+        mySubscriptionClient.getSubscriptionsOperations().listAsync(new ListOperationCallback<Subscription>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get list of subscriptions " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
 
-        for (Subscription subscription : subscriptionsResponse.getBody()) {
-            subscriptions.put(subscription.getSubscriptionId(), subscription.getDisplayName());
-        }
+            @Override
+            public void success(ServiceResponse<List<Subscription>> result) {
+                final HashMap<String, String> subscriptions = new HashMap<>();
+                for (Subscription subscription : result.getBody()) {
+                    subscriptions.put(subscription.getSubscriptionId(), subscription.getDisplayName());
+                }
 
-        return subscriptions;
+                deferred.resolve(subscriptions);
+            }
+        });
+
+        return deferred.promise();
+    }
+
+    /**
+     * Gets a list of networks in the resource group.
+     *
+     * @param groupName is a resource group name.
+     * @return list of networks.
+     */
+    @NotNull
+    public Promise<Map<String, List<String>>, Throwable, Object> getNetworksByGroupAsync(@NotNull final String groupName) {
+        final DeferredObject<Map<String, List<String>>, Throwable, Object> deferred = new DeferredObject<>();
+
+        myNetworkClient.getVirtualNetworksOperations().listAsync(groupName, new ListOperationCallback<VirtualNetwork>() {
+            @Override
+            public void failure(Throwable t) {
+                final CloudException exception = new CloudException("Failed to get list of networks: " + t.getMessage(), t);
+                deferred.reject(exception);
+            }
+
+            @Override
+            public void success(ServiceResponse<List<VirtualNetwork>> result) {
+                final Map<String, List<String>> networks = new HashMap<>();
+                for (VirtualNetwork network : result.getBody()) {
+                    final List<String> subNetworks = new ArrayList<>();
+                    for (Subnet subnet : network.getSubnets()) {
+                        subNetworks.add(subnet.getName());
+                    }
+
+                    networks.put(network.getName(), subNetworks);
+                }
+
+                deferred.resolve(networks);
+            }
+        });
+
+        return deferred.promise();
     }
 }

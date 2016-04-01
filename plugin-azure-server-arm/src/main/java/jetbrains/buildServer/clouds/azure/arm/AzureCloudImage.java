@@ -117,7 +117,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
 
     @Override
     public void terminateInstance(@NotNull final AzureCloudInstance instance) {
-        instance.setStatus(InstanceStatus.STOPPING);
+        instance.setStatus(InstanceStatus.SCHEDULED_TO_STOP);
 
         myApiConnector.deleteVmAsync(instance).done(new DoneCallback<Void>() {
             @Override

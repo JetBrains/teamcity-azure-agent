@@ -73,6 +73,7 @@ import java.util.concurrent.Callable;
 public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance> {
 
     private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
+    private static final int TIMEOUT_RETRY_COUNT = 3;
     private static final int RESOURCES_NUMBER = 100;
     private static final String BLOBS_CONTAINER = "vhds";
     private static final String NETWORK_IP_SUFFIX = "-net";
@@ -190,18 +191,25 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         final Map<String, R> instances = new HashMap<>();
         final List<Throwable> exceptions = new ArrayList<>();
         final AzureCloudImageDetails details = image.getImageDetails();
+        final String groupId = details.getGroupId();
 
-        myComputeClient.getVirtualMachinesOperations().listAsync(details.getGroupId(), new ListOperationCallback<VirtualMachine>() {
+        AzureUtils.retryAsync(new Callable<Promise<List<VirtualMachine>, Throwable, Object>>() {
             @Override
-            public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to get list of virtual machines: " + t.getMessage(), t);
+            public Promise<List<VirtualMachine>, Throwable, Object> call() throws Exception {
+                return getVirtualMachinesAsync(groupId);
+            }
+        }, TIMEOUT_RETRY_COUNT).fail(new FailCallback<Throwable>() {
+            @Override
+            public void onFail(Throwable t) {
+                final String message = String.format("Failed to get list of virtual machines in group %s: %s", groupId, t.getMessage());
+                final CloudException exception = new CloudException(message, t);
                 exceptions.add(exception);
                 deferred.reject(exception);
             }
-
+        }).then(new DoneCallback<List<VirtualMachine>>() {
             @Override
-            public void success(ServiceResponse<List<VirtualMachine>> result) {
-                for (VirtualMachine virtualMachine : result.getBody()) {
+            public void onDone(List<VirtualMachine> machines) {
+                for (VirtualMachine virtualMachine : machines) {
                     final String name = virtualMachine.getName();
                     if (!name.startsWith(details.getVmNamePrefix())) continue;
 
@@ -246,6 +254,23 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                         }
                     });
                 }
+            }
+        });
+
+        return deferred.promise();
+    }
+
+    private Promise<List<VirtualMachine>, Throwable, Object> getVirtualMachinesAsync(final String groupId) {
+        final Deferred<List<VirtualMachine>, Throwable, Object> deferred = new DeferredObject<>();
+        myComputeClient.getVirtualMachinesOperations().listAsync(groupId, new ListOperationCallback<VirtualMachine>() {
+            @Override
+            public void failure(Throwable t) {
+                deferred.reject(t);
+            }
+
+            @Override
+            public void success(ServiceResponse<List<VirtualMachine>> result) {
+                deferred.resolve(result.getBody());
             }
         });
 

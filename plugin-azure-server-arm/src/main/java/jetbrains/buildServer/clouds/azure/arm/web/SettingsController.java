@@ -49,12 +49,11 @@ public class SettingsController extends BaseFormXmlController {
     private final DefaultDeferredManager myManager;
 
     static {
-        HANDLERS.put("groups", new ResourceGroupsHandler());
-        HANDLERS.put("storages", new StoragesHandler());
         HANDLERS.put("vmSizes", new VmSizesHandler());
         HANDLERS.put("osType", new OsTypeHandler());
         HANDLERS.put("subscriptions", new SubscriptionsHandler());
         HANDLERS.put("networks", new NetworksHandler());
+        HANDLERS.put("locations", new LocationsHandler());
     }
 
     @NotNull
@@ -98,14 +97,25 @@ public class SettingsController extends BaseFormXmlController {
             final ResourceHandler handler = HANDLERS.get(resource);
             if (handler == null) continue;
 
-            final Promise<Content, Throwable, Object> promise = handler.handle(request).fail(new FailCallback<Throwable>() {
-                @Override
-                public void onFail(Throwable result) {
-                    errors.addError(resource, result.getMessage());
-                }
-            });
+            try {
+                final Promise<Content, Throwable, Object> promise = handler.handle(request).fail(new FailCallback<Throwable>() {
+                    @Override
+                    public void onFail(Throwable result) {
+                        errors.addError(resource, result.getMessage());
+                    }
+                });
+                promises.add(promise);
+            } catch (Throwable t) {
+                errors.addError(resource, t.getMessage());
+            }
+        }
 
-            promises.add(promise);
+        if (promises.size() == 0){
+            if (errors.hasErrors()){
+                writeErrors(xmlResponse, errors);
+            }
+
+            return;
         }
 
         try {

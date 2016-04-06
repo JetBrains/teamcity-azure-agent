@@ -41,7 +41,9 @@ abstract class AzureResourceHandler implements ResourceHandler {
         final String clientId = props.get(AzureConstants.CLIENT_ID);
         final String clientSecret = props.get("secure:" + AzureConstants.CLIENT_SECRET);
         final String subscriptionId = props.get(AzureConstants.SUBSCRIPTION_ID);
+        final String location = props.get(AzureConstants.LOCATION);
         final AzureApiConnector apiConnector = new AzureApiConnector(tenantId, clientId, clientSecret, subscriptionId);
+        apiConnector.setLocation(location);
 
         return handle(apiConnector, request);
     }

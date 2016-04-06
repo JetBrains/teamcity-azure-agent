@@ -2,16 +2,10 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "storageAccountName": {
+    "imageUrl": {
       "type": "string",
       "metadata": {
-        "description": "This is the name of the your storage account"
-      }
-    },
-    "vhdImagePath": {
-      "type": "string",
-      "metadata": {
-        "description": "This is the name of the your customized VHD"
+        "description": "This is the name of the generalized VHD image"
       }
     },
     "vmName": {
@@ -20,7 +14,7 @@
         "description": "This is the Virtual Machine name."
       }
     },
-    "vNetName": {
+    "networkId": {
       "type": "string",
       "metadata": {
         "description": "Virtual Network name for the Virtual Machine."
@@ -30,12 +24,6 @@
       "type": "string",
       "metadata": {
         "description": "Sub network name for the Virtual Machine."
-      }
-    },
-    "nicName": {
-      "type": "string",
-      "metadata": {
-        "description": "Network interface name for the Virtual Machine."
       }
     },
     "adminUserName": {
@@ -93,16 +81,15 @@
   },
   "variables": {
     "location": "[resourceGroup().location]",
-    "vnetID": "[resourceId('Microsoft.Network/virtualNetworks', parameters('vNetName'))]",
-    "subnetRef": "[concat(variables('vnetID'), '/subnets/', parameters('subnetName'))]",
-    "userImageName": "[concat('http://', parameters('storageAccountName'), '.blob.core.windows.net/', parameters('vhdImagePath'))]",
-    "osDiskVhdName": "[concat('http://', parameters('storageAccountName'), '.blob.core.windows.net/vhds/', parameters('vmName'), '-os.vhd')]"
+    "nicName": "[concat(parameters('vmName'), '-net')]",
+    "subnetRef": "[concat(parameters('networkId'), '/subnets/', parameters('subnetName'))]",
+    "osDiskUrl": "[concat('https://', split(parameters('imageUrl'),'/')[2], '/vhds/', parameters('vmName'), '-os.vhd')]"
   },
   "resources": [
     {
       "apiVersion": "2015-05-01-preview",
       "type": "Microsoft.Network/networkInterfaces",
-      "name": "[parameters('nicName')]",
+      "name": "[variables('nicName')]",
       "location": "[variables('location')]",
       "properties": {
         "ipConfigurations": [
@@ -124,7 +111,7 @@
       "name": "[parameters('vmName')]",
       "location": "[variables('location')]",
       "dependsOn": [
-        "[concat('Microsoft.Network/networkInterfaces/', parameters('nicName'))]"
+        "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
       ],
       "properties": {
         "hardwareProfile": {
@@ -143,17 +130,17 @@
             "caching": "None",
             "createOption": "FromImage",
             "image": {
-              "uri": "[variables('userImageName')]"
+              "uri": "[parameters('imageUrl')]"
             },
             "vhd": {
-              "uri": "[variables('osDiskVhdName')]"
+              "uri": "[variables('osDiskUrl')]"
             }
           }
         },
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('nicName'))]"
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
             }
           ]
         }

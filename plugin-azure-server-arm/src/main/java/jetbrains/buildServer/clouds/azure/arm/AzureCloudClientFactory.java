@@ -44,9 +44,10 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     private final File myAzureStorage;
     private final PluginDescriptor myPluginDescriptor;
     private final ServerSettings mySettings;
-    private static final List<String> SKIP_PARAMETERS = Arrays.asList(AzureConstants.GROUP_ID, AzureConstants.STORAGE_ID,
-            AzureConstants.IMAGE_PATH, AzureConstants.MAX_INSTANCES_COUNT, AzureConstants.VM_NAME_PREFIX,
-            AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD, AzureConstants.OS_TYPE);
+    private static final List<String> SKIP_PARAMETERS = Arrays.asList(
+            AzureConstants.IMAGE_URL, AzureConstants.OS_TYPE,
+            AzureConstants.MAX_INSTANCES_COUNT, AzureConstants.VM_NAME_PREFIX,
+            AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD);
 
     public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
                                    @NotNull final PluginDescriptor pluginDescriptor,
@@ -79,10 +80,12 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
         final String clientId = getParameter(params, AzureConstants.CLIENT_ID);
         final String clientSecret = getParameter(params, AzureConstants.CLIENT_SECRET);
         final String subscriptionId = getParameter(params, AzureConstants.SUBSCRIPTION_ID);
+        final String location = getParameter(params, AzureConstants.LOCATION);
 
         final AzureApiConnector apiConnector = new AzureApiConnector(tenantId, clientId, clientSecret, subscriptionId);
         apiConnector.setServerId(mySettings.getServerUUID());
         apiConnector.setProfileId(state.getProfileId());
+        apiConnector.setLocation(location);
 
         final AzureCloudClient azureCloudClient = new AzureCloudClient(params, apiConnector, myAzureStorage);
         azureCloudClient.updateErrors(errors);

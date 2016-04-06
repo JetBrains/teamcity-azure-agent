@@ -1,5 +1,6 @@
 /*
  * Copyright 2000-2016 JetBrains s.r.o.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -23,27 +24,28 @@ import org.jdom.Content;
 import org.jdom.Element;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
+import java.util.Map;
 
 /**
- * Handles storages request.
+ * Handles locations request.
  */
-class StoragesHandler extends AzureResourceHandler {
+class LocationsHandler extends AzureResourceHandler {
 
     @Override
     protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
-        final String group = request.getParameter("group");
-        return connector.getStoragesByGroupAsync(group).then(new DonePipe<List<String>, Content, Throwable, Object>() {
+        final String subscription = request.getParameter("subscription");
+        return connector.getLocationsAsync(subscription).then(new DonePipe<Map<String, String>, Content, Throwable, Object>() {
             @Override
-            public Promise<Content, Throwable, Object> pipeDone(List<String> storages) {
-                final Element storagesElement = new Element("storages");
-                for (String storage : storages) {
-                    final Element storageElement = new Element("storage");
-                    storageElement.setText(storage);
-                    storagesElement.addContent(storageElement);
+            public Promise<Content, Throwable, Object> pipeDone(Map<String, String> locations) {
+                final Element locationsElement = new Element("locations");
+                for (String id : locations.keySet()) {
+                    final Element locationElement = new Element("location");
+                    locationElement.setAttribute("id", id);
+                    locationElement.setText(locations.get(id));
+                    locationsElement.addContent(locationElement);
                 }
 
-                return new DeferredObject<Content, Throwable, Object>().resolve(storagesElement);
+                return new DeferredObject<Content, Throwable, Object>().resolve(locationsElement);
             }
         });
     }

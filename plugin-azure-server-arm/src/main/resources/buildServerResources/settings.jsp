@@ -61,7 +61,8 @@
                         data-bind="options: $parent.subscriptions, optionsText: 'text', optionsValue: 'id',
                         value: subscriptionId, enable: $parent.subscriptions().length > 0"></select>
                 <a href="#" title="Reload subscriptions"
-                   data-bind="click: $parent.loadSubscriptions, css: {invisible: $parent.loadingGroups()}">
+                   data-bind="click: $parent.loadSubscriptions,
+                    css: {invisible: $parent.loadingLocations() || !$parent.isValidClientData()}">
                     <i class="icon-refresh"></i>
                 </a>
                 <input type="hidden" class="longField"
@@ -71,10 +72,28 @@
             </td>
         </tr>
         <tr>
+            <th><label for="${cons.location}">Location: <l:star/></label></th>
+            <td>
+                <select name="prop:${cons.location}" class="longField"
+                        data-bind="options: $parent.locations, optionsText: 'text', optionsValue: 'id',
+                        value: location, enable: $parent.locations().length > 0"></select>
+                <a href="#" title="Reload locations"
+                   data-bind="click: $parent.loadLocations,
+                   css: {invisible: $parent.loadingLocations() || !subscriptionId()}">
+                    <i class="icon-refresh"></i>
+                </a>
+                <input type="hidden" class="longField"
+                       value="${propertiesBean.properties[cons.location]}"
+                       data-bind="initializeValue: location"/>
+                <span class="smallNote">Target location for allocated resources</span>
+                <span class="error option-error" data-bind="validationMessage: location"></span>
+            </td>
+        </tr>
+        <tr>
             <td colspan="2" data-bind="with: $parent">
-                <span data-bind="css: {hidden: !loadingGroups()}"><i class="icon-refresh icon-spin"></i> Validating credentials...</span>
+                <span data-bind="css: {hidden: !loadingLocations()}"><i class="icon-refresh icon-spin"></i> Loading service data...</span>
                 <span class="error option-error"
-                      data-bind="text: errorLoadingGroups, css: {hidden: loadingGroups}"></span>
+                      data-bind="text: errorLocations, css: {hidden: loadingLocations}"></span>
             </td>
         </tr>
     </table>
@@ -83,39 +102,16 @@
                dialogClass="AzureImageDialog" titleId="ArmImageDialogTitle">
         <table class="runnerFormTable">
             <tr>
-                <th><label for="${cons.groupId}">Group: <l:star/></label></th>
+                <th><label for="${cons.imageUrl}">Source image: <l:star/></label></th>
                 <td>
-                    <select name="${cons.groupId}" class="longField"
-                            data-bind="options: groups, value: image().groupId"></select>
-                    <a href="#" title="Reload resources"
-                       data-bind="click: reloadResources.bind($data, image().groupId()), css: {invisible: loadingResources()}">
-                        <i class="icon-refresh"></i>
-                    </a>
-                    <span class="error option-error" data-bind="text: errorLoadingResources"></span>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="${cons.storageId}">Storage account: <l:star/></label></th>
-                <td>
-                    <select name="${cons.storageId}" class="longField"
-                            data-bind="options: storages, value: image().storageId, css: {hidden: storages().length == 0}"></select>
-                    <div class="longField inline-block" data-bind="css: {hidden: storages().length > 0}">
-                        <span class="error option-error">No storages found in the resource group</span>
-                    </div>
-                    <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingResources()}"></i>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="${cons.imagePath}">Source image: <l:star/></label></th>
-                <td>
-                    <input type="text" name="${cons.imagePath}" class="longField"
-                           data-bind="textInput: image().imagePath"/>
+                    <input type="text" name="${cons.imageUrl}" class="longField"
+                           data-bind="textInput: image().imageUrl"/>
                     <span class="osIcon osIconSmall"
                           data-bind="attr: {title: image().osType}, css: {invisible: !image().osType()},
                           style: {backgroundImage: getOsImage(image().osType())}"/>
                     </span>
-                    <span class="smallNote">Generalized VHD image URL, e.g. vhds/generalized.vhd</span>
-                    <span class="error option-error" data-bind="validationMessage: image().imagePath"></span>
+                    <span class="smallNote">Generalized image, e.g. http://storage.blob.core.windows.net/vhds/image.vhd</span>
+                    <span class="error option-error" data-bind="validationMessage: image().imageUrl"></span>
                 </td>
             </tr>
             <tr data-bind="css: {hidden: osType()}">
@@ -165,7 +161,9 @@
                 <th><label for="${cons.networkId}">Virtual network: <l:star/></label></th>
                 <td>
                     <select name="${cons.networkId}" class="longField"
-                            data-bind="options: networks, value: image().networkId, css: {hidden: networks().length == 0}"></select>
+                            data-bind="options: networks, optionsText: function (item) {
+                                return item.substring(item.lastIndexOf('/') + 1);
+                            }, value: image().networkId, css: {hidden: networks().length == 0}"></select>
                     <div class="longField inline-block" data-bind="css: {hidden: networks().length > 0}">
                         <span class="error option-error">No virtual networks found in the resource group</span>
                     </div>
@@ -221,29 +219,26 @@
                    data-bind="css: { hidden: images().length == 0 }">
                 <thead>
                 <tr>
-                    <th class="name">Group</th>
-                    <th class="name">VHD image</th>
                     <th class="name">Name prefix</th>
+                    <th class="name">VHD image</th>
                     <th class="name maxInstances center">Max # of instances</th>
                     <th class="name center" colspan="2">Actions</th>
                 </tr>
                 </thead>
                 <tbody data-bind="foreach: images">
                 <tr>
-                    <td class="nowrap" data-bind="text: groupId"></td>
+                    <td class="nowrap" data-bind="text: vmNamePrefix"></td>
                     <td class="nowrap">
                         <span class="osIcon osIconSmall"
                               data-bind="attr: {title: osType},
                               style: {backgroundImage: $parent.getOsImage(osType)}"/>
                         </span>
-                        <span data-bind="text: $parent.getSourceName(storageId, imagePath).slice(-80),
-                        attr: {title: $parent.getSourceName(storageId, imagePath)}"></span>
+                        <span data-bind="text: imageUrl.slice(-80), attr: {title: imageUrl}"></span>
                     </td>
-                    <td class="nowrap" data-bind="text: vmNamePrefix"></td>
                     <td data-bind="text: maxInstances"></td>
                     <td class="edit">
-                        <a href="#"
-                           data-bind="click: $parent.showDialog, css: {hidden: !$parent.isValidCredentials() || $parent.loadingGroups()}">Edit</a>
+                        <a href="#"  data-bind="click: $parent.showDialog,
+                        css: {hidden: !$parent.isValidCredentials() || $parent.loadingLocations()}">Edit</a>
                     </td>
                     <td class="remove"><a href="#" data-bind="click: $parent.deleteImage">Delete</a></td>
                 </tr>
@@ -259,7 +254,7 @@
         </div>
 
         <a class="btn" href="#" disabled="disabled"
-           data-bind="click: showDialog.bind($data, null), attr: {disabled: !isValidCredentials() || loadingGroups() ? 'disabled' : null}">
+           data-bind="click: showDialog.bind($data, null), attr: {disabled: !isValidCredentials() || loadingLocations() ? 'disabled' : null}">
             <span class="addNew">Add image</span>
         </a>
     </div>

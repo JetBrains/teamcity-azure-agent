@@ -25,18 +25,14 @@ import org.jetbrains.annotations.NotNull;
  */
 public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
-    @SerializedName(AzureConstants.GROUP_ID)
-    private final String myGroupId;
-    @SerializedName(AzureConstants.STORAGE_ID)
-    private final String myStorageId;
+    @SerializedName(AzureConstants.IMAGE_URL)
+    private final String myImageUrl;
+    @SerializedName(AzureConstants.OS_TYPE)
+    private final String myOsType;
     @SerializedName(AzureConstants.NETWORK_ID)
     private final String myNetworkId;
     @SerializedName(AzureConstants.SUBNET_ID)
     private final String mySubnetId;
-    @SerializedName(AzureConstants.IMAGE_PATH)
-    private final String myImagePath;
-    @SerializedName(AzureConstants.OS_TYPE)
-    private final String myOsType;
     @SerializedName(AzureConstants.MAX_INSTANCES_COUNT)
     private final int myMaxInstances;
     @SerializedName(AzureConstants.VM_SIZE)
@@ -49,23 +45,19 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
     private final String myUsername;
     private String myPassword = null;
 
-    public AzureCloudImageDetails(@NotNull final String groupId,
-                                  @NotNull final String storageId,
+    public AzureCloudImageDetails(@NotNull final String imageUrl,
+                                  @NotNull final String osType,
                                   @NotNull final String networkId,
                                   @NotNull final String subnetId,
-                                  @NotNull final String imagePath,
-                                  @NotNull final String osType,
                                   @NotNull final String vmNamePrefix,
                                   @NotNull final String vmSize,
                                   final boolean vmPublicIp,
                                   final int maxInstances,
                                   @NotNull final String username) {
-        myGroupId = groupId;
-        myStorageId = storageId;
+        myImageUrl = imageUrl;
+        myOsType = osType;
         myNetworkId = networkId;
         mySubnetId = subnetId;
-        myImagePath = imagePath;
-        myOsType = osType;
         myVmNamePrefix = vmNamePrefix;
         myVmSize = vmSize;
         myVmPublicIp = vmPublicIp;
@@ -73,12 +65,12 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
         myUsername = username;
     }
 
-    public String getGroupId() {
-        return myGroupId;
+    public String getImageUrl() {
+        return myImageUrl;
     }
 
-    public String getStorageId() {
-        return myStorageId;
+    public String getOsType() {
+        return myOsType;
     }
 
     public String getNetworkId() {
@@ -87,14 +79,6 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
     public String getSubnetId() {
         return mySubnetId;
-    }
-
-    public String getImagePath() {
-        return myImagePath;
-    }
-
-    public String getOsType() {
-        return myOsType;
     }
 
     public String getVmNamePrefix() {
@@ -127,7 +111,7 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
     @Override
     public String getSourceName() {
-        return String.format("%s/%s", myGroupId, myVmNamePrefix);
+        return myVmNamePrefix;
     }
 
     public CloneBehaviour getBehaviour() {

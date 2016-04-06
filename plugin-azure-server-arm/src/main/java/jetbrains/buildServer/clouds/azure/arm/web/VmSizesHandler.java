@@ -32,8 +32,7 @@ class VmSizesHandler extends AzureResourceHandler {
 
     @Override
     protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
-        final String group = request.getParameter("group");
-        return connector.getVmSizesByGroupAsync(group).then(new DonePipe<List<String>, Content, Throwable, Object>() {
+        return connector.getVmSizesAsync().then(new DonePipe<List<String>, Content, Throwable, Object>() {
             @Override
             public Promise<Content, Throwable, Object> pipeDone(List<String> sizes) {
                 final Element sizesElement = new Element("vmSizes");

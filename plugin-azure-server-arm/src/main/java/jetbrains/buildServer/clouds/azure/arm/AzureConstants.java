@@ -24,18 +24,17 @@ public class AzureConstants {
     public static final String CLIENT_ID = "clientId";
     public static final String CLIENT_SECRET = "clientSecret";
     public static final String SUBSCRIPTION_ID = "subscriptionId";
-    public static final String GROUP_ID = "groupId";
-    public static final String STORAGE_ID = "storageId";
+    public static final String LOCATION = "location";
+    public static final String IMAGE_URL = "imageUrl";
+    public static final String OS_TYPE = "osType";
     public static final String NETWORK_ID = "networkId";
     public static final String SUBNET_ID = "subnetId";
-    public static final String IMAGE_PATH = "imagePath";
     public static final String MAX_INSTANCES_COUNT = "maxInstances";
     public static final String VM_SIZE = "vmSize";
     public static final String VM_NAME_PREFIX = "vmNamePrefix";
     public static final String VM_PUBLIC_IP = "vmPublicIp";
     public static final String VM_USERNAME = "vmUsername";
     public static final String VM_PASSWORD = "vmPassword";
-    public static final String OS_TYPE = "osType";
     public static final String TAG_SERVER = "teamcity-server";
     public static final String TAG_PROFILE = "teamcity-profile";
     public static final String TAG_SOURCE = "teamcity-source";
@@ -52,20 +51,24 @@ public class AzureConstants {
         return CLIENT_SECRET;
     }
 
-    public String getGroupId() {
-        return GROUP_ID;
-    }
-
     public String getSubscriptionId() {
         return SUBSCRIPTION_ID;
     }
 
-    public String getMaxInstancesCount() {
-        return MAX_INSTANCES_COUNT;
+    public String getLocation() {
+        return LOCATION;
     }
 
-    public String getStorageId() {
-        return STORAGE_ID;
+    public String getImageUrl() {
+        return IMAGE_URL;
+    }
+
+    public String getOsType() {
+        return OS_TYPE;
+    }
+
+    public String getMaxInstancesCount() {
+        return MAX_INSTANCES_COUNT;
     }
 
     public String getNetworkId() {
@@ -74,10 +77,6 @@ public class AzureConstants {
 
     public String getSubnetId() {
         return SUBNET_ID;
-    }
-
-    public String getImagePath() {
-        return IMAGE_PATH;
     }
 
     public String getVmSize() {
@@ -98,9 +97,5 @@ public class AzureConstants {
 
     public String getVmPassword() {
         return VM_PASSWORD;
-    }
-
-    public String getOsType() {
-        return OS_TYPE;
     }
 }

@@ -34,8 +34,7 @@ class NetworksHandler extends AzureResourceHandler {
 
     @Override
     protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
-        final String group = request.getParameter("group");
-        return connector.getNetworksByGroupAsync(group).then(new DonePipe<Map<String, List<String>>, Content, Throwable, Object>() {
+        return connector.getNetworksAsync().then(new DonePipe<Map<String, List<String>>, Content, Throwable, Object>() {
             @Override
             public Promise<Content, Throwable, Object> pipeDone(Map<String, List<String>> networks) {
                 final Element networksElement = new Element("networks");

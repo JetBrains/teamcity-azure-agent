@@ -16,31 +16,36 @@
 function ArmImagesViewModel($, ko, baseUrl, dialog) {
     var self = this;
 
-    self.loadingGroups = ko.observable(false);
+    self.loadingLocations = ko.observable(false);
     self.loadingResources = ko.observable(false);
     self.loadingOsType = ko.observable(false);
-    self.errorLoadingGroups = ko.observable("");
-    self.errorLoadingResources = ko.observable("");
+    self.errorLocations = ko.observable("");
+    self.errorResources = ko.observable("");
 
     // Credentials
     self.credentials = ko.validatedObservable({
         tenantId: ko.observable().extend({required: true}),
         clientId: ko.observable().extend({required: true}),
         clientSecret: ko.observable().extend({required: true}),
-        subscriptionId: ko.observable().extend({required: true})
+        subscriptionId: ko.observable().extend({required: true}),
+        location: ko.observable().extend({required: true})
+    });
+
+    self.isValidClientData = ko.pureComputed(function () {
+        return self.credentials().tenantId.isValid() &&
+            self.credentials().clientId.isValid() &&
+            self.credentials().clientSecret.isValid();
     });
 
     self.isValidCredentials = ko.pureComputed(function () {
-        return self.credentials.isValid() && !self.errorLoadingGroups();
+        return self.credentials.isValid() && !self.errorLocations();
     });
 
     // Image details
     self.image = ko.validatedObservable({
-        groupId: ko.observable().extend({required: true}),
-        storageId: ko.observable().extend({required: true}),
+        imageUrl: ko.observable().extend({required: true}),
         networkId: ko.observable().extend({required: true}),
         subnetId: ko.observable().extend({required: true}),
-        imagePath: ko.observable().extend({required: true}),
         osType: ko.observable().extend({required: true}),
         maxInstances: ko.observable(1).extend({required: true, min: 1}),
         vmSize: ko.observable().extend({required: true}),
@@ -51,9 +56,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     });
 
     // Data from Azure APIs
-    self.groups = ko.observableArray([]);
     self.subscriptions = ko.observableArray([]);
-    self.storages = ko.observableArray([]);
+    self.locations = ko.observableArray([]);
     self.networks = ko.observableArray([]);
     self.subNetworks = ko.observableArray([]);
     self.vmSizes = ko.observableArray([]);
@@ -82,33 +86,36 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         self.loadSubscriptions();
     });
 
-    // Reload groups on credentials change
-    ko.computed(function () {
-        if (!self.credentials.isValid()) {
-            return;
+    self.credentials().subscriptionId.subscribe(function (subscriptionId) {
+        if (!subscriptionId) return;
+
+        var match = ko.utils.arrayFirst(self.subscriptions(), function(item) {
+            return item.id == subscriptionId;
+        });
+        if (!match) {
+            self.subscriptions([{id: subscriptionId, text: subscriptionId}]);
         }
 
-        self.credentials().tenantId();
-        self.credentials().clientId();
-        self.credentials().clientSecret();
-        self.credentials().subscriptionId();
-
-        loadGroups();
+        self.loadLocations();
     });
 
-    self.image().groupId.subscribe(function (group) {
-        if (!group || self.originalImage) return;
-        loadResourcesByGroup(group);
+    self.credentials().location.subscribe(function (location) {
+        if (!location) return;
+
+        var match = ko.utils.arrayFirst(self.locations(), function(item) {
+            return item.id == location;
+        });
+        if (!match) {
+            self.locations([{id: location, text: location}]);
+        }
+
+        loadResourcesByLocation();
     });
 
-    self.image().imagePath.subscribe(function (path) {
-        var groupId = self.image().groupId();
-        var storageId = self.image().storageId();
-        if (!path || !groupId || !storageId) return;
-
-        loadOsType(groupId, storageId, path);
+    self.image().imageUrl.subscribe(function (url) {
+        if (url) loadOsType(url);
     });
-    
+
     self.image().networkId.subscribe(function (networkId) {
         var subNetworks = self.nets[networkId] || [];
         self.subNetworks(subNetworks);
@@ -130,35 +137,25 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         self.originalImage = data;
 
         var model = self.image();
-        var image = data || {maxInstances: 1, publicId: false};
+        var image = data || {maxInstances: 1, vmPublicIp: false};
 
-        model.groupId(image.groupId);
-        loadResourcesByGroup(model.groupId()).then(function () {
-            model.storageId(image.storageId);
-            model.networkId(image.networkId);
-            model.subnetId(image.subnetId);
-            model.vmSize(image.vmSize);
-        });
-
-        model.imagePath(image.imagePath);
+        model.imageUrl(image.imageUrl);
         model.osType(image.osType);
+        model.networkId(image.networkId);
+        model.subnetId(image.subnetId);
+        model.vmSize(image.vmSize);
         model.maxInstances(image.maxInstances);
         model.vmNamePrefix(image.vmNamePrefix);
         model.vmPublicIp(image.vmPublicIp);
         model.vmUsername(image.vmUsername);
 
-        var key = getSourceKey(image.groupId, image.vmNamePrefix);
+        var key = image.vmNamePrefix;
         var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
         model.vmPassword(password);
 
         self.image.errors.showAllMessages(false);
         dialog.showDialog(!self.originalImage);
 
-        return false;
-    };
-
-    self.reloadResources = function (group) {
-        loadResourcesByGroup(group);
         return false;
     };
 
@@ -170,12 +167,10 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.saveImage = function () {
         var model = self.image();
         var image = {
-            groupId: model.groupId(),
-            storageId: model.storageId(),
+            imageUrl: model.imageUrl(),
+            osType: model.osType(),
             networkId: model.networkId(),
             subnetId: model.subnetId(),
-            imagePath: model.imagePath(),
-            osType: model.osType(),
             maxInstances: model.maxInstances(),
             vmNamePrefix: model.vmNamePrefix(),
             vmPublicIp: model.vmPublicIp(),
@@ -186,14 +181,14 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         var originalImage = self.originalImage;
         if (originalImage) {
             self.images.replace(originalImage, image);
-            var originalKey = getSourceKey(originalImage.groupId, originalImage.vmNamePrefix);
+            var originalKey = originalImage.vmNamePrefix;
             delete self.passwords[originalKey];
         } else {
             self.images.push(image);
         }
         self.images_data(JSON.stringify(self.images()));
 
-        var key = getSourceKey(image.groupId, image.vmNamePrefix);
+        var key = image.vmNamePrefix;
         self.passwords[key] = model.vmPassword();
         self.passwords_data(JSON.stringify(self.passwords));
 
@@ -202,7 +197,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     };
 
     self.deleteImage = function (image) {
-        var message = "Do you really want to delete agent image based on VHD " + self.getSourceName(image.storageId, image.imagePath) + "?";
+        var message = "Do you really want to delete agent image based on VHD " + image.imageUrl + "?";
         var remove = confirm(message);
         if (!remove) {
             return false;
@@ -211,15 +206,11 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         self.images.remove(image);
         self.images_data(JSON.stringify(self.images()));
 
-        var key = getSourceKey(image.groupId, image.vmNamePrefix);
+        var key = image.vmNamePrefix;
         delete self.passwords[key];
         self.passwords_data(JSON.stringify(self.passwords));
 
         return false;
-    };
-
-    self.getSourceName = function (storageId, imagePath) {
-        return "https://" + storageId + ".blob.core.windows.net/" + imagePath;
     };
 
     self.getOsImage = function (osType) {
@@ -227,32 +218,59 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     };
 
     self.loadSubscriptions = function () {
-        self.loadingGroups(true);
+        if (!self.isValidClientData()) return;
+
+        self.loadingLocations(true);
 
         var url = getBasePath() + "&resource=subscriptions";
         $.post(url).then(function (response) {
             var $response = $j(response);
             var errors = getErrors($response);
             if (errors) {
-                self.errorLoadingGroups(errors);
+                self.errorLocations(errors);
                 return;
             } else {
-                self.errorLoadingGroups("");
+                self.errorLocations("");
             }
 
             var subscriptions = getSubscriptions($response);
             self.subscriptions(subscriptions);
         }, function (error) {
-            self.errorLoadingGroups("Failed to load data: " + error.message);
+            self.errorLocations("Failed to load data: " + error.message);
             console.log(error);
         }).always(function () {
-            self.loadingGroups(false);
+            self.loadingLocations(false);
         });
     };
 
-    function getSourceKey(groupId, namePrefix) {
-        return groupId + "/" + namePrefix;
-    }
+    self.loadLocations = function () {
+        var subscription = self.credentials().subscriptionId();
+        if (!subscription) return;
+
+        self.loadingLocations(true);
+
+        var url = getBasePath() +
+            "&resource=locations" +
+            "&subscription=" + subscription;
+        $.post(url).then(function (response) {
+            var $response = $j(response);
+            var errors = getErrors($response);
+            if (errors) {
+                self.errorLocations(errors);
+                return;
+            } else {
+                self.errorLocations("");
+            }
+
+            var locations = getLocations($response);
+            self.locations(locations);
+        }, function (error) {
+            self.errorLocations("Failed to load data: " + error.message);
+            console.log(error);
+        }).always(function () {
+            self.loadingLocations(false);
+        });
+    };
 
     function getBasePath() {
         var credentials = self.credentials();
@@ -260,64 +278,34 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             "?prop%3AtenantId=" + encodeURIComponent(credentials.tenantId()) +
             "&prop%3AclientId=" + encodeURIComponent(credentials.clientId()) +
             "&prop%3Asecure%3AclientSecret=" + encodeURIComponent(credentials.clientSecret()) +
-            "&prop%3AsubscriptionId=" + encodeURIComponent(credentials.subscriptionId());
+            "&prop%3AsubscriptionId=" + encodeURIComponent(credentials.subscriptionId()) +
+            "&prop%3Alocation=" + encodeURIComponent(credentials.location());
     }
 
-    function loadGroups() {
-        self.loadingGroups(true);
-
-        var url = getBasePath() + "&resource=groups";
-        $.post(url).then(function (response) {
-            var $response = $j(response);
-            var errors = getErrors($response);
-            if (errors) {
-                self.errorLoadingGroups(errors);
-                return;
-            } else {
-                self.errorLoadingGroups("");
-            }
-
-            var groups = getGroups($response);
-            self.groups(groups);
-        }, function (error) {
-            self.errorLoadingGroups("Failed to load data: " + error.message);
-            console.log(error);
-        }).always(function () {
-            self.loadingGroups(false);
-        });
-    }
-
-    function loadResourcesByGroup(group) {
+    function loadResourcesByLocation() {
         self.loadingResources(true);
         var url = getBasePath() +
-            "&resource=storages" +
             "&resource=vmSizes" +
-            "&resource=networks" +
-            "&group=" + group;
+            "&resource=networks";
 
         var request = $.post(url).then(function (response) {
             var $response = $j(response);
             var errors = getErrors($response);
             if (errors) {
-                self.errorLoadingResources(errors);
+                self.errorResources(errors);
                 return;
             } else {
-                self.errorLoadingResources("");
+                self.errorResources("");
             }
-
-            var storages = getStorages($response);
-            self.storages(storages);
 
             var vmSizes = getVmSizes($response);
             self.vmSizes(vmSizes);
-
-            debugger;
 
             var networks = getNetworks($response);
             self.networks(networks);
             self.image().networkId.valueHasMutated();
         }, function (error) {
-            self.errorLoadingResources("Failed to load data: " + error.message);
+            self.errorResources("Failed to load data: " + error.message);
             console.log(error);
         });
 
@@ -328,29 +316,28 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         return request;
     }
 
-    function loadOsType(group, storage, path) {
+    function loadOsType(imageUrl) {
         self.loadingOsType(true);
 
         var url = getBasePath() +
-            "&resource=osType&group=" + group +
-            "&storage=" + storage +
-            "&path=" + encodeURIComponent(path);
+            "&resource=osType" +
+            "&imageUrl=" + encodeURIComponent(imageUrl);
 
         var request = $.post(url).then(function (response) {
             var $response = $j(response);
             var errors = getErrors($response);
             if (errors) {
-                self.image().imagePath.setError(errors);
+                self.image().imageUrl.setError(errors);
                 return;
             } else {
-                self.image().imagePath.clearError();
+                self.image().imageUrl.clearError();
             }
 
             var osType = $response.find("osType").text();
             self.osType(osType);
             self.image().osType(osType);
         }, function (error) {
-            self.errorLoadingResources("Failed to load data: " + error.message);
+            self.errorResources("Failed to load data: " + error.message);
             console.log(error);
         });
 
@@ -376,15 +363,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         }).get();
     }
 
-    function getGroups($response) {
-        return $response.find("groups:eq(0) group").map(function () {
-            return $(this).text();
-        }).get();
-    }
-
-    function getStorages($response) {
-        return $response.find("storages:eq(0) storage").map(function () {
-            return $(this).text();
+    function getLocations($response) {
+        return $response.find("locations:eq(0) location").map(function () {
+            return {id: $(this).attr("id"), text: $(this).text()};
         }).get();
     }
 

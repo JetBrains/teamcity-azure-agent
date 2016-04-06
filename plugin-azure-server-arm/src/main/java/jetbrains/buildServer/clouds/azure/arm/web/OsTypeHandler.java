@@ -32,11 +32,8 @@ class OsTypeHandler extends AzureResourceHandler {
 
     @Override
     protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
-        final String group = request.getParameter("group");
-        final String storage = request.getParameter("storage");
-        final String filePath = request.getParameter("path");
-
-        return connector.getVhdOsTypeAsync(group, storage, filePath).then(new DonePipe<String, Content, Throwable, Object>() {
+        final String imageUrl = request.getParameter("imageUrl");
+        return connector.getVhdOsTypeAsync(imageUrl).then(new DonePipe<String, Content, Throwable, Object>() {
             @Override
             public Promise<Content, Throwable, Object> pipeDone(String osType) {
                 final Element osTypeElement = new Element("osType");

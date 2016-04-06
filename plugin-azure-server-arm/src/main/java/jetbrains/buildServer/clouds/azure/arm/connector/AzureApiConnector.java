@@ -137,7 +137,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     public InstanceStatus getInstanceStatusIfExists(@NotNull final AzureCloudInstance instance) {
         final AzureInstance azureInstance = new AzureInstance(instance.getName());
         final AzureCloudImageDetails details = instance.getImage().getImageDetails();
-        final InstanceStatus[] status = {null};
+        final InstanceStatus[] instanceStatus = {null};
 
         try {
             myManager.when(getInstanceDataAsync(azureInstance, details)).fail(new FailCallback<Throwable>() {
@@ -155,7 +155,10 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             }).done(new DoneCallback<Void>() {
                 @Override
                 public void onDone(Void result) {
-                    status[0] = azureInstance.getInstanceStatus();
+                    final InstanceStatus status = azureInstance.getInstanceStatus();
+                    instance.setStatus(status);
+                    instance.updateErrors();
+                    instanceStatus[0] = status;
                 }
             }).waitSafely();
         } catch (InterruptedException e) {
@@ -163,7 +166,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             instance.updateErrors(TypedCloudErrorInfo.fromException(exception));
         }
 
-        return status[0];
+        return instanceStatus[0];
     }
 
     @NotNull
@@ -182,6 +185,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             }).then(new DonePipe<Map<String, AbstractInstance>, Void, Throwable, Object>() {
                 @Override
                 public Promise<Void, Throwable, Object> pipeDone(Map<String, AbstractInstance> result) {
+                    image.updateErrors();
                     imageMap.put(image, (Map<String, R>) result);
                     return new DeferredObject<Void, Throwable, Object>().resolve(null);
                 }

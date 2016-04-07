@@ -42,6 +42,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     });
 
     // Image details
+    var maxLength = 12;
     self.image = ko.validatedObservable({
         imageUrl: ko.observable().extend({required: true}),
         networkId: ko.observable().extend({required: true}),
@@ -49,9 +50,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         osType: ko.observable().extend({required: true}),
         maxInstances: ko.observable(1).extend({required: true, min: 1}),
         vmSize: ko.observable().extend({required: true}),
-        vmNamePrefix: ko.observable().extend({required: true, maxLength: 12}),
+        vmNamePrefix: ko.observable().extend({required: true, maxLength: maxLength}),
         vmPublicIp: ko.observable(false),
-        vmUsername: ko.observable().extend({required: true, maxLength: 12}),
+        vmUsername: ko.observable().extend({required: true, maxLength: maxLength}),
         vmPassword: ko.observable().extend({required: true})
     });
 
@@ -89,7 +90,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.credentials().subscriptionId.subscribe(function (subscriptionId) {
         if (!subscriptionId) return;
 
-        var match = ko.utils.arrayFirst(self.subscriptions(), function(item) {
+        var match = ko.utils.arrayFirst(self.subscriptions(), function (item) {
             return item.id == subscriptionId;
         });
         if (!match) {
@@ -102,7 +103,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.credentials().location.subscribe(function (location) {
         if (!location) return;
 
-        var match = ko.utils.arrayFirst(self.locations(), function(item) {
+        var match = ko.utils.arrayFirst(self.locations(), function (item) {
             return item.id == location;
         });
         if (!match) {
@@ -113,7 +114,14 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     });
 
     self.image().imageUrl.subscribe(function (url) {
-        if (url) loadOsType(url);
+        if (!url) return;
+
+        loadOsType(url);
+
+        // Fill vm name prefix from url
+        if (self.image().vmNamePrefix()) return;
+        var vmName = getFileName(url).slice(-maxLength);
+        self.image().vmNamePrefix(vmName);
     });
 
     self.image().networkId.subscribe(function (networkId) {
@@ -387,5 +395,19 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
             return id;
         }).get();
+    }
+
+    function getFileName(url) {
+        var slashIndex = url.lastIndexOf('/');
+        var dotIndex = url.lastIndexOf('.');
+        if (dotIndex < slashIndex) {
+            dotIndex = url.length;
+        }
+
+        if (slashIndex > 0 && dotIndex > 0) {
+            return url.substring(slashIndex + 1, dotIndex);
+        }
+
+        return "";
     }
 }

@@ -40,7 +40,6 @@ import com.microsoft.azure.storage.blob.*;
 import com.microsoft.rest.ServiceCallback;
 import com.microsoft.rest.ServiceResponse;
 import com.microsoft.rest.credentials.ServiceClientCredentials;
-import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
@@ -69,7 +68,6 @@ import org.joda.time.DateTime;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
-import java.util.concurrent.Callable;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -80,7 +78,6 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
 
     private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
     private static final Pattern RESOURCE_GROUP_PATTERN = Pattern.compile("resourceGroups/(.+)/providers/");
-    private static final int TIMEOUT_RETRY_COUNT = 3;
     private static final int RESOURCES_NUMBER = 100;
     private static final String PUBLIC_IP_SUFFIX = "-pip";
     private static final String PROVISIONING_STATE = "ProvisioningState/";
@@ -145,7 +142,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                 public void onFail(Throwable result) {
                     final Throwable cause = result.getCause();
                     if (cause != null && NOT_FOUND_ERROR.equals(cause.getMessage()) ||
-                        PROVISIONING_STATES.contains(instance.getStatus())) {
+                            PROVISIONING_STATES.contains(instance.getStatus())) {
                         return;
                     }
 
@@ -213,12 +210,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         final List<Throwable> exceptions = new ArrayList<>();
         final AzureCloudImageDetails details = image.getImageDetails();
 
-        AzureUtils.retryAsync(new Callable<Promise<List<VirtualMachine>, Throwable, Object>>() {
-            @Override
-            public Promise<List<VirtualMachine>, Throwable, Object> call() throws Exception {
-                return getVirtualMachinesAsync();
-            }
-        }, TIMEOUT_RETRY_COUNT).fail(new FailCallback<Throwable>() {
+        getVirtualMachinesAsync().fail(new FailCallback<Throwable>() {
             @Override
             public void onFail(Throwable t) {
                 final String message = String.format("Failed to get list of instances for cloud image %s: %s", image.getName(), t.getMessage());
@@ -386,23 +378,37 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     @NotNull
     @Override
     public TypedCloudErrorInfo[] checkImage(@NotNull AzureCloudImage image) {
-        final CloudErrorInfo error = image.getErrorInfo();
-        if (error == null) {
-            return new TypedCloudErrorInfo[]{};
+        final List<Throwable> exceptions = new ArrayList<>();
+        final String imageUrl = image.getImageDetails().getImageUrl();
+        final Promise<String, Throwable, Void> promise = getVhdOsTypeAsync(imageUrl).fail(new FailCallback<Throwable>() {
+            @Override
+            public void onFail(Throwable result) {
+                exceptions.add(result);
+            }
+        });
+
+        try {
+            promise.waitSafely();
+        } catch (InterruptedException e) {
+            exceptions.add(e);
         }
 
-        return new TypedCloudErrorInfo[]{new TypedCloudErrorInfo("error", error.getMessage(), error.getDetailedMessage())};
+        if (exceptions.size() == 0) {
+            return new TypedCloudErrorInfo[0];
+        }
+
+        final TypedCloudErrorInfo[] errors = new TypedCloudErrorInfo[exceptions.size()];
+        for (int i = 0; i < exceptions.size(); i++) {
+            errors[i] = TypedCloudErrorInfo.fromException(exceptions.get(i));
+        }
+
+        return errors;
     }
 
     @NotNull
     @Override
     public TypedCloudErrorInfo[] checkInstance(@NotNull AzureCloudInstance instance) {
-        final CloudErrorInfo error = instance.getErrorInfo();
-        if (error == null) {
-            return new TypedCloudErrorInfo[]{};
-        }
-
-        return new TypedCloudErrorInfo[]{new TypedCloudErrorInfo("error", error.getMessage(), error.getDetailedMessage())};
+        return new TypedCloudErrorInfo[0];
     }
 
     /**

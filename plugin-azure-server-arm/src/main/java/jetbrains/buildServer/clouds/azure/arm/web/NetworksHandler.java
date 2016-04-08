@@ -33,10 +33,10 @@ import java.util.Map;
 class NetworksHandler extends AzureResourceHandler {
 
     @Override
-    protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
-        return connector.getNetworksAsync().then(new DonePipe<Map<String, List<String>>, Content, Throwable, Object>() {
+    protected Promise<Content, Throwable, Void> handle(AzureApiConnector connector, HttpServletRequest request) {
+        return connector.getNetworksAsync().then(new DonePipe<Map<String, List<String>>, Content, Throwable, Void>() {
             @Override
-            public Promise<Content, Throwable, Object> pipeDone(Map<String, List<String>> networks) {
+            public Promise<Content, Throwable, Void> pipeDone(Map<String, List<String>> networks) {
                 final Element networksElement = new Element("networks");
                 for (String name : networks.keySet()) {
                     final Element networkElement = new Element("network");
@@ -51,7 +51,7 @@ class NetworksHandler extends AzureResourceHandler {
                     networksElement.addContent(networkElement);
                 }
 
-                return new DeferredObject<Content, Throwable, Object>().resolve(networksElement);
+                return new DeferredObject<Content, Throwable, Void>().resolve(networksElement);
             }
         });
     }

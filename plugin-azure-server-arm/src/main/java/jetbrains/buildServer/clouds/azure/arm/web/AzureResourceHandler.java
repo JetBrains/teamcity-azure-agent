@@ -17,6 +17,7 @@ package jetbrains.buildServer.clouds.azure.arm.web;
 
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
 import jetbrains.buildServer.controllers.admin.projects.PluginPropertiesUtil;
 import org.jdeferred.Promise;
@@ -32,7 +33,7 @@ import java.util.Map;
 abstract class AzureResourceHandler implements ResourceHandler {
 
     @Override
-    public Promise<Content, Throwable, Object> handle(@NotNull HttpServletRequest request) {
+    public Promise<Content, Throwable, Void> handle(@NotNull HttpServletRequest request) {
         BasePropertiesBean propsBean = new BasePropertiesBean(null);
         PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true);
 
@@ -42,11 +43,13 @@ abstract class AzureResourceHandler implements ResourceHandler {
         final String clientSecret = props.get("secure:" + AzureConstants.CLIENT_SECRET);
         final String subscriptionId = props.get(AzureConstants.SUBSCRIPTION_ID);
         final String location = props.get(AzureConstants.LOCATION);
-        final AzureApiConnector apiConnector = new AzureApiConnector(tenantId, clientId, clientSecret, subscriptionId);
+
+        final AzureApiConnectorImpl apiConnector = new AzureApiConnectorImpl(tenantId, clientId, clientSecret);
+        apiConnector.setSubscriptionId(subscriptionId);
         apiConnector.setLocation(location);
 
         return handle(apiConnector, request);
     }
 
-    protected abstract Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request);
+    protected abstract Promise<Content, Throwable, Void> handle(AzureApiConnector connector, HttpServletRequest request);
 }

@@ -25,5 +25,5 @@ import javax.servlet.http.HttpServletRequest;
  * Request handler.
  */
 interface ResourceHandler {
-    Promise<Content, Throwable, Object> handle(@NotNull HttpServletRequest request);
+    Promise<Content, Throwable, Void> handle(@NotNull HttpServletRequest request);
 }

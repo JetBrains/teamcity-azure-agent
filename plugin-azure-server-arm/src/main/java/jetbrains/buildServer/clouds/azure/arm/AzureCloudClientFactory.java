@@ -20,7 +20,7 @@ import jetbrains.buildServer.clouds.CloudRegistrar;
 import jetbrains.buildServer.clouds.CloudState;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.azure.AzureUtils;
-import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl;
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.serverSide.AgentDescription;
@@ -82,7 +82,8 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
         final String subscriptionId = getParameter(params, AzureConstants.SUBSCRIPTION_ID);
         final String location = getParameter(params, AzureConstants.LOCATION);
 
-        final AzureApiConnector apiConnector = new AzureApiConnector(tenantId, clientId, clientSecret, subscriptionId);
+        final AzureApiConnectorImpl apiConnector = new AzureApiConnectorImpl(tenantId, clientId, clientSecret);
+        apiConnector.setSubscriptionId(subscriptionId);
         apiConnector.setServerId(mySettings.getServerUUID());
         apiConnector.setProfileId(state.getProfileId());
         apiConnector.setLocation(location);

@@ -15,6 +15,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm;
 
+import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.QuotaException;
@@ -38,6 +39,7 @@ import java.util.Map;
  */
 public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails> {
 
+    private static final Logger LOG = Logger.getInstance(AzureCloudImage.class.getName());
     private final AzureCloudImageDetails myImageDetails;
     private final AzureApiConnector myApiConnector;
     private final IdProvider myIdProvider;
@@ -92,6 +94,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         myApiConnector.createVmAsync(instance, userData).fail(new FailCallback<Throwable>() {
             @Override
             public void onFail(Throwable result) {
+                LOG.warn(result);
                 instance.setStatus(InstanceStatus.ERROR);
                 instance.updateErrors(TypedCloudErrorInfo.fromException(result));
             }
@@ -109,6 +112,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         myApiConnector.restartVmAsync(instance).fail(new FailCallback<Throwable>() {
             @Override
             public void onFail(Throwable result) {
+                LOG.warn(result);
                 instance.setStatus(InstanceStatus.ERROR);
                 instance.updateErrors(TypedCloudErrorInfo.fromException(result));
             }
@@ -128,6 +132,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         }).fail(new FailCallback<Throwable>() {
             @Override
             public void onFail(Throwable result) {
+                LOG.warn(result);
                 instance.setStatus(InstanceStatus.ERROR);
                 instance.updateErrors(TypedCloudErrorInfo.fromException(result));
             }

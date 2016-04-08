@@ -31,10 +31,10 @@ import java.util.List;
 class VmSizesHandler extends AzureResourceHandler {
 
     @Override
-    protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
-        return connector.getVmSizesAsync().then(new DonePipe<List<String>, Content, Throwable, Object>() {
+    protected Promise<Content, Throwable, Void> handle(AzureApiConnector connector, HttpServletRequest request) {
+        return connector.getVmSizesAsync().then(new DonePipe<List<String>, Content, Throwable, Void>() {
             @Override
-            public Promise<Content, Throwable, Object> pipeDone(List<String> sizes) {
+            public Promise<Content, Throwable, Void> pipeDone(List<String> sizes) {
                 final Element sizesElement = new Element("vmSizes");
                 for (String size : sizes) {
                     final Element sizeElement = new Element("vmSize");
@@ -42,7 +42,7 @@ class VmSizesHandler extends AzureResourceHandler {
                     sizesElement.addContent(sizeElement);
                 }
 
-                return new DeferredObject<Content, Throwable, Object>().resolve(sizesElement);
+                return new DeferredObject<Content, Throwable, Void>().resolve(sizesElement);
             }
         });
     }

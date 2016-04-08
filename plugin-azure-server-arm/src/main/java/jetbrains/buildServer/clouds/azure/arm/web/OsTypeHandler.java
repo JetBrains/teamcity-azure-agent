@@ -31,15 +31,15 @@ import javax.servlet.http.HttpServletRequest;
 class OsTypeHandler extends AzureResourceHandler {
 
     @Override
-    protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
+    protected Promise<Content, Throwable, Void> handle(AzureApiConnector connector, HttpServletRequest request) {
         final String imageUrl = request.getParameter("imageUrl");
-        return connector.getVhdOsTypeAsync(imageUrl).then(new DonePipe<String, Content, Throwable, Object>() {
+        return connector.getVhdOsTypeAsync(imageUrl).then(new DonePipe<String, Content, Throwable, Void>() {
             @Override
-            public Promise<Content, Throwable, Object> pipeDone(String osType) {
+            public Promise<Content, Throwable, Void> pipeDone(String osType) {
                 final Element osTypeElement = new Element("osType");
                 osTypeElement.setText(osType);
 
-                return new DeferredObject<Content, Throwable, Object>().resolve(osTypeElement);
+                return new DeferredObject<Content, Throwable, Void>().resolve(osTypeElement);
             }
         });
     }

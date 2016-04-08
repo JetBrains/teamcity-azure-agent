@@ -91,14 +91,14 @@ public class SettingsController extends BaseFormXmlController {
                           @NotNull final Element xmlResponse) {
         final ActionErrors errors = new ActionErrors();
         final String[] resources = request.getParameterValues("resource");
-        final List<Promise<Content, Throwable, Object>> promises = new ArrayList<>(resources.length);
+        final List<Promise<Content, Throwable, Void>> promises = new ArrayList<>(resources.length);
 
         for (final String resource : resources) {
             final ResourceHandler handler = HANDLERS.get(resource);
             if (handler == null) continue;
 
             try {
-                final Promise<Content, Throwable, Object> promise = handler.handle(request).fail(new FailCallback<Throwable>() {
+                final Promise<Content, Throwable, Void> promise = handler.handle(request).fail(new FailCallback<Throwable>() {
                     @Override
                     public void onFail(Throwable result) {
                         errors.addError(resource, result.getMessage());
@@ -110,8 +110,8 @@ public class SettingsController extends BaseFormXmlController {
             }
         }
 
-        if (promises.size() == 0){
-            if (errors.hasErrors()){
+        if (promises.size() == 0) {
+            if (errors.hasErrors()) {
                 writeErrors(xmlResponse, errors);
             }
 
@@ -122,11 +122,11 @@ public class SettingsController extends BaseFormXmlController {
             myManager.when(promises.toArray(new Promise[]{})).always(new AlwaysCallback<MultipleResults, OneReject>() {
                 @Override
                 public void onAlways(Promise.State state, MultipleResults resolved, OneReject rejected) {
-                    if (errors.hasErrors()){
+                    if (errors.hasErrors()) {
                         writeErrors(xmlResponse, errors);
-                    } else{
+                    } else {
                         for (OneResult oneResult : resolved) {
-                            xmlResponse.addContent((Content)oneResult.getResult());
+                            xmlResponse.addContent((Content) oneResult.getResult());
                         }
                     }
                 }

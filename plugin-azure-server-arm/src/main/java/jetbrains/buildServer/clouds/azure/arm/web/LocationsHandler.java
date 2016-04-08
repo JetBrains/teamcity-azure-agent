@@ -32,11 +32,11 @@ import java.util.Map;
 class LocationsHandler extends AzureResourceHandler {
 
     @Override
-    protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
+    protected Promise<Content, Throwable, Void> handle(AzureApiConnector connector, HttpServletRequest request) {
         final String subscription = request.getParameter("subscription");
-        return connector.getLocationsAsync(subscription).then(new DonePipe<Map<String, String>, Content, Throwable, Object>() {
+        return connector.getLocationsAsync(subscription).then(new DonePipe<Map<String, String>, Content, Throwable, Void>() {
             @Override
-            public Promise<Content, Throwable, Object> pipeDone(Map<String, String> locations) {
+            public Promise<Content, Throwable, Void> pipeDone(Map<String, String> locations) {
                 final Element locationsElement = new Element("locations");
                 for (String id : locations.keySet()) {
                     final Element locationElement = new Element("location");
@@ -45,7 +45,7 @@ class LocationsHandler extends AzureResourceHandler {
                     locationsElement.addContent(locationElement);
                 }
 
-                return new DeferredObject<Content, Throwable, Object>().resolve(locationsElement);
+                return new DeferredObject<Content, Throwable, Void>().resolve(locationsElement);
             }
         });
     }

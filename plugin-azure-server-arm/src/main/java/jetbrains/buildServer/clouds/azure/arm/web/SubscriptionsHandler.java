@@ -32,10 +32,10 @@ import java.util.Map;
 class SubscriptionsHandler extends AzureResourceHandler {
 
     @Override
-    protected Promise<Content, Throwable, Object> handle(AzureApiConnector connector, HttpServletRequest request) {
-        return connector.getSubscriptionsAsync().then(new DonePipe<Map<String, String>, Content, Throwable, Object>() {
+    protected Promise<Content, Throwable, Void> handle(AzureApiConnector connector, HttpServletRequest request) {
+        return connector.getSubscriptionsAsync().then(new DonePipe<Map<String, String>, Content, Throwable, Void>() {
             @Override
-            public Promise<Content, Throwable, Object> pipeDone(Map<String, String> subscriptions) {
+            public Promise<Content, Throwable, Void> pipeDone(Map<String, String> subscriptions) {
                 final Element subscriptionsElement = new Element("subscriptions");
                 for (String id : subscriptions.keySet()) {
                     final Element subscriptionElement = new Element("subscription");
@@ -44,7 +44,7 @@ class SubscriptionsHandler extends AzureResourceHandler {
                     subscriptionsElement.addContent(subscriptionElement);
                 }
 
-                return new DeferredObject<Content, Throwable, Object>().resolve(subscriptionsElement);
+                return new DeferredObject<Content, Throwable, Void>().resolve(subscriptionsElement);
             }
         });
     }

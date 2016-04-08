@@ -49,6 +49,8 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance;
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants;
 import jetbrains.buildServer.clouds.azure.arm.connector.models.JsonValue;
 import jetbrains.buildServer.clouds.azure.arm.connector.models.RawJsonValue;
+import jetbrains.buildServer.clouds.azure.arm.utils.AlphaNumericStringComparator;
+import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
@@ -420,6 +422,16 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void success(ServiceResponse<List<VirtualMachineSize>> result) {
                 final List<VirtualMachineSize> vmSizes = result.getBody();
+                final Comparator<String> comparator = new AlphaNumericStringComparator();
+                Collections.sort(vmSizes, new Comparator<VirtualMachineSize>() {
+                    @Override
+                    public int compare(VirtualMachineSize o1, VirtualMachineSize o2) {
+                        final String size1 = o1.getName();
+                        final String size2 = o2.getName();
+                        return comparator.compare(size1, size2);
+                    }
+                });
+
                 final List<String> sizes = new ArrayList<>(vmSizes.size());
                 for (VirtualMachineSize vmSize : vmSizes) {
                     sizes.add(vmSize.getName());

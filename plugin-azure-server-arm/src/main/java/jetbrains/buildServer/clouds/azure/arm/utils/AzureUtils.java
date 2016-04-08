@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure.arm.connector;
+package jetbrains.buildServer.clouds.azure.arm.utils;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,10 +27,10 @@ import java.io.*;
 /**
  * Utilities.
  */
-final class AzureUtils {
+public final class AzureUtils {
 
     @NotNull
-    static String getResourceAsString(@NotNull final String name) {
+    public static String getResourceAsString(@NotNull final String name) {
         final InputStream stream = AzureUtils.class.getResourceAsStream(name);
         if (stream == null) {
             return StringUtil.EMPTY;
@@ -44,7 +44,7 @@ final class AzureUtils {
     }
 
     @NotNull
-    static String serializeObject(@NotNull final Object object) {
+    public static String serializeObject(@NotNull final Object object) {
         final ObjectMapper mapper = new ObjectMapper();
         try {
             return mapper.writeValueAsString(object);

@@ -11,6 +11,9 @@
 <jsp:useBean id="basePath" class="java.lang.String" scope="request"/>
 
 <h2 class="noBorder section-header">Credentials</h2>
+<c:set var="azureLink"><a
+        href="https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/"
+        target="_blank"><bs:helpIcon iconTitle=""/></a></c:set>
 
 <script type="text/javascript">
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}settings.css'/>");
@@ -25,7 +28,7 @@
                 <input type="text" name="prop:${cons.tenantId}" class="longField"
                        value="${propertiesBean.properties[cons.tenantId]}"
                        data-bind="initializeValue: tenantId, textInput: tenantId"/>
-                <span class="smallNote">Azure Active Directory domain or tenant ID</span>
+                <span class="smallNote">Azure AD domain or tenant ID ${azureLink}</span>
                 <span class="error option-error" data-bind="validationMessage: tenantId"></span>
             </td>
         </tr>
@@ -36,7 +39,7 @@
                 <input type="text" name="prop:${cons.clientId}" class="longField"
                        value="${propertiesBean.properties[cons.clientId]}"
                        data-bind="initializeValue: clientId, textInput: clientId"/>
-                <span class="smallNote">Azure Active Directory application ID</span>
+                <span class="smallNote">Azure AD application client ID ${azureLink}</span>
                 <span class="error option-error" data-bind="validationMessage: clientId"></span>
             </td>
         </tr>
@@ -49,7 +52,7 @@
                 <input type="hidden" name="prop:secure:${cons.clientSecret}"
                        value="${propertiesBean.properties[cons.clientSecret]}"
                        data-bind="initializeValue: clientSecret, value: clientSecret"/>
-                <span class="smallNote">Azure Active Directory application secret</span>
+                <span class="smallNote">Azure AD application client secret ${azureLink}</span>
                 <span class="error option-error" data-bind="validationMessage: clientSecret"></span>
             </td>
         </tr>
@@ -110,7 +113,11 @@
                           data-bind="attr: {title: image().osType}, css: {invisible: !image().osType()},
                           style: {backgroundImage: getOsImage(image().osType())}"/>
                     </span>
-                    <span class="smallNote">Generalized image, e.g. http://storage.blob.core.windows.net/vhds/image.vhd</span>
+                    <span class="smallNote">Generalized image, e.g. http://storage.blob.core.windows.net/vhds/image.vhd<br/>
+                        To create a generalized image prepare virtual machine <bs:help
+                                file="TeamCity+Integration+with+Cloud+Solutions"
+                                anchor="TeamCitySetupforCloudIntegration"/>
+                    </span>
                     <span class="error option-error" data-bind="validationMessage: image().imageUrl"></span>
                 </td>
             </tr>
@@ -138,6 +145,7 @@
                 <td>
                     <input type="text" name="${cons.vmNamePrefix}" class="longField"
                            data-bind="textInput: image().vmNamePrefix"/>
+                    <span class="smallNote">Use unique name prefix for allocated resources per subscription</span>
                     <span class="error option-error" data-bind="validationMessage: image().vmNamePrefix"></span>
                 </td>
             </tr>
@@ -145,7 +153,9 @@
                 <th><label for="${cons.vmSize}">VM Size: <l:star/></label></th>
                 <td>
                     <select name="${cons.vmSize}" class="longField"
-                            data-bind="options: vmSizes, value: image().vmSize"></select>
+                            data-bind="options: vmSizes, optionsText: function (item) {
+                                return item.replace(/_/g, ' ');
+                            }, value: image().vmSize"></select>
                     <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingResources()}"></i>
                 </td>
             </tr>
@@ -198,6 +208,9 @@
                 <td>
                     <input type="password" id="${cons.vmPassword}" class="longField"
                            data-bind="textInput: image().vmPassword"/>
+                    <span class="smallNote">Choose password according to the <a
+                            href="https://msdn.microsoft.com/en-us/library/azure/jj943764.aspx#Anchor_1"
+                            target="_blank">azure requirements</a></span>
                     <span class="error option-error" data-bind="validationMessage: image().vmPassword"></span>
                 </td>
             </tr>
@@ -237,7 +250,7 @@
                     </td>
                     <td data-bind="text: maxInstances"></td>
                     <td class="edit">
-                        <a href="#"  data-bind="click: $parent.showDialog,
+                        <a href="#" data-bind="click: $parent.showDialog,
                         css: {hidden: !$parent.isValidCredentials() || $parent.loadingLocations()}">Edit</a>
                     </td>
                     <td class="remove"><a href="#" data-bind="click: $parent.deleteImage">Delete</a></td>

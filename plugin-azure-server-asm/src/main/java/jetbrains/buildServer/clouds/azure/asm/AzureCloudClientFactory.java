@@ -131,7 +131,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
 
   @NotNull
   public String getDisplayName() {
-    return "Azure Service Management";
+    return "Azure Classic";
   }
 
   @Nullable

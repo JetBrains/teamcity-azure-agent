@@ -151,6 +151,7 @@ project(':plugin-azure-server-arm') {
         compile 'com.microsoft.azure:azure-client-runtime:1.0.0-SNAPSHOT'
         compile 'com.microsoft.azure:azure-storage:4.0.0'
         compile 'org.jdeferred:jdeferred-core:1.2.4'
+        compile 'com.squareup.okio:okio:1.7.0'
         runtime 'javax.servlet:jstl:1.1.2'
         testCompile 'org.testng:testng:6.8'
     }

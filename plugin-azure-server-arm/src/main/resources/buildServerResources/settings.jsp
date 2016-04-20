@@ -10,10 +10,8 @@
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.arm.AzureConstants"/>
 <jsp:useBean id="basePath" class="java.lang.String" scope="request"/>
 
-<h2 class="noBorder section-header">Credentials</h2>
-<c:set var="azureLink"><a
-        href="https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/"
-        target="_blank"><bs:helpIcon iconTitle=""/></a></c:set>
+<h2 class="noBorder section-header">Cloud Access Information</h2>
+<c:set var="azureLink">https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/</c:set>
 
 <script type="text/javascript">
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}settings.css'/>");
@@ -28,7 +26,9 @@
                 <input type="text" name="prop:${cons.tenantId}" class="longField"
                        value="${propertiesBean.properties[cons.tenantId]}"
                        data-bind="initializeValue: tenantId, textInput: tenantId"/>
-                <span class="smallNote">Azure AD domain or tenant ID ${azureLink}</span>
+                <span class="smallNote">Azure AD domain or tenant ID <a
+                        href="${azureLink}#get-client-id-and-tenant-id"
+                        target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <span class="error option-error" data-bind="validationMessage: tenantId"></span>
             </td>
         </tr>
@@ -39,7 +39,9 @@
                 <input type="text" name="prop:${cons.clientId}" class="longField"
                        value="${propertiesBean.properties[cons.clientId]}"
                        data-bind="initializeValue: clientId, textInput: clientId"/>
-                <span class="smallNote">Azure AD application client ID ${azureLink}</span>
+                <span class="smallNote">Azure AD application client ID <a
+                        href="${azureLink}#get-client-id-and-tenant-id"
+                        target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <span class="error option-error" data-bind="validationMessage: clientId"></span>
             </td>
         </tr>
@@ -52,7 +54,9 @@
                 <input type="hidden" name="prop:secure:${cons.clientSecret}"
                        value="${propertiesBean.properties[cons.clientSecret]}"
                        data-bind="initializeValue: clientSecret, value: clientSecret"/>
-                <span class="smallNote">Azure AD application client secret ${azureLink}</span>
+                <span class="smallNote">Azure AD application client secret <a
+                        href="${azureLink}#create-an-authentication-key"
+                        target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <span class="error option-error" data-bind="validationMessage: clientSecret"></span>
             </td>
         </tr>
@@ -88,7 +92,7 @@
                 <input type="hidden" class="longField"
                        value="${propertiesBean.properties[cons.location]}"
                        data-bind="initializeValue: location"/>
-                <span class="smallNote">Target location for allocated resources</span>
+                <span class="smallNote">Target location for cloud agent resources</span>
                 <span class="error option-error" data-bind="validationMessage: location"></span>
             </td>
         </tr>
@@ -105,24 +109,26 @@
                dialogClass="AzureImageDialog" titleId="ArmImageDialogTitle">
         <table class="runnerFormTable">
             <tr>
-                <th><label for="${cons.imageUrl}">Source image: <l:star/></label></th>
+                <th><label for="${cons.imageUrl}">Source Image: <l:star/></label></th>
                 <td>
                     <input type="text" name="${cons.imageUrl}" class="longField"
+                           placeholder="Example: http://storage.blob.core.windows.net/vhds/image.vhd"
                            data-bind="textInput: image().imageUrl"/>
                     <span class="osIcon osIconSmall"
                           data-bind="attr: {title: image().osType}, css: {invisible: !image().osType()},
                           style: {backgroundImage: getOsImage(image().osType())}"/>
                     </span>
-                    <span class="smallNote">Generalized image, e.g. http://storage.blob.core.windows.net/vhds/image.vhd<br/>
-                        To create a generalized image prepare virtual machine <bs:help
-                                file="TeamCity+Integration+with+Cloud+Solutions"
-                                anchor="TeamCitySetupforCloudIntegration"/>
+                    <span class="smallNote">URL of generalized VHD image placed in the <a
+                            href="https://azure.microsoft.com/en-us/documentation/articles/resource-group-portal/"
+                            target="_blank">new storage account</a> <bs:help
+                            file="TeamCity+Integration+with+Cloud+Solutions"
+                            anchor="TeamCitySetupforCloudIntegration"/>
                     </span>
                     <span class="error option-error" data-bind="validationMessage: image().imageUrl"></span>
                 </td>
             </tr>
             <tr data-bind="css: {hidden: osType()}">
-                <th><label for="${cons.osType}">OS type: <l:star/></label></th>
+                <th class="noBorder"><label for="${cons.osType}">OS Type: <l:star/></label></th>
                 <td>
                     <select name="${cons.osType}" class="longField"
                             data-bind="options: osTypes, optionsCaption: 'Select', value: image().osType"></select>
@@ -131,26 +137,27 @@
                 </td>
             </tr>
             <tr>
-                <th><label for="${cons.maxInstancesCount}">Max # of instances: <l:star/></label></th>
+                <th><label for="${cons.vmNamePrefix}">Name Prefix: <l:star/></label></th>
+                <td>
+                    <input type="text" name="${cons.vmNamePrefix}" class="longField"
+                           data-bind="textInput: image().vmNamePrefix"/>
+                    <span class="smallNote">Unique name prefix to create resource groups</span>
+                    <span class="error option-error" data-bind="validationMessage: image().vmNamePrefix"></span>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="${cons.maxInstancesCount}">Instances Limit: <l:star/></label></th>
                 <td>
                     <div>
                         <input type="text" name="${cons.maxInstancesCount}" class="longField"
                                data-bind="textInput: image().maxInstances"/>
+                        <span class="smallNote">Maximum number of instances which can be started</span>
                         <span class="error option-error" data-bind="validationMessage: image().maxInstances"></span>
                     </div>
                 </td>
             </tr>
             <tr>
-                <th><label for="${cons.vmNamePrefix}">Name prefix: <l:star/></label></th>
-                <td>
-                    <input type="text" name="${cons.vmNamePrefix}" class="longField"
-                           data-bind="textInput: image().vmNamePrefix"/>
-                    <span class="smallNote">Use unique name prefix for allocated resources per subscription</span>
-                    <span class="error option-error" data-bind="validationMessage: image().vmNamePrefix"></span>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="${cons.vmSize}">VM Size: <l:star/></label></th>
+                <th><label for="${cons.vmSize}">Virtual Machine Size: <l:star/></label></th>
                 <td>
                     <select name="${cons.vmSize}" class="longField"
                             data-bind="options: vmSizes, optionsText: function (item) {
@@ -160,15 +167,7 @@
                 </td>
             </tr>
             <tr>
-                <th>Network:</th>
-                <td>
-                    <input type="checkbox" name="${cons.vmPublicIp}" class="behaviourRadio"
-                           data-bind="checked: image().vmPublicIp"/>
-                    <label for="${cons.vmPublicIp}">Create public IP address</label>
-                </td>
-            </tr>
-            <tr>
-                <th><label for="${cons.networkId}">Virtual network: <l:star/></label></th>
+                <th><label for="${cons.networkId}">Virtual Network: <l:star/></label></th>
                 <td>
                     <select name="${cons.networkId}" class="longField"
                             data-bind="options: networks, optionsText: function (item) {
@@ -181,7 +180,7 @@
                 </td>
             </tr>
             <tr>
-                <th><label for="${cons.subnetId}">Sub network: <l:star/></label></th>
+                <th class="noBorder"><label for="${cons.subnetId}">Sub Network: <l:star/></label></th>
                 <td>
                     <select name="${cons.subnetId}" class="longField"
                             data-bind="options: subNetworks, value: image().subnetId, css: {hidden: subNetworks().length == 0}"></select>
@@ -192,11 +191,14 @@
                 </td>
             </tr>
             <tr>
-                <th></th>
-                <td></td>
+                <th class="noBorder"></th>
+                <td>
+                    <input type="checkbox" name="${cons.vmPublicIp}" data-bind="checked: image().vmPublicIp"/>
+                    <label for="${cons.vmPublicIp}">Create public IP address</label>
+                </td>
             </tr>
             <tr>
-                <th><label for="${cons.vmUsername}">Provision username: <l:star/></label></th>
+                <th><label for="${cons.vmUsername}">Provision Username: <l:star/></label></th>
                 <td>
                     <input type="text" id="${cons.vmUsername}" class="longField"
                            data-bind="textInput: image().vmUsername"/>
@@ -204,13 +206,13 @@
                 </td>
             </tr>
             <tr>
-                <th><label for="${cons.vmPassword}">Provision password: <l:star/></label></th>
+                <th class="noBorder"><label for="${cons.vmPassword}">Provision Password: <l:star/></label></th>
                 <td>
                     <input type="password" id="${cons.vmPassword}" class="longField"
                            data-bind="textInput: image().vmPassword"/>
-                    <span class="smallNote">Choose password according to the <a
+                    <span class="smallNote">Choose value according to the <a
                             href="https://msdn.microsoft.com/en-us/library/azure/jj943764.aspx#Anchor_1"
-                            target="_blank">azure requirements</a></span>
+                            target="_blank">password policies</a></span>
                     <span class="error option-error" data-bind="validationMessage: image().vmPassword"></span>
                 </td>
             </tr>
@@ -228,13 +230,13 @@
         <div class="imagesTableWrapper">
             <span class="emptyImagesListMessage hidden"
                   data-bind="css: { hidden: images().length > 0 }">You haven't added any images yet.</span>
-            <table class="settings imagesTable hidden"
+            <table class="settings arm-settings imagesTable hidden"
                    data-bind="css: { hidden: images().length == 0 }">
                 <thead>
                 <tr>
-                    <th class="name">Name prefix</th>
-                    <th class="name">VHD image</th>
-                    <th class="name maxInstances center">Max # of instances</th>
+                    <th class="name">Name Prefix</th>
+                    <th class="name">Source Image</th>
+                    <th class="name center" title="Maximum number of instances">Limit</th>
                     <th class="name center" colspan="2">Actions</th>
                 </tr>
                 </thead>
@@ -248,7 +250,7 @@
                         </span>
                         <span data-bind="text: imageUrl.slice(-80), attr: {title: imageUrl}"></span>
                     </td>
-                    <td data-bind="text: maxInstances"></td>
+                    <td class="center" data-bind="text: maxInstances"></td>
                     <td class="edit">
                         <a href="#" data-bind="click: $parent.showDialog,
                         css: {hidden: !$parent.isValidCredentials() || $parent.loadingLocations()}">Edit</a>

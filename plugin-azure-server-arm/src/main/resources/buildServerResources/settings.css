@@ -96,18 +96,17 @@ table.settings .edit {
     color: #ccc;
 }
 
-table.settings .maxInstances,
-table.settings .maxInstances.name {
-    width: 80px;
-    max-width: 80px;
+table.arm-settings th.name {
+    padding: 3px 1em;
 }
 
-table.settings th.name.center {
+table.arm-settings th.center,
+table.arm-settings td.center{
     text-align: center;
-    padding: 0;
+    padding: 0.5em;
 }
 
-table.settings .nowrap {
+table.arm-settings .nowrap {
     white-space: nowrap;
     overflow-x: hidden;
 }

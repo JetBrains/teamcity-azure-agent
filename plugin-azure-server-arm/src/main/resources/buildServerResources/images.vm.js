@@ -50,7 +50,14 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         osType: ko.observable().extend({required: true}),
         maxInstances: ko.observable(1).extend({required: true, min: 1}),
         vmSize: ko.observable().extend({required: true}),
-        vmNamePrefix: ko.observable().extend({required: true, maxLength: maxLength}),
+        vmNamePrefix: ko.observable().extend({required: true, maxLength: maxLength}).extend({
+            validation: {
+                validator: function (value) {
+                    return self.originalImage && self.originalImage.vmNamePrefix == value || !self.passwords[value];
+                },
+                message: 'Name prefix should be unique within subscription'
+            }
+        }),
         vmPublicIp: ko.observable(false),
         vmUsername: ko.observable().extend({required: true, maxLength: maxLength}),
         vmPassword: ko.observable().extend({required: true})

@@ -90,7 +90,7 @@ project(':plugin-azure-server-asm') {
         testCompile 'org.testng:testng:6.8'
     }
     
-    task distrib(type: Zip, dependsOn: [':plugin-azure-agent:assemble', jar]) {
+    task distrib(type: Zip, dependsOn: [':plugin-azure-agent:build', jar]) {
         archiveName = 'azure-cloud.zip'
     
         from (libsDir) {
@@ -156,7 +156,7 @@ project(':plugin-azure-server-arm') {
         testCompile 'org.testng:testng:6.8'
     }
     
-    task distrib(type: Zip, dependsOn: [':plugin-azure-agent:assemble', jar]) {
+    task distrib(type: Zip, dependsOn: [':plugin-azure-agent:build', jar]) {
         archiveName = projectIds.artifact + '-arm.zip'
     
         from (libsDir) {

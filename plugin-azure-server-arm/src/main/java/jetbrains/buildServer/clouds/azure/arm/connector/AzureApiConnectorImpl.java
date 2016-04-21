@@ -58,6 +58,7 @@ import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.filters.Filter;
+import org.apache.commons.codec.binary.Base64;
 import org.jdeferred.*;
 import org.jdeferred.impl.DefaultDeferredManager;
 import org.jdeferred.impl.DeferredObject;
@@ -455,6 +456,14 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
     @Override
     public Promise<Void, Throwable, Void> createVmAsync(@NotNull final AzureCloudInstance instance,
                                                         @NotNull final CloudInstanceUserData userData) {
+        final String customData;
+        try {
+           customData = Base64.encodeBase64String(userData.serialize().getBytes("UTF-8"));
+        } catch (Exception e) {
+            final CloudException exception = new CloudException("Failed to encode custom data " + e.getMessage(), e);
+            return new DeferredObject<Void, Throwable, Void>().reject(exception);
+        }
+
         final AzureCloudImageDetails details = instance.getImage().getImageDetails();
         final String name = instance.getName();
 
@@ -462,7 +471,6 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public Promise<Void, Throwable, Void> pipeDone(Void result) {
                 final boolean publicIp = details.getVmPublicIp();
-                final String customData = new String(Base64.getEncoder().encode(userData.serialize().getBytes()));
                 final String templateName = publicIp ? "/templates/vm-template-pip.json" : "/templates/vm-template.json";
                 final String templateValue = AzureUtils.getResourceAsString(templateName);
 

@@ -21,8 +21,8 @@ You can select an approriate plugin according to the [Microsoft deployment guide
 ## Installation
 
 You can download last successful build and install it as [additional TeamCity plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins):
-* [Azure Classic](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/cloud-azure-asm.zip) (TeamCity 8.1.x and greater)
-* [Azure Resource Manager](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/cloud-azure-arm.zip) (TeamCity 9.1.x and greater)
+* [Azure Classic](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/azure-cloud.zip) (TeamCity 8.1.x and greater)
+* [Azure Resource Manager](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_BuildResourceManager/.lastSuccessful/cloud-azure-arm.zip) (TeamCity 9.1.x and greater)
 
 ## Classic Plugin
 

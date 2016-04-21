@@ -91,7 +91,7 @@ project(':plugin-azure-server-asm') {
     }
     
     task distrib(type: Zip, dependsOn: [':plugin-azure-agent:assemble', jar]) {
-        archiveName = projectIds.artifact + '-asm.zip'
+        archiveName = 'azure-cloud.zip'
     
         from (libsDir) {
             into 'server'

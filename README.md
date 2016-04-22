@@ -1,7 +1,5 @@
 # TeamCity Azure Cloud Plugins
 
-<a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_Build&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_Build)/statusIcon" alt=""/></a>
-
 Enables TeamCity cloud integration with Microsoft Azure and allows virtual machines usage to scale pool of build agents.
 
 ## Table Of Contents
@@ -20,9 +18,12 @@ You can select an approriate plugin according to the [Microsoft deployment guide
 
 ## Installation
 
-You can download last successful build and install it as [additional TeamCity plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins):
-* [Azure Classic](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/azure-cloud.zip) (TeamCity 8.1.x and greater)
-* [Azure Resource Manager](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_BuildResourceManager/.lastSuccessful/cloud-azure-arm.zip) (TeamCity 9.1.x and greater)
+You can download last successful plugin build and install it as [additional TeamCity plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins).
+
+| Plugin | Status | Download | TeamCity |
+|--------|--------|----------|----------|
+| [Classic](#classic-plugin) | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_Build&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_Build)/statusIcon" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/azure-cloud.zip?guest=1) | 8.1.x+ |
+| [Resource Manager](#resource-manager-plugin) | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_BuildResourceManager&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_BuildResourceManager)/statusIcon" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_BuildResourceManager/.lastSuccessful/cloud-azure-arm.zip?guest=1)| 9.1.x+ |
 
 ## Classic Plugin
 

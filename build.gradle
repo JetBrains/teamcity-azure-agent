@@ -16,7 +16,7 @@ subprojects {
 
     repositories {
         mavenCentral()
-        maven { url 'http://repository.jetbrains.com/all' }
+        maven { url 'http://download.jetbrains.com/teamcity-repository' }
         maven { url 'http://adxsnapshots.azurewebsites.net/' }
         maven { url '../local-repo' }
     }

@@ -5,4 +5,7 @@
 <beans default-autowire="constructor">
   <bean class="jetbrains.buildServer.clouds.azure.IdleShutdown"/>
   <bean class="jetbrains.buildServer.clouds.azure.AzurePropertiesReader"/>
+  <bean class="jetbrains.buildServer.clouds.azure.UnixConfigReader"/>
+  <bean class="jetbrains.buildServer.clouds.azure.WindowsConfigReader"/>
+  <bean class="jetbrains.buildServer.clouds.azure.FileUtilsImpl"/>
 </beans>

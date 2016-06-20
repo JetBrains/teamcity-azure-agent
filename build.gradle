@@ -37,6 +37,8 @@ project(':plugin-azure-agent') {
         compile 'org.jetbrains.teamcity:cloud-shared:9.1.5'
         runtime 'javax.servlet:jstl:1.1.2'
         testCompile 'org.testng:testng:6.8'
+        testCompile 'org.jmock:jmock:2.5.1'
+        testCompile 'org.jmock:jmock-legacy:2.5.1'
     }
     
     task distrib(type: Zip, dependsOn: jar) {

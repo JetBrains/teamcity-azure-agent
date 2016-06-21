@@ -33,9 +33,7 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Map;
 
 /**
- * @author Sergey.Pak
- *         Date: 7/31/2014
- *         Time: 5:18 PM
+ * Azure cloud image.
  */
 public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails> {
 
@@ -56,6 +54,8 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         try {
             realInstances = myApiConnector.fetchInstances(this);
         } catch (CheckedCloudException e) {
+            final String message = String.format("Failed to get instances for image %s: %s", getName(), e.getMessage());
+            LOG.warnAndDebugDetails(message, e);
             updateErrors(TypedCloudErrorInfo.fromException(e));
             return;
         }
@@ -91,7 +91,12 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         final AzureCloudInstance instance = new AzureCloudInstance(this, name);
         instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
 
-        myApiConnector.createVmAsync(instance, userData).fail(new FailCallback<Throwable>() {
+        myApiConnector.createVmAsync(instance, userData).done(new DoneCallback<Void>() {
+            @Override
+            public void onDone(Void result) {
+                LOG.info(String.format("Virtual machine %s has been successfully created", instance.getName()));
+            }
+        }).fail(new FailCallback<Throwable>() {
             @Override
             public void onFail(Throwable result) {
                 LOG.warn(result);
@@ -109,7 +114,12 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     public void restartInstance(@NotNull final AzureCloudInstance instance) {
         instance.setStatus(InstanceStatus.RESTARTING);
 
-        myApiConnector.restartVmAsync(instance).fail(new FailCallback<Throwable>() {
+        myApiConnector.restartVmAsync(instance).done(new DoneCallback<Void>() {
+            @Override
+            public void onDone(Void result) {
+                LOG.info(String.format("Virtual machine %s has been successfully restarted", instance.getName()));
+            }
+        }).fail(new FailCallback<Throwable>() {
             @Override
             public void onFail(Throwable result) {
                 LOG.warn(result);
@@ -128,6 +138,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
             public void onDone(Void result) {
                 instance.setStatus(InstanceStatus.STOPPED);
                 myInstances.remove(instance.getInstanceId());
+                LOG.info(String.format("Virtual machine %s has been successfully stopped", instance.getName()));
             }
         }).fail(new FailCallback<Throwable>() {
             @Override

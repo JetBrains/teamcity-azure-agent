@@ -16,6 +16,8 @@
 
 package jetbrains.buildServer.clouds.azure.arm.web;
 
+import com.intellij.openapi.diagnostic.Logger;
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl;
 import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.serverSide.SBuildServer;
@@ -45,6 +47,7 @@ import java.util.TreeMap;
  */
 public class SettingsController extends BaseFormXmlController {
 
+    private static final Logger LOG = Logger.getInstance(SettingsController.class.getName());
     private static final Map<String, ResourceHandler> HANDLERS = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private final DefaultDeferredManager myManager;
 
@@ -101,11 +104,13 @@ public class SettingsController extends BaseFormXmlController {
                 final Promise<Content, Throwable, Void> promise = handler.handle(request).fail(new FailCallback<Throwable>() {
                     @Override
                     public void onFail(Throwable result) {
+                        LOG.debug(result);
                         errors.addError(resource, result.getMessage());
                     }
                 });
                 promises.add(promise);
             } catch (Throwable t) {
+                LOG.debug(t);
                 errors.addError(resource, t.getMessage());
             }
         }
@@ -132,6 +137,7 @@ public class SettingsController extends BaseFormXmlController {
                 }
             }).waitSafely();
         } catch (InterruptedException e) {
+            LOG.debug(e);
             errors.addError("handler", e.getMessage());
             writeErrors(xmlResponse, errors);
         }

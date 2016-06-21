@@ -80,6 +80,7 @@ import java.util.regex.Pattern;
 public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance> implements AzureApiConnector {
 
     private static final Logger LOG = Logger.getInstance(AzureApiConnectorImpl.class.getName());
+    private static final String FAILED_TO_GET_INSTANCE_STATUS_FORMAT = "Failed to get instance %s status: %s";
     private static final Pattern RESOURCE_GROUP_PATTERN = Pattern.compile("resourceGroups/(.+)/providers/");
     private static final int RESOURCES_NUMBER = 100;
     private static final String PUBLIC_IP_SUFFIX = "-pip";
@@ -117,7 +118,9 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         try {
             myArmClient.getResourceGroupsOperations().list(null, RESOURCES_NUMBER);
         } catch (Exception e) {
-            throw new CloudException("Failed to get list of groups: " + e.getMessage(), e);
+            final String message = "Failed to get list of groups: " + e.getMessage();
+            LOG.debug(message, e);
+            throw new CloudException(message, e);
         }
     }
 
@@ -133,11 +136,12 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                 @Override
                 public void onFail(Throwable result) {
                     final Throwable cause = result.getCause();
+                    final String message = String.format(FAILED_TO_GET_INSTANCE_STATUS_FORMAT, instance.getName(), result.getMessage());
+                    LOG.debug(message, result);
                     if (cause != null && NOT_FOUND_ERROR.equals(cause.getMessage()) ||
                             PROVISIONING_STATES.contains(instance.getStatus())) {
                         return;
                     }
-
                     instance.setStatus(InstanceStatus.ERROR);
                     instance.updateErrors(TypedCloudErrorInfo.fromException(result));
                 }
@@ -145,13 +149,16 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                 @Override
                 public void onDone(Void result) {
                     final InstanceStatus status = azureInstance.getInstanceStatus();
+                    LOG.debug(String.format("Instance %s status is %s", instance.getName(), status));
                     instance.setStatus(status);
                     instance.updateErrors();
                     instanceStatus[0] = status;
                 }
             }).waitSafely();
         } catch (InterruptedException e) {
-            final CloudException exception = new CloudException("Failed to get virtual machine info " + e.getMessage(), e);
+            final String message = String.format(FAILED_TO_GET_INSTANCE_STATUS_FORMAT, instance.getName(), e);
+            LOG.debug(message, e);
+            final CloudException exception = new CloudException(message, e);
             instance.updateErrors(TypedCloudErrorInfo.fromException(exception));
         }
 
@@ -169,12 +176,13 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             final Promise<Void, Throwable, Void> promise = fetchInstancesAsync(image).fail(new FailCallback<Throwable>() {
                 @Override
                 public void onFail(Throwable result) {
-                    LOG.warn("Failed to receive list of instances", result);
+                    LOG.warn(String.format("Failed to receive list of image %s instances: %s", image.getName(), result.getMessage()), result);
                     image.updateErrors(TypedCloudErrorInfo.fromException(result));
                 }
             }).then(new DonePipe<Map<String, AbstractInstance>, Void, Throwable, Void>() {
                 @Override
                 public Promise<Void, Throwable, Void> pipeDone(Map<String, AbstractInstance> result) {
+                    LOG.debug(String.format("Received list of image %s instances", image.getName()));
                     image.updateErrors();
                     imageMap.put(image, (Map<String, R>) result);
                     return new DeferredObject<Void, Throwable, Void>().resolve(null);
@@ -188,7 +196,9 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             try {
                 myManager.when(promises.toArray(new Promise[]{})).waitSafely();
             } catch (InterruptedException e) {
-                throw new CloudException("Failed to get list of images " + e.getMessage(), e);
+                final String message = "Failed to get list of images: " + e.getMessage();
+                LOG.debug(message, e);
+                throw new CloudException(message, e);
             }
         }
 
@@ -207,6 +217,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void onFail(Throwable t) {
                 final String message = String.format("Failed to get list of instances for cloud image %s: %s", image.getName(), t.getMessage());
+                LOG.debug(message, t);
                 final CloudException exception = new CloudException(message, t);
                 exceptions.add(exception);
                 deferred.reject(exception);
@@ -216,25 +227,41 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             public void onDone(List<VirtualMachine> machines) {
                 for (VirtualMachine virtualMachine : machines) {
                     final String name = virtualMachine.getName();
-                    if (!name.startsWith(details.getVmNamePrefix())) continue;
+                    if (!name.startsWith(details.getVmNamePrefix())) {
+                        LOG.debug("Ignore vm with name " + name);
+                        continue;
+                    }
 
                     final Map<String, String> tags = virtualMachine.getTags();
-                    if (tags == null) continue;
+                    if (tags == null) {
+                        LOG.debug("Ignore vm without tags");
+                        continue;
+                    }
 
                     final String serverId = tags.get(AzureConstants.TAG_SERVER);
-                    if (!StringUtil.areEqual(serverId, myServerId)) continue;
+                    if (!StringUtil.areEqual(serverId, myServerId)) {
+                        LOG.debug("Ignore vm with invalid server tag " + serverId);
+                        continue;
+                    }
 
                     final String profileId = tags.get(AzureConstants.TAG_PROFILE);
-                    if (!StringUtil.areEqual(profileId, myProfileId)) continue;
+                    if (!StringUtil.areEqual(profileId, myProfileId)) {
+                        LOG.debug("Ignore vm with invalid profile tag " + profileId);
+                        continue;
+                    }
 
                     final String sourceName = tags.get(AzureConstants.TAG_SOURCE);
-                    if (!StringUtil.areEqual(sourceName, details.getSourceName())) continue;
+                    if (!StringUtil.areEqual(sourceName, details.getSourceName())) {
+                        LOG.debug("Ignore vm with invalid source tag " + sourceName);
+                        continue;
+                    }
 
                     final AzureInstance instance = new AzureInstance(name);
                     final Promise<Void, Throwable, Void> promise = getInstanceDataAsync(instance, details);
                     promise.fail(new FailCallback<Throwable>() {
                         @Override
                         public void onFail(Throwable result) {
+                            LOG.debug(String.format("Failed to receive vm %s data: %s", name, result.getMessage()), result);
                             exceptions.add(result);
                         }
                     });
@@ -270,12 +297,15 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         myComputeClient.getVirtualMachinesOperations().listAllAsync(new ListOperationCallback<VirtualMachine>() {
             @Override
             public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to get list of virtual machines " + t.getMessage(), t);
+                final String message = "Failed to get list of virtual machines: " + t.getMessage();
+                LOG.debug(message, t);
+                final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<List<VirtualMachine>> result) {
+                LOG.debug("Received list of virtual machines");
                 deferred.resolve(result.getBody());
             }
         });
@@ -288,6 +318,8 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         final Promise<Void, Throwable, Void> instanceViewPromise = getVirtualMachineAsync(name, name).then(new DonePipe<VirtualMachine, Void, Throwable, Void>() {
             @Override
             public Promise<Void, Throwable, Void> pipeDone(VirtualMachine machine) {
+                LOG.debug(String.format("Received virtual machine %s info", name));
+
                 for (InstanceViewStatus status : machine.getInstanceView().getStatuses()) {
                     final String code = status.getCode();
                     if (code.startsWith(PROVISIONING_STATE)) {
@@ -312,6 +344,8 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             publicIpPromise = getPublicIpAsync(name, pipName).then(new DonePipe<String, Void, Throwable, Void>() {
                 @Override
                 public Promise<Void, Throwable, Void> pipeDone(String result) {
+                    LOG.debug(String.format("Received public ip %s for virtual machine %s", result, name));
+
                     if (!StringUtil.isEmpty(result)) {
                         instance.setIpAddress(result);
                     }
@@ -336,12 +370,15 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         myComputeClient.getVirtualMachinesOperations().getAsync(groupId, name, INSTANCE_VIEW, new ServiceCallback<VirtualMachine>() {
             @Override
             public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to get virtual machine info " + t.getMessage(), t);
+                final String message = "Failed to get virtual machine info: " + t.getMessage();
+                LOG.debug(message, t);
+                final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<VirtualMachine> result) {
+                LOG.debug(String.format("Received virtual machine %s info", name));
                 deferred.resolve(result.getBody());
             }
         });
@@ -355,12 +392,14 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void failure(Throwable t) {
                 final String message = String.format("Failed to get public ip address %s info: %s", name, t.getMessage());
+                LOG.debug(message, t);
                 final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<PublicIPAddress> result) {
+                LOG.debug(String.format("Received public ip %s for %s", result.getBody().getIpAddress(), name));
                 deferred.resolve(result.getBody().getIpAddress());
             }
         });
@@ -376,6 +415,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         final Promise<String, Throwable, Void> promise = getVhdOsTypeAsync(imageUrl).fail(new FailCallback<Throwable>() {
             @Override
             public void onFail(Throwable result) {
+                LOG.debug("Failed to get os type for vhd " + imageUrl, result);
                 exceptions.add(result);
             }
         });
@@ -383,6 +423,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         try {
             promise.waitSafely();
         } catch (InterruptedException e) {
+            LOG.debug("Failed to wait for receiving vhd type " + imageUrl, e);
             exceptions.add(e);
         }
 
@@ -416,12 +457,16 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         myComputeClient.getVirtualMachineSizesOperations().listAsync(myLocation, new ListOperationCallback<VirtualMachineSize>() {
             @Override
             public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to get list of vm sizes: " + t.getMessage(), t);
+                final String message = String.format("Failed to get list of vm sizes in location %s: %s", myLocation, t.getMessage());
+                LOG.debug(message, t);
+                final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<List<VirtualMachineSize>> result) {
+                LOG.debug("Received list of vm sizes in location " + myLocation);
+
                 final List<VirtualMachineSize> vmSizes = result.getBody();
                 final Comparator<String> comparator = new AlphaNumericStringComparator();
                 Collections.sort(vmSizes, new Comparator<VirtualMachineSize>() {
@@ -456,20 +501,23 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
     @Override
     public Promise<Void, Throwable, Void> createVmAsync(@NotNull final AzureCloudInstance instance,
                                                         @NotNull final CloudInstanceUserData userData) {
+        final String name = instance.getName();
         final String customData;
         try {
            customData = Base64.encodeBase64String(userData.serialize().getBytes("UTF-8"));
         } catch (Exception e) {
-            final CloudException exception = new CloudException("Failed to encode custom data " + e.getMessage(), e);
+            final String message = String.format("Failed to encode custom data for instance %s: %s", name, e.getMessage());
+            LOG.debug(message, e);
+            final CloudException exception = new CloudException(message, e);
             return new DeferredObject<Void, Throwable, Void>().reject(exception);
         }
 
         final AzureCloudImageDetails details = instance.getImage().getImageDetails();
-        final String name = instance.getName();
-
         return createResourceGroupAsync(name, myLocation).then(new DonePipe<Void, Void, Throwable, Void>() {
             @Override
             public Promise<Void, Throwable, Void> pipeDone(Void result) {
+                LOG.debug(String.format("Created resource group %s in location %s", name, myLocation));
+
                 final boolean publicIp = details.getVmPublicIp();
                 final String templateName = publicIp ? "/templates/vm-template-pip.json" : "/templates/vm-template.json";
                 final String templateValue = AzureUtils.getResourceAsString(templateName);
@@ -509,6 +557,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void failure(Throwable t) {
                 final String message = String.format("Failed to create resource group %s: %s", groupId, t.getMessage());
+                LOG.debug(message, t);
                 final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
@@ -528,6 +577,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void failure(Throwable t) {
                 final String message = String.format("Failed to create deployment in resource group %s: %s", groupId, t.getMessage());
+                LOG.debug(message, t);
                 final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
@@ -550,15 +600,19 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
     @NotNull
     @Override
     public Promise<Void, Throwable, Void> deleteVmAsync(@NotNull final AzureCloudInstance instance) {
+        final String name = instance.getName();
         return deleteResourceGroupAsync(instance.getName()).then(new DonePipe<Void, List<CloudBlob>, Throwable, Void>() {
             @Override
             public Promise<List<CloudBlob>, Throwable, Void> pipeDone(Void result) {
+                final String url = instance.getImage().getImageDetails().getImageUrl();
                 final URI storageBlobs;
                 try {
-                    final URI imageUrl = new URI(instance.getImage().getImageDetails().getImageUrl());
-                    storageBlobs = new URI(imageUrl.getScheme(), imageUrl.getHost(), "/vhds/" + instance.getName(), null);
+                    final URI imageUrl = new URI(url);
+                    storageBlobs = new URI(imageUrl.getScheme(), imageUrl.getHost(), "/vhds/" + name, null);
                 } catch (URISyntaxException e) {
-                    final CloudException exception = new CloudException("Failed to parse VHD image URL " + e.getMessage());
+                    final String message = String.format("Failed to parse VHD image URL %s for instance %s: %s", url, name, e.getMessage());
+                    LOG.debug(message, e);
+                    final CloudException exception = new CloudException(message, e);
                     return new DeferredObject<List<CloudBlob>, Throwable, Void>().reject(exception);
                 }
 
@@ -571,7 +625,8 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                     try {
                         blob.deleteIfExists();
                     } catch (Exception e) {
-                        LOG.warnAndDebugDetails("Failed to delete blob", e);
+                        final String message = String.format("Failed to delete blob %s for instance %s: %s", blob.getUri(), name, e.getMessage());
+                        LOG.warnAndDebugDetails(message, e);
                     }
                 }
 
@@ -586,12 +641,14 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void failure(Throwable t) {
                 final String message = String.format("Failed to delete resource group %s: %s", groupId, t.getMessage());
+                LOG.debug(message, t);
                 final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<Void> result) {
+                LOG.debug(String.format("Resource group %s has been successfully deleted", groupId));
                 deferred.resolve(result.getBody());
             }
         });
@@ -614,12 +671,14 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void failure(Throwable t) {
                 final String message = String.format("Failed to restart virtual machine %s: %s", name, t.getMessage());
+                LOG.debug(message, t);
                 final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<Void> result) {
+                LOG.debug(String.format("Virtual machine %s has been successfully restarted", name));
                 deferred.resolve(result.getBody());
             }
         });
@@ -641,7 +700,9 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         try {
             uri = URI.create(imageUrl);
         } catch (Exception e) {
-            final CloudException exception = new CloudException("Invalid image URL " + e.getMessage(), e);
+            final String message = String.format("Invalid image URL %s: %s", imageUrl, e.getMessage());
+            LOG.debug(message, e);
+            final CloudException exception = new CloudException(message, e);
             return new DeferredObject<String, Throwable, Void>().reject(exception);
         }
 
@@ -649,10 +710,13 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void onDone(List<CloudBlob> blobs) {
                 if (blobs.size() == 0) {
-                    deferred.reject(new CloudException("VHD file not found in storage account"));
+                    final String message = String.format("VHD file %s not found in storage account", imageUrl);
+                    LOG.debug(message);
+                    deferred.reject(new CloudException(message));
                     return;
                 }
                 if (blobs.size() > 1) {
+                    LOG.debug("Found more than one blobs for url " + imageUrl);
                     deferred.resolve(null);
                     return;
                 }
@@ -660,23 +724,28 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                 final CloudBlob blob = blobs.get(0);
                 try {
                     if (!StringUtil.endsWithIgnoreCase(imageUrl, blob.getName())) {
+                        LOG.debug(String.format("For url %s found blob with invalid name %s", imageUrl, blob.getName()));
                         deferred.resolve(null);
                         return;
                     }
 
                     blob.downloadAttributes();
                 } catch (Exception e) {
-                    deferred.reject(new CloudException("Failed to access storage blob: " + e.getMessage(), e));
+                    final String message = "Failed to access storage blob: " + e.getMessage();
+                    LOG.debug(message, e);
+                    deferred.reject(new CloudException(message, e));
                     return;
                 }
 
                 final Map<String, String> metadata = blob.getMetadata();
                 if (!"OSDisk".equals(metadata.get("MicrosoftAzureCompute_ImageType"))) {
+                    LOG.debug(String.format("Found blob %s with invalid OSDisk metadata", blob.getUri()));
                     deferred.resolve(null);
                     return;
                 }
 
                 if (!"Generalized".equals(metadata.get("MicrosoftAzureCompute_OSState"))) {
+                    LOG.debug(String.format("Found blob %s with invalid Generalized metadata", blob.getUri()));
                     deferred.reject(new CloudException("VHD image should be generalized."));
                     return;
                 }
@@ -686,6 +755,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         }, new FailCallback<Throwable>() {
             @Override
             public void onFail(Throwable result) {
+                LOG.debug(String.format("Failed to receive blobs for url %s: %s", imageUrl, result.getMessage()));
                 deferred.reject(result);
             }
         });
@@ -721,7 +791,9 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                 try {
                     container = account.createCloudBlobClient().getContainerReference(containerName);
                 } catch (Throwable e) {
-                    final CloudException exception = new CloudException("Failed to connect to storage account: " + e.getMessage(), e);
+                    final String message = String.format("Failed to connect to storage account %s: %s", storage, e.getMessage());
+                    LOG.debug(message, e);
+                    final CloudException exception = new CloudException(message, e);
                     return new DeferredObject<List<CloudBlob>, Throwable, Void>().reject(exception);
                 }
 
@@ -732,7 +804,8 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                         blobs.add((CloudBlob) item);
                     }
                 } catch (Exception e) {
-                    final String message = String.format("Failed to list container %s blobs: %s", containerName, e.getMessage());
+                    final String message = String.format("Failed to list container's %s blobs: %s", containerName, e.getMessage());
+                    LOG.debug(message, e);
                     final CloudException exception = new CloudException(message, e);
                     return new DeferredObject<List<CloudBlob>, Throwable, Void>().reject(exception);
                 }
@@ -755,17 +828,20 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
 
                 if (account == null) {
                     final String message = String.format("Storage account %s not found", storage);
+                    LOG.debug(message);
                     return new DeferredObject<StorageAccountKeys, Throwable, Void>().reject(new CloudException(message));
                 }
 
                 if (!account.getLocation().equalsIgnoreCase(myLocation)) {
                     final String message = String.format("VHD image should be located in storage account in the %s region", myLocation);
+                    LOG.debug(message);
                     return new DeferredObject<StorageAccountKeys, Throwable, Void>().reject(new CloudException(message));
                 }
 
                 final Matcher groupMatcher = RESOURCE_GROUP_PATTERN.matcher(account.getId());
                 if (!groupMatcher.find()) {
                     final String message = String.format("Invalid storage account identifier %s", account.getId());
+                    LOG.debug(message);
                     return new DeferredObject<StorageAccountKeys, Throwable, Void>().reject(new CloudException(message));
                 }
 
@@ -779,6 +855,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                     deferred.resolve(new CloudStorageAccount(new StorageCredentialsAccountAndKey(storage, keys.getKey1())));
                 } catch (URISyntaxException e) {
                     final String message = String.format("Invalid storage account %s credentials: %s", storage, e.getMessage());
+                    LOG.debug(message);
                     final CloudException exception = new CloudException(message, e);
                     deferred.reject(exception);
                 }
@@ -793,12 +870,15 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         myStorageClient.getStorageAccountsOperations().listAsync(new ServiceCallback<List<StorageAccount>>() {
             @Override
             public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to get list of storage accounts: " + t.getMessage(), t);
+                final String message = "Failed to get list of storage accounts: " + t.getMessage();
+                LOG.debug(message, t);
+                final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<List<StorageAccount>> result) {
+                LOG.debug("Received list of storage accounts");
                 deferred.resolve(result.getBody());
             }
         });
@@ -813,12 +893,14 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void failure(Throwable t) {
                 final String message = String.format("Failed to get storage account %s key: %s", storageName, t.getMessage());
+                LOG.debug(message, t);
                 final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<StorageAccountKeys> result) {
+                LOG.debug("Received keys for storage account " + storageName);
                 deferred.resolve(result.getBody());
             }
         });
@@ -838,12 +920,16 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         mySubscriptionClient.getSubscriptionsOperations().listAsync(new ListOperationCallback<Subscription>() {
             @Override
             public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to get list of subscriptions " + t.getMessage(), t);
+                final String message = "Failed to get list of subscriptions " + t.getMessage();
+                LOG.debug(message, t);
+                final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<List<Subscription>> result) {
+                LOG.debug("Received list of subscriptions");
+
                 final Map<String, String> subscriptions = new LinkedHashMap<>();
                 Collections.sort(result.getBody(), new Comparator<Subscription>() {
                     @Override
@@ -876,12 +962,15 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             @Override
             public void failure(Throwable t) {
                 final String message = String.format("Failed to get list of locations in subscription %s: %s", subscription, t.getMessage());
+                LOG.debug(message, t);
                 final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<List<Location>> result) {
+                LOG.debug("Received list of locations in subscription " + subscription);
+
                 final Map<String, String> locations = new LinkedHashMap<>();
                 Collections.sort(result.getBody(), new Comparator<Location>() {
                     @Override
@@ -914,12 +1003,16 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         myNetworkClient.getVirtualNetworksOperations().listAllAsync(new ListOperationCallback<VirtualNetwork>() {
             @Override
             public void failure(Throwable t) {
-                final CloudException exception = new CloudException("Failed to get list of networks: " + t.getMessage(), t);
+                final String message = "Failed to get list of networks: " + t.getMessage();
+                LOG.debug(message, t);
+                final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }
 
             @Override
             public void success(ServiceResponse<List<VirtualNetwork>> result) {
+                LOG.debug("Received list of networks");
+
                 final Map<String, List<String>> networks = new LinkedHashMap<>();
                 for (VirtualNetwork network : result.getBody()) {
                     if (!network.getLocation().equalsIgnoreCase(myLocation)) continue;

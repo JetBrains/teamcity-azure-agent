@@ -25,6 +25,16 @@ You can download the last successful plugin build and install it as an [addition
 | [Resource Manager](#resource-manager-plugin) | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_BuildResourceManager&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_BuildResourceManager)/statusIcon" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_BuildResourceManager/.lastSuccessful/cloud-azure-arm.zip?guest=1)| 9.1.x+ | [blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/) |
 | [Classic](#classic-plugin) | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_Build&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_Build)/statusIcon" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/azure-cloud.zip?guest=1) | 8.1.x+ | [blog post](https://blog.jetbrains.com/teamcity/2014/11/introducing-teamcity-azure-plugin-run-builds-in-the-cloud/) |
 
+## Resource Manager Plugin
+
+The plugin supports generalized virtual machine images to start TeamCity build agents. You must use the [Azure AD application](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#create-application) and the [authentication key](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#create-an-authentication-key) to enable cloud integration and assign the [_Contributor_ role](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#assign-application-to-role) for it in your subscription on the [new portal](https://portal.azure.com/).
+
+### Virtual Machines Preparation
+
+Before you can start using integration, you need to create a new Virtual Machine instance via Resource Manager. The TeamCity Build Agent [must be installed](https://confluence.jetbrains.com/display/TCD9/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-PreparingavirtualmachinewithaninstalledTeamCityagent) and set to start automatically. Also, you need to manually point the agent to the existing TeamCity server with the Azure plugin installed to let the build agent download the plugins.
+
+Then you should [remove temporary files](https://confluence.jetbrains.com/display/TCD9/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-Capturinganimagefromavirtualmachine) and perform capture using the following guidelines for [Linux](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/) and [Windows](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-windows-capture-image/) virtual machines. As a result, you will receive a VHD image in your storage account whose URL can be used to create build agents.
+
 ## Classic Plugin
 
 This plugin supports both Windows and Linux virtual machines and can operate in the following ways.
@@ -50,16 +60,6 @@ To use the _Fresh Clone_ behaviour, you need to create an image from this instan
 "I have run the Windows Azure Linux Agent on the virtual machine"/" I have run Sysprep on the virtual machine" checkbox) the image will be Generalized (checked) or Specialized (unchecked) and behaviour would slightly differ).
 
 To use _Start/Stop_ behaviour, you just need to stop the Virtual Machine Instance before configuring it in TeamCity.
-
-## Resource Manager Plugin
-
-It supports generalized virtual machine images to start TeamCity build agents. You must use the [Azure AD application](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#create-application) and the [authentication key](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#create-an-authentication-key) to enable cloud integration and assign the [_Contributor_ role](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#assign-application-to-role) for it in your subscription on the [new portal](https://portal.azure.com/).
-
-### Virtual Machines Preparation
-
-Before you can start using integration, you need to create a new Virtual Machine instance via Resource Manager. The TeamCity Build Agent must be installed and set to start automatically. Also, you need to manually point the agent to the existing TeamCity server with the Azure plugin installed to let the build agent download the plugins.
-
-Then you should [remove temporary files](https://confluence.jetbrains.com/display/TCD9/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-Capturinganimagefromavirtualmachine) and perform capture using the following guidelines for [Linux](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/) and [Windows](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-windows-capture-image/) virtual machines. As a result, you will receive a VHD image in your storage account whose URL can be used to create build agents.
 
 ## License
 

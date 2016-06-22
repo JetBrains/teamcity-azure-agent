@@ -55,4 +55,41 @@ public class WindowsConfigReaderTest {
         WindowsConfigReader configReader = new WindowsConfigReader(agentConfiguration, idleShutdown, fileUtils);
         configReader.process();
     }
+
+    @Test
+    public void testProcessWindowsConfigWithoutEndpoints() throws IOException {
+        Mockery m = new Mockery();
+        final FileUtils fileUtils = m.mock(FileUtils.class);
+        final BuildAgentConfigurationEx agentConfiguration = m.mock(BuildAgentConfigurationEx.class);
+        final String drive = System.getenv("SystemDrive");
+
+        m.checking(new Expectations(){{
+            allowing(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
+            will(returnValue(new File[]{new File("src/test/resources/windows-config.xml")}));
+
+            allowing(fileUtils).getCreationDate(with(any(File.class)));
+            will(returnValue(1L));
+
+            allowing(agentConfiguration).setName("tc-win-agent");
+            allowing(agentConfiguration).setServerUrl("https://teamcityserver.url");
+            allowing(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "tc-win-agent");
+            allowing(agentConfiguration).addConfigurationParameter("system.cloud.profile_id", "arm-1");
+            allowing(agentConfiguration).addConfigurationParameter("teamcity.cloud.instance.hash", "C7PfiVOkdPi6Ak5cAO8Iq5NWPtHbO14q");
+
+            allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
+            will(returnValue(FileUtil.readText(new File("src/test/resources/CustomData.bin"))));
+        }});
+
+        final Mockery m2 = new Mockery() {{
+            setImposteriser(ClassImposteriser.INSTANCE);
+        }};
+
+        final IdleShutdown idleShutdown = m2.mock(IdleShutdown.class);
+        m2.checking(new Expectations(){{
+            allowing(idleShutdown).setIdleTime(2400000L);
+        }});
+
+        WindowsConfigReader configReader = new WindowsConfigReader(agentConfiguration, idleShutdown, fileUtils);
+        configReader.process();
+    }
 }

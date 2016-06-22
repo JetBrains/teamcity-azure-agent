@@ -82,14 +82,14 @@ public abstract class AgentConfigReader {
             final XPath xPath = XPath.newInstance(String.format(
                     "string(//Instances/Instance[@id='%s']/InputEndpoints/Endpoint[@name='%s']/LocalPorts/LocalPortRange/@from)",
                     instanceName, AzurePropertiesNames.ENDPOINT_NAME));
-            final Object value = xPath.selectSingleNode(documentElement);
-            if (value == null) {
+            final String portNumber = (String) xPath.selectSingleNode(documentElement);
+            if (StringUtil.isEmpty(portNumber)) {
                 LOG.info("No input endpoints found in azure properties file, unable to set local port.");
                 return;
             }
 
             try {
-                final int portValue = Integer.parseInt(String.valueOf(value));
+                final int portValue = Integer.parseInt(portNumber);
                 myAgentConfiguration.setOwnPort(portValue);
                 LOG.info("Own port is set to " + portValue);
             } catch (Exception e) {
@@ -105,13 +105,12 @@ public abstract class AgentConfigReader {
             final XPath xPath = XPath.newInstance(String.format(
                     "string(//Instances/Instance[@id='%s']/InputEndpoints/Endpoint[@name='%s']/@loadBalancedPublicAddress)",
                     selfInstanceName, AzurePropertiesNames.ENDPOINT_NAME));
-            final Object value = xPath.selectSingleNode(documentElement);
-            if (value == null) {
+            final String loadBalancedAddress = (String)xPath.selectSingleNode(documentElement);
+            if (StringUtil.isEmpty(loadBalancedAddress)) {
                 LOG.info("No input endpoints found in azure properties file, unable to set own ip address.");
                 return;
             }
 
-            final String loadBalancedAddress = String.valueOf(value);
             final String externalIp = loadBalancedAddress.contains(":")
                     ? loadBalancedAddress.substring(0, loadBalancedAddress.indexOf(":"))
                     : loadBalancedAddress;

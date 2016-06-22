@@ -143,11 +143,11 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     public InstanceStatus getInstanceStatusIfExists(@NotNull AzureCloudInstance instance) {
         final Map<String, AzureInstance> instanceMap = listImageInstances(instance.getImage());
         final AzureInstance instanceData = instanceMap.get(instance.getInstanceId());
-        if (instanceData != null) {
-            return instanceData.getInstanceStatus();
-        } else {
-            return InstanceStatus.UNKNOWN;
+        if (instanceData == null) {
+            return null;
         }
+
+        return instanceData.getInstanceStatus();
     }
 
     @NotNull

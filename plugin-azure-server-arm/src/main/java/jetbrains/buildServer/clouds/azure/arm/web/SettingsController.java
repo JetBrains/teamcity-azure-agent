@@ -17,9 +17,9 @@
 package jetbrains.buildServer.clouds.azure.arm.web;
 
 import com.intellij.openapi.diagnostic.Logger;
-import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl;
 import jetbrains.buildServer.controllers.ActionErrors;
-import jetbrains.buildServer.controllers.BaseFormXmlController;
+import jetbrains.buildServer.controllers.BaseController;
+import jetbrains.buildServer.controllers.XmlResponseUtil;
 import jetbrains.buildServer.serverSide.SBuildServer;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
@@ -33,10 +33,14 @@ import org.jdeferred.multiple.OneResult;
 import org.jdom.Content;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.springframework.web.servlet.ModelAndView;
 
+import javax.servlet.AsyncContext;
+import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +49,7 @@ import java.util.TreeMap;
 /**
  * ARM settings controller.
  */
-public class SettingsController extends BaseFormXmlController {
+public class SettingsController extends BaseController {
 
     private static final Logger LOG = Logger.getInstance(SettingsController.class.getName());
     private static final Map<String, ResourceHandler> HANDLERS = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
@@ -79,19 +83,29 @@ public class SettingsController extends BaseFormXmlController {
         myManager = new DefaultDeferredManager();
     }
 
+    @Nullable
     @Override
-    protected ModelAndView doGet(@NotNull final HttpServletRequest request,
-                                 @NotNull final HttpServletResponse response) {
+    protected ModelAndView doHandle(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response) throws Exception {
+        request.setAttribute("org.apache.catalina.ASYNC_SUPPORTED", true);
+
+        if (isPost(request)) {
+            doPost(request, response);
+            return null;
+        }
+
+        return doGet();
+    }
+
+    private ModelAndView doGet() {
         ModelAndView mv = new ModelAndView(myJspPath);
         mv.getModel().put("basePath", myHtmlPath);
         mv.getModel().put("resPath", myPluginDescriptor.getPluginResourcesPath());
         return mv;
     }
 
-    @Override
-    protected void doPost(@NotNull final HttpServletRequest request,
-                          @NotNull final HttpServletResponse response,
-                          @NotNull final Element xmlResponse) {
+    private void doPost(@NotNull final HttpServletRequest request,
+                        @NotNull final HttpServletResponse response) {
+        final Element xmlResponse = XmlResponseUtil.newXmlResponse();
         final ActionErrors errors = new ActionErrors();
         final String[] resources = request.getParameterValues("resource");
         final List<Promise<Content, Throwable, Void>> promises = new ArrayList<>(resources.length);
@@ -117,29 +131,36 @@ public class SettingsController extends BaseFormXmlController {
 
         if (promises.size() == 0) {
             if (errors.hasErrors()) {
-                writeErrors(xmlResponse, errors);
+                errors.serialize(xmlResponse);
             }
 
+            writeResponse(xmlResponse, response);
             return;
         }
 
-        try {
-            myManager.when(promises.toArray(new Promise[]{})).always(new AlwaysCallback<MultipleResults, OneReject>() {
-                @Override
-                public void onAlways(Promise.State state, MultipleResults resolved, OneReject rejected) {
-                    if (errors.hasErrors()) {
-                        writeErrors(xmlResponse, errors);
-                    } else {
-                        for (OneResult oneResult : resolved) {
-                            xmlResponse.addContent((Content) oneResult.getResult());
-                        }
+        final AsyncContext context = request.startAsync(request, response);
+        myManager.when(promises.toArray(new Promise[]{})).always(new AlwaysCallback<MultipleResults, OneReject>() {
+            @Override
+            public void onAlways(Promise.State state, MultipleResults resolved, OneReject rejected) {
+                if (errors.hasErrors()) {
+                    errors.serialize(xmlResponse);
+                } else {
+                    for (OneResult oneResult : resolved) {
+                        xmlResponse.addContent((Content) oneResult.getResult());
                     }
                 }
-            }).waitSafely();
-        } catch (InterruptedException e) {
-            LOG.debug(e);
-            errors.addError("handler", e.getMessage());
-            writeErrors(xmlResponse, errors);
+
+                writeResponse(xmlResponse, context.getResponse());
+                context.complete();
+            }
+        });
+    }
+
+    private static void writeResponse(final Element xmlResponse, final ServletResponse response) {
+        try {
+            XmlResponseUtil.writeXmlResponse(xmlResponse, (HttpServletResponse) response);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 }

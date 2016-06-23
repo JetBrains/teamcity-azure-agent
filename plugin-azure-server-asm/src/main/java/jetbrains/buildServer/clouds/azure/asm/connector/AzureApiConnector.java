@@ -301,6 +301,16 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                     }
                 }};
 
+                final Comparator<String> comparator = new AlphaNumericStringComparator();
+                Collections.sort(images, new Comparator<Image>() {
+                    @Override
+                    public int compare(Image o1, Image o2) {
+                        final String label1 = o1.getLabel();
+                        final String label2 = o2.getLabel();
+                        return comparator.compare(label1, label2);
+                    }
+                });
+
                 return new DeferredObject<List<Image>, Throwable, Void>().resolve(images);
             }
         });

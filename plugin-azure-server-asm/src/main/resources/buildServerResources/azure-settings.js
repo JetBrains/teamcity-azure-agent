@@ -440,7 +440,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       self = this;
 
     $images.each(function () {
-      self._appendOption($imagesOptgroup, $j(this).attr('name'));
+      var $image = $j(this);
+      self._appendOption($imagesOptgroup, $image.attr('name'), $image.attr('label'));
     });
 
     $instances.each(function () {

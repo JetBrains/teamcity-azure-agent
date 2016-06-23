@@ -49,7 +49,7 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance;
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants;
 import jetbrains.buildServer.clouds.azure.arm.connector.models.JsonValue;
 import jetbrains.buildServer.clouds.azure.arm.connector.models.RawJsonValue;
-import jetbrains.buildServer.clouds.azure.arm.utils.AlphaNumericStringComparator;
+import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator;
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;

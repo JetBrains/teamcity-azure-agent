@@ -44,8 +44,10 @@ import jetbrains.buildServer.clouds.azure.asm.AzureCloudImage;
 import jetbrains.buildServer.clouds.azure.asm.AzureCloudImageDetails;
 import jetbrains.buildServer.clouds.azure.asm.AzureCloudInstance;
 import jetbrains.buildServer.clouds.azure.asm.errors.InvalidCertificateException;
+import jetbrains.buildServer.clouds.azure.asm.models.Image;
 import jetbrains.buildServer.clouds.azure.connector.ActionIdChecker;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase;
+import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
@@ -202,8 +204,19 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         return myManager.when(myManagementClient.getRoleSizesOperations().listAsync()).then(new DonePipe<RoleSizeListResponse, Map<String, String>, Throwable, Void>() {
             @Override
             public Promise<Map<String, String>, Throwable, Void> pipeDone(RoleSizeListResponse roleSizes) {
-                Map<String, String> map = new TreeMap<>();
-                for (RoleSizeListResponse.RoleSize roleSize : roleSizes) {
+                final Comparator<String> comparator = new AlphaNumericStringComparator();
+                final List<RoleSizeListResponse.RoleSize> sizes = roleSizes.getRoleSizes();
+                Collections.sort(sizes, new Comparator<RoleSizeListResponse.RoleSize>() {
+                    @Override
+                    public int compare(RoleSizeListResponse.RoleSize o1, RoleSizeListResponse.RoleSize o2) {
+                        final String size1 = o1.getName();
+                        final String size2 = o2.getName();
+                        return comparator.compare(size1, size2);
+                    }
+                });
+
+                final Map<String, String> map = new LinkedHashMap<>();
+                for (RoleSizeListResponse.RoleSize roleSize : sizes) {
                     map.put(roleSize.getName(), roleSize.getLabel());
                 }
 
@@ -277,17 +290,18 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         });
     }
 
-    public Promise<Map<String, Pair<Boolean, String>>, Throwable, Void> listImagesAsync() {
-        return myManager.when(myClient.getVirtualMachineVMImagesOperations().listAsync()).then(new DonePipe<VirtualMachineVMImageListResponse, Map<String, Pair<Boolean, String>>, Throwable, Void>() {
+    public Promise<List<Image>, Throwable, Void> listImagesAsync() {
+        return myManager.when(myClient.getVirtualMachineVMImagesOperations().listAsync()).then(new DonePipe<VirtualMachineVMImageListResponse, List<Image>, Throwable, Void>() {
             @Override
-            public Promise<Map<String, Pair<Boolean, String>>, Throwable, Void> pipeDone(final VirtualMachineVMImageListResponse imagesList) {
-                final Map<String, Pair<Boolean, String>> images = new HashMap<String, Pair<Boolean, String>>() {{
+            public Promise<List<Image>, Throwable, Void> pipeDone(final VirtualMachineVMImageListResponse imagesList) {
+                final List<Image> images = new ArrayList<Image>() {{
                     for (VirtualMachineVMImageListResponse.VirtualMachineVMImage image : imagesList) {
-                        put(image.getName(), new Pair<>(isImageGeneralized(image), image.getOSDiskConfiguration().getOperatingSystem()));
+                        if (!"User".equals(image.getCategory())) continue;
+                        add(new Image(image.getName(), image.getLabel(), image.getOSDiskConfiguration().getOperatingSystem(), isImageGeneralized(image)));
                     }
                 }};
 
-                return new DeferredObject<Map<String, Pair<Boolean, String>>, Throwable, Void>().resolve(images);
+                return new DeferredObject<List<Image>, Throwable, Void>().resolve(images);
             }
         });
     }

@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package jetbrains.buildServer.clouds.azure.arm.utils;
+package jetbrains.buildServer.clouds.azure.utils;
 
 import java.text.DecimalFormatSymbols;
 import java.util.Comparator;

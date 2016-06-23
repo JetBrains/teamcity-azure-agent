@@ -39,7 +39,7 @@ public class VmSizesHandler implements ResourceHandler {
                 for (String size : sizes.keySet()) {
                     final Element vmSize = new Element("VmSize");
                     vmSize.setAttribute("name", size);
-                    vmSize.setAttribute("label", sizes.get(size));
+                    vmSize.setAttribute("label", sizes.get(size).replace("_", " "));
                     vmSizes.addContent(vmSize);
                 }
 

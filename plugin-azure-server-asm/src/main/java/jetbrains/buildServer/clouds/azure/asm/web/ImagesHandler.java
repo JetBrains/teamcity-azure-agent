@@ -16,8 +16,8 @@
 
 package jetbrains.buildServer.clouds.azure.asm.web;
 
-import com.intellij.openapi.util.Pair;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
+import jetbrains.buildServer.clouds.azure.asm.models.Image;
 import org.jdeferred.DonePipe;
 import org.jdeferred.Promise;
 import org.jdeferred.impl.DeferredObject;
@@ -25,7 +25,7 @@ import org.jdom.Content;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Map;
+import java.util.List;
 
 /**
  * Handles list of images request.
@@ -33,16 +33,16 @@ import java.util.Map;
 public class ImagesHandler implements ResourceHandler {
     @Override
     public Promise<Content, Throwable, Void> handle(@NotNull AzureApiConnector connector) {
-        return connector.listImagesAsync().then(new DonePipe<Map<String, Pair<Boolean, String>>, Content, Throwable, Void>() {
+        return connector.listImagesAsync().then(new DonePipe<List<Image>, Content, Throwable, Void>() {
             @Override
-            public Promise<Content, Throwable, Void> pipeDone(Map<String, Pair<Boolean, String>> imagesMap) {
+            public Promise<Content, Throwable, Void> pipeDone(List<Image> imageList) {
                 final Element images = new Element("Images");
-                for (String imageName : imagesMap.keySet()) {
+                for (Image image : imageList) {
                     final Element imageElem = new Element("Image");
-                    imageElem.setAttribute("name", imageName);
-                    final Pair<Boolean, String> pair = imagesMap.get(imageName);
-                    imageElem.setAttribute("generalized", String.valueOf(pair.getFirst()));
-                    imageElem.setAttribute("osType", pair.getSecond());
+                    imageElem.setAttribute("name", image.getName());
+                    imageElem.setAttribute("label", image.getLabel());
+                    imageElem.setAttribute("generalized", String.valueOf(image.getGeneralized()));
+                    imageElem.setAttribute("osType", image.getOs());
                     images.addContent(imageElem);
                 }
 

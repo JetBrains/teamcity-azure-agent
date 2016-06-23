@@ -83,11 +83,12 @@ project(':plugin-azure-server-asm') {
         compile project(':plugin-azure-server-base')
         compile 'org.jetbrains.teamcity:cloud-server:9.1.5'
         compile 'org.jetbrains.teamcity:web:9.1.5'
-        compile 'com.microsoft.azure:azure-core:0.9.1'
-        compile 'com.microsoft.azure:azure-svc-mgmt:0.9.1'
-        compile 'com.microsoft.azure:azure-svc-mgmt-compute:0.9.1'
-        compile 'com.microsoft.azure:azure-svc-mgmt-network:0.9.1'
+        compile 'com.microsoft.azure:azure-core:0.9.3'
+        compile 'com.microsoft.azure:azure-svc-mgmt:0.9.3'
+        compile 'com.microsoft.azure:azure-svc-mgmt-compute:0.9.3'
+        compile 'com.microsoft.azure:azure-svc-mgmt-network:0.9.3'
         compile 'org.bouncycastle:bcprov-jdk15on:1.54'
+        compile 'org.jdeferred:jdeferred-core:1.2.4'
         runtime 'javax.servlet:jstl:1.1.2'
         testCompile 'org.testng:testng:6.8'
     }
@@ -119,6 +120,7 @@ project(':plugin-azure-server-asm') {
             include 'mail-*.jar'
             include 'plugin-azure-*.jar'
             include 'stax-api-*.jar'
+            include 'jdeferred-core-*.jar'
             into 'server'
         }
         

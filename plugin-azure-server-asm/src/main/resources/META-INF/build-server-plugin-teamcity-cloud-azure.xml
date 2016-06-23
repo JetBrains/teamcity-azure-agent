@@ -2,5 +2,6 @@
 <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
 <beans default-autowire="constructor">
     <bean class="jetbrains.buildServer.clouds.azure.asm.AzureCloudClientFactory"/>
-    <bean class="jetbrains.buildServer.clouds.azure.asm.web.AzureEditProfileController"/>
+    <bean class="jetbrains.buildServer.clouds.azure.asm.web.ProfileController"/>
+    <bean class="jetbrains.buildServer.clouds.azure.asm.web.CertificateController"/>
 </beans>

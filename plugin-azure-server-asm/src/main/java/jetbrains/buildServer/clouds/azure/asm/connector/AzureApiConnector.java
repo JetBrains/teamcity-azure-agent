@@ -27,7 +27,6 @@ import com.microsoft.windowsazure.core.utils.Base64;
 import com.microsoft.windowsazure.core.utils.KeyStoreType;
 import com.microsoft.windowsazure.exception.ServiceException;
 import com.microsoft.windowsazure.management.ManagementClient;
-import com.microsoft.windowsazure.management.RoleSizeOperations;
 import com.microsoft.windowsazure.management.compute.*;
 import com.microsoft.windowsazure.management.compute.models.*;
 import com.microsoft.windowsazure.management.configuration.ManagementConfiguration;
@@ -55,6 +54,11 @@ import org.apache.http.HttpRequest;
 import org.apache.http.HttpResponse;
 import org.apache.http.entity.BasicHttpEntity;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.jdeferred.*;
+import org.jdeferred.impl.DefaultDeferredManager;
+import org.jdeferred.impl.DeferredObject;
+import org.jdeferred.multiple.MultipleResults;
+import org.jdeferred.multiple.OneResult;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.xml.sax.SAXException;
@@ -81,6 +85,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     private static final String PERSISTENT_VM_ROLE = "PersistentVMRole";
     private final KeyStoreType myKeyStoreType;
     private final String mySubscriptionId;
+    private final DeferredManager myManager;
     private ComputeManagementClient myClient;
     private NetworkManagementClient myNetworkClient;
     private ManagementClient myManagementClient;
@@ -110,6 +115,8 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         }
 
         initClient(tempFile, base64pw);
+
+        myManager = new DefaultDeferredManager();
     }
 
     private void initClient(@NotNull final File keyStoreFile, @NotNull final String keyStoreFilePw) {
@@ -191,58 +198,98 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         }
     }
 
-    public Map<String, String> listVmSizes() throws ServiceException, ParserConfigurationException, SAXException, IOException {
-        Map<String, String> map = new TreeMap<>();
-        final RoleSizeOperations roleSizesOps = myManagementClient.getRoleSizesOperations();
-        final RoleSizeListResponse list = roleSizesOps.list();
-        for (RoleSizeListResponse.RoleSize roleSize : list) {
-            map.put(roleSize.getName(), roleSize.getLabel());
-        }
-        return map;
+    public Promise<Map<String, String>, Throwable, Void> listVmSizesAsync() {
+        return myManager.when(myManagementClient.getRoleSizesOperations().listAsync()).then(new DonePipe<RoleSizeListResponse, Map<String, String>, Throwable, Void>() {
+            @Override
+            public Promise<Map<String, String>, Throwable, Void> pipeDone(RoleSizeListResponse roleSizes) {
+                Map<String, String> map = new TreeMap<>();
+                for (RoleSizeListResponse.RoleSize roleSize : roleSizes) {
+                    map.put(roleSize.getName(), roleSize.getLabel());
+                }
+
+                return new DeferredObject<Map<String, String>, Throwable, Void>().resolve(map);
+            }
+        });
     }
 
-    public List<String> listServicesNames() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
-        final HostedServiceOperations servicesOps = myClient.getHostedServicesOperations();
-        final HostedServiceListResponse list = servicesOps.list();
-        return new ArrayList<String>() {{
-            for (HostedServiceListResponse.HostedService service : list) {
-                add(service.getServiceName());
+    public Promise<Map<String, Map<String, String>>, Throwable, Void> listServicesAsync() {
+        return myManager.when(myClient.getHostedServicesOperations().listAsync()).then(new DonePipe<HostedServiceListResponse, Map<String, Map<String, String>>, Throwable, Void>() {
+            @Override
+            public Promise<Map<String, Map<String, String>>, Throwable, Void> pipeDone(HostedServiceListResponse list) {
+                final List<Promise<Pair<String, Map<String, String>>, Throwable, Void>> promises = new ArrayList<>();
+                for (HostedServiceListResponse.HostedService service : list) {
+                    promises.add(listServiceInstancesAsync(service.getServiceName()));
+                }
+
+                final Map<String, Map<String, String>> services = new HashMap<>();
+                if (promises.size() == 0) {
+                    return new DeferredObject<Map<String, Map<String, String>>, Throwable, Void>().resolve(services);
+                }
+
+                return myManager.when(promises.toArray(new Promise[]{})).then(new DonePipe<MultipleResults, Map<String, Map<String, String>>, Throwable, Void>() {
+                    @Override
+                    public Promise<Map<String, Map<String, String>>, Throwable, Void> pipeDone(MultipleResults results) {
+                        for (OneResult result : results) {
+                            //noinspection unchecked
+                            final Pair<String, Map<String, String>> data = (Pair<String, Map<String, String>>) result.getResult();
+                            services.put(data.getFirst(), data.getSecond());
+                        }
+
+                        return new DeferredObject<Map<String, Map<String, String>>, Throwable, Void>().resolve(services);
+                    }
+                });
             }
-        }};
+        });
     }
 
-    public List<String> listVirtualNetworks() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
-        final NetworkListResponse virtualNetworkSites = myNetworkClient.getNetworksOperations().list();
-        return new ArrayList<String>() {{
-            for (NetworkListResponse.VirtualNetworkSite virtualNetworkSite : virtualNetworkSites) {
-                add(virtualNetworkSite.getName());
+    public Promise<List<String>, Throwable, Void> listVirtualNetworksAsync() {
+        return myManager.when(myNetworkClient.getNetworksOperations().listAsync()).then(new DonePipe<NetworkListResponse, List<String>, Throwable, Void>() {
+            @Override
+            public Promise<List<String>, Throwable, Void> pipeDone(final NetworkListResponse virtualNetworkSites) {
+                List<String> networks = new ArrayList<String>() {{
+                    for (NetworkListResponse.VirtualNetworkSite virtualNetworkSite : virtualNetworkSites) {
+                        add(virtualNetworkSite.getName());
+                    }
+                }};
+
+                return new DeferredObject<List<String>, Throwable, Void>().resolve(networks);
             }
-        }};
+        });
     }
 
-    public Map<String, String> listServiceInstances(@NotNull final String serviceName) throws IOException, ServiceException {
-        final Map<String, String> retval = new HashMap<>();
-        final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(serviceName);
-        if (serviceDeployment != null) {
-            Map<String, String> roleOsNames = new HashMap<>();
-            for (Role role : serviceDeployment.getRoles()) {
-                roleOsNames.put(role.getRoleName(), role.getOSVirtualHardDisk().getOperatingSystem());
+    private Promise<Pair<String, Map<String, String>>, Throwable, Void> listServiceInstancesAsync(@NotNull final String serviceName) {
+        return myManager.when(myClient.getHostedServicesOperations().getDetailedAsync(serviceName)).then(new DonePipe<HostedServiceGetDetailedResponse, Pair<String, Map<String, String>>, Throwable, Void>() {
+            @Override
+            public Promise<Pair<String, Map<String, String>>, Throwable, Void> pipeDone(HostedServiceGetDetailedResponse response) {
+                final Map<String, String> instances = new HashMap<>();
+                for (HostedServiceGetDetailedResponse.Deployment deployment : response.getDeployments()) {
+                    final Map<String, String> roleOsNames = new HashMap<>();
+                    for (Role role : deployment.getRoles()) {
+                        roleOsNames.put(role.getRoleName(), role.getOSVirtualHardDisk().getOperatingSystem());
+                    }
+                    for (RoleInstance instance : deployment.getRoleInstances()) {
+                        instances.put(instance.getInstanceName(), roleOsNames.get(instance.getRoleName()));
+                    }
+                }
+
+                return new DeferredObject<Pair<String, Map<String, String>>, Throwable, Void>().resolve(new Pair<>(serviceName, instances));
             }
-            for (RoleInstance instance : serviceDeployment.getRoleInstances()) {
-                retval.put(instance.getInstanceName(), roleOsNames.get(instance.getRoleName()));
-            }
-        }
-        return retval;
+        });
     }
 
-    public Map<String, Pair<Boolean, String>> listImages() throws ServiceException, ParserConfigurationException, URISyntaxException, SAXException, IOException {
-        final VirtualMachineVMImageOperations imagesOps = myClient.getVirtualMachineVMImagesOperations();
-        final VirtualMachineVMImageListResponse imagesList = imagesOps.list();
-        return new HashMap<String, Pair<Boolean, String>>() {{
-            for (VirtualMachineVMImageListResponse.VirtualMachineVMImage image : imagesList) {
-                put(image.getName(), new Pair<>(isImageGeneralized(image), image.getOSDiskConfiguration().getOperatingSystem()));
+    public Promise<Map<String, Pair<Boolean, String>>, Throwable, Void> listImagesAsync() {
+        return myManager.when(myClient.getVirtualMachineVMImagesOperations().listAsync()).then(new DonePipe<VirtualMachineVMImageListResponse, Map<String, Pair<Boolean, String>>, Throwable, Void>() {
+            @Override
+            public Promise<Map<String, Pair<Boolean, String>>, Throwable, Void> pipeDone(final VirtualMachineVMImageListResponse imagesList) {
+                final Map<String, Pair<Boolean, String>> images = new HashMap<String, Pair<Boolean, String>>() {{
+                    for (VirtualMachineVMImageListResponse.VirtualMachineVMImage image : imagesList) {
+                        put(image.getName(), new Pair<>(isImageGeneralized(image), image.getOSDiskConfiguration().getOperatingSystem()));
+                    }
+                }};
+
+                return new DeferredObject<Map<String, Pair<Boolean, String>>, Throwable, Void>().resolve(images);
             }
-        }};
+        });
     }
 
     public OperationResponse startVM(@NotNull final AzureCloudImage image)

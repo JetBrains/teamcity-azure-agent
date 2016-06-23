@@ -33,6 +33,8 @@ The plugin supports generalized virtual machine images to start TeamCity build a
 
 Before you can start using integration, you need to create a new Virtual Machine instance via Resource Manager. The TeamCity Build Agent [must be installed](https://confluence.jetbrains.com/display/TCD9/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-PreparingavirtualmachinewithaninstalledTeamCityagent) and set to start automatically. Also, you need to manually point the agent to the existing TeamCity server with the Azure plugin installed to let the build agent download the plugins.
 
+> :grey_exclamation: If you plan to start agent as a Windows service under SYSTEM use `Automatic (Delayed Start)` startup type.
+
 Then you should [remove temporary files](https://confluence.jetbrains.com/display/TCD9/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-Capturinganimagefromavirtualmachine) and perform capture using the following guidelines for [Linux](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/) and [Windows](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-windows-capture-image/) virtual machines. As a result, you will receive a VHD image in your storage account whose URL can be used to create build agents.
 
 ## Classic Plugin

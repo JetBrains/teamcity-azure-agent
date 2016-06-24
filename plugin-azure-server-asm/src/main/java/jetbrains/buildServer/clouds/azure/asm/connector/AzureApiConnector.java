@@ -316,8 +316,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         });
     }
 
-    public OperationResponse startVM(@NotNull final AzureCloudImage image)
-            throws ServiceException, IOException {
+    public OperationResponse startVM(@NotNull final AzureCloudImage image) throws ServiceException, IOException {
         final AzureCloudImageDetails imageDetails = image.getImageDetails();
         final VirtualMachineOperations vmOps = myClient.getVirtualMachinesOperations();
         final String serviceName = imageDetails.getServiceName();
@@ -331,8 +330,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     public OperationResponse createVmOrDeployment(@NotNull final AzureCloudImage image,
                                                   @NotNull final String vmName,
                                                   @NotNull final CloudInstanceUserData tag,
-                                                  final boolean generalized)
-            throws ServiceException, IOException {
+                                                  final boolean generalized) throws ServiceException, IOException {
         final AzureCloudImageDetails imageDetails = image.getImageDetails();
         final HostedServiceGetDetailedResponse.Deployment serviceDeployment = getServiceDeployment(imageDetails.getServiceName());
         if (serviceDeployment == null) {
@@ -347,8 +345,30 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                                        final String vmName,
                                        final CloudInstanceUserData tag,
                                        final HostedServiceGetDetailedResponse.Deployment deployment) throws ServiceException, IOException {
+        final VirtualMachineCreateParameters parameters = new VirtualMachineCreateParameters();
+        parameters.setRoleSize(imageDetails.getVmSize());
+        parameters.setProvisionGuestAgent(Boolean.TRUE);
+        parameters.setRoleName(vmName);
+        parameters.setVMImageName(imageDetails.getSourceName());
+
+        final int portNumber = imageDetails.getPublicIp() ? getPortNumber(deployment) : 0;
+        final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(imageDetails, generalized, vmName, tag, portNumber);
+        parameters.setConfigurationSets(configurationSetList);
+
+        final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
+        try {
+            return vmOperations.beginCreating(imageDetails.getServiceName(), deployment.getName(), parameters);
+        } catch (ParserConfigurationException e) {
+            throw new ServiceException(e);
+        } catch (SAXException | TransformerException e) {
+            throw new IOException(e);
+        }
+    }
+
+    private int getPortNumber(HostedServiceGetDetailedResponse.Deployment deployment) {
         BitSet busyPorts = new BitSet();
         busyPorts.set(MIN_PORT_NUMBER, MAX_PORT_NUMBER);
+
         for (RoleInstance instance : deployment.getRoleInstances()) {
             for (InstanceEndpoint endpoint : instance.getInstanceEndpoints()) {
                 final int port = endpoint.getPort();
@@ -357,6 +377,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                 }
             }
         }
+
         for (Role role : deployment.getRoles()) {
             for (ConfigurationSet conf : role.getConfigurationSets()) {
                 for (InputEndpoint endpoint : conf.getInputEndpoints()) {
@@ -375,22 +396,8 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                 break;
             }
         }
-        final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
 
-        final VirtualMachineCreateParameters parameters = new VirtualMachineCreateParameters();
-        parameters.setRoleSize(imageDetails.getVmSize());
-        parameters.setProvisionGuestAgent(Boolean.TRUE);
-        parameters.setRoleName(vmName);
-        parameters.setVMImageName(imageDetails.getSourceName());
-        final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(imageDetails, generalized, vmName, tag, portNumber);
-        parameters.setConfigurationSets(configurationSetList);
-        try {
-            return vmOperations.beginCreating(imageDetails.getServiceName(), deployment.getName(), parameters);
-        } catch (ParserConfigurationException e) {
-            throw new ServiceException(e);
-        } catch (SAXException | TransformerException e) {
-            throw new IOException(e);
-        }
+        return portNumber;
     }
 
     private OperationResponse createVmDeployment(final AzureCloudImageDetails imageDetails,
@@ -399,6 +406,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                                                  final CloudInstanceUserData tag) throws IOException, ServiceException {
         final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
         final VirtualMachineCreateDeploymentParameters vmDeployParams = new VirtualMachineCreateDeploymentParameters();
+
         final Role role = new Role();
         role.setVMImageName(imageDetails.getSourceName());
         role.setRoleType(PERSISTENT_VM_ROLE);
@@ -407,10 +415,14 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         role.setProvisionGuestAgent(true);
         role.setRoleSize(imageDetails.getVmSize());
         role.setLabel(imageDetails.getSourceName());
-        role.setConfigurationSets(createConfigurationSetList(imageDetails, generalized, vmName, tag, MIN_PORT_NUMBER));
+
+        final int portNumber = imageDetails.getPublicIp() ? MIN_PORT_NUMBER : 0;
+        role.setConfigurationSets(createConfigurationSetList(imageDetails, generalized, vmName, tag, portNumber));
+
         final ArrayList<Role> roleAsList = new ArrayList<>();
         roleAsList.add(role);
         vmDeployParams.setRoles(roleAsList);
+
         final String vnetName = imageDetails.getVnetName();
         if (vnetName != null && vnetName.trim().length() != 0) {
             vmDeployParams.setVirtualNetworkName(vnetName);
@@ -418,6 +430,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         vmDeployParams.setLabel(imageDetails.getSourceName());
         vmDeployParams.setName("teamcityVms");
         vmDeployParams.setDeploymentSlot(DeploymentSlot.Production);
+
         try {
             return vmOperations.beginCreatingDeployment(imageDetails.getServiceName(), vmDeployParams);
         } catch (ParserConfigurationException | SAXException | TransformerException e) {
@@ -585,35 +598,39 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         value.setConfigurationSetType(ConfigurationSetTypes.NETWORKCONFIGURATION);
         final ArrayList<InputEndpoint> endpointsList = new ArrayList<>();
         value.setInputEndpoints(endpointsList);
-        InputEndpoint endpoint = new InputEndpoint();
-        endpointsList.add(endpoint);
-        endpoint.setLocalPort(port);
-        endpoint.setPort(port);
-        endpoint.setProtocol("TCP");
-        endpoint.setName(AzurePropertiesNames.ENDPOINT_NAME);
-        final EndpointAcl acl = new EndpointAcl();
-        endpoint.setEndpointAcl(acl);
-        final URI serverUri = URI.create(serverLocation);
-        List<InetAddress> serverAddresses = new ArrayList<>();
-        try {
-            serverAddresses.addAll(Arrays.asList(InetAddress.getAllByName(serverUri.getHost())));
-            serverAddresses.add(InetAddress.getLocalHost());
-        } catch (UnknownHostException e) {
-            LOG.warn("Unable to identify server name ip list", e);
-        }
-        final ArrayList<AccessControlListRule> aclRules = new ArrayList<>();
-        acl.setRules(aclRules);
-        int order = 1;
-        for (final InetAddress address : serverAddresses) {
-            if (!(address instanceof Inet4Address)) {
-                continue;
+
+        if (port > 0) {
+            InputEndpoint endpoint = new InputEndpoint();
+            endpointsList.add(endpoint);
+            endpoint.setLocalPort(port);
+            endpoint.setPort(port);
+            endpoint.setProtocol("TCP");
+            endpoint.setName(AzurePropertiesNames.ENDPOINT_NAME);
+            final EndpointAcl acl = new EndpointAcl();
+            endpoint.setEndpointAcl(acl);
+
+            final URI serverUri = URI.create(serverLocation);
+            List<InetAddress> serverAddresses = new ArrayList<>();
+            try {
+                serverAddresses.addAll(Arrays.asList(InetAddress.getAllByName(serverUri.getHost())));
+                serverAddresses.add(InetAddress.getLocalHost());
+            } catch (UnknownHostException e) {
+                LOG.warn("Unable to identify server name ip list", e);
             }
-            final AccessControlListRule rule = new AccessControlListRule();
-            rule.setOrder(order++);
-            rule.setAction("Permit");
-            rule.setRemoteSubnet(address.getHostAddress() + "/32");
-            rule.setDescription("Server");
-            aclRules.add(rule);
+            final ArrayList<AccessControlListRule> aclRules = new ArrayList<>();
+            acl.setRules(aclRules);
+            int order = 1;
+            for (final InetAddress address : serverAddresses) {
+                if (!(address instanceof Inet4Address)) {
+                    continue;
+                }
+                final AccessControlListRule rule = new AccessControlListRule();
+                rule.setOrder(order++);
+                rule.setAction("Permit");
+                rule.setRemoteSubnet(address.getHostAddress() + "/32");
+                rule.setDescription("Server");
+                aclRules.add(rule);
+            }
         }
 
         retval.add(value);

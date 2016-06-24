@@ -45,6 +45,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$vmSizeDataElem = $j('#vmSize');
     this.$vmNamePrefixDataElem = $j('#vmNamePrefix');
     this.$vnetNameDataElem = $j('#vnetName');
+    this.$publicIpDataElem = $j('#publicIp');
     this.$usernameDataElem = $j('#username');
     this.$passwordDataElem = $j('#password');
     this.$maxInstancesDataElem = $j('#maxInstances');
@@ -157,6 +158,16 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         }
         self.validateOptions(e.target.getAttribute('data-err-id'));
       });
+
+    this.$publicIpDataElem
+        .on('change', function (e, data) {
+          if (arguments.length === 1) {
+            self._imageData[this.getAttribute('id')] = this.checked;
+          } else {
+            this.checked = data;
+          }
+          self.validateOptions(e.target.getAttribute('data-err-id'));
+        });
 
     this.$passwordDataElem.on('change', function (e, data) {
       if (arguments.length === 1) {
@@ -363,7 +374,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
           this._imageData.behaviour = 'START_STOP';
           $j('#cloneBehaviour_START_STOP').prop('disabled', false).prop('checked', true);
           $j('#cloneBehaviour_FRESH_CLONE').prop('disabled', true);
-          ['maxInstances', 'vmNamePrefix', 'vnetName', 'vmSize'].forEach(function (key) {
+          ['maxInstances', 'vmNamePrefix', 'vnetName', 'publicIp', 'vmSize'].forEach(function (key) {
             delete this._imageData[key];
             this['$' + key + 'DataElem'].val('')
           }.bind(this));
@@ -509,6 +520,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 <td class="serviceName highlight"></td>\
 <td class="vmNamePrefix highlight hidden"></td>\
 <td class="vnetName highlight hidden"></td>\
+<td class="publicIp highlight hidden"></td>\
 <td class="behaviour highlight hidden"></td>\
 <td class="maxInstances highlight"></td>\
 <td class="edit highlight"><span class="editImageLink_disabled" title="Editing is available after successful retrieval of data">edit</span><a href="#" class="editImageLink hidden">edit</a></td>\
@@ -619,6 +631,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$vmSizeDataElem.trigger('change', image.vmSize || '');
     this.$vmNamePrefixDataElem.trigger('change', image.vmNamePrefix || '');
     this.$vnetNameDataElem.trigger('change', image.vnetName || '');
+    this.$publicIpDataElem.trigger('change', image.publicIp || false);
     this.$maxInstancesDataElem.trigger('change', image.maxInstances || '1');
     this.$usernameDataElem.trigger('change', image.username || '');
     this.$passwordDataElem.trigger('change', this._passwordsData[image.sourceName] || '');
@@ -696,6 +709,9 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
             isValid = false;
             return true;
           }
+        }.bind(this)],
+        publicIp: [function () {
+          return true;
         }.bind(this)],
         vmNamePrefix: [requiredForImage('vmNamePrefix').bind(this), function () {
           if (new RegExp(' ').test(this.$vmNamePrefixDataElem.val())) {

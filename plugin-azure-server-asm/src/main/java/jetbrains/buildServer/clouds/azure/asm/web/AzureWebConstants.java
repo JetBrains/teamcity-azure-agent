@@ -35,6 +35,8 @@ public class AzureWebConstants {
   public static final String PROVISION_PASSWORD="password";
   public static final String MAX_INSTANCES_COUNT="maxInstances";
   public static final String VNET_NAME = "vnetName";
+  public static final String PUBLIC_IP = "publicIp";
+  public static final String BEHAVIOUR = "behaviour";
 
   public String getVnetName() {
     return VNET_NAME;
@@ -81,4 +83,6 @@ public class AzureWebConstants {
   }
 
   public String getMaxInstancesCount() { return MAX_INSTANCES_COUNT; }
+
+  public String getPublicIp() { return PUBLIC_IP; }
 }

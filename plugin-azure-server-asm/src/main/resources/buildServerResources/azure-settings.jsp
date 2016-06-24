@@ -119,6 +119,13 @@
           </td>
         </tr>
         <tr class="clone hidden">
+            <th class="noBorder"></th>
+            <td>
+                <input type="checkbox" name="${cons.publicIp}" id="${cons.publicIp}"/>
+                <label for="${cons.publicIp}">Create public IP address</label>
+            </td>
+        </tr>
+        <tr class="clone hidden">
           <th>VM Size: <l:star/></th>
           <td>
             <div>

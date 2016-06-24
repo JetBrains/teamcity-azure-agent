@@ -18,6 +18,7 @@ package jetbrains.buildServer.clouds.azure.asm;
 
 import com.google.gson.annotations.SerializedName;
 import jetbrains.buildServer.TeamCityRuntimeException;
+import jetbrains.buildServer.clouds.azure.asm.web.AzureWebConstants;
 import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
 import jetbrains.buildServer.util.StringUtil;
@@ -31,107 +32,115 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
-  @SerializedName("sourceName")
-  private final String mySourceName;
-  @SerializedName("serviceName")
-  private final String myServiceName;
-  @SerializedName("vmNamePrefix")
-  private final String myVmNamePrefix;
-  @SerializedName("vnetName")
-  private final String myVnetName;
-  @SerializedName("osType")
-  private final String myOsType;
-  @SerializedName("vmSize")
-  private final String myVmSize;
-  @SerializedName("maxInstances")
-  private final int myMaxInstances;
-  @SerializedName("behaviour")
-  private final CloneBehaviour myBehaviour;
-  @SerializedName("username")
-  private final String myUsername;
+    @SerializedName(AzureWebConstants.SOURCE_NAME)
+    private final String mySourceName;
+    @SerializedName(AzureWebConstants.SERVICE_NAME)
+    private final String myServiceName;
+    @SerializedName(AzureWebConstants.NAME_PREFIX)
+    private final String myVmNamePrefix;
+    @SerializedName(AzureWebConstants.VNET_NAME)
+    private final String myVnetName;
+    @SerializedName(AzureWebConstants.OS_TYPE)
+    private final String myOsType;
+    @SerializedName(AzureWebConstants.VM_SIZE)
+    private final String myVmSize;
+    @SerializedName(AzureWebConstants.MAX_INSTANCES_COUNT)
+    private final int myMaxInstances;
+    @SerializedName(AzureWebConstants.BEHAVIOUR)
+    private final CloneBehaviour myBehaviour;
+    @SerializedName(AzureWebConstants.PROVISION_USERNAME)
+    private final String myUsername;
+    @SerializedName(AzureWebConstants.PUBLIC_IP)
+    private final boolean myPublicIp;
 
-  private String myPassword = null;
+    private String myPassword = null;
 
-  public AzureCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
-                                @Nullable final String serviceName,
-                                @NotNull final String sourceName,
-                                @Nullable final String vmNamePrefix,
-                                @Nullable final String vnetName,
-                                @Nullable final String vmSize,
-                                final int maxInstances,
-                                @Nullable final String osType,
-                                @Nullable final String username,
-                                @Nullable final String password) {
-    myBehaviour = cloneTypeName;
-    mySourceName = sourceName;
-    myServiceName = serviceName;
-    myVmNamePrefix = vmNamePrefix;
-    myVnetName = vnetName;
-    myOsType = osType;
-    myVmSize = vmSize;
-    myUsername = username;
-    myPassword = password;
-    myMaxInstances = maxInstances;
-    validateParams();
-  }
-
-  public String getSourceName() {
-    return mySourceName;
-  }
-
-  public String getServiceName() {
-    return myServiceName;
-  }
-
-  public String getOsType() {
-    return myOsType;
-  }
-
-  public String getVmSize() {
-    return myVmSize;
-  }
-
-  public String getVmNamePrefix() {
-    return myVmNamePrefix;
-  }
-
-  public String getVnetName() {
-    return myVnetName;
-  }
-
-  public String getUsername() {
-    return myUsername;
-  }
-
-  public String getPassword() {
-    return myPassword;
-  }
-
-  public void setPassword(final String password) {
-    myPassword = password;
-  }
-
-  public int getMaxInstances() {
-    return myMaxInstances;
-  }
-
-  public CloneBehaviour getBehaviour() {
-    return myBehaviour;
-  }
-
-  private void validateParams() {
-    if (!myBehaviour.isUseOriginal()) {
-      check(StringUtil.isNotEmpty(myServiceName), "Service name is required");
-      check(StringUtil.isNotEmpty(myVmNamePrefix), "Name prefix is required");
-      check(StringUtil.isNotEmpty(myVmSize), "VM Size is required");
-      check(StringUtil.isNotEmpty(myOsType), "Unable to determine OS Type");
-      check(myMaxInstances > 0, "Max instances is less than 1, no VMs of this Image will be started");
+    public AzureCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
+                                  @Nullable final String serviceName,
+                                  @NotNull final String sourceName,
+                                  @Nullable final String vmNamePrefix,
+                                  @Nullable final String vnetName,
+                                  @Nullable final String vmSize,
+                                  final int maxInstances,
+                                  @Nullable final String osType,
+                                  @Nullable final String username,
+                                  @Nullable final String password,
+                                  final boolean publicIp) {
+        myBehaviour = cloneTypeName;
+        mySourceName = sourceName;
+        myServiceName = serviceName;
+        myVmNamePrefix = vmNamePrefix;
+        myVnetName = vnetName;
+        myOsType = osType;
+        myVmSize = vmSize;
+        myUsername = username;
+        myPassword = password;
+        myMaxInstances = maxInstances;
+        myPublicIp = publicIp;
+        validateParams();
     }
-  }
 
-  private void check(boolean expression, String errorMessage) {
-    if (!expression) {
-      throw new TeamCityRuntimeException(errorMessage);
+    public String getSourceName() {
+        return mySourceName;
     }
-  }
+
+    public String getServiceName() {
+        return myServiceName;
+    }
+
+    public String getOsType() {
+        return myOsType;
+    }
+
+    public String getVmSize() {
+        return myVmSize;
+    }
+
+    public String getVmNamePrefix() {
+        return myVmNamePrefix;
+    }
+
+    public String getVnetName() {
+        return myVnetName;
+    }
+
+    public String getUsername() {
+        return myUsername;
+    }
+
+    public String getPassword() {
+        return myPassword;
+    }
+
+    public void setPassword(final String password) {
+        myPassword = password;
+    }
+
+    public int getMaxInstances() {
+        return myMaxInstances;
+    }
+
+    public CloneBehaviour getBehaviour() {
+        return myBehaviour;
+    }
+
+    public boolean getPublicIp() {
+        return myPublicIp;
+    }
+
+    private void validateParams() {
+        if (!myBehaviour.isUseOriginal()) {
+            check(StringUtil.isNotEmpty(myServiceName), "Service name is required");
+            check(StringUtil.isNotEmpty(myVmNamePrefix), "Name prefix is required");
+            check(StringUtil.isNotEmpty(myVmSize), "VM Size is required");
+            check(StringUtil.isNotEmpty(myOsType), "Unable to determine OS Type");
+            check(myMaxInstances > 0, "Max instances is less than 1, no VMs of this Image will be started");
+        }
+    }
+
+    private void check(boolean expression, String errorMessage) {
+        if (!expression) {
+            throw new TeamCityRuntimeException(errorMessage);
+        }
+    }
 }

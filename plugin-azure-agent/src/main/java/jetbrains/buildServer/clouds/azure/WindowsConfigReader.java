@@ -32,10 +32,19 @@ public class WindowsConfigReader extends AgentConfigReader {
 
     @Override
     public void process() {
+        // Check custom data file existence
+        final File customDataFile = new File(WINDOWS_CUSTOM_DATA_FILE);
+        final String customData = myFileUtils.readFile(customDataFile);
+        if (StringUtil.isEmpty(customData)) {
+            LOG.info(String.format(CUSTOM_DATA_FILE_IS_EMPTY, customDataFile));
+            return;
+        }
+
+        // Check properties file existence
         final File configDir = new File(WINDOWS_PROP_FILE_DIR);
         final File[] files = myFileUtils.listFiles(configDir);
         if (files == null || files.length == 0) {
-            LOG.info(String.format("Unable to find azure properties file in directory %s. Azure integration is disabled", WINDOWS_PROP_FILE_DIR));
+            LOG.info(String.format("Unable to find azure properties file in directory %s: integration is disabled", WINDOWS_PROP_FILE_DIR));
             return;
         }
 
@@ -52,24 +61,25 @@ public class WindowsConfigReader extends AgentConfigReader {
         }
 
         final File latest = files[0];
-        LOG.info("Using azure properties file " + latest.getAbsolutePath());
-        FileUtil.readXmlFile(latest, new FileUtil.Processor() {
-            public void process(final Element element) {
-                setInstanceParameters(element);
-            }
-        });
 
-        final File customDataFile = new File(WINDOWS_CUSTOM_DATA_FILE);
+        // Process properties
         try {
-            final String customData = myFileUtils.readFile(customDataFile);
-            if (StringUtil.isEmpty(customData)) {
-                LOG.warn(String.format("Custom data file %s is empty", customDataFile));
-                return;
-            }
+            LOG.info("Using azure properties file " + latest.getAbsolutePath());
+            FileUtil.readXmlFile(latest, new FileUtil.Processor() {
+                public void process(final Element element) {
+                    setInstanceParameters(element);
+                }
+            });
+        } catch (Throwable e) {
+            LOG.warnAndDebugDetails(String.format(FAILED_TO_READ_AZURE_PROPERTIES_FILE, latest), e);
+            return;
+        }
 
+        // Process custom data
+        try {
             processCustomData(customData);
         } catch (Exception e) {
-            LOG.infoAndDebugDetails(String.format("Unable to read custom data file %s. Will use existing parameters", customDataFile), e);
+            LOG.warnAndDebugDetails(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFile), e);
         }
     }
 }

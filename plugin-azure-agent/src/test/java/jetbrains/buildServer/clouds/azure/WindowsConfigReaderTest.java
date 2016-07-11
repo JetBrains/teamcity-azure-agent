@@ -2,6 +2,7 @@ package jetbrains.buildServer.clouds.azure;
 
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx;
 import jetbrains.buildServer.util.FileUtil;
+import jetbrains.buildServer.util.StringUtil;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.lib.legacy.ClassImposteriser;
@@ -19,12 +20,16 @@ public class WindowsConfigReaderTest {
 
     @Test
     public void testProcessWindowsConfig() throws IOException {
-        Mockery m = new Mockery();
+        final Mockery m = new Mockery() {{
+            setImposteriser(ClassImposteriser.INSTANCE);
+        }};
+
         final FileUtils fileUtils = m.mock(FileUtils.class);
         final BuildAgentConfigurationEx agentConfiguration = m.mock(BuildAgentConfigurationEx.class);
+        final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
         final String drive = System.getenv("SystemDrive");
 
-        m.checking(new Expectations(){{
+        m.checking(new Expectations() {{
             allowing(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
             will(returnValue(new File[]{new File("src/test/resources/SharedConfig.xml")}));
 
@@ -41,29 +46,27 @@ public class WindowsConfigReaderTest {
 
             allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
             will(returnValue(FileUtil.readText(new File("src/test/resources/CustomData.bin"))));
-        }});
 
-        final Mockery m2 = new Mockery() {{
-            setImposteriser(ClassImposteriser.INSTANCE);
-        }};
-
-        final IdleShutdown idleShutdown = m2.mock(IdleShutdown.class);
-        m2.checking(new Expectations(){{
             allowing(idleShutdown).setIdleTime(2400000L);
         }});
 
         WindowsConfigReader configReader = new WindowsConfigReader(agentConfiguration, idleShutdown, fileUtils);
         configReader.process();
+
+        m.assertIsSatisfied();
     }
 
     @Test
     public void testProcessWindowsConfigWithoutEndpoints() throws IOException {
-        Mockery m = new Mockery();
+        final Mockery m = new Mockery() {{
+            setImposteriser(ClassImposteriser.INSTANCE);
+        }};
         final FileUtils fileUtils = m.mock(FileUtils.class);
         final BuildAgentConfigurationEx agentConfiguration = m.mock(BuildAgentConfigurationEx.class);
+        final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
         final String drive = System.getenv("SystemDrive");
 
-        m.checking(new Expectations(){{
+        m.checking(new Expectations() {{
             allowing(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
             will(returnValue(new File[]{new File("src/test/resources/windows-config.xml")}));
 
@@ -78,18 +81,58 @@ public class WindowsConfigReaderTest {
 
             allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
             will(returnValue(FileUtil.readText(new File("src/test/resources/CustomData.bin"))));
-        }});
 
-        final Mockery m2 = new Mockery() {{
-            setImposteriser(ClassImposteriser.INSTANCE);
-        }};
-
-        final IdleShutdown idleShutdown = m2.mock(IdleShutdown.class);
-        m2.checking(new Expectations(){{
             allowing(idleShutdown).setIdleTime(2400000L);
         }});
 
         WindowsConfigReader configReader = new WindowsConfigReader(agentConfiguration, idleShutdown, fileUtils);
         configReader.process();
+
+        m.assertIsSatisfied();
+    }
+
+    @Test
+    public void testDisableIntegrationWithoutCustomDataFile() throws IOException {
+        final Mockery m = new Mockery() {{
+            setImposteriser(ClassImposteriser.INSTANCE);
+        }};
+        final FileUtils fileUtils = m.mock(FileUtils.class);
+        final BuildAgentConfigurationEx agentConfiguration = m.mock(BuildAgentConfigurationEx.class);
+        final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
+        final String drive = System.getenv("SystemDrive");
+
+        m.checking(new Expectations() {{
+            allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
+            will(returnValue(StringUtil.EMPTY));
+        }});
+
+        WindowsConfigReader configReader = new WindowsConfigReader(agentConfiguration, idleShutdown, fileUtils);
+        configReader.process();
+
+        m.assertIsSatisfied();
+    }
+
+    @Test
+    public void testDisableIntegrationWithoutPropertiesFile() throws IOException {
+        final Mockery m = new Mockery() {{
+            setImposteriser(ClassImposteriser.INSTANCE);
+        }};
+        final FileUtils fileUtils = m.mock(FileUtils.class);
+        final BuildAgentConfigurationEx agentConfiguration = m.mock(BuildAgentConfigurationEx.class);
+        final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
+        final String drive = System.getenv("SystemDrive");
+
+        m.checking(new Expectations() {{
+            allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
+            will(returnValue("data"));
+
+            allowing(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
+            will(returnValue(new File[]{}));
+        }});
+
+        WindowsConfigReader configReader = new WindowsConfigReader(agentConfiguration, idleShutdown, fileUtils);
+        configReader.process();
+
+        m.assertIsSatisfied();
     }
 }

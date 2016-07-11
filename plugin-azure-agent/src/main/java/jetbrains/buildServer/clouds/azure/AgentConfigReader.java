@@ -18,6 +18,9 @@ import java.util.Map;
 public abstract class AgentConfigReader {
 
     private static final Logger LOG = Logger.getInstance(AzurePropertiesReader.class.getName());
+    protected static final String CUSTOM_DATA_FILE_IS_EMPTY = "Azure custom data file %s is empty: integration is disabled";
+    protected static final String UNABLE_TO_READ_CUSTOM_DATA_FILE = "Unable to read azure custom data file %s: will use existing parameters";
+    protected static final String FAILED_TO_READ_AZURE_PROPERTIES_FILE = "Failed to read azure properties file %s: integration is disabled";
     private final BuildAgentConfigurationEx myAgentConfiguration;
     private final IdleShutdown myIdleShutdown;
 
@@ -105,7 +108,7 @@ public abstract class AgentConfigReader {
             final XPath xPath = XPath.newInstance(String.format(
                     "string(//Instances/Instance[@id='%s']/InputEndpoints/Endpoint[@name='%s']/@loadBalancedPublicAddress)",
                     selfInstanceName, AzurePropertiesNames.ENDPOINT_NAME));
-            final String loadBalancedAddress = (String)xPath.selectSingleNode(documentElement);
+            final String loadBalancedAddress = (String) xPath.selectSingleNode(documentElement);
             if (StringUtil.isEmpty(loadBalancedAddress)) {
                 LOG.info("No input endpoints found in azure properties file, unable to set own ip address.");
                 return;

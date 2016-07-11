@@ -2,6 +2,7 @@ package jetbrains.buildServer.clouds.azure;
 
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx;
 import jetbrains.buildServer.util.FileUtil;
+import jetbrains.buildServer.util.StringUtil;
 import org.jmock.Expectations;
 import org.jmock.Mockery;
 import org.jmock.lib.legacy.ClassImposteriser;
@@ -18,11 +19,14 @@ import java.io.IOException;
 public class UnixConfigReaderTest {
     @Test
     public void testProcessUnixConfig() throws IOException {
-        Mockery m = new Mockery();
+        final Mockery m = new Mockery() {{
+            setImposteriser(ClassImposteriser.INSTANCE);
+        }};
         final FileUtils fileUtils = m.mock(FileUtils.class);
         final BuildAgentConfigurationEx agentConfiguration = m.mock(BuildAgentConfigurationEx.class);
+        final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
 
-        m.checking(new Expectations(){{
+        m.checking(new Expectations() {{
             allowing(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
             will(returnValue(FileUtil.readText(new File("src/test/resources/SharedConfig.xml"))));
 
@@ -36,18 +40,56 @@ public class UnixConfigReaderTest {
 
             allowing(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
             will(returnValue(FileUtil.readText(new File("src/test/resources/ovf-env.xml"))));
-        }});
 
-        final Mockery m2 = new Mockery() {{
-            setImposteriser(ClassImposteriser.INSTANCE);
-        }};
-
-        final IdleShutdown idleShutdown = m2.mock(IdleShutdown.class);
-        m2.checking(new Expectations(){{
             allowing(idleShutdown).setIdleTime(2400000L);
         }});
 
         UnixConfigReader configReader = new UnixConfigReader(agentConfiguration, idleShutdown, fileUtils);
         configReader.process();
+
+        m.assertIsSatisfied();
+    }
+
+    @Test
+    public void testDisableIntegrationWithoutCustomDataFile() throws IOException {
+        final Mockery m = new Mockery() {{
+            setImposteriser(ClassImposteriser.INSTANCE);
+        }};
+        final FileUtils fileUtils = m.mock(FileUtils.class);
+        final BuildAgentConfigurationEx agentConfiguration = m.mock(BuildAgentConfigurationEx.class);
+        final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
+
+        m.checking(new Expectations() {{
+            allowing(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
+            will(returnValue(StringUtil.EMPTY));
+        }});
+
+        UnixConfigReader configReader = new UnixConfigReader(agentConfiguration, idleShutdown, fileUtils);
+        configReader.process();
+
+        m.assertIsSatisfied();
+    }
+
+    @Test
+    public void testDisableIntegrationWithoutPropertiesFile() throws IOException {
+        final Mockery m = new Mockery() {{
+            setImposteriser(ClassImposteriser.INSTANCE);
+        }};
+        final FileUtils fileUtils = m.mock(FileUtils.class);
+        final BuildAgentConfigurationEx agentConfiguration = m.mock(BuildAgentConfigurationEx.class);
+        final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
+
+        m.checking(new Expectations() {{
+            allowing(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
+            will(returnValue(StringUtil.EMPTY));
+
+            allowing(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
+            will(returnValue(StringUtil.EMPTY));
+        }});
+
+        UnixConfigReader configReader = new UnixConfigReader(agentConfiguration, idleShutdown, fileUtils);
+        configReader.process();
+
+        m.assertIsSatisfied();
     }
 }

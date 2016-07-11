@@ -32,43 +32,47 @@ public class UnixConfigReader extends AgentConfigReader {
 
     @Override
     public void process() {
-        final File propertiesFile = new File(UNIX_PROP_FILE);
-        final String xmlData = myFileUtils.readFile(propertiesFile);
-        if (StringUtil.isEmpty(xmlData)) {
-            LOG.info(String.format("Azure properties file %s is empty. Azure integration is disabled", propertiesFile));
+        // Check custom data existence
+        final File customDataFile = new File(UNIX_CUSTOM_DATA_FILE);
+        final String customData = myFileUtils.readFile(customDataFile);
+        if (StringUtil.isEmpty(customData)) {
+            LOG.info(String.format(CUSTOM_DATA_FILE_IS_EMPTY, customDataFile));
             return;
         }
 
+        // Check properties file existence
+        final File propertiesFile = new File(UNIX_PROP_FILE);
+        final String xmlData = myFileUtils.readFile(propertiesFile);
+        if (StringUtil.isEmpty(xmlData)) {
+            LOG.info(String.format("Azure properties file %s is empty: integration is disabled", propertiesFile));
+            return;
+        }
+
+        // Process properties
         try {
             final Element documentElement = FileUtil.parseDocument(new ByteArrayInputStream(xmlData.getBytes()), false);
             if (documentElement == null) {
-                LOG.info(String.format("Unable to read azure properties file %s. Azure integration is disabled", propertiesFile));
+                LOG.warn(String.format("Unable to read azure properties file %s: integration is disabled", propertiesFile));
                 return;
             }
 
             setInstanceParameters(documentElement);
         } catch (Exception e) {
-            LOG.infoAndDebugDetails(String.format("Failed to read azure properties file %s. Azure integration is disabled", propertiesFile), e);
+            LOG.warnAndDebugDetails(String.format(FAILED_TO_READ_AZURE_PROPERTIES_FILE, propertiesFile), e);
             LOG.info("File contents: " + xmlData);
-        }
-
-        final File customDataFile = new File(UNIX_CUSTOM_DATA_FILE);
-        final String customData = myFileUtils.readFile(customDataFile);
-        if (StringUtil.isEmpty(customData)) {
-            LOG.info(String.format("Custom data file %s is empty. Will use existing parameters", customDataFile));
             return;
         }
 
+        // Process custom data
         try {
             final Element documentElement = FileUtil.parseDocument(new ByteArrayInputStream(customData.getBytes()), false);
             if (documentElement == null) {
-                LOG.info(String.format("Unable to read azure custom data file %s. Will use existing parameters", customDataFile));
-                return;
+                LOG.warn(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFile));
+            } else {
+                readCustomData(documentElement);
             }
-
-            readCustomData(documentElement);
         } catch (Exception e) {
-            LOG.infoAndDebugDetails(String.format("Unable to read azure custom data file %s. Will use existing parameters", customDataFile), e);
+            LOG.warnAndDebugDetails(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFile), e);
         }
     }
 

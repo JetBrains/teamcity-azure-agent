@@ -27,8 +27,6 @@ public class FileUtilsImpl implements FileUtils {
 
     @Override
     public String readFile(@NotNull final File file) {
-        LOG.info("Attempting to read content from file " + file);
-
         final File parentDir = file.getParentFile();
         if (!parentDir.exists() || !parentDir.isDirectory()) {
             LOG.info("Parent directory not found at " + parentDir);
@@ -38,6 +36,11 @@ public class FileUtilsImpl implements FileUtils {
         if (!parentDir.canExecute() && SystemInfo.isUnix) {
             LOG.info("Reading file content " + file + " with sudo");
             return readFileWithSudo(file);
+        }
+
+        if (!file.exists()) {
+            LOG.info("File " + file + " not found");
+            return StringUtil.EMPTY;
         }
 
         try {
@@ -80,7 +83,7 @@ public class FileUtilsImpl implements FileUtils {
     }
 
     @Override
-    public File[] listFiles(@NotNull final File directory){
+    public File[] listFiles(@NotNull final File directory) {
         return directory.listFiles();
     }
 

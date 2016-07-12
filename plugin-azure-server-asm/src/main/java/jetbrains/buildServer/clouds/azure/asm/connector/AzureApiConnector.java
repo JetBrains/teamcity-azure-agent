@@ -72,6 +72,8 @@ import java.net.*;
 import java.security.KeyStore;
 import java.security.Security;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * @author Sergey.Pak
@@ -81,6 +83,7 @@ import java.util.*;
 public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance> implements ActionIdChecker {
 
     private static final Logger LOG = Logger.getInstance(AzureApiConnector.class.getName());
+    private static final ConcurrentMap<String, Map<String, Integer>> DEPLOYMENT_OPS = new ConcurrentHashMap<>();
     private static final int MIN_PORT_NUMBER = 9090;
     private static final int MAX_PORT_NUMBER = 9999;
     private static final URI MANAGEMENT_URI = URI.create("https://management.core.windows.net");
@@ -345,19 +348,22 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                                        final String vmName,
                                        final CloudInstanceUserData tag,
                                        final HostedServiceGetDetailedResponse.Deployment deployment) throws ServiceException, IOException {
+        final String serviceName = imageDetails.getServiceName();
         final VirtualMachineCreateParameters parameters = new VirtualMachineCreateParameters();
         parameters.setRoleSize(imageDetails.getVmSize());
         parameters.setProvisionGuestAgent(Boolean.TRUE);
         parameters.setRoleName(vmName);
         parameters.setVMImageName(imageDetails.getSourceName());
 
-        final int portNumber = imageDetails.getPublicIp() ? getPortNumber(deployment) : 0;
+        final int portNumber = imageDetails.getPublicIp() ? getPortNumber(serviceName, deployment) : 0;
         final ArrayList<ConfigurationSet> configurationSetList = createConfigurationSetList(imageDetails, generalized, vmName, tag, portNumber);
         parameters.setConfigurationSets(configurationSetList);
 
         final VirtualMachineOperations vmOperations = myClient.getVirtualMachinesOperations();
         try {
-            return vmOperations.beginCreating(imageDetails.getServiceName(), deployment.getName(), parameters);
+            final OperationResponse response = vmOperations.beginCreating(serviceName, deployment.getName(), parameters);
+            addDeploymentOperation(serviceName, response.getRequestId(), portNumber);
+            return response;
         } catch (ParserConfigurationException e) {
             throw new ServiceException(e);
         } catch (SAXException | TransformerException e) {
@@ -365,8 +371,8 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         }
     }
 
-    private int getPortNumber(HostedServiceGetDetailedResponse.Deployment deployment) {
-        BitSet busyPorts = new BitSet();
+    private int getPortNumber(final String serviceName, final HostedServiceGetDetailedResponse.Deployment deployment) {
+        final BitSet busyPorts = new BitSet();
         busyPorts.set(MIN_PORT_NUMBER, MAX_PORT_NUMBER);
 
         for (RoleInstance instance : deployment.getRoleInstances()) {
@@ -385,6 +391,19 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                     if (port >= MIN_PORT_NUMBER && port <= MAX_PORT_NUMBER) {
                         busyPorts.set(port, false);
                     }
+                }
+            }
+        }
+
+        final Map<String, Integer> map = DEPLOYMENT_OPS.get(serviceName);
+        if (map != null) {
+            final Iterator<String> iter = map.keySet().iterator();
+            while (iter.hasNext()) {
+                final String operationId = iter.next();
+                if (isActionFinished(operationId)) {
+                    iter.remove();
+                } else {
+                    busyPorts.set(map.get(operationId), false);
                 }
             }
         }
@@ -432,9 +451,26 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
         vmDeployParams.setDeploymentSlot(DeploymentSlot.Production);
 
         try {
-            return vmOperations.beginCreatingDeployment(imageDetails.getServiceName(), vmDeployParams);
+            final String serviceName = imageDetails.getServiceName();
+            final OperationResponse response = vmOperations.beginCreatingDeployment(serviceName, vmDeployParams);
+            addDeploymentOperation(serviceName, response.getRequestId(), portNumber);
+            return response;
         } catch (ParserConfigurationException | SAXException | TransformerException e) {
             throw new IOException(e);
+        }
+    }
+
+    private void addDeploymentOperation(final String serviceName, final String requestId, final int portNumber) {
+        if (portNumber > 0) {
+            Map<String, Integer> map = DEPLOYMENT_OPS.get(serviceName);
+            if (map == null) {
+                final Map<String, Integer> value = new HashMap<>();
+                map = DEPLOYMENT_OPS.putIfAbsent(serviceName, value);
+                if (map == null) {
+                    map = value;
+                }
+            }
+            map.put(requestId, portNumber);
         }
     }
 

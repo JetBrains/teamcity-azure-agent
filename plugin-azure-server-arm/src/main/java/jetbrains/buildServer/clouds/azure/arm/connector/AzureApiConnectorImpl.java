@@ -43,21 +43,19 @@ import com.microsoft.rest.credentials.ServiceClientCredentials;
 import jetbrains.buildServer.clouds.CloudException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage;
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails;
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance;
-import jetbrains.buildServer.clouds.azure.arm.AzureConstants;
-import jetbrains.buildServer.clouds.azure.arm.connector.models.JsonValue;
-import jetbrains.buildServer.clouds.azure.arm.connector.models.RawJsonValue;
-import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator;
+import jetbrains.buildServer.clouds.azure.arm.*;
+import jetbrains.buildServer.clouds.azure.arm.connector.models.*;
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils;
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase;
+import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.util.filters.Filter;
+import okhttp3.OkHttpClient;
 import org.apache.commons.codec.binary.Base64;
 import org.jdeferred.*;
 import org.jdeferred.impl.DefaultDeferredManager;
@@ -67,7 +65,10 @@ import org.jdeferred.multiple.OneReject;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
+import retrofit2.Retrofit;
 
+import java.net.InetSocketAddress;
+import java.net.Proxy;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -88,6 +89,13 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
     private static final String POWER_STATE = "PowerState/";
     private static final String INSTANCE_VIEW = "InstanceView";
     private static final String NOT_FOUND_ERROR = "Invalid status code 404";
+    private static final String AZURE_URL = "https://management.azure.com";
+    private static final String HTTP_PROXY_HOST = "http.proxyHost";
+    private static final String HTTP_PROXY_PORT = "http.proxyPort";
+    private static final String HTTPS_PROXY_HOST = "https.proxyHost";
+    private static final String HTTPS_PROXY_PORT = "https.proxyPort";
+    private static final String HTTP_PROXY_USER = "http.proxyUser";
+    private static final String HTTP_PROXY_PASSWORD = "http.proxyPassword";
     private static final List<InstanceStatus> PROVISIONING_STATES = Arrays.asList(
             InstanceStatus.SCHEDULED_TO_START,
             InstanceStatus.SCHEDULED_TO_STOP);
@@ -105,12 +113,43 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                                  @NotNull final String clientId,
                                  @NotNull final String secret) {
         final ServiceClientCredentials credentials = new ApplicationTokenCredentials(clientId, tenantId, secret, null);
-        myArmClient = new ResourceManagementClientImpl(credentials);
-        myStorageClient = new StorageManagementClientImpl(credentials);
-        myComputeClient = new ComputeManagementClientImpl(credentials);
-        myNetworkClient = new NetworkManagementClientImpl(credentials);
-        mySubscriptionClient = new SubscriptionClientImpl(credentials);
+        final OkHttpClient.Builder httpClientBuilder = new OkHttpClient.Builder();
+        final Retrofit.Builder retrofitBuilder = new Retrofit.Builder();
+        configureProxy(httpClientBuilder);
+        myArmClient = new ResourceManagementClientImpl(AZURE_URL, credentials, httpClientBuilder, retrofitBuilder);
+        myStorageClient = new StorageManagementClientImpl(AZURE_URL, credentials, httpClientBuilder, retrofitBuilder);
+        myComputeClient = new ComputeManagementClientImpl(AZURE_URL, credentials, httpClientBuilder, retrofitBuilder);
+        myNetworkClient = new NetworkManagementClientImpl(AZURE_URL, credentials, httpClientBuilder, retrofitBuilder);
+        mySubscriptionClient = new SubscriptionClientImpl(AZURE_URL, credentials, httpClientBuilder, retrofitBuilder);
         myManager = new DefaultDeferredManager();
+    }
+
+    /**
+     * Configures http proxy settings.
+     *
+     * @param builder is a http builder.
+     */
+    private static void configureProxy(@NotNull final OkHttpClient.Builder builder) {
+        // Set HTTP proxy
+        final String httpProxyHost = TeamCityProperties.getProperty(HTTP_PROXY_HOST);
+        final int httpProxyPort = TeamCityProperties.getInteger(HTTP_PROXY_PORT, 80);
+        if (!StringUtil.isEmpty(httpProxyHost)) {
+            builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(httpProxyHost, httpProxyPort)));
+        }
+
+        // Set HTTPS proxy
+        final String httpsProxyHost = TeamCityProperties.getProperty(HTTPS_PROXY_HOST);
+        final int httpsProxyPort = TeamCityProperties.getInteger(HTTPS_PROXY_PORT, 443);
+        if (!StringUtil.isEmpty(httpsProxyHost)) {
+            builder.proxy(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(httpsProxyHost, httpsProxyPort)));
+        }
+
+        // Set proxy authentication
+        final String httpProxyUser = TeamCityProperties.getProperty(HTTP_PROXY_USER);
+        final String httpProxyPassword = TeamCityProperties.getProperty(HTTP_PROXY_PASSWORD);
+        if (!StringUtil.isEmpty(httpProxyUser)) {
+            builder.proxyAuthenticator(new CredentialsAuthenticator(httpProxyUser, httpProxyPassword));
+        }
     }
 
     @Override
@@ -504,7 +543,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         final String name = instance.getName();
         final String customData;
         try {
-           customData = Base64.encodeBase64String(userData.serialize().getBytes("UTF-8"));
+            customData = Base64.encodeBase64String(userData.serialize().getBytes("UTF-8"));
         } catch (Exception e) {
             final String message = String.format("Failed to encode custom data for instance %s: %s", name, e.getMessage());
             LOG.debug(message, e);

@@ -20,10 +20,21 @@ You can select an approriate plugin according to the [Microsoft deployment guide
 
 You can download the last successful plugin build and install it as an [additional TeamCity plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins).
 
-| Plugin | Status | Download | TeamCity | Info |
-|--------|--------|----------|----------|------|
-| [Resource Manager](#resource-manager-plugin) | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_BuildResourceManager&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_BuildResourceManager)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_BuildResourceManager/.lastSuccessful/cloud-azure-arm.zip?guest=1)| 9.1.2+ | [blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/) |
-| [Classic](#classic-plugin) | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_Build&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_Build)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/azure-cloud.zip?guest=1) | 8.1.x+ | [blog post](https://blog.jetbrains.com/teamcity/2014/11/introducing-teamcity-azure-plugin-run-builds-in-the-cloud/) |
+### [Resource Manager](#resource-manager-plugin)
+[Blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/) about resource manager plugin.
+
+| TeamCity | Status | Download |
+|----------|--------|----------|
+| 10.x+ | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_BuildResourceManager&branch_TeamcityAzurePlugin=%3Cdefault%3E&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_BuildResourceManager),branch:(name:master)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_BuildResourceManager/.lastSuccessful/cloud-azure-arm.zip?branch=master&guest=1) |
+| 9.1.2+ | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_BuildResourceManager&branch_TeamcityAzurePlugin=9.1.x&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_BuildResourceManager),branch:(name:9.1.x)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_BuildResourceManager/.lastSuccessful/cloud-azure-arm.zip?branch=9.1.x&guest=1) |
+
+### [Classic](#classic-plugin) 
+[Blog post](https://blog.jetbrains.com/teamcity/2014/11/introducing-teamcity-azure-plugin-run-builds-in-the-cloud/) about classic plugin.
+
+| TeamCity | Status | Download |
+|----------|--------|----------|
+| 10.x+ | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_Build&branch_TeamcityAzurePlugin=%3Cdefault%3E&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_Build),branch:(name:master)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/azure-cloud.zip?branch=master&guest=1) |
+| 9.1.x+ | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_Build&branch_TeamcityAzurePlugin=9.1.x&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_Build),branch:(name:9.1.x)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/azure-cloud.zip?branch=9.1.x&guest=1) |
 
 ## Resource Manager Plugin
 

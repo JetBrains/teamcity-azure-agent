@@ -7,7 +7,7 @@ teamcity {
 
     server {
         descriptor = project.file('teamcity-plugin.xml')
-        tokens = [Plugin_Version: project.version]
+        tokens = [Version: project.version]
     }
 }
 

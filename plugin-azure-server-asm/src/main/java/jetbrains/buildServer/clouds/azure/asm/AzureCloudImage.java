@@ -34,6 +34,7 @@ import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.util.Map;
@@ -274,5 +275,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
 
   protected boolean isGeneralized() {
     return myGeneralized;
+  }
+
+  @Nullable
+  @Override
+  public Integer getAgentPoolId() {
+    return myImageDetails.getAgentPoolId();
   }
 }

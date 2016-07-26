@@ -16,6 +16,7 @@
 package jetbrains.buildServer.clouds.azure.arm;
 
 import com.google.gson.annotations.SerializedName;
+import jetbrains.buildServer.clouds.CloudImageParameters;
 import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
 import org.jetbrains.annotations.NotNull;
@@ -44,6 +45,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
     @SerializedName(AzureConstants.VM_USERNAME)
     private final String myUsername;
     private String myPassword = null;
+    @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)
+    private Integer myAgentPoolId;
 
     public AzureCloudImageDetails(@NotNull final String imageUrl,
                                   @NotNull final String osType,
@@ -53,7 +56,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
                                   @NotNull final String vmSize,
                                   final boolean vmPublicIp,
                                   final int maxInstances,
-                                  @NotNull final String username) {
+                                  @NotNull final String username,
+                                  final int agentPoolId) {
         myImageUrl = imageUrl;
         myOsType = osType;
         myNetworkId = networkId;
@@ -63,6 +67,7 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
         myVmPublicIp = vmPublicIp;
         myMaxInstances = maxInstances;
         myUsername = username;
+        myAgentPoolId = agentPoolId;
     }
 
     public String getImageUrl() {
@@ -116,5 +121,9 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
     public CloneBehaviour getBehaviour() {
         return CloneBehaviour.FRESH_CLONE;
+    }
+
+    public Integer getAgentPoolId() {
+        return myAgentPoolId;
     }
 }

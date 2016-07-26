@@ -1,0 +1,34 @@
+apply plugin: 'com.github.rodm.teamcity-server'
+
+ext.azureSdkVersion = project.hasProperty('azureClassicSdkVersion') ? project.getProperty('azureClassicSdkVersion') : '0.9.3'
+
+teamcity {
+    version = teamcityVersion
+
+    server {
+        descriptor = project.file('teamcity-plugin.xml')
+        tokens = [Plugin_Version: project.version]
+    }
+}
+
+dependencies {
+    agent project(path: ':plugin-azure-agent', configuration: 'plugin')
+    server project(':plugin-azure-common')
+    server project(':plugin-azure-server-base')
+    provided project(':plugin-azure-server-base')
+
+    compile "com.microsoft.azure:azure-core:$azureSdkVersion"
+    compile "com.microsoft.azure:azure-svc-mgmt:$azureSdkVersion"
+    compile "com.microsoft.azure:azure-svc-mgmt-compute:$azureSdkVersion"
+    compile "com.microsoft.azure:azure-svc-mgmt-network:$azureSdkVersion"
+    compile 'org.bouncycastle:bcprov-jdk15on:1.54'
+    compile 'org.jdeferred:jdeferred-core:1.2.4'
+    provided 'javax.servlet:jstl:1.1.2'
+    provided 'org.slf4j:slf4j-api:1.7.12'
+    provided 'net.jcip:jcip-annotations:1.0'
+    provided 'javax.mail:mail:1.4.7'
+    testCompile 'org.testng:testng:6.8'
+}
+
+serverPlugin.version = null
+serverPlugin.baseName = 'azure-cloud'

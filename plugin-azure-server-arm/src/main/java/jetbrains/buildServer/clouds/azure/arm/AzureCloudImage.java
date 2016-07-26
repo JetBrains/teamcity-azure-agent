@@ -29,6 +29,7 @@ import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.jdeferred.DoneCallback;
 import org.jdeferred.FailCallback;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 
@@ -148,5 +149,11 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
                 instance.updateErrors(TypedCloudErrorInfo.fromException(result));
             }
         });
+    }
+
+    @Nullable
+    @Override
+    public Integer getAgentPoolId() {
+        return myImageDetails.getAgentPoolId();
     }
 }

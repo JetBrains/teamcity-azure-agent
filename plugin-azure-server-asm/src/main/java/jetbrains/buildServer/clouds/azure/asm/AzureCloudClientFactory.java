@@ -23,9 +23,7 @@ import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.asm.errors.InvalidCertificateException;
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
-import jetbrains.buildServer.clouds.server.impl.CloudManagerBase;
 import jetbrains.buildServer.serverSide.*;
-import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -47,8 +45,6 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
 
 
   public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
-                                 @NotNull final EventDispatcher<BuildServerListener> serverDispatcher,
-                                 @NotNull final CloudManagerBase cloudManager,
                                  @NotNull final PluginDescriptor pluginDescriptor,
                                  @NotNull final ServerPaths serverPaths) {
     super(cloudRegistrar);
@@ -60,28 +56,6 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
     }
 
     myHtmlPath = pluginDescriptor.getPluginResourcesPath("azure-settings.html");
-    serverDispatcher.addListener(new BuildServerAdapter() {
-      @Override
-      public void agentStatusChanged(@NotNull final SBuildAgent agent, final boolean wasEnabled, final boolean wasAuthorized) {
-        if (!agent.isAuthorized() || wasAuthorized)
-          return;
-
-        final Map<String, String> config = agent.getConfigurationParameters();
-        if (config.containsKey(AzurePropertiesNames.INSTANCE_NAME) && !config.containsKey(CloudContants.PROFILE_ID)) {
-          // windows azure agent connected
-          for (CloudProfile profile : cloudManager.listProfiles()) {
-            final CloudClientEx existingClient = cloudManager.getClientIfExists(profile.getProfileId());
-            if (existingClient == null)
-              continue;
-            final CloudInstance instanceByAgent = existingClient.findInstanceByAgent(agent);
-            if (instanceByAgent != null) {
-              // we found instance and profile. Now updating parameters
-              return;
-            }
-          }
-        }
-      }
-    });
   }
 
   @Override

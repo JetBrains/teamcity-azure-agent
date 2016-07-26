@@ -18,6 +18,7 @@ package jetbrains.buildServer.clouds.azure.asm;
 
 import com.google.gson.annotations.SerializedName;
 import jetbrains.buildServer.TeamCityRuntimeException;
+import jetbrains.buildServer.clouds.CloudImageParameters;
 import jetbrains.buildServer.clouds.azure.asm.web.AzureWebConstants;
 import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
@@ -52,6 +53,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
     private final String myUsername;
     @SerializedName(AzureWebConstants.PUBLIC_IP)
     private final boolean myPublicIp;
+    @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)
+    private Integer myAgentPoolId;
 
     private String myPassword = null;
 
@@ -65,7 +68,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
                                   @Nullable final String osType,
                                   @Nullable final String username,
                                   @Nullable final String password,
-                                  final boolean publicIp) {
+                                  final boolean publicIp,
+                                  final int agentPoolId) {
         myBehaviour = cloneTypeName;
         mySourceName = sourceName;
         myServiceName = serviceName;
@@ -77,6 +81,7 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
         myPassword = password;
         myMaxInstances = maxInstances;
         myPublicIp = publicIp;
+        myAgentPoolId = agentPoolId;
         validateParams();
     }
 
@@ -126,6 +131,10 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
     public boolean getPublicIp() {
         return myPublicIp;
+    }
+
+    public Integer getAgentPoolId() {
+        return myAgentPoolId;
     }
 
     private void validateParams() {

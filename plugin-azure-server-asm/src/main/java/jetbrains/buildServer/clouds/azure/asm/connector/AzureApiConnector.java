@@ -281,7 +281,10 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                 for (HostedServiceGetDetailedResponse.Deployment deployment : response.getDeployments()) {
                     final Map<String, String> roleOsNames = new HashMap<>();
                     for (Role role : deployment.getRoles()) {
-                        roleOsNames.put(role.getRoleName(), role.getOSVirtualHardDisk().getOperatingSystem());
+                        if (role.getOSVirtualHardDisk() != null)
+                        {
+                            roleOsNames.put(role.getRoleName(), role.getOSVirtualHardDisk().getOperatingSystem());
+                        }
                     }
                     for (RoleInstance instance : deployment.getRoleInstances()) {
                         instances.put(instance.getInstanceName(), roleOsNames.get(instance.getRoleName()));

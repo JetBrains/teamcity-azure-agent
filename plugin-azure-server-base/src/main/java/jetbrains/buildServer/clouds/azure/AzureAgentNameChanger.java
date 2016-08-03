@@ -30,7 +30,7 @@ public class AzureAgentNameChanger extends BuildServerAdapter {
         // Check that it's an azure agent
         final Map<String, String> config = agent.getConfigurationParameters();
         final String agentName = config.get(AzurePropertiesNames.INSTANCE_NAME);
-        if (StringUtil.isEmpty(agentName)) {
+        if (StringUtil.isEmpty(agentName) || agentName.equals(agent.getName())) {
             return;
         }
 

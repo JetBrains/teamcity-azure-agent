@@ -32,14 +32,6 @@ public class UnixConfigReader extends AgentConfigReader {
 
     @Override
     public void process() {
-        // Check custom data existence
-        final File customDataFile = new File(UNIX_CUSTOM_DATA_FILE);
-        final String customData = myFileUtils.readFile(customDataFile);
-        if (StringUtil.isEmpty(customData)) {
-            LOG.info(String.format(CUSTOM_DATA_FILE_IS_EMPTY, customDataFile));
-            return;
-        }
-
         // Check properties file existence
         final File propertiesFile = new File(UNIX_PROP_FILE);
         final String xmlData = myFileUtils.readFile(propertiesFile);
@@ -60,6 +52,14 @@ public class UnixConfigReader extends AgentConfigReader {
         } catch (Exception e) {
             LOG.warnAndDebugDetails(String.format(FAILED_TO_READ_AZURE_PROPERTIES_FILE, propertiesFile), e);
             LOG.info("File contents: " + xmlData);
+            return;
+        }
+
+        // Check custom data existence
+        final File customDataFile = new File(UNIX_CUSTOM_DATA_FILE);
+        final String customData = myFileUtils.readFile(customDataFile);
+        if (StringUtil.isEmpty(customData)) {
+            LOG.info(String.format(CUSTOM_DATA_FILE_IS_EMPTY, customDataFile));
             return;
         }
 

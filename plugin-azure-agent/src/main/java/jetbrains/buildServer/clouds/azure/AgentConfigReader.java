@@ -76,7 +76,6 @@ public abstract class AgentConfigReader {
         final String agentName = StringUtil.trimStart(instanceName, "_");
         LOG.info("Reported azure instance name " + agentName);
 
-        myAgentConfiguration.setName(agentName);
         myAgentConfiguration.addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, agentName);
     }
 

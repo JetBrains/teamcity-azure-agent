@@ -60,6 +60,13 @@ public class UnixConfigReaderTest {
         final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
 
         m.checking(new Expectations() {{
+            allowing(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
+            will(returnValue(FileUtil.readText(new File("src/test/resources/SharedConfig.xml"))));
+
+            allowing(agentConfiguration).setOwnPort(9090);
+            allowing(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
+            allowing(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "paksvvm-53eb78da");
+
             allowing(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
             will(returnValue(StringUtil.EMPTY));
         }});

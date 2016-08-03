@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.asm;
 
 import jetbrains.buildServer.clouds.*;
+import jetbrains.buildServer.clouds.azure.AzureAgentNameChanger;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.azure.AzureUtils;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
@@ -24,6 +25,7 @@ import jetbrains.buildServer.clouds.azure.asm.errors.InvalidCertificateException
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.serverSide.*;
+import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -40,94 +42,95 @@ import java.util.Map;
  */
 public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudClient> {
 
-  private final String myHtmlPath;
-  private final File myAzureStorage;
+    private final String myHtmlPath;
+    private final File myAzureStorage;
 
+    public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
+                                   @NotNull final EventDispatcher<BuildServerListener> dispatcher,
+                                   @NotNull final PluginDescriptor pluginDescriptor,
+                                   @NotNull final ServerPaths serverPaths) {
+        super(cloudRegistrar);
 
-  public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
-                                 @NotNull final PluginDescriptor pluginDescriptor,
-                                 @NotNull final ServerPaths serverPaths) {
-    super(cloudRegistrar);
+        myAzureStorage = new File(serverPaths.getPluginDataDirectory(), "azureIdx");
+        if (!myAzureStorage.exists()) {
+            //noinspection ResultOfMethodCallIgnored
+            myAzureStorage.mkdirs();
+        }
 
-    myAzureStorage = new File(serverPaths.getPluginDataDirectory(), "azureIdx");
-    if (!myAzureStorage.exists()) {
-      //noinspection ResultOfMethodCallIgnored
-      myAzureStorage.mkdirs();
+        myHtmlPath = pluginDescriptor.getPluginResourcesPath("azure-settings.html");
+        dispatcher.addListener(new AzureAgentNameChanger());
     }
 
-    myHtmlPath = pluginDescriptor.getPluginResourcesPath("azure-settings.html");
-  }
-
-  @Override
-  public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final Collection<AzureCloudImageDetails> imageDetailsList, @NotNull final CloudClientParameters params) {
-    final String managementCertificate = params.getParameter("managementCertificate");
-    final String subscriptionId = params.getParameter("subscriptionId");
-    final AzureApiConnector apiConnector;
-    try {
-      apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
-    } catch (InvalidCertificateException e) {
-      throw new RuntimeException(e);
+    @Override
+    public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final Collection<AzureCloudImageDetails> imageDetailsList, @NotNull final CloudClientParameters params) {
+        final String managementCertificate = params.getParameter("managementCertificate");
+        final String subscriptionId = params.getParameter("subscriptionId");
+        final AzureApiConnector apiConnector;
+        try {
+            apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
+        } catch (InvalidCertificateException e) {
+            throw new RuntimeException(e);
+        }
+        return new AzureCloudClient(params, imageDetailsList, apiConnector, myAzureStorage);
     }
-    return new AzureCloudClient(params, imageDetailsList, apiConnector, myAzureStorage);
-  }
 
-  @Override
-  public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params, final TypedCloudErrorInfo[] profileErrors) {
-    final String managementCertificate = params.getParameter("managementCertificate");
-    final String subscriptionId = params.getParameter("subscriptionId");
-    final AzureApiConnector apiConnector;
-    try {
-      apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
-    } catch (InvalidCertificateException e) {
-      throw new RuntimeException(e);
+    @Override
+    public AzureCloudClient createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params, final TypedCloudErrorInfo[] profileErrors) {
+        final String managementCertificate = params.getParameter("managementCertificate");
+        final String subscriptionId = params.getParameter("subscriptionId");
+        final AzureApiConnector apiConnector;
+        try {
+            apiConnector = new AzureApiConnector(subscriptionId, managementCertificate);
+        } catch (InvalidCertificateException e) {
+            throw new RuntimeException(e);
+        }
+        final AzureCloudClient azureCloudClient = new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
+        azureCloudClient.updateErrors(profileErrors);
+        return azureCloudClient;
     }
-    final AzureCloudClient azureCloudClient = new AzureCloudClient(params, Collections.<AzureCloudImageDetails>emptyList(), apiConnector, myAzureStorage);
-    azureCloudClient.updateErrors(profileErrors);
-    return azureCloudClient;
-  }
 
 
-  @Override
-  public Collection<AzureCloudImageDetails> parseImageData(final CloudClientParameters params) {
-    return AzureUtils.parseImageData(AzureCloudImageDetails.class, params);
-  }
+    @Override
+    public Collection<AzureCloudImageDetails> parseImageData(final CloudClientParameters params) {
+        return AzureUtils.parseImageData(AzureCloudImageDetails.class, params);
+    }
 
-  @Nullable
-  @Override
-  protected TypedCloudErrorInfo[] checkClientParams(@NotNull final CloudClientParameters params) {
-    return new TypedCloudErrorInfo[0];
-  }
+    @Nullable
+    @Override
+    protected TypedCloudErrorInfo[] checkClientParams(@NotNull final CloudClientParameters params) {
+        return new TypedCloudErrorInfo[0];
+    }
 
-  @NotNull
-  public String getCloudCode() {
-    return "azure";
-  }
+    @NotNull
+    public String getCloudCode() {
+        return "azure";
+    }
 
-  @NotNull
-  public String getDisplayName() {
-    return "Azure Classic";
-  }
+    @NotNull
+    public String getDisplayName() {
+        return "Azure Classic";
+    }
 
-  @Nullable
-  public String getEditProfileUrl() {
-    return myHtmlPath;
-  }
+    @Nullable
+    public String getEditProfileUrl() {
+        return myHtmlPath;
+    }
 
-  @NotNull
-  public Map<String, String> getInitialParameterValues() {
-    return Collections.emptyMap();
-  }
+    @NotNull
+    public Map<String, String> getInitialParameterValues() {
+        return Collections.emptyMap();
+    }
 
-  @NotNull
-  public PropertiesProcessor getPropertiesProcessor() {
-    return new PropertiesProcessor() {
-      public Collection<InvalidProperty> process(Map<String, String> stringStringMap) {
-        return Collections.emptyList();
-      }
-    };
-  }
+    @NotNull
+    public PropertiesProcessor getPropertiesProcessor() {
+        return new PropertiesProcessor() {
+            public Collection<InvalidProperty> process(Map<String, String> stringStringMap) {
+                return Collections.emptyList();
+            }
+        };
+    }
 
-  public boolean canBeAgentOfType(@NotNull final AgentDescription description) {
-    return description.getConfigurationParameters().containsKey(AzurePropertiesNames.INSTANCE_NAME);
-  }
+    public boolean canBeAgentOfType(@NotNull final AgentDescription description) {
+        return description.getConfigurationParameters().containsKey(AzurePropertiesNames.INSTANCE_NAME);
+    }
 }

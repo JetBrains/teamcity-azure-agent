@@ -102,6 +102,12 @@ public class WindowsConfigReaderTest {
         final String drive = System.getenv("SystemDrive");
 
         m.checking(new Expectations() {{
+            allowing(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
+            will(returnValue(new File[]{new File("src/test/resources/windows-config.xml")}));
+
+            allowing(fileUtils).getCreationDate(with(any(File.class)));
+            will(returnValue(1L));
+
             allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
             will(returnValue(StringUtil.EMPTY));
         }});

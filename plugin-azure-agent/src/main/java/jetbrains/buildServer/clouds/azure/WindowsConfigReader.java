@@ -32,14 +32,6 @@ public class WindowsConfigReader extends AgentConfigReader {
 
     @Override
     public void process() {
-        // Check custom data file existence
-        final File customDataFile = new File(WINDOWS_CUSTOM_DATA_FILE);
-        final String customData = myFileUtils.readFile(customDataFile);
-        if (StringUtil.isEmpty(customData)) {
-            LOG.info(String.format(CUSTOM_DATA_FILE_IS_EMPTY, customDataFile));
-            return;
-        }
-
         // Check properties file existence
         final File configDir = new File(WINDOWS_PROP_FILE_DIR);
         final File[] files = myFileUtils.listFiles(configDir);
@@ -72,6 +64,14 @@ public class WindowsConfigReader extends AgentConfigReader {
             });
         } catch (Throwable e) {
             LOG.warnAndDebugDetails(String.format(FAILED_TO_READ_AZURE_PROPERTIES_FILE, latest), e);
+            return;
+        }
+
+        // Check custom data file existence
+        final File customDataFile = new File(WINDOWS_CUSTOM_DATA_FILE);
+        final String customData = myFileUtils.readFile(customDataFile);
+        if (StringUtil.isEmpty(customData)) {
+            LOG.info(String.format(CUSTOM_DATA_FILE_IS_EMPTY, customDataFile));
             return;
         }
 

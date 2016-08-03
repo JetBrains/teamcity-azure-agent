@@ -18,16 +18,14 @@ package jetbrains.buildServer.clouds.azure.arm;
 import jetbrains.buildServer.clouds.CloudClientParameters;
 import jetbrains.buildServer.clouds.CloudRegistrar;
 import jetbrains.buildServer.clouds.CloudState;
+import jetbrains.buildServer.clouds.azure.AzureAgentNameChanger;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.azure.AzureUtils;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl;
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
-import jetbrains.buildServer.serverSide.AgentDescription;
-import jetbrains.buildServer.serverSide.InvalidProperty;
-import jetbrains.buildServer.serverSide.PropertiesProcessor;
-import jetbrains.buildServer.serverSide.ServerPaths;
-import jetbrains.buildServer.serverSide.ServerSettings;
+import jetbrains.buildServer.serverSide.*;
+import jetbrains.buildServer.util.EventDispatcher;
 import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import org.jetbrains.annotations.NotNull;
@@ -50,6 +48,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
             AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD);
 
     public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
+                                   @NotNull final EventDispatcher<BuildServerListener> dispatcher,
                                    @NotNull final PluginDescriptor pluginDescriptor,
                                    @NotNull final ServerPaths serverPaths,
                                    @NotNull final ServerSettings settings) {
@@ -62,6 +61,7 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
         }
 
         myPluginDescriptor = pluginDescriptor;
+        dispatcher.addListener(new AzureAgentNameChanger());
     }
 
     @Override

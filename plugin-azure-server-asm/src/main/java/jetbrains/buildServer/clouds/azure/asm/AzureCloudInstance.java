@@ -28,16 +28,12 @@ import org.jetbrains.annotations.NotNull;
  */
 public class AzureCloudInstance extends AbstractCloudInstance<AzureCloudImage> {
 
-  protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name) {
-    super(image, name, name);
-  }
+    protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name) {
+        super(image, name, name);
+    }
 
-  protected AzureCloudInstance(@NotNull final AzureCloudImage image, String name, String id) {
-    super(image, name, id);
-  }
-
-  public boolean containsAgent(@NotNull final AgentDescription agent) {
-    final String agentInstanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
-    return getName().equals(agentInstanceName);
-  }
+    public boolean containsAgent(@NotNull final AgentDescription agent) {
+        final String agentInstanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
+        return getName().equals(agentInstanceName);
+    }
 }

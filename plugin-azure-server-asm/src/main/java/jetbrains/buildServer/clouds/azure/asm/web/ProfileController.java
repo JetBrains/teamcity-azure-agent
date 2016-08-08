@@ -83,18 +83,30 @@ public class ProfileController extends BaseController {
         manager.registerController(myHtmlPath, this);
     }
 
+    @Override
+    public ModelAndView handleRequest(HttpServletRequest request, HttpServletResponse response) throws Exception {
+        LOG.debug("Started handling profile request");
+        try {
+            return super.handleRequest(request, response);
+        } finally {
+            LOG.debug("Completed handling profile request");
+        }
+    }
+
     @Nullable
     @Override
     protected ModelAndView doHandle(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response) throws Exception {
-        request.setAttribute("org.apache.catalina.ASYNC_SUPPORTED", true);
-
         try {
+            LOG.debug("Executed doHandle method");
+            request.setAttribute("org.apache.catalina.ASYNC_SUPPORTED", true);
             if (isPost(request)) {
+                LOG.debug("Started POST request handler");
                 doPost(request, response);
                 return null;
+            } else {
+                LOG.debug("Started GET request handler");
+                return doGet();
             }
-
-            return doGet();
         } catch (Throwable e) {
             LOG.error("Failed to handle request: " + e.getMessage(), e);
             throw e;

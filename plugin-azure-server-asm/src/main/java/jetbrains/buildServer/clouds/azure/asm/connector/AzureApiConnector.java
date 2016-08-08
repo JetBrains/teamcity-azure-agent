@@ -694,19 +694,19 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
     static {
         CloudTracing.addTracingInterceptor(new CloudTracingInterceptor() {
             public void information(String s) {
-                LOG.info(s);
+                LOG.debug(s);
             }
 
             public void configuration(String s, String s1, String s2) {
-                LOG.info(String.format("Configuration:%s-%s-%s", s, s1, s2));
+                LOG.debug(String.format("Configuration:%s-%s-%s", s, s1, s2));
             }
 
             public void enter(String s, Object o, String s1, HashMap<String, Object> hashMap) {
-                LOG.info(String.format("Enter: %s, %s", s, s1));
+                LOG.debug(String.format("Enter: %s, %s", s, s1));
             }
 
             public void sendRequest(String s, HttpRequest httpRequest) {
-                LOG.info(String.format("Request(%s):%n%s", s, httpRequest.getRequestLine().getUri()));
+                LOG.debug(String.format("Request(%s):%n%s", s, httpRequest.getRequestLine().getUri()));
             }
 
             public void receiveResponse(String s, HttpResponse httpResponse) {
@@ -714,7 +714,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
                     final HttpEntity entity = httpResponse.getEntity();
                     final InputStream content = entity.getContent();
                     final String result = StreamUtil.readText(content);
-                    LOG.info(String.format("Request(%s):%n%s", s, result));
+                    LOG.debug(String.format("Request(%s):%n%s", s, result));
                     if (!entity.isRepeatable()) {
                         BasicHttpEntity newEntity = new BasicHttpEntity();
                         newEntity.setContent(new ByteArrayInputStream(result.getBytes()));

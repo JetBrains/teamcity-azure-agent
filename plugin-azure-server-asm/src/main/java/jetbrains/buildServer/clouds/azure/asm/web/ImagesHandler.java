@@ -31,12 +31,21 @@ import java.util.List;
  * Handles list of images request.
  */
 public class ImagesHandler implements ResourceHandler {
+
+    private static final String NAME = "Images";
+
+    @NotNull
+    @Override
+    public String getName() {
+        return NAME;
+    }
+
     @Override
     public Promise<Content, Throwable, Void> handle(@NotNull AzureApiConnector connector) {
         return connector.listImagesAsync().then(new DonePipe<List<Image>, Content, Throwable, Void>() {
             @Override
             public Promise<Content, Throwable, Void> pipeDone(List<Image> imageList) {
-                final Element images = new Element("Images");
+                final Element images = new Element(NAME);
                 for (Image image : imageList) {
                     final Element imageElem = new Element("Image");
                     imageElem.setAttribute("name", image.getName());

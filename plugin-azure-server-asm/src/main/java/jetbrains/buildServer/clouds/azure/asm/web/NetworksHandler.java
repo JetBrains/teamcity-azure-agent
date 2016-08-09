@@ -30,12 +30,21 @@ import java.util.List;
  * Handles list of networks request.
  */
 public class NetworksHandler implements ResourceHandler {
+
+    private static final String NAME = "VirtualNetworks";
+
+    @NotNull
+    @Override
+    public String getName() {
+        return NAME;
+    }
+
     @Override
     public Promise<Content, Throwable, Void> handle(@NotNull AzureApiConnector connector) {
         return connector.listVirtualNetworksAsync().then(new DonePipe<List<String>, Content, Throwable, Void>() {
             @Override
             public Promise<Content, Throwable, Void> pipeDone(List<String> networksList) {
-                Element virtualNetworksElement = new Element("VirtualNetworks");
+                Element virtualNetworksElement = new Element(NAME);
                 for (String networkName : networksList) {
                     final Element vn = new Element("VirtualNetwork");
                     vn.setAttribute("name", networkName);

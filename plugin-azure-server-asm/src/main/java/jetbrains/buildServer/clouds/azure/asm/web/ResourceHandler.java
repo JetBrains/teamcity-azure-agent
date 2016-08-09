@@ -27,5 +27,8 @@ import javax.servlet.http.HttpServletRequest;
  * Request handler.
  */
 interface ResourceHandler {
+    @NotNull
+    String getName();
+
     Promise<Content, Throwable, Void> handle(@NotNull AzureApiConnector connector);
 }

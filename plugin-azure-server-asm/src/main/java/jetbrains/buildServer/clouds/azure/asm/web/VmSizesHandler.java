@@ -30,12 +30,21 @@ import java.util.Map;
  * Handles vm sizes request.
  */
 public class VmSizesHandler implements ResourceHandler {
+
+    private static final String NAME = "VmSizes";
+
+    @NotNull
+    @Override
+    public String getName() {
+        return NAME;
+    }
+
     @Override
     public Promise<Content, Throwable, Void> handle(@NotNull AzureApiConnector connector) {
         return connector.listVmSizesAsync().then(new DonePipe<Map<String, String>, Content, Throwable, Void>() {
             @Override
             public Promise<Content, Throwable, Void> pipeDone(Map<String, String> sizes) {
-                final Element vmSizes = new Element("VmSizes");
+                final Element vmSizes = new Element(NAME);
                 for (String size : sizes.keySet()) {
                     final Element vmSize = new Element("VmSize");
                     vmSize.setAttribute("name", size);

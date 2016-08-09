@@ -22,11 +22,9 @@ import jetbrains.buildServer.clouds.azure.asm.errors.InvalidCertificateException
 import jetbrains.buildServer.clouds.azure.utils.PluginPropertiesUtil;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.controllers.ActionErrors;
-import jetbrains.buildServer.controllers.BaseController;
+import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
-import jetbrains.buildServer.controllers.XmlResponseUtil;
 import jetbrains.buildServer.serverSide.SBuildServer;
-import jetbrains.buildServer.util.StringUtil;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jdeferred.AlwaysCallback;
@@ -40,14 +38,10 @@ import org.jdeferred.multiple.OneResult;
 import org.jdom.Content;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.springframework.web.servlet.ModelAndView;
 
-import javax.servlet.AsyncContext;
-import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -57,7 +51,7 @@ import java.util.Map;
  *         Date: 8/6/2014
  *         Time: 3:01 PM
  */
-public class ProfileController extends BaseController {
+public class ProfileController extends BaseFormXmlController {
 
     private static final Logger LOG = Logger.getInstance(ProfileController.class.getName());
     private final String myJspPath;
@@ -84,45 +78,18 @@ public class ProfileController extends BaseController {
     }
 
     @Override
-    public ModelAndView handleRequest(HttpServletRequest request, HttpServletResponse response) throws Exception {
-        LOG.debug("Started handling profile request");
-        try {
-            return super.handleRequest(request, response);
-        } finally {
-            LOG.debug("Completed handling profile request");
-        }
-    }
-
-    @Nullable
-    @Override
-    protected ModelAndView doHandle(@NotNull HttpServletRequest request, @NotNull HttpServletResponse response) throws Exception {
-        try {
-            LOG.debug("Executed doHandle method");
-            request.setAttribute("org.apache.catalina.ASYNC_SUPPORTED", true);
-            if (isPost(request)) {
-                LOG.debug("Started POST request handler");
-                doPost(request, response);
-                return null;
-            } else {
-                LOG.debug("Started GET request handler");
-                return doGet();
-            }
-        } catch (Throwable e) {
-            LOG.error("Failed to handle request: " + e.getMessage(), e);
-            throw e;
-        }
-    }
-
-    private ModelAndView doGet() {
+    protected ModelAndView doGet(@NotNull final HttpServletRequest request,
+                                 @NotNull final HttpServletResponse response) {
         ModelAndView mv = new ModelAndView(myJspPath);
         mv.getModel().put("refreshablePath", myHtmlPath);
         mv.getModel().put("resPath", myResourcePath);
         return mv;
     }
 
-    private void doPost(@NotNull final HttpServletRequest request,
-                        @NotNull final HttpServletResponse response) {
-        final Element xmlResponse = XmlResponseUtil.newXmlResponse();
+    @Override
+    protected void doPost(@NotNull final HttpServletRequest request,
+                          @NotNull final HttpServletResponse response,
+                          @NotNull final Element xmlResponse) {
         final ActionErrors errors = new ActionErrors();
         final BasePropertiesBean propsBean = new BasePropertiesBean(null);
         PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true);
@@ -153,49 +120,42 @@ public class ProfileController extends BaseController {
                 final Promise<Content, Throwable, Void> promise = handler.handle(apiConnector).fail(new FailCallback<Throwable>() {
                     @Override
                     public void onFail(Throwable result) {
-                        LOG.debug(result);
-                        errors.addError(StringUtil.EMPTY, result.getMessage());
+                        LOG.warn(String.format("Failed to execute handler %s: %s", handler.getName(), result), result);
+                        errors.addError(handler.getName(), result.getMessage());
                     }
                 });
                 promises.add(promise);
             } catch (Throwable t) {
-                LOG.debug(t);
-                errors.addError(StringUtil.EMPTY, t.getMessage());
+                LOG.warn(String.format("Failed to add handler %s: %s", handler.getName(), t.getMessage()), t);
+                errors.addError(handler.getName(), t.getMessage());
             }
         }
 
         if (promises.size() == 0) {
             if (errors.hasErrors()) {
-                errors.serialize(xmlResponse);
+                writeErrors(xmlResponse, errors);
             }
 
-            writeResponse(xmlResponse, response);
             return;
         }
 
-        final AsyncContext context = request.startAsync(request, response);
-        myManager.when(promises.toArray(new Promise[]{})).always(new AlwaysCallback<MultipleResults, OneReject>() {
-            @Override
-            public void onAlways(Promise.State state, MultipleResults resolved, OneReject rejected) {
-                if (errors.hasErrors()) {
-                    errors.serialize(xmlResponse);
-                } else {
-                    for (OneResult oneResult : resolved) {
-                        xmlResponse.addContent((Content) oneResult.getResult());
+        try {
+            myManager.when(promises.toArray(new Promise[]{})).always(new AlwaysCallback<MultipleResults, OneReject>() {
+                @Override
+                public void onAlways(Promise.State state, MultipleResults resolved, OneReject rejected) {
+                    if (errors.hasErrors()) {
+                        writeErrors(xmlResponse, errors);
+                    } else {
+                        for (OneResult oneResult : resolved) {
+                            xmlResponse.addContent((Content) oneResult.getResult());
+                        }
                     }
                 }
-
-                writeResponse(xmlResponse, context.getResponse());
-                context.complete();
-            }
-        });
-    }
-
-    private static void writeResponse(final Element xmlResponse, final ServletResponse response) {
-        try {
-            XmlResponseUtil.writeXmlResponse(xmlResponse, (HttpServletResponse) response);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            }).waitSafely();
+        } catch (InterruptedException e) {
+            LOG.warn("Request executing has been interrupted: " + e.getMessage());
+            errors.addError("handler", e.getMessage());
+            writeErrors(xmlResponse, errors);
         }
     }
 }

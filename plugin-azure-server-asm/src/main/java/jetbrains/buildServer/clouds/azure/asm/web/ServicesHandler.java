@@ -32,12 +32,21 @@ import java.util.Map;
  * Handles list of services request.
  */
 public class ServicesHandler implements ResourceHandler {
+
+    private static final String NAME = "Services";
+
+    @NotNull
+    @Override
+    public String getName() {
+        return NAME;
+    }
+
     @Override
     public Promise<Content, Throwable, Void> handle(@NotNull AzureApiConnector connector) {
         return connector.listServicesAsync().then(new DonePipe<Map<String, Map<String, String>>, Content, Throwable, Void>() {
             @Override
             public Promise<Content, Throwable, Void> pipeDone(Map<String, Map<String, String>> servicesList) {
-                Element services = new Element("Services");
+                Element services = new Element(NAME);
                 for (String serviceName : servicesList.keySet()) {
                     final Element service = new Element("Service");
                     service.setAttribute("name", serviceName);

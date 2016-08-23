@@ -733,7 +733,7 @@ public class AzureApiConnector extends AzureApiConnectorBase<AzureCloudImage, Az
             }
 
             public void exit(String s, Object o) {
-                LOG.info("Exit: " + s);
+                LOG.debug("Exit: " + s);
             }
         });
     }

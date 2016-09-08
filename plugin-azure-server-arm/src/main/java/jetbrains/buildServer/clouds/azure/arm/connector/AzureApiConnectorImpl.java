@@ -579,7 +579,17 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                 final Deployment deployment = new Deployment();
                 deployment.setProperties(new DeploymentProperties());
                 deployment.getProperties().setMode(DeploymentMode.INCREMENTAL);
+                LOG.debug("Deployment template: \n" + templateValue);
                 deployment.getProperties().setTemplate(new RawJsonValue(templateValue));
+                String message = "Deployment parameters:";
+                for (Map.Entry<String, JsonValue> param : params.entrySet()) {
+                    if (param.getKey().equals("adminPassword")) {
+                        message += String.format("\n - '%s' = '**********'", param.getKey());
+                    } else {
+                        message += String.format("\n - '%s' = '%s'", param.getKey(), param.getValue().getValue());
+                    }
+                }
+                LOG.debug(message);
                 deployment.getProperties().setParameters(new RawJsonValue(parameters));
 
                 return createDeploymentAsync(name, name, deployment);
@@ -615,8 +625,17 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         myArmClient.getDeploymentsOperations().createOrUpdateAsync(groupId, deploymentId, deployment, new ServiceCallback<DeploymentExtended>() {
             @Override
             public void failure(Throwable t) {
-                final String message = String.format("Failed to create deployment in resource group %s: %s", groupId, t.getMessage());
+                String message = String.format("Failed to create deployment in resource group %s: %s", groupId, t.getMessage());
                 LOG.debug(message, t);
+
+                if (t instanceof com.microsoft.azure.CloudException) {
+                    com.microsoft.azure.CloudException cloudException = (com.microsoft.azure.CloudException)t;
+                    com.microsoft.azure.CloudError cloudError = cloudException.getBody();
+                    List<com.microsoft.azure.CloudError> details = cloudError.getDetails();
+                    for (com.microsoft.azure.CloudError ce : details) {
+                        message += "\n" + ce.getMessage();
+                    }
+                }
                 final CloudException exception = new CloudException(message, t);
                 deferred.reject(exception);
             }

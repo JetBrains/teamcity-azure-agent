@@ -18,7 +18,6 @@ package jetbrains.buildServer.clouds.azure.arm;
 import jetbrains.buildServer.clouds.CloudClientParameters;
 import jetbrains.buildServer.clouds.CloudRegistrar;
 import jetbrains.buildServer.clouds.CloudState;
-import jetbrains.buildServer.clouds.azure.AzureAgentNameChanger;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.azure.AzureUtils;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl;
@@ -48,7 +47,6 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
             AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD);
 
     public AzureCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar,
-                                   @NotNull final EventDispatcher<BuildServerListener> dispatcher,
                                    @NotNull final PluginDescriptor pluginDescriptor,
                                    @NotNull final ServerPaths serverPaths,
                                    @NotNull final ServerSettings settings) {
@@ -61,7 +59,6 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
         }
 
         myPluginDescriptor = pluginDescriptor;
-        dispatcher.addListener(new AzureAgentNameChanger());
     }
 
     @Override

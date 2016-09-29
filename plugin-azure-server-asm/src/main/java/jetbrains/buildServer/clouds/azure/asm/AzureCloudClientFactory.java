@@ -17,7 +17,6 @@
 package jetbrains.buildServer.clouds.azure.asm;
 
 import jetbrains.buildServer.clouds.*;
-import jetbrains.buildServer.clouds.azure.AzureAgentNameChanger;
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames;
 import jetbrains.buildServer.clouds.azure.AzureUtils;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
@@ -58,7 +57,6 @@ public class AzureCloudClientFactory extends AbstractCloudClientFactory<AzureClo
         }
 
         myHtmlPath = pluginDescriptor.getPluginResourcesPath("azure-settings.html");
-        dispatcher.addListener(new AzureAgentNameChanger());
     }
 
     @Override

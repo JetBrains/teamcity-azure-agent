@@ -39,7 +39,17 @@ public abstract class AgentConfigReader {
             return;
         }
 
-        myAgentConfiguration.setServerUrl(data.getServerAddress());
+        final String serverAddress = data.getServerAddress();
+        LOG.info("Set server URL to " + serverAddress);
+        myAgentConfiguration.setServerUrl(serverAddress);
+
+        final String agentName = data.getAgentName();
+        if (!StringUtil.isEmptyOrSpaces(agentName)) {
+            LOG.info("Set azure instance name " + agentName);
+            myAgentConfiguration.setName(agentName);
+            myAgentConfiguration.addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, agentName);
+        }
+
         if (data.getIdleTimeout() == null) {
             LOG.debug("Idle timeout in custom data is null");
         } else {
@@ -47,7 +57,6 @@ public abstract class AgentConfigReader {
             myIdleShutdown.setIdleTime(data.getIdleTimeout());
         }
 
-        LOG.info("Set server URL to " + data.getServerAddress());
         final Map<String, String> customParams = data.getCustomAgentConfigurationParameters();
         for (String key : customParams.keySet()) {
             final String value = customParams.get(key);

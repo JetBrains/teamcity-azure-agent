@@ -235,7 +235,15 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
                             if (myImageDetails.getBehaviour().isUseOriginal()) {
                                 response = myApiConnector.startVM(AzureCloudImage.this);
                             } else {
-                                response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
+                                final CloudInstanceUserData data = new CloudInstanceUserData(vmName,
+                                        tag.getAuthToken(),
+                                        tag.getServerAddress(),
+                                        tag.getIdleTimeout(),
+                                        tag.getProfileId(),
+                                        tag.getProfileDescription(),
+                                        tag.getCustomAgentConfigurationParameters());
+
+                                response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, data, myGeneralized);
                             }
                             instance.setStatus(InstanceStatus.STARTING);
                             operationId = response.getRequestId();

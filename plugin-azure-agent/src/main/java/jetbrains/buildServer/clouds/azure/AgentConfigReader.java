@@ -18,9 +18,9 @@ import java.util.Map;
 public abstract class AgentConfigReader {
 
     private static final Logger LOG = Logger.getInstance(AzurePropertiesReader.class.getName());
-    protected static final String CUSTOM_DATA_FILE_IS_EMPTY = "Azure custom data file %s is empty: integration is disabled";
+    protected static final String CUSTOM_DATA_FILE_IS_EMPTY = "Azure custom data file %s is empty";
     protected static final String UNABLE_TO_READ_CUSTOM_DATA_FILE = "Unable to read azure custom data file %s: will use existing parameters";
-    protected static final String FAILED_TO_READ_AZURE_PROPERTIES_FILE = "Failed to read azure properties file %s: integration is disabled";
+    protected static final String FAILED_TO_READ_AZURE_PROPERTIES_FILE = "Failed to read azure properties file %s";
     private final BuildAgentConfigurationEx myAgentConfiguration;
     private final IdleShutdown myIdleShutdown;
 
@@ -85,7 +85,9 @@ public abstract class AgentConfigReader {
         final String agentName = StringUtil.trimStart(instanceName, "_");
         LOG.info("Reported azure instance name " + agentName);
 
-        myAgentConfiguration.addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, agentName);
+        if (!myAgentConfiguration.getConfigurationParameters().containsKey(AzurePropertiesNames.INSTANCE_NAME)) {
+            myAgentConfiguration.addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, agentName);
+        }
     }
 
     private void setLocalPort(final Element documentElement, final String instanceName) {

@@ -10,6 +10,7 @@ import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 
 /**
  * @author Dmitry.Tretyakov
@@ -34,6 +35,8 @@ public class UnixConfigReaderTest {
             allowing(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
             allowing(agentConfiguration).setName("paksvvm-53eb78da");
             allowing(agentConfiguration).setServerUrl("http://tc-srv.cloudapp.net:8111");
+            allowing(agentConfiguration).getConfigurationParameters();
+            will(returnValue(Collections.emptyMap()));
             allowing(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "paksvvm-53eb78da");
             allowing(agentConfiguration).addConfigurationParameter("system.cloud.profile_id", "cp1");
             allowing(agentConfiguration).addConfigurationParameter("teamcity.cloud.instance.hash", "Nx50NAfzeoljh3iJf77jvtci1BSWtaZ2");
@@ -65,6 +68,8 @@ public class UnixConfigReaderTest {
 
             allowing(agentConfiguration).setOwnPort(9090);
             allowing(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
+            allowing(agentConfiguration).getConfigurationParameters();
+            will(returnValue(Collections.emptyMap()));
             allowing(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "paksvvm-53eb78da");
 
             allowing(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));

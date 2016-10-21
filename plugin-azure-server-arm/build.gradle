@@ -1,6 +1,6 @@
 apply plugin: 'com.github.rodm.teamcity-server'
 
-ext.azureSdkVersion = project.hasProperty('azureArmSdkVersion') ? project.getProperty('azureArmSdkVersion') : '1.0.0-SNAPSHOT'
+ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.0.0-SNAPSHOT'
 
 teamcity {
     version = teamcityVersion

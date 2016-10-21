@@ -1,18 +1,12 @@
-buildscript {
-    repositories {
-        maven {
-            url "https://plugins.gradle.org/m2/"
-        }
-    }
-    dependencies {
-        classpath group: 'com.github.rodm', name: 'gradle-teamcity-plugin', version: '0.9.1'
-    }
+plugins {
+    id 'com.github.rodm.teamcity-server' version '0.9.1'
 }
 
 ext {
-    versionNumber = System.getenv('versionNumber') != null ? System.getenv('versionNumber') : 'SNAPSHOT'
+    def correctVersion = hasProperty('versionNumber') && property('versionNumber') ==~ /\d+\.\d+\.\d+.*/
+    versionNumber = correctVersion ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
     projectIds = ['group': 'teamcity-azure-plugin', 'version': versionNumber]
-    teamcityVersion = project.hasProperty('teamcityVersion') ? project.getProperty('teamcityVersion') : '10.0'
+    teamcityVersion = findProperty('teamcityVersion') ?: '10.0'
 }
 
 group = projectIds.group

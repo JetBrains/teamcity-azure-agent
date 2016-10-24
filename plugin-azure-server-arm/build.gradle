@@ -1,6 +1,6 @@
 apply plugin: 'com.github.rodm.teamcity-server'
 
-ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.0.0-SNAPSHOT'
+ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.0.0-beta3'
 
 teamcity {
     version = teamcityVersion
@@ -11,22 +11,13 @@ teamcity {
     }
 }
 
-repositories {
-    maven { url 'http://adxsnapshots.azurewebsites.net/' }
-}
-
 dependencies {
     agent project(path: ':plugin-azure-agent', configuration: 'plugin')
     server project(':plugin-azure-common')
     server project(':plugin-azure-server-base')
     provided project(':plugin-azure-server-base')
 
-    compile "com.microsoft.azure:azure-mgmt-compute:$azureSdkVersion"
-    compile "com.microsoft.azure:azure-mgmt-network:$azureSdkVersion"
-    compile "com.microsoft.azure:azure-mgmt-resources:$azureSdkVersion"
-    compile "com.microsoft.azure:azure-mgmt-storage:$azureSdkVersion"
-    compile "com.microsoft.azure:azure-client-authentication:$azureSdkVersion"
-    compile "com.microsoft.azure:azure-client-runtime:$azureSdkVersion"
+    compile "com.microsoft.azure:azure:$azureSdkVersion"
     compile 'com.microsoft.azure:azure-storage:4.0.0'
     compile 'org.jdeferred:jdeferred-core:1.2.4'
     compile 'com.squareup.okio:okio:1.7.0'

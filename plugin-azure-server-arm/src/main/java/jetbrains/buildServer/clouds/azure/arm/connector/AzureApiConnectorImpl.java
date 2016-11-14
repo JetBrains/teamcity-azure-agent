@@ -57,6 +57,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joda.time.DateTime;
 import retrofit2.Retrofit;
 
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URI;
@@ -563,47 +564,61 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
 
     private Promise<Void, Throwable, Void> createResourceGroupAsync(final String groupId, String location) {
         final DeferredObject<Void, Throwable, Void> deferred = new DeferredObject<>();
+        myAzure.withSubscription(mySubscriptionId).resourceGroups().define(groupId)
+                .withRegion(location)
+                .createAsync(new ServiceCallback<ResourceGroup>() {
+                    @Override
+                    public void failure(Throwable t) {
+                        final String message = String.format("Failed to create resource group %s: %s", groupId, t.getMessage());
+                        LOG.debug(message, t);
+                        final CloudException exception = new CloudException(message, t);
+                        deferred.reject(exception);
+                    }
 
-        try {
-            myAzure.withSubscription(mySubscriptionId).resourceGroups().define(groupId)
-                    .withRegion(location)
-                    .create();
-            deferred.resolve(null);
-        } catch (Throwable t) {
-            final String message = String.format("Failed to create resource group %s: %s", groupId, t.getMessage());
-            LOG.debug(message, t);
-            final CloudException exception = new CloudException(message, t);
-            deferred.reject(exception);
-        }
+                    @Override
+                    public void success(ResourceGroup result) {
+                        deferred.resolve(null);
+                    }
+                });
 
         return deferred.promise();
     }
 
     private Promise<Void, Throwable, Void> createDeploymentAsync(final String groupId, String deploymentId, String template, String params) {
         final DeferredObject<Void, Throwable, Void> deferred = new DeferredObject<>();
-
         try {
             myAzure.withSubscription(mySubscriptionId).deployments().define(deploymentId)
                     .withExistingResourceGroup(groupId)
                     .withTemplate(template)
                     .withParameters(params)
                     .withMode(DeploymentMode.INCREMENTAL)
-                    .create();
-            deferred.resolve(null);
-        } catch (Throwable t) {
-            String message = String.format("Failed to create deployment in resource group %s: %s", groupId, t.getMessage());
-            LOG.debug(message, t);
+                    .createAsync(new ServiceCallback<Deployment>() {
+                        @Override
+                        public void failure(Throwable t) {
+                            String message = String.format("Failed to create deployment in resource group %s: %s", groupId, t.getMessage());
+                            LOG.debug(message, t);
 
-            if (t instanceof com.microsoft.azure.CloudException) {
-                com.microsoft.azure.CloudException cloudException = (com.microsoft.azure.CloudException) t;
-                com.microsoft.azure.CloudError cloudError = cloudException.getBody();
-                List<com.microsoft.azure.CloudError> details = cloudError.getDetails();
-                for (com.microsoft.azure.CloudError ce : details) {
-                    message += "\n" + ce.getMessage();
-                }
-            }
-            final CloudException exception = new CloudException(message, t);
-            deferred.reject(exception);
+                            if (t instanceof com.microsoft.azure.CloudException) {
+                                com.microsoft.azure.CloudException cloudException = (com.microsoft.azure.CloudException) t;
+                                com.microsoft.azure.CloudError cloudError = cloudException.getBody();
+                                List<com.microsoft.azure.CloudError> details = cloudError.getDetails();
+                                for (com.microsoft.azure.CloudError ce : details) {
+                                    message += "\n" + ce.getMessage();
+                                }
+                            }
+                            final CloudException exception = new CloudException(message, t);
+                            deferred.reject(exception);
+                        }
+
+                        @Override
+                        public void success(Deployment result) {
+                            deferred.resolve(null);
+                        }
+                    });
+        } catch (IOException e) {
+            String message = String.format("Failed to specify deployment template: %s", e.getMessage());
+            LOG.debug(message, e);
+            deferred.reject(e);
         }
 
         return deferred.promise();

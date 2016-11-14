@@ -3,7 +3,7 @@ plugins {
 }
 
 ext {
-    def correctVersion = hasProperty('versionNumber') && property('versionNumber') ==~ /\d+\.\d+\.\d+.*/
+    def correctVersion = project.hasProperty('versionNumber') && property('versionNumber') ==~ /\d+\.\d+\.\d+.*/
     versionNumber = correctVersion ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
     projectIds = ['group': 'teamcity-azure-plugin', 'version': versionNumber]
     teamcityVersion = findProperty('teamcityVersion') ?: '10.0'

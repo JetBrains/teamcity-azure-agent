@@ -378,12 +378,20 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             publicIpPromise = new DeferredObject<Void, Throwable, Void>().resolve(null);
         }
 
-        return myManager.when(instanceViewPromise, publicIpPromise).then(new DonePipe<MultipleResults, Void, Throwable, Void>() {
+        final DeferredObject<Void, Throwable, Void> deferred = new DeferredObject<>();
+        myManager.when(instanceViewPromise, publicIpPromise).done(new DoneCallback<MultipleResults>() {
             @Override
-            public Promise<Void, Throwable, Void> pipeDone(MultipleResults result) {
-                return new DeferredObject<Void, Throwable, Void>().resolve(null);
+            public void onDone(MultipleResults result) {
+                deferred.resolve(null);
+            }
+        }).fail(new FailCallback<OneReject>() {
+            @Override
+            public void onFail(OneReject result) {
+                deferred.reject((Throwable) result.getReject());
             }
         });
+
+        return deferred.promise();
     }
 
     private Promise<VirtualMachine, Throwable, Void> getVirtualMachineAsync(final String groupId, final String name) {

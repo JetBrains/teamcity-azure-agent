@@ -261,7 +261,7 @@
                     <td class="center" data-bind="text: maxInstances"></td>
                     <td class="edit">
                         <a href="#" data-bind="click: $parent.showDialog,
-                        css: {hidden: !$parent.isValidCredentials() || $parent.loadingLocations()}">Edit</a>
+                        css: {hidden: !$parent.isValidCredentials() || $parent.loadingLocations() || $parent.loadingResources()}">Edit</a>
                     </td>
                     <td class="remove"><a href="#" data-bind="click: $parent.deleteImage">Delete</a></td>
                 </tr>

@@ -1,6 +1,7 @@
 package jetbrains.buildServer.clouds.azure;
 
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx;
+import jetbrains.buildServer.util.CollectionsUtil;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import org.jmock.Expectations;
@@ -28,23 +29,57 @@ public class UnixConfigReaderTest {
         final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
 
         m.checking(new Expectations() {{
-            allowing(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
+            one(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
             will(returnValue(FileUtil.readText(new File("src/test/resources/SharedConfig.xml"))));
 
-            allowing(agentConfiguration).setOwnPort(9090);
-            allowing(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
-            allowing(agentConfiguration).setName("paksvvm-53eb78da");
-            allowing(agentConfiguration).setServerUrl("http://tc-srv.cloudapp.net:8111");
-            allowing(agentConfiguration).getConfigurationParameters();
+            one(agentConfiguration).setOwnPort(9090);
+            one(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
+            one(agentConfiguration).setServerUrl("http://tc-srv.cloudapp.net:8111");
+            one(agentConfiguration).getConfigurationParameters();
             will(returnValue(Collections.emptyMap()));
-            allowing(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "paksvvm-53eb78da");
-            allowing(agentConfiguration).addConfigurationParameter("system.cloud.profile_id", "cp1");
-            allowing(agentConfiguration).addConfigurationParameter("teamcity.cloud.instance.hash", "Nx50NAfzeoljh3iJf77jvtci1BSWtaZ2");
+            one(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "paksvvm-53eb78da");
+            one(agentConfiguration).addConfigurationParameter("system.cloud.profile_id", "cp1");
+            one(agentConfiguration).addConfigurationParameter("teamcity.cloud.instance.hash", "Nx50NAfzeoljh3iJf77jvtci1BSWtaZ2");
 
-            allowing(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
+            one(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
             will(returnValue(FileUtil.readText(new File("src/test/resources/ovf-env.xml"))));
 
-            allowing(idleShutdown).setIdleTime(2400000L);
+            one(idleShutdown).setIdleTime(2400000L);
+        }});
+
+        UnixConfigReader configReader = new UnixConfigReader(agentConfiguration, idleShutdown, fileUtils);
+        configReader.process();
+
+        m.assertIsSatisfied();
+    }
+
+    @Test
+    public void testProcessUnixConfig2() throws IOException {
+        final Mockery m = new Mockery() {{
+            setImposteriser(ClassImposteriser.INSTANCE);
+        }};
+        final FileUtils fileUtils = m.mock(FileUtils.class);
+        final BuildAgentConfigurationEx agentConfiguration = m.mock(BuildAgentConfigurationEx.class);
+        final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
+
+        m.checking(new Expectations() {{
+            one(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
+            will(returnValue(FileUtil.readText(new File("src/test/resources/SharedConfig.xml"))));
+
+            one(agentConfiguration).setOwnPort(9090);
+            one(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
+            one(agentConfiguration).setName("paksvvm-53eb78da");
+            one(agentConfiguration).setServerUrl("http://tc-srv.cloudapp.net:8111");
+            one(agentConfiguration).getConfigurationParameters();
+            will(returnValue(CollectionsUtil.asMap(AzurePropertiesNames.INSTANCE_NAME, "")));
+            one(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "paksvvm-53eb78da");
+            one(agentConfiguration).addConfigurationParameter("system.cloud.profile_id", "cp1");
+            one(agentConfiguration).addConfigurationParameter("teamcity.cloud.instance.hash", "Nx50NAfzeoljh3iJf77jvtci1BSWtaZ2");
+
+            one(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
+            will(returnValue(FileUtil.readText(new File("src/test/resources/ovf-env2.xml"))));
+
+            one(idleShutdown).setIdleTime(2400000L);
         }});
 
         UnixConfigReader configReader = new UnixConfigReader(agentConfiguration, idleShutdown, fileUtils);
@@ -63,16 +98,16 @@ public class UnixConfigReaderTest {
         final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
 
         m.checking(new Expectations() {{
-            allowing(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
+            one(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
             will(returnValue(FileUtil.readText(new File("src/test/resources/SharedConfig.xml"))));
 
-            allowing(agentConfiguration).setOwnPort(9090);
-            allowing(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
-            allowing(agentConfiguration).getConfigurationParameters();
+            one(agentConfiguration).setOwnPort(9090);
+            one(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
+            one(agentConfiguration).getConfigurationParameters();
             will(returnValue(Collections.emptyMap()));
-            allowing(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "paksvvm-53eb78da");
+            one(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "paksvvm-53eb78da");
 
-            allowing(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
+            one(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
             will(returnValue(StringUtil.EMPTY));
         }});
 
@@ -92,10 +127,10 @@ public class UnixConfigReaderTest {
         final IdleShutdown idleShutdown = m.mock(IdleShutdown.class);
 
         m.checking(new Expectations() {{
-            allowing(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
+            one(fileUtils).readFile(new File("/var/lib/waagent/ovf-env.xml"));
             will(returnValue(StringUtil.EMPTY));
 
-            allowing(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
+            one(fileUtils).readFile(new File("/var/lib/waagent/SharedConfig.xml"));
             will(returnValue(StringUtil.EMPTY));
         }});
 

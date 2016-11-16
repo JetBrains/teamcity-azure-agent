@@ -37,14 +37,13 @@ public class WindowsConfigReader extends AgentConfigReader {
         final String customData = myFileUtils.readFile(customDataFile);
         if (StringUtil.isEmpty(customData)) {
             LOG.info(String.format(CUSTOM_DATA_FILE_IS_EMPTY, customDataFile));
-            return;
-        }
-
-        // Process custom data
-        try {
-            processCustomData(customData);
-        } catch (Exception e) {
-            LOG.warnAndDebugDetails(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFile), e);
+        } else {
+            // Process custom data
+            try {
+                processCustomData(customData);
+            } catch (Exception e) {
+                LOG.warnAndDebugDetails(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFile), e);
+            }
         }
 
         // Check properties file existence

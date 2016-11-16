@@ -30,24 +30,22 @@ public class WindowsConfigReaderTest {
         final String drive = System.getenv("SystemDrive");
 
         m.checking(new Expectations() {{
-            allowing(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
+            one(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
             will(returnValue(new File[]{new File("src/test/resources/SharedConfig.xml")}));
 
-            allowing(fileUtils).getCreationDate(with(any(File.class)));
+            one(fileUtils).getCreationDate(with(any(File.class)));
             will(returnValue(1L));
 
-            allowing(agentConfiguration).setOwnPort(9090);
-            allowing(agentConfiguration).setName("paksvvm-53eb78da");
-            allowing(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
-            allowing(agentConfiguration).setServerUrl("https://teamcityserver.url");
-            allowing(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "paksvvm-53eb78da");
-            allowing(agentConfiguration).addConfigurationParameter("system.cloud.profile_id", "arm-1");
-            allowing(agentConfiguration).addConfigurationParameter("teamcity.cloud.instance.hash", "C7PfiVOkdPi6Ak5cAO8Iq5NWPtHbO14q");
+            one(agentConfiguration).setOwnPort(9090);
+            one(agentConfiguration).addAlternativeAgentAddress("191.233.107.5");
+            one(agentConfiguration).setServerUrl("https://teamcityserver.url");
+            one(agentConfiguration).addConfigurationParameter("system.cloud.profile_id", "arm-1");
+            one(agentConfiguration).addConfigurationParameter("teamcity.cloud.instance.hash", "C7PfiVOkdPi6Ak5cAO8Iq5NWPtHbO14q");
 
-            allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
+            one(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
             will(returnValue(FileUtil.readText(new File("src/test/resources/CustomData.bin"))));
 
-            allowing(idleShutdown).setIdleTime(2400000L);
+            one(idleShutdown).setIdleTime(2400000L);
         }});
 
         WindowsConfigReader configReader = new WindowsConfigReader(agentConfiguration, idleShutdown, fileUtils);
@@ -67,22 +65,20 @@ public class WindowsConfigReaderTest {
         final String drive = System.getenv("SystemDrive");
 
         m.checking(new Expectations() {{
-            allowing(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
+            one(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
             will(returnValue(new File[]{new File("src/test/resources/windows-config.xml")}));
 
-            allowing(fileUtils).getCreationDate(with(any(File.class)));
+            one(fileUtils).getCreationDate(with(any(File.class)));
             will(returnValue(1L));
 
-            allowing(agentConfiguration).setName("tc-win-agent");
-            allowing(agentConfiguration).setServerUrl("https://teamcityserver.url");
-            allowing(agentConfiguration).addConfigurationParameter(AzurePropertiesNames.INSTANCE_NAME, "tc-win-agent");
-            allowing(agentConfiguration).addConfigurationParameter("system.cloud.profile_id", "arm-1");
-            allowing(agentConfiguration).addConfigurationParameter("teamcity.cloud.instance.hash", "C7PfiVOkdPi6Ak5cAO8Iq5NWPtHbO14q");
+            one(agentConfiguration).setServerUrl("https://teamcityserver.url");
+            one(agentConfiguration).addConfigurationParameter("system.cloud.profile_id", "arm-1");
+            one(agentConfiguration).addConfigurationParameter("teamcity.cloud.instance.hash", "C7PfiVOkdPi6Ak5cAO8Iq5NWPtHbO14q");
 
-            allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
+            one(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
             will(returnValue(FileUtil.readText(new File("src/test/resources/CustomData.bin"))));
 
-            allowing(idleShutdown).setIdleTime(2400000L);
+            one(idleShutdown).setIdleTime(2400000L);
         }});
 
         WindowsConfigReader configReader = new WindowsConfigReader(agentConfiguration, idleShutdown, fileUtils);
@@ -102,14 +98,14 @@ public class WindowsConfigReaderTest {
         final String drive = System.getenv("SystemDrive");
 
         m.checking(new Expectations() {{
-            allowing(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
+            one(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
+            will(returnValue(StringUtil.EMPTY));
+
+            one(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
             will(returnValue(new File[]{new File("src/test/resources/windows-config.xml")}));
 
-            allowing(fileUtils).getCreationDate(with(any(File.class)));
+            one(fileUtils).getCreationDate(with(any(File.class)));
             will(returnValue(1L));
-
-            allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
-            will(returnValue(StringUtil.EMPTY));
         }});
 
         WindowsConfigReader configReader = new WindowsConfigReader(agentConfiguration, idleShutdown, fileUtils);
@@ -129,10 +125,10 @@ public class WindowsConfigReaderTest {
         final String drive = System.getenv("SystemDrive");
 
         m.checking(new Expectations() {{
-            allowing(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
+            one(fileUtils).readFile(new File(drive + "\\AzureData\\CustomData.bin"));
             will(returnValue("data"));
 
-            allowing(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
+            one(fileUtils).listFiles(new File(drive + "\\WindowsAzure\\Config"));
             will(returnValue(new File[]{}));
         }});
 

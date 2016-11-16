@@ -20,8 +20,10 @@ import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.intellij.openapi.util.text.StringUtil;
 import jetbrains.buildServer.clouds.CloudClientParameters;
+import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
+import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -43,12 +45,12 @@ public final class AzureUtils {
 
         final ListParameterizedType listType = new ListParameterizedType(clazz);
         final List<T> images = gson.fromJson(imageData, listType);
-        if (CloudImagePasswordDetails.class.isAssignableFrom(clazz)){
+        if (CloudImagePasswordDetails.class.isAssignableFrom(clazz)) {
             final String passwordData = params.getParameter("secure:passwords_data");
             final Map<String, String> data = gson.fromJson(passwordData, stringStringMapType);
             if (data != null) {
                 for (T image : images) {
-                    final CloudImagePasswordDetails userImage = (CloudImagePasswordDetails)image;
+                    final CloudImagePasswordDetails userImage = (CloudImagePasswordDetails) image;
                     if (data.get(image.getSourceName()) != null) {
                         userImage.setPassword(data.get(image.getSourceName()));
                     }
@@ -56,7 +58,7 @@ public final class AzureUtils {
             }
         }
 
-        return new ArrayList<T>(images);
+        return new ArrayList<>(images);
     }
 
     private static class ListParameterizedType implements ParameterizedType {
@@ -69,7 +71,7 @@ public final class AzureUtils {
 
         @Override
         public Type[] getActualTypeArguments() {
-            return new Type[] {type};
+            return new Type[]{type};
         }
 
         @Override
@@ -83,4 +85,22 @@ public final class AzureUtils {
         }
 
         // implement equals method too! (as per javadoc)
-    }}
+    }
+
+    /**
+     * Updates tag data.
+     *
+     * @param tag    original tag.
+     * @param vmName virtual machine name.
+     * @return updated tag.
+     */
+    public static CloudInstanceUserData setVmNameForTag(@NotNull final CloudInstanceUserData tag, @NotNull final String vmName) {
+        return new CloudInstanceUserData(vmName,
+                tag.getAuthToken(),
+                tag.getServerAddress(),
+                tag.getIdleTimeout(),
+                tag.getProfileId(),
+                tag.getProfileDescription(),
+                tag.getCustomAgentConfigurationParameters());
+    }
+}

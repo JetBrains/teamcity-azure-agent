@@ -47,6 +47,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
     private String myPassword = null;
     @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)
     private Integer myAgentPoolId;
+    @SerializedName(AzureConstants.REUSE_VM)
+    private final boolean myReuseVm;
 
     public AzureCloudImageDetails(@NotNull final String imageUrl,
                                   @NotNull final String osType,
@@ -57,7 +59,8 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
                                   final boolean vmPublicIp,
                                   final int maxInstances,
                                   @NotNull final String username,
-                                  final int agentPoolId) {
+                                  final int agentPoolId,
+                                  final boolean reuseVm) {
         myImageUrl = imageUrl;
         myOsType = osType;
         myNetworkId = networkId;
@@ -68,6 +71,7 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
         myMaxInstances = maxInstances;
         myUsername = username;
         myAgentPoolId = agentPoolId;
+        myReuseVm = reuseVm;
     }
 
     public String getImageUrl() {
@@ -120,7 +124,7 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
     }
 
     public CloneBehaviour getBehaviour() {
-        return CloneBehaviour.FRESH_CLONE;
+        return myReuseVm ? CloneBehaviour.ON_DEMAND_CLONE : CloneBehaviour.FRESH_CLONE;
     }
 
     public Integer getAgentPoolId() {

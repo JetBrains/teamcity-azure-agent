@@ -36,6 +36,10 @@ public interface AzureApiConnector extends CloudApiConnector<AzureCloudImage, Az
 
     Promise<Void, Throwable, Void> restartVmAsync(@NotNull AzureCloudInstance instance);
 
+    Promise<Void, Throwable, Void> startVmAsync(@NotNull AzureCloudInstance instance);
+
+    Promise<Void, Throwable, Void> stopVmAsync(@NotNull AzureCloudInstance instance);
+
     Promise<Map<String, String>, Throwable, Void> getSubscriptionsAsync();
 
     Promise<Map<String, String>, Throwable, Void> getLocationsAsync(String subscription);

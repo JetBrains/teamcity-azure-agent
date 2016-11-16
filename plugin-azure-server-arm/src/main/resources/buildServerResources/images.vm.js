@@ -60,7 +60,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         }),
         vmPublicIp: ko.observable(false),
         vmUsername: ko.observable().extend({required: true, maxLength: maxLength}),
-        vmPassword: ko.observable().extend({required: true})
+        vmPassword: ko.observable().extend({required: true}),
+        reuseVm: ko.observable(false)
     });
 
     // Data from Azure APIs
@@ -152,7 +153,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         self.originalImage = data;
 
         var model = self.image();
-        var image = data || {maxInstances: 1, vmPublicIp: false};
+        var image = data || {maxInstances: 1, vmPublicIp: false, reuseVm: true};
 
         model.imageUrl(image.imageUrl);
         model.osType(image.osType);
@@ -163,6 +164,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         model.vmNamePrefix(image.vmNamePrefix);
         model.vmPublicIp(image.vmPublicIp);
         model.vmUsername(image.vmUsername);
+        model.reuseVm(image.reuseVm);
 
         var key = image.vmNamePrefix;
         var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
@@ -190,7 +192,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             vmNamePrefix: model.vmNamePrefix(),
             vmPublicIp: model.vmPublicIp(),
             vmSize: model.vmSize(),
-            vmUsername: model.vmUsername()
+            vmUsername: model.vmUsername(),
+            reuseVm: model.reuseVm()
         };
 
         var originalImage = self.originalImage;

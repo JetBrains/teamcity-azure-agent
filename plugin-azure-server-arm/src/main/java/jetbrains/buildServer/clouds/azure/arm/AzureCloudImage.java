@@ -27,11 +27,15 @@ import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
+import jetbrains.buildServer.util.CollectionsUtil;
+import jetbrains.buildServer.util.filters.Filter;
 import org.jdeferred.DoneCallback;
 import org.jdeferred.FailCallback;
+import org.jdeferred.Promise;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -80,7 +84,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
 
     @Override
     public boolean canStartNewInstance() {
-        return myInstances.size() < myImageDetails.getMaxInstances();
+        return getActiveInstances().size() < myImageDetails.getMaxInstances();
     }
 
     @Override
@@ -89,6 +93,25 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
             throw new QuotaException("Unable to start more instances. Limit reached");
         }
 
+        AzureCloudInstance instance = null;
+        if (!myImageDetails.getBehaviour().isDeleteAfterStop()) {
+            instance = tryToStartStoppedInstance();
+        }
+
+        if (instance != null) {
+            return instance;
+        }
+
+        return startInstance(userData);
+    }
+
+    /**
+     * Creates a new virtual machine.
+     *
+     * @param userData info about server.
+     * @return created instance.
+     */
+    private AzureCloudInstance startInstance(CloudInstanceUserData userData) {
         final String name = myImageDetails.getVmNamePrefix().toLowerCase() + myIdProvider.getNextId();
         final AzureCloudInstance instance = new AzureCloudInstance(this, name);
         instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
@@ -127,6 +150,37 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         return instance;
     }
 
+    /**
+     * Tries to find and start stopped instance.
+     *
+     * @return instance if it found.
+     */
+    private AzureCloudInstance tryToStartStoppedInstance() {
+        final List<AzureCloudInstance> instances = getStoppedInstances();
+        if (instances.size() > 0) {
+            final AzureCloudInstance instance = instances.get(0);
+            instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
+
+            myApiConnector.startVmAsync(instance).done(new DoneCallback<Void>() {
+                @Override
+                public void onDone(Void result) {
+                    LOG.info(String.format("Virtual machine %s has been successfully started", instance.getName()));
+                }
+            }).fail(new FailCallback<Throwable>() {
+                @Override
+                public void onFail(Throwable result) {
+                    LOG.warn(result);
+                    instance.setStatus(InstanceStatus.ERROR);
+                    instance.updateErrors(TypedCloudErrorInfo.fromException(result));
+                }
+            });
+
+            return instance;
+        }
+
+        return null;
+    }
+
     @Override
     public void restartInstance(@NotNull final AzureCloudInstance instance) {
         instance.setStatus(InstanceStatus.RESTARTING);
@@ -150,11 +204,22 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     public void terminateInstance(@NotNull final AzureCloudInstance instance) {
         instance.setStatus(InstanceStatus.SCHEDULED_TO_STOP);
 
-        myApiConnector.deleteVmAsync(instance).done(new DoneCallback<Void>() {
+        final Promise<Void, Throwable, Void> promise;
+        if (myImageDetails.getBehaviour().isDeleteAfterStop()) {
+            promise = myApiConnector.deleteVmAsync(instance);
+        } else {
+            promise = myApiConnector.stopVmAsync(instance);
+        }
+
+        promise.done(new DoneCallback<Void>() {
             @Override
             public void onDone(Void result) {
                 instance.setStatus(InstanceStatus.STOPPED);
-                myInstances.remove(instance.getInstanceId());
+
+                if (myImageDetails.getBehaviour().isDeleteAfterStop()) {
+                    myInstances.remove(instance.getInstanceId());
+                }
+
                 LOG.info(String.format("Virtual machine %s has been successfully stopped", instance.getName()));
             }
         }).fail(new FailCallback<Throwable>() {
@@ -171,5 +236,33 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     @Override
     public Integer getAgentPoolId() {
         return myImageDetails.getAgentPoolId();
+    }
+
+    /**
+     * Returns active instances.
+     *
+     * @return instances.
+     */
+    private List<AzureCloudInstance> getActiveInstances() {
+        return CollectionsUtil.filterCollection(myInstances.values(), new Filter<AzureCloudInstance>() {
+            @Override
+            public boolean accept(@NotNull AzureCloudInstance instance) {
+                return instance.getStatus().isStartingOrStarted();
+            }
+        });
+    }
+
+    /**
+     * Returns stopped instances.
+     *
+     * @return instances.
+     */
+    private List<AzureCloudInstance> getStoppedInstances() {
+        return CollectionsUtil.filterCollection(myInstances.values(), new Filter<AzureCloudInstance>() {
+            @Override
+            public boolean accept(@NotNull AzureCloudInstance instance) {
+                return instance.getStatus().equals(InstanceStatus.STOPPED);
+            }
+        });
     }
 }

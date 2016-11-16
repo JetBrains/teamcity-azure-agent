@@ -722,6 +722,42 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
         return deferred.promise();
     }
 
+    @Override
+    public Promise<Void, Throwable, Void> startVmAsync(@NotNull AzureCloudInstance instance) {
+        final DeferredObject<Void, Throwable, Void> deferred = new DeferredObject<>();
+        final String name = instance.getName();
+        try {
+            myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).start();
+            LOG.debug(String.format("Virtual machine %s has been successfully started", name));
+            deferred.resolve(null);
+        } catch (Throwable t) {
+            final String message = String.format("Failed to start virtual machine %s: %s", name, t.getMessage());
+            LOG.debug(message, t);
+            final CloudException exception = new CloudException(message, t);
+            deferred.reject(exception);
+        }
+
+        return deferred.promise();
+    }
+
+    @Override
+    public Promise<Void, Throwable, Void> stopVmAsync(@NotNull AzureCloudInstance instance) {
+        final DeferredObject<Void, Throwable, Void> deferred = new DeferredObject<>();
+        final String name = instance.getName();
+        try {
+            myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).deallocate();
+            LOG.debug(String.format("Virtual machine %s has been successfully stopped", name));
+            deferred.resolve(null);
+        } catch (Throwable t) {
+            final String message = String.format("Failed to stop virtual machine %s: %s", name, t.getMessage());
+            LOG.debug(message, t);
+            final CloudException exception = new CloudException(message, t);
+            deferred.reject(exception);
+        }
+
+        return deferred.promise();
+    }
+
     /**
      * Gets an OS type of VHD image.
      *

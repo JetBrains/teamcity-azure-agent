@@ -137,15 +137,6 @@
                 </td>
             </tr>
             <tr>
-                <th><label for="${cons.vmNamePrefix}">Name Prefix: <l:star/></label></th>
-                <td>
-                    <input type="text" name="${cons.vmNamePrefix}" class="longField"
-                           data-bind="textInput: image().vmNamePrefix"/>
-                    <span class="smallNote">Unique name prefix to create resource groups</span>
-                    <span class="error option-error" data-bind="validationMessage: image().vmNamePrefix"></span>
-                </td>
-            </tr>
-            <tr>
                 <th><label for="${cons.maxInstancesCount}">Instances Limit: <l:star/></label></th>
                 <td>
                     <div>
@@ -154,6 +145,23 @@
                         <span class="smallNote">Maximum number of instances which can be started</span>
                         <span class="error option-error" data-bind="validationMessage: image().maxInstances"></span>
                     </div>
+                </td>
+            </tr>
+            <tr>
+                <th class="noBorder"></th>
+                <td>
+                    <input type="checkbox" name="${cons.reuseVm}" data-bind="checked: image().reuseVm"/>
+                    <label for="${cons.reuseVm}">Reuse allocated virtual machines</label>
+                    <span class="smallNote">Allows to reuse terminated virtual machines after shutdown</span>
+                </td>
+            </tr>
+            <tr>
+                <th><label for="${cons.vmNamePrefix}">Name Prefix: <l:star/></label></th>
+                <td>
+                    <input type="text" name="${cons.vmNamePrefix}" class="longField"
+                           data-bind="textInput: image().vmNamePrefix"/>
+                    <span class="smallNote">Unique name prefix to create resource groups</span>
+                    <span class="error option-error" data-bind="validationMessage: image().vmNamePrefix"></span>
                 </td>
             </tr>
             <tr>

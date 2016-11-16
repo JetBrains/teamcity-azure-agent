@@ -35,6 +35,7 @@ public class AzureConstants {
     public static final String VM_PUBLIC_IP = "vmPublicIp";
     public static final String VM_USERNAME = "vmUsername";
     public static final String VM_PASSWORD = "vmPassword";
+    public static final String REUSE_VM = "reuseVm";
     public static final String TAG_SERVER = "teamcity-server";
     public static final String TAG_PROFILE = "teamcity-profile";
     public static final String TAG_SOURCE = "teamcity-source";
@@ -97,5 +98,9 @@ public class AzureConstants {
 
     public String getVmPassword() {
         return VM_PASSWORD;
+    }
+
+    public String getReuseVm() {
+        return REUSE_VM;
     }
 }

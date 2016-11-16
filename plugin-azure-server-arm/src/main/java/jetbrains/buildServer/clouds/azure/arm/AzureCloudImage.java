@@ -89,7 +89,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
             throw new QuotaException("Unable to start more instances. Limit reached");
         }
 
-        final String name = myImageDetails.getVmNamePrefix() + myIdProvider.getNextId();
+        final String name = myImageDetails.getVmNamePrefix().toLowerCase() + myIdProvider.getNextId();
         final AzureCloudInstance instance = new AzureCloudInstance(this, name);
         instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
 

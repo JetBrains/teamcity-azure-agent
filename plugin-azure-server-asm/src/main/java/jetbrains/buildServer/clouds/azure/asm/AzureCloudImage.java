@@ -199,15 +199,12 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
     public AzureCloudInstance startNewInstance(@NotNull final CloudInstanceUserData tag) {
         final AzureCloudInstance instance;
         final String vmName;
-        if (myImageDetails.getBehaviour().isUseOriginal()) {
-            vmName = myImageDetails.getSourceName();
-        } else {
-            vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix(), myIdProvider.getNextId());
-        }
 
         if (myImageDetails.getBehaviour().isUseOriginal()) {
+            vmName = myImageDetails.getSourceName();
             instance = myInstances.get(myImageDetails.getSourceName());
         } else {
+            vmName = String.format("%s-%d", myImageDetails.getVmNamePrefix().toLowerCase(), myIdProvider.getNextId());
             instance = new AzureCloudInstance(this, vmName);
             if (myInstances.size() >= myImageDetails.getMaxInstances()) {
                 throw new TeamCityRuntimeException("Unable to start more instances. Limit reached");

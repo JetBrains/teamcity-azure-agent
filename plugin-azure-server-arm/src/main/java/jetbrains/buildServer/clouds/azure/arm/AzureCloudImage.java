@@ -97,7 +97,7 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         myApiConnector.createVmAsync(instance, data).done(new DoneCallback<Void>() {
             @Override
             public void onDone(Void result) {
-                LOG.info(String.format("Virtual machine %s has been successfully created", instance.getName()));
+                LOG.info(String.format("Virtual machine %s has been successfully created", name));
             }
         }).fail(new FailCallback<Throwable>() {
             @Override
@@ -105,6 +105,20 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
                 LOG.warn(result);
                 instance.setStatus(InstanceStatus.ERROR);
                 instance.updateErrors(TypedCloudErrorInfo.fromException(result));
+
+                LOG.info("Removing allocated resources for virtual machine " + name);
+                myApiConnector.deleteVmAsync(instance).done(new DoneCallback<Void>() {
+                    @Override
+                    public void onDone(Void result) {
+                        LOG.info(String.format("Allocated resources for virtual machine %s have been removed", name));
+                    }
+                }).fail(new FailCallback<Throwable>() {
+                    @Override
+                    public void onFail(Throwable t) {
+                        final String message = String.format("Failed to delete allocated resources for virtual machine %s: %s", name, t.getMessage());
+                        LOG.warnAndDebugDetails(message, t);
+                    }
+                });
             }
         });
 

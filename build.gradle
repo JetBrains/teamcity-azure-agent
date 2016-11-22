@@ -1,4 +1,5 @@
-def versionNumber = System.getenv('versionNumber') != null ? System.getenv('versionNumber') :  'SNAPSHOT'
+def correctVersion = project.hasProperty('versionNumber') && property('versionNumber') ==~ /\d+\.\d+\.\d+.*/
+def versionNumber = correctVersion ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
 ext.projectIds = ['group': 'teamcity-azure-plugin', 'version': versionNumber, 'artifact': 'cloud-azure' ]
 
 group = projectIds.group

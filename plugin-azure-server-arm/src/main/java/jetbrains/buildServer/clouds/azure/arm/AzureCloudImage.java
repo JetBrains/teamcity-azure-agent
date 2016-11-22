@@ -19,6 +19,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.QuotaException;
+import jetbrains.buildServer.clouds.azure.AzureUtils;
 import jetbrains.buildServer.clouds.azure.IdProvider;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance;
@@ -91,7 +92,8 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
         final AzureCloudInstance instance = new AzureCloudInstance(this, name);
         instance.setStatus(InstanceStatus.SCHEDULED_TO_START);
 
-        myApiConnector.createVmAsync(instance, userData).done(new DoneCallback<Void>() {
+        final CloudInstanceUserData data = AzureUtils.setVmNameForTag(userData, name);
+        myApiConnector.createVmAsync(instance, data).done(new DoneCallback<Void>() {
             @Override
             public void onDone(Void result) {
                 LOG.info(String.format("Virtual machine %s has been successfully created", instance.getName()));

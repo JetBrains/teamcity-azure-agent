@@ -24,6 +24,7 @@ import com.microsoft.windowsazure.exception.ServiceException;
 import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.InstanceStatus;
+import jetbrains.buildServer.clouds.azure.AzureUtils;
 import jetbrains.buildServer.clouds.azure.IdProvider;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureInstance;
@@ -231,7 +232,8 @@ public class AzureCloudImage extends AbstractCloudImage<AzureCloudInstance, Azur
                   if (myImageDetails.getBehaviour().isUseOriginal()) {
                     response = myApiConnector.startVM(AzureCloudImage.this);
                   } else {
-                    response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, tag, myGeneralized);
+                    final CloudInstanceUserData data = AzureUtils.setVmNameForTag(tag, vmName);
+                    response = myApiConnector.createVmOrDeployment(AzureCloudImage.this, vmName, data, myGeneralized);
                   }
                   instance.setStatus(InstanceStatus.STARTING);
                   operationId = response.getRequestId();

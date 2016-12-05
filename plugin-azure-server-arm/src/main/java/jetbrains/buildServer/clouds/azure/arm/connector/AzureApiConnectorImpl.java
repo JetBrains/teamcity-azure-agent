@@ -252,7 +252,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
             public void onDone(List<VirtualMachine> machines) {
                 for (VirtualMachine virtualMachine : machines) {
                     final String name = virtualMachine.name();
-                    if (!name.startsWith(details.getVmNamePrefix())) {
+                    if (!name.startsWith(details.getVmNamePrefix().toLowerCase())) {
                         LOG.debug("Ignore vm with name " + name);
                         continue;
                     }
@@ -276,7 +276,7 @@ public class AzureApiConnectorImpl extends AzureApiConnectorBase<AzureCloudImage
                     }
 
                     final String sourceName = tags.get(AzureConstants.TAG_SOURCE);
-                    if (!StringUtil.areEqual(sourceName, details.getSourceName())) {
+                    if (!StringUtil.areEqual(sourceName, details.getSourceName().toLowerCase())) {
                         LOG.debug("Ignore vm with invalid source tag " + sourceName);
                         continue;
                     }

@@ -1,6 +1,6 @@
 # TeamCity Azure Cloud Plugins
 
-Enables TeamCity cloud integration with Microsoft Azure and allows virtual machines usage to scale the pool of build agents.
+Enable TeamCity cloud integration with Microsoft Azure and allows virtual machines usage to scale the pool of build agents.
 
 ## Table Of Contents
 
@@ -42,7 +42,7 @@ The plugin supports generalized virtual machine images to start TeamCity build a
 
 ### Virtual Machines Preparation
 
-Before you can start using integration, you need to create a new Virtual Machine instance via Resource Manager. The TeamCity Build Agent [must be installed](https://confluence.jetbrains.com/display/TCD9/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-PreparingavirtualmachinewithaninstalledTeamCityagent) and set to start automatically. Also, you need to manually point the agent to the existing TeamCity server with the Azure plugin installed to let the build agent download the plugins.
+Before you can start using integration, you need to create a new Virtual Machine instance via Resource Manager. The TeamCity Build Agent [must be installed](https://confluence.jetbrains.com/display/TCDL/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-PreparingavirtualmachinewithaninstalledTeamCityagent) and set to start automatically. Also, you need to manually point the agent to the existing TeamCity server with the Azure plugin installed to let the build agent download the plugins.
 
 > :grey_exclamation: If you plan to start agent as a Windows service under SYSTEM use `Automatic (Delayed Start)` startup type.
 

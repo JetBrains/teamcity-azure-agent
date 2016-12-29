@@ -14,20 +14,9 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure.arm.connector.models;
+package jetbrains.buildServer.clouds.azure.arm.connector.models
 
 /**
  * Value object model.
  */
-public class JsonValue {
-
-    private final String myValue;
-
-    public JsonValue(final String value) {
-        myValue = value;
-    }
-
-    public String getValue() {
-        return myValue;
-    }
-}
+class JsonValue(val value: String)

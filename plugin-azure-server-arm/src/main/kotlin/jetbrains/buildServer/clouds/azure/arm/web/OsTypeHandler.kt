@@ -1,0 +1,40 @@
+/*
+ * Copyright 2000-2016 JetBrains s.r.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package jetbrains.buildServer.clouds.azure.arm.web
+
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import kotlinx.coroutines.async
+import kotlinx.coroutines.await
+import org.jdom.Content
+import org.jdom.Element
+import java.util.concurrent.CompletableFuture
+
+import javax.servlet.http.HttpServletRequest
+
+/**
+ * Handles storage blob request.
+ */
+internal class OsTypeHandler : AzureResourceHandler() {
+    override fun handle(connector: AzureApiConnector, request: HttpServletRequest): CompletableFuture<Content> = async {
+        val imageUrl = request.getParameter("imageUrl")
+        val osType = connector.getVhdOsTypeAsync(imageUrl).await()
+
+        Element("osType").apply {
+            text = osType
+        }
+    }
+}

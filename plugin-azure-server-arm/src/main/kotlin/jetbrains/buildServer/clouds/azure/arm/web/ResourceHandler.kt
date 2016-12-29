@@ -13,17 +13,16 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure.arm.web;
+package jetbrains.buildServer.clouds.azure.arm.web
 
-import org.jdeferred.Promise;
-import org.jdom.Content;
-import org.jetbrains.annotations.NotNull;
+import org.jdom.Content
+import java.util.concurrent.CompletableFuture
 
-import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequest
 
 /**
  * Request handler.
  */
-interface ResourceHandler {
-    Promise<Content, Throwable, Void> handle(@NotNull HttpServletRequest request);
+internal interface ResourceHandler {
+    fun handle(request: HttpServletRequest): CompletableFuture<Content>
 }

@@ -1,6 +1,14 @@
 apply plugin: 'com.github.rodm.teamcity-server'
+apply plugin: 'kotlin'
 
 ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.0.0-beta3'
+
+repositories {
+    mavenCentral()
+    maven {
+        url "https://dl.bintray.com/kotlin/kotlin-eap-1.1/"
+    }
+}
 
 teamcity {
     version = teamcityVersion
@@ -17,9 +25,10 @@ dependencies {
     server project(':plugin-azure-server-base')
     provided project(':plugin-azure-server-base')
 
+    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-async:0.2-beta'
     compile "com.microsoft.azure:azure:$azureSdkVersion"
     compile 'com.microsoft.azure:azure-storage:4.0.0'
-    compile 'org.jdeferred:jdeferred-core:1.2.4'
     compile 'com.squareup.okio:okio:1.7.0'
     provided 'javax.servlet:jstl:1.1.2'
     provided 'org.slf4j:slf4j-api:1.7.12'

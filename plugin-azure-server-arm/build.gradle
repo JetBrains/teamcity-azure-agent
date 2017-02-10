@@ -20,7 +20,7 @@ teamcity {
 }
 
 dependencies {
-    agent project(path: ':plugin-azure-agent', configuration: 'plugin')
+    agent project(path: ':plugin-azure-agent', configuration: 'arm')
     server project(':plugin-azure-common')
     server project(':plugin-azure-server-base')
     provided project(':plugin-azure-server-base')

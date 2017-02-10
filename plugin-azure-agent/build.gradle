@@ -3,6 +3,18 @@ apply plugin: 'com.github.rodm.teamcity-agent'
 sourceCompatibility = 1.6
 targetCompatibility = 1.6
 
+configurations {
+    arm {
+        extendsFrom configurations.plugin
+        agentPlugin.baseName = 'cloud-azure-arm'
+    }
+
+    asm {
+        extendsFrom configurations.plugin
+        agentPlugin.baseName = 'azure-cloud'
+    }
+}
+
 teamcity {
     version = teamcityVersion
     descriptor {
@@ -24,4 +36,3 @@ dependencies {
 }
 
 agentPlugin.version = null
-agentPlugin.baseName = 'cloud-azure'

@@ -16,19 +16,16 @@
 package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import kotlinx.coroutines.async
-import kotlinx.coroutines.await
-import org.jdom.Content
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.async
 import org.jdom.Element
-import java.util.concurrent.CompletableFuture
-
 import javax.servlet.http.HttpServletRequest
 
 /**
  * Handles vm sizes request.
  */
 internal class VmSizesHandler : AzureResourceHandler() {
-    override fun handle(connector: AzureApiConnector, request: HttpServletRequest): CompletableFuture<Content> = async {
+    override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
         val sizes = connector.getVmSizesAsync().await()
 
         val sizesElement = Element("vmSizes")

@@ -26,7 +26,8 @@ dependencies {
     provided project(':plugin-azure-server-base')
 
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
-    compile 'org.jetbrains.kotlinx:kotlinx-coroutines-async:0.2-beta'
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$kotlinx_version"
     compile "com.microsoft.azure:azure:$azureSdkVersion"
     compile 'com.microsoft.azure:azure-storage:4.0.0'
     compile 'com.squareup.okio:okio:1.7.0'

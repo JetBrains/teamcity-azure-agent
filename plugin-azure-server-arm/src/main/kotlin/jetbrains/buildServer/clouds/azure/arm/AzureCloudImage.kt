@@ -27,8 +27,8 @@ import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
-import kotlinx.coroutines.async
-import kotlinx.coroutines.await
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.async
 
 /**
  * Azure cloud image.
@@ -85,7 +85,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         instance.status = InstanceStatus.SCHEDULED_TO_START
         val data = AzureUtils.setVmNameForTag(userData, name)
 
-        async {
+        async(CommonPool) {
             try {
                 myApiConnector.createVmAsync(instance, data).await()
                 LOG.info("Virtual machine $name has been successfully created")
@@ -122,7 +122,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             val instance = instances[0]
             instance.status = InstanceStatus.SCHEDULED_TO_START
 
-            async {
+            async(CommonPool) {
                 try {
                     myApiConnector.startVmAsync(instance).await()
                     LOG.info(String.format("Virtual machine %s has been successfully started", instance.name))
@@ -142,7 +142,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     override fun restartInstance(instance: AzureCloudInstance) {
         instance.status = InstanceStatus.RESTARTING
 
-        async {
+        async(CommonPool) {
             try {
                 myApiConnector.restartVmAsync(instance)
                 LOG.info(String.format("Virtual machine %s has been successfully restarted", instance.name))
@@ -157,7 +157,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     override fun terminateInstance(instance: AzureCloudInstance) {
         instance.status = InstanceStatus.SCHEDULED_TO_STOP
 
-        async {
+        async(CommonPool) {
             try {
                 if (myImageDetails.behaviour.isDeleteAfterStop) {
                     myApiConnector.deleteVmAsync(instance).await()

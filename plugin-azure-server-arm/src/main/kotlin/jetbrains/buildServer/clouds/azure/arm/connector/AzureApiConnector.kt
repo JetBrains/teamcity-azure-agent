@@ -20,29 +20,29 @@ import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector
-import java.util.concurrent.CompletableFuture
+import kotlinx.coroutines.experimental.Deferred
 
 /**
  * Azure ARM API connector.
  */
 interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInstance> {
-    fun createVmAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData): CompletableFuture<*>
+    fun createVmAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData): Deferred<*>
 
-    fun deleteVmAsync(instance: AzureCloudInstance): CompletableFuture<*>
+    fun deleteVmAsync(instance: AzureCloudInstance): Deferred<*>
 
-    fun restartVmAsync(instance: AzureCloudInstance): CompletableFuture<*>
+    fun restartVmAsync(instance: AzureCloudInstance): Deferred<*>
 
-    fun startVmAsync(instance: AzureCloudInstance): CompletableFuture<*>
+    fun startVmAsync(instance: AzureCloudInstance): Deferred<*>
 
-    fun stopVmAsync(instance: AzureCloudInstance): CompletableFuture<*>
+    fun stopVmAsync(instance: AzureCloudInstance): Deferred<*>
 
-    fun getSubscriptionsAsync(): CompletableFuture<Map<String, String>>
+    fun getSubscriptionsAsync(): Deferred<Map<String, String>>
 
-    fun getLocationsAsync(subscription: String): CompletableFuture<Map<String, String>>
+    fun getLocationsAsync(subscription: String): Deferred<Map<String, String>>
 
-    fun getVmSizesAsync(): CompletableFuture<List<String>>
+    fun getVmSizesAsync(): Deferred<List<String>>
 
-    fun getNetworksAsync(): CompletableFuture<Map<String, List<String>>>
+    fun getNetworksAsync(): Deferred<Map<String, List<String>>>
 
-    fun getVhdOsTypeAsync(imageUrl: String): CompletableFuture<String?>
+    fun getVhdOsTypeAsync(imageUrl: String): Deferred<String?>
 }

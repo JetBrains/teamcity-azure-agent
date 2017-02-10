@@ -23,6 +23,7 @@ import jetbrains.buildServer.controllers.XmlResponseUtil
 import jetbrains.buildServer.serverSide.SBuildServer
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 import jetbrains.buildServer.web.openapi.WebControllerManager
+import kotlinx.coroutines.experimental.future.toCompletableFuture
 import org.jdom.Content
 import org.jdom.Element
 import org.springframework.web.servlet.ModelAndView
@@ -81,7 +82,7 @@ class SettingsController(server: SBuildServer,
 
         for (resource in resources) {
             HANDLERS[resource]?.let {
-                promises += resource to it.handle(request)
+                promises += resource to it.handle(request).toCompletableFuture()
             }
         }
 

@@ -37,8 +37,10 @@ import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
-import kotlinx.coroutines.async
-import kotlinx.coroutines.await
+import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.future.await
+import kotlinx.coroutines.experimental.future.toCompletableFuture
 import okhttp3.OkHttpClient
 import org.apache.commons.codec.binary.Base64
 import retrofit2.Retrofit
@@ -103,7 +105,7 @@ class AzureApiConnectorImpl(tenantId: String,
         val azureInstance = AzureInstance(instance.name)
         val details = instance.image.imageDetails
 
-        val promise = async {
+        val promise = async(CommonPool) {
             try {
                 getInstanceDataAsync(azureInstance, details).await()
                 val status = azureInstance.instanceStatus
@@ -124,7 +126,7 @@ class AzureApiConnectorImpl(tenantId: String,
         }
 
         try {
-            return promise.get()
+            return promise.toCompletableFuture().get()
         } catch (e: Throwable) {
             val message = String.format(FAILED_TO_GET_INSTANCE_STATUS_FORMAT, instance.name, e)
             LOG.debug(message, e)
@@ -137,7 +139,7 @@ class AzureApiConnectorImpl(tenantId: String,
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
         val promises = images.map {
             image: AzureCloudImage ->
-            async {
+            async(CommonPool) {
                 try {
                     val result = fetchInstancesAsync(image).await()
                     LOG.debug("Received list of image ${image.name} instances")
@@ -148,7 +150,7 @@ class AzureApiConnectorImpl(tenantId: String,
                     LOG.warn("Failed to receive list of image ${image.name} instances: ${e.message}", e)
                     image.updateErrors(TypedCloudErrorInfo.fromException(e))
                 }
-            }
+            }.toCompletableFuture()
         }
 
         if (promises.isNotEmpty()) {
@@ -164,7 +166,7 @@ class AzureApiConnectorImpl(tenantId: String,
         return imageMap
     }
 
-    private fun fetchInstancesAsync(image: AzureCloudImage) = async {
+    private fun fetchInstancesAsync(image: AzureCloudImage) = async(CommonPool) {
         val instances = hashMapOf<String, AzureInstance>()
         val details = image.imageDetails
 
@@ -213,7 +215,8 @@ class AzureApiConnectorImpl(tenantId: String,
         }
 
         if (instances.size > 0) {
-            val promises = instances.map { (_, instance) -> getInstanceDataAsync(instance, details) }
+            val promises = instances.map { (_, instance) ->
+                getInstanceDataAsync(instance, details).toCompletableFuture() }
             val exceptions = arrayListOf<Throwable>()
 
             try {
@@ -239,11 +242,9 @@ class AzureApiConnectorImpl(tenantId: String,
         instances
     }
 
-    private fun getVirtualMachinesAsync() = async {
+    private fun getVirtualMachinesAsync() = async(CommonPool, false) {
         try {
-            val list = CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).virtualMachines().list()
-            }.await()
+            val list = myAzure.withSubscription(mySubscriptionId).virtualMachines().list()
             LOG.debug("Received list of virtual machines")
             list
         } catch (t: Throwable) {
@@ -253,10 +254,10 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    private fun getInstanceDataAsync(instance: AzureInstance, details: AzureCloudImageDetails) = async {
+    private fun getInstanceDataAsync(instance: AzureInstance, details: AzureCloudImageDetails) = async(CommonPool) {
         val name = instance.name
-        val instanceViewPromise = getVirtualMachineAsync(name, name).thenApplyAsync {
-            machine: VirtualMachine ->
+        val instanceViewPromise = async(CommonPool, false) {
+            val machine = getVirtualMachineAsync(name, name).await()
             LOG.debug("Received virtual machine $name info")
 
             for (status in machine.instanceView().statuses()) {
@@ -273,18 +274,19 @@ class AzureApiConnectorImpl(tenantId: String,
                     instance.setPowerState(code.substring(POWER_STATE.length))
                 }
             }
-        }
+        }.toCompletableFuture()
 
         val publicIpPromise: CompletableFuture<Unit>
         if (details.vmPublicIp && instance.ipAddress == null) {
             val pipName = name + PUBLIC_IP_SUFFIX
-            publicIpPromise = getPublicIpAsync(name, pipName).thenApplyAsync {
-                LOG.debug("Received public ip $it for virtual machine $name")
+            publicIpPromise = async(CommonPool, false) {
+                val ip = getPublicIpAsync(name, pipName).await()
+                LOG.debug("Received public ip $ip for virtual machine $name")
 
-                if (!it.isNotBlank()) {
-                    instance.setIpAddress(it)
+                if (!ip.isNotBlank()) {
+                    instance.setIpAddress(ip)
                 }
-            }
+            }.toCompletableFuture()
         } else {
             publicIpPromise = CompletableFuture.completedFuture(Unit)
         }
@@ -292,11 +294,9 @@ class AzureApiConnectorImpl(tenantId: String,
         CompletableFuture.allOf(instanceViewPromise, publicIpPromise).await()
     }
 
-    private fun getVirtualMachineAsync(groupId: String, name: String) = async {
+    private fun getVirtualMachineAsync(groupId: String, name: String) = async(CommonPool, false) {
         try {
-            val machine = CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(groupId, name)
-            }.await()
+            val machine = myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(groupId, name)
             machine.refreshInstanceView()
             LOG.debug("Received virtual machine $name info")
             machine
@@ -307,11 +307,9 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    private fun getPublicIpAsync(groupId: String, name: String) = async {
+    private fun getPublicIpAsync(groupId: String, name: String) = async(CommonPool, false) {
         try {
-            val ipAddress = CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).publicIpAddresses().getByGroup(groupId, name)
-            }.await()
+            val ipAddress = myAzure.withSubscription(mySubscriptionId).publicIpAddresses().getByGroup(groupId, name)
             LOG.debug("Received public ip $ipAddress for $name")
             ipAddress.ipAddress()
         } catch (e: Throwable) {
@@ -326,7 +324,7 @@ class AzureApiConnectorImpl(tenantId: String,
         val imageUrl = image.imageDetails.imageUrl
 
         try {
-            getVhdOsTypeAsync(imageUrl).get()
+            getVhdOsTypeAsync(imageUrl).toCompletableFuture().get()
         } catch (e: Throwable) {
             LOG.debug("Failed to get os type for vhd " + imageUrl, e)
             exceptions.add(e)
@@ -345,11 +343,9 @@ class AzureApiConnectorImpl(tenantId: String,
 
      * @return list of sizes.
      */
-    override fun getVmSizesAsync() = async {
+    override fun getVmSizesAsync() = async(CommonPool, false) {
         try {
-            val vmSizes = CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).virtualMachines().sizes().listByRegion(myLocation)
-            }.await()
+            val vmSizes = myAzure.withSubscription(mySubscriptionId).virtualMachines().sizes().listByRegion(myLocation)
             LOG.debug("Received list of vm sizes in location " + myLocation!!)
             val comparator = AlphaNumericStringComparator()
             vmSizes.map { it.name() }.sortedWith(comparator)
@@ -366,7 +362,7 @@ class AzureApiConnectorImpl(tenantId: String,
      * @param userData is a custom data.
      * @return promise.
      */
-    override fun createVmAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData) = async {
+    override fun createVmAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData) = async(CommonPool) {
         val name = instance.name
         val customData: String
         try {
@@ -415,7 +411,7 @@ class AzureApiConnectorImpl(tenantId: String,
         createDeploymentAsync(name, name, templateValue, parameters).await()
     }
 
-    private fun createResourceGroupAsync(groupId: String, location: String) = async {
+    private fun createResourceGroupAsync(groupId: String, location: String) = async(CommonPool) {
         try {
             myAzure.withSubscription(mySubscriptionId).resourceGroups().define(groupId)
                     .withRegion(location)
@@ -427,7 +423,7 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    private fun createDeploymentAsync(groupId: String, deploymentId: String, template: String, params: String) = async {
+    private fun createDeploymentAsync(groupId: String, deploymentId: String, template: String, params: String) = async(CommonPool) {
         try {
             myAzure.withSubscription(mySubscriptionId).deployments().define(deploymentId)
                     .withExistingResourceGroup(groupId)
@@ -453,7 +449,7 @@ class AzureApiConnectorImpl(tenantId: String,
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override fun deleteVmAsync(instance: AzureCloudInstance) = async {
+    override fun deleteVmAsync(instance: AzureCloudInstance) = async(CommonPool) {
         val name = instance.name
         deleteResourceGroupAsync(instance.name).await()
 
@@ -479,7 +475,7 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    private fun deleteResourceGroupAsync(groupId: String) = async {
+    private fun deleteResourceGroupAsync(groupId: String) = async(CommonPool) {
         try {
             myAzure.withSubscription(mySubscriptionId).resourceGroups()
                     .aDelete(groupId).await()
@@ -497,12 +493,10 @@ class AzureApiConnectorImpl(tenantId: String,
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override fun restartVmAsync(instance: AzureCloudInstance) = async {
+    override fun restartVmAsync(instance: AzureCloudInstance) = async(CommonPool, false) {
         val name = instance.name
         try {
-            CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).restart()
-            }.await()
+            myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).restart()
             LOG.debug("Virtual machine $name has been successfully restarted")
         } catch (e: Throwable) {
             val message = "Failed to restart virtual machine $name: ${e.message}"
@@ -511,12 +505,10 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    override fun startVmAsync(instance: AzureCloudInstance) = async {
+    override fun startVmAsync(instance: AzureCloudInstance) = async(CommonPool, false) {
         val name = instance.name
         try {
-            CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).start()
-            }.await()
+            myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).start()
             LOG.debug("Virtual machine $name has been successfully started")
         } catch (e: Throwable) {
             val message = "Failed to start virtual machine $name: ${e.message}"
@@ -525,12 +517,10 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    override fun stopVmAsync(instance: AzureCloudInstance) = async {
+    override fun stopVmAsync(instance: AzureCloudInstance) = async(CommonPool, false) {
         val name = instance.name
         try {
-            CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).deallocate()
-            }.await()
+            myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).deallocate()
             LOG.debug("Virtual machine $name has been successfully stopped")
         } catch (e: Throwable) {
             val message = "Failed to stop virtual machine $name: ${e.message}"
@@ -546,7 +536,7 @@ class AzureApiConnectorImpl(tenantId: String,
      * *
      * @return OS type (Linux, Windows).
      */
-    override fun getVhdOsTypeAsync(imageUrl: String) = async {
+    override fun getVhdOsTypeAsync(imageUrl: String) = async(CommonPool) {
         val uri: URI
         try {
             uri = URI.create(imageUrl)
@@ -605,7 +595,7 @@ class AzureApiConnectorImpl(tenantId: String,
         metadata["MicrosoftAzureCompute_OSType"]
     }
 
-    private fun getBlobsAsync(uri: URI) = async {
+    private fun getBlobsAsync(uri: URI) = async(CommonPool, false) {
         if (uri.host == null || uri.path == null) {
             throw CloudException("Invalid URL")
         }
@@ -636,9 +626,7 @@ class AzureApiConnectorImpl(tenantId: String,
 
         val blobName = filesPrefix.substring(slash + 1)
         try {
-            CompletableFuture.supplyAsync {
-                container.listBlobs(blobName)
-            }.await().mapNotNull { it as CloudBlob }
+            container.listBlobs(blobName).mapNotNull { it as CloudBlob }
         } catch (e: Exception) {
             val message = "Failed to list container's $containerName blobs: ${e.message}"
             LOG.debug(message, e)
@@ -646,7 +634,7 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    private fun getStorageAccountAsync(storage: String) = async {
+    private fun getStorageAccountAsync(storage: String) = async(CommonPool) {
         val accounts = getStorageAccountsAsync().await()
         val account = accounts.firstOrNull({ storage.equals(it.name(), true) })
 
@@ -679,11 +667,9 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    private fun getStorageAccountsAsync() = async {
+    private fun getStorageAccountsAsync() = async(CommonPool, false) {
         try {
-            val accounts = CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).storageAccounts().list()
-            }.await()
+            val accounts = myAzure.withSubscription(mySubscriptionId).storageAccounts().list()
             LOG.debug("Received list of storage accounts")
             accounts
         } catch (e: Throwable) {
@@ -693,11 +679,9 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    private fun getStorageAccountKeysAsync(groupName: String, storageName: String) = async {
+    private fun getStorageAccountKeysAsync(groupName: String, storageName: String) = async(CommonPool, false) {
         try {
-            val account = CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).storageAccounts().getByGroup(groupName, storageName)
-            }.await()
+            val account = myAzure.withSubscription(mySubscriptionId).storageAccounts().getByGroup(groupName, storageName)
             LOG.debug("Received keys for storage account " + storageName)
             account.keys
         } catch (e: Throwable) {
@@ -712,11 +696,9 @@ class AzureApiConnectorImpl(tenantId: String,
      *
      * @return subscriptions.
      */
-    override fun getSubscriptionsAsync(): CompletableFuture<Map<String, String>> = async {
+    override fun getSubscriptionsAsync() = async(CommonPool, false) {
         try {
-            val list = CompletableFuture.supplyAsync {
-                myAzure.subscriptions().list()
-            }.await()
+            val list = myAzure.subscriptions().list()
             LOG.debug("Received list of subscriptions")
 
             val subscriptions = LinkedHashMap<String, String>()
@@ -739,11 +721,9 @@ class AzureApiConnectorImpl(tenantId: String,
      *
      * @return locations.
      */
-    override fun getLocationsAsync(subscription: String): CompletableFuture<Map<String, String>> = async {
+    override fun getLocationsAsync(subscription: String) = async(CommonPool, false) {
         try {
-            val list = CompletableFuture.supplyAsync {
-                myAzure.subscriptions().getByName(mySubscriptionId).listLocations()
-            }.await()
+            val list = myAzure.subscriptions().getByName(mySubscriptionId).listLocations()
             LOG.debug("Received list of locations in subscription " + subscription)
 
             val locations = LinkedHashMap<String, String>()
@@ -766,11 +746,9 @@ class AzureApiConnectorImpl(tenantId: String,
      *
      * @return list of networks.
      */
-    override fun getNetworksAsync(): CompletableFuture<Map<String, List<String>>> = async {
+    override fun getNetworksAsync() = async(CommonPool, false) {
         try {
-            val list = CompletableFuture.supplyAsync {
-                myAzure.withSubscription(mySubscriptionId).networks().list()
-            }.await()
+            val list = myAzure.withSubscription(mySubscriptionId).networks().list()
             LOG.debug("Received list of networks")
 
             val networks = LinkedHashMap<String, List<String>>()

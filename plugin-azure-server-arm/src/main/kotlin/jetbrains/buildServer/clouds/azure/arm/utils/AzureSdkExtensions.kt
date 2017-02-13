@@ -1,38 +1,25 @@
 package jetbrains.buildServer.clouds.azure.arm.utils
 
-import com.microsoft.azure.management.resources.fluentcore.collection.SupportsDeleting
-import com.microsoft.azure.management.resources.fluentcore.model.Creatable
-import com.microsoft.rest.ServiceCallback
-import java.util.concurrent.CompletableFuture
+import rx.Completable
+import rx.Observable
+import kotlin.coroutines.experimental.suspendCoroutine
 
-fun <T> Creatable<T>.aCreate(): CompletableFuture<T> {
-    val future = CompletableFuture<T>()
-
-    this.createAsync(object: ServiceCallback<T>() {
-        override fun failure(e: Throwable?) {
-            future.completeExceptionally(e)
-        }
-
-        override fun success(result: T) {
-            future.complete(result)
-        }
-    })
-
-    return future
+suspend fun Completable.awaitOne(): Unit {
+    return suspendCoroutine { cont ->
+        subscribe({
+            cont.resume(Unit)
+        }, { e ->
+            cont.resumeWithException(e!!)
+        })
+    }
 }
 
-fun SupportsDeleting.aDelete(id: String): CompletableFuture<Void> {
-    val future = CompletableFuture<Void>()
-
-    this.deleteAsync(id, object: ServiceCallback<Void>() {
-        override fun failure(e: Throwable?) {
-            future.completeExceptionally(e)
-        }
-
-        override fun success(result: Void) {
-            future.complete(result)
-        }
-    })
-
-    return future
+suspend fun <T> Observable<T>.awaitOne(): T {
+    return suspendCoroutine { cont ->
+        subscribe({ r ->
+            cont.resume(r)
+        }, { e ->
+            cont.resumeWithException(e)
+        })
+    }
 }

@@ -38,15 +38,12 @@ import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.experimental.CommonPool
+import kotlinx.coroutines.experimental.Deferred
 import kotlinx.coroutines.experimental.async
-import kotlinx.coroutines.experimental.future.await
-import kotlinx.coroutines.experimental.future.toCompletableFuture
-import okhttp3.OkHttpClient
+import kotlinx.coroutines.experimental.runBlocking
 import org.apache.commons.codec.binary.Base64
-import retrofit2.Retrofit
 import java.net.*
 import java.util.*
-import java.util.concurrent.CompletableFuture
 import java.util.regex.Pattern
 
 /**
@@ -80,15 +77,9 @@ class AzureApiConnectorImpl(tenantId: String,
 
     init {
         val credentials = ApplicationTokenCredentials(clientId, tenantId, secret, AzureEnvironment.AZURE)
-        val httpClientBuilder = OkHttpClient.Builder()
-        credentials.applyCredentialsFilter(httpClientBuilder)
-
-        val retrofitBuilder = Retrofit.Builder()
-        configureProxy(httpClientBuilder)
-
-        val client = RestClient.Builder(httpClientBuilder, retrofitBuilder)
-                .withDefaultBaseUrl(credentials.environment).build()
-        myAzure = Azure.authenticate(client, credentials.domain)
+        myAzure = Azure.configure()
+                .configureProxy()
+                .authenticate(credentials)
     }
 
     override fun test() {
@@ -101,69 +92,46 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    override fun getInstanceStatusIfExists(instance: AzureCloudInstance): InstanceStatus? {
+    override fun getInstanceStatusIfExists(instance: AzureCloudInstance): InstanceStatus? = runBlocking {
         val azureInstance = AzureInstance(instance.name)
         val details = instance.image.imageDetails
 
-        val promise = async(CommonPool) {
-            try {
-                getInstanceDataAsync(azureInstance, details).await()
-                val status = azureInstance.instanceStatus
-                LOG.debug("Instance ${instance.name} status is $status")
-                instance.status = status
-                instance.updateErrors()
-                status
-            } catch (e: Throwable) {
-                val cause = e.cause
-                val message = String.format(FAILED_TO_GET_INSTANCE_STATUS_FORMAT, instance.name, e.message)
-                LOG.debug(message, e)
-                if (!(cause != null && NOT_FOUND_ERROR == cause.message || PROVISIONING_STATES.contains(instance.status))) {
-                    instance.status = InstanceStatus.ERROR
-                    instance.updateErrors(TypedCloudErrorInfo.fromException(e))
-                }
-                throw e
-            }
-        }
-
         try {
-            return promise.toCompletableFuture().get()
+            getInstanceDataAsync(azureInstance, details).await()
+            val status = azureInstance.instanceStatus
+            LOG.debug("Instance ${instance.name} status is $status")
+            instance.status = status
+            instance.updateErrors()
+            status
         } catch (e: Throwable) {
-            val message = String.format(FAILED_TO_GET_INSTANCE_STATUS_FORMAT, instance.name, e)
+            val cause = e.cause
+            val message = String.format(FAILED_TO_GET_INSTANCE_STATUS_FORMAT, instance.name, e.message)
             LOG.debug(message, e)
-            instance.updateErrors(TypedCloudErrorInfo.fromException(CloudException(message, e)))
-            return null
+            if (!(cause != null && NOT_FOUND_ERROR == cause.message || PROVISIONING_STATES.contains(instance.status))) {
+                instance.status = InstanceStatus.ERROR
+                instance.updateErrors(TypedCloudErrorInfo.fromException(e))
+            }
+            throw e
         }
     }
 
-    override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>): Map<AzureCloudImage, Map<String, R>> {
+    override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>): Map<AzureCloudImage, Map<String, R>> = runBlocking {
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
-        val promises = images.map {
-            image: AzureCloudImage ->
-            async(CommonPool) {
-                try {
-                    val result = fetchInstancesAsync(image).await()
-                    LOG.debug("Received list of image ${image.name} instances")
-                    image.updateErrors()
-                    @Suppress("UNCHECKED_CAST")
-                    imageMap.put(image, result as Map<String, R>)
-                } catch (e: Throwable) {
-                    LOG.warn("Failed to receive list of image ${image.name} instances: ${e.message}", e)
-                    image.updateErrors(TypedCloudErrorInfo.fromException(e))
-                }
-            }.toCompletableFuture()
-        }
 
-        if (promises.isNotEmpty()) {
+        images.forEach { image ->
             try {
-                CompletableFuture.allOf(*promises.toTypedArray()).get()
+                val result = fetchInstancesAsync(image).await()
+                LOG.debug("Received list of image ${image.name} instances")
+                image.updateErrors()
+                @Suppress("UNCHECKED_CAST")
+                imageMap.put(image, result as Map<String, R>)
             } catch (e: Throwable) {
-                val message = "Failed to get list of images: " + e.message
-                LOG.debug(message, e)
-                throw CloudException(message, e)
+                LOG.warn("Failed to receive list of image ${image.name} instances: ${e.message}", e)
+                image.updateErrors(TypedCloudErrorInfo.fromException(e))
             }
         }
 
-        return imageMap
+        imageMap
     }
 
     private fun fetchInstancesAsync(image: AzureCloudImage) = async(CommonPool) {
@@ -214,30 +182,20 @@ class AzureApiConnectorImpl(tenantId: String,
             instances.put(name, instance)
         }
 
-        if (instances.size > 0) {
-            val promises = instances.map { (_, instance) ->
-                getInstanceDataAsync(instance, details).toCompletableFuture() }
-            val exceptions = arrayListOf<Throwable>()
-
+        val exceptions = arrayListOf<Throwable>()
+        instances.values.forEach { instance ->
             try {
-                CompletableFuture.allOf(*promises.toTypedArray()).await()
+                getInstanceDataAsync(instance, details).await()
             } catch (e: Throwable) {
+                LOG.debug("Failed to receive vm data: " + e.message, e)
                 exceptions.add(e)
             }
-
-            for (promise in promises) {
-                try {
-                    promise.get()
-                } catch (e: Throwable) {
-                    LOG.debug("Failed to receive vm data: " + e.message, e)
-                    exceptions.add(e)
-                }
-            }
-
-            val errors = exceptions.map { TypedCloudErrorInfo.fromException(it) }
-                    .toTypedArray()
-            image.updateErrors(*errors)
         }
+
+        val errors = exceptions.map { TypedCloudErrorInfo.fromException(it) }
+                .toTypedArray()
+
+        image.updateErrors(*errors)
 
         instances
     }
@@ -256,7 +214,8 @@ class AzureApiConnectorImpl(tenantId: String,
 
     private fun getInstanceDataAsync(instance: AzureInstance, details: AzureCloudImageDetails) = async(CommonPool) {
         val name = instance.name
-        val instanceViewPromise = async(CommonPool, false) {
+        val promises = arrayListOf<Deferred<Unit>>()
+        promises += async(CommonPool, false) {
             val machine = getVirtualMachineAsync(name, name).await()
             LOG.debug("Received virtual machine $name info")
 
@@ -274,24 +233,21 @@ class AzureApiConnectorImpl(tenantId: String,
                     instance.setPowerState(code.substring(POWER_STATE.length))
                 }
             }
-        }.toCompletableFuture()
+        }
 
-        val publicIpPromise: CompletableFuture<Unit>
         if (details.vmPublicIp && instance.ipAddress == null) {
             val pipName = name + PUBLIC_IP_SUFFIX
-            publicIpPromise = async(CommonPool, false) {
+            promises += async(CommonPool, false) {
                 val ip = getPublicIpAsync(name, pipName).await()
                 LOG.debug("Received public ip $ip for virtual machine $name")
 
                 if (!ip.isNotBlank()) {
                     instance.setIpAddress(ip)
                 }
-            }.toCompletableFuture()
-        } else {
-            publicIpPromise = CompletableFuture.completedFuture(Unit)
+            }
         }
 
-        CompletableFuture.allOf(instanceViewPromise, publicIpPromise).await()
+        promises.forEach { it.await() }
     }
 
     private fun getVirtualMachineAsync(groupId: String, name: String) = async(CommonPool, false) {
@@ -319,18 +275,18 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    override fun checkImage(image: AzureCloudImage): Array<TypedCloudErrorInfo> {
+    override fun checkImage(image: AzureCloudImage): Array<TypedCloudErrorInfo> = runBlocking {
         val exceptions = ArrayList<Throwable>()
         val imageUrl = image.imageDetails.imageUrl
 
         try {
-            getVhdOsTypeAsync(imageUrl).toCompletableFuture().get()
+            getVhdOsTypeAsync(imageUrl).await()
         } catch (e: Throwable) {
             LOG.debug("Failed to get os type for vhd " + imageUrl, e)
             exceptions.add(e)
         }
 
-        return exceptions.map { TypedCloudErrorInfo.fromException(it) }
+        exceptions.map { TypedCloudErrorInfo.fromException(it) }
                 .toTypedArray()
     }
 
@@ -345,7 +301,10 @@ class AzureApiConnectorImpl(tenantId: String,
      */
     override fun getVmSizesAsync() = async(CommonPool, false) {
         try {
-            val vmSizes = myAzure.withSubscription(mySubscriptionId).virtualMachines().sizes().listByRegion(myLocation)
+            val vmSizes = myAzure.withSubscription(mySubscriptionId)
+                    .virtualMachines()
+                    .sizes()
+                    .listByRegion(myLocation)
             LOG.debug("Received list of vm sizes in location " + myLocation!!)
             val comparator = AlphaNumericStringComparator()
             vmSizes.map { it.name() }.sortedWith(comparator)
@@ -415,7 +374,8 @@ class AzureApiConnectorImpl(tenantId: String,
         try {
             myAzure.withSubscription(mySubscriptionId).resourceGroups().define(groupId)
                     .withRegion(location)
-                    .aCreate().await()
+                    .createAsync()
+                    .awaitOne()
         } catch (e: Throwable) {
             val message = "Failed to create resource group $groupId: ${e.message}"
             LOG.debug(message, e)
@@ -430,9 +390,10 @@ class AzureApiConnectorImpl(tenantId: String,
                     .withTemplate(template)
                     .withParameters(params)
                     .withMode(DeploymentMode.INCREMENTAL)
-                    .aCreate().await()
+                    .createAsync()
+                    .awaitOne()
         } catch (e: com.microsoft.azure.CloudException) {
-            val details = e.body.details.joinToString("\n")
+            val details = e.body().details().joinToString("\n")
             val message = "Failed to create deployment in resource group $groupId: ${e.message}\n$details"
             LOG.debug(message, e)
             throw CloudException(message, e)
@@ -477,8 +438,10 @@ class AzureApiConnectorImpl(tenantId: String,
 
     private fun deleteResourceGroupAsync(groupId: String) = async(CommonPool) {
         try {
-            myAzure.withSubscription(mySubscriptionId).resourceGroups()
-                    .aDelete(groupId).await()
+            myAzure.withSubscription(mySubscriptionId)
+                    .resourceGroups()
+                    .deleteByNameAsync(groupId)
+                    .awaitOne()
             LOG.debug("Resource group $groupId has been successfully deleted")
         } catch (e: Throwable) {
             val message = "Failed to delete resource group $groupId: ${e.message}"
@@ -496,7 +459,10 @@ class AzureApiConnectorImpl(tenantId: String,
     override fun restartVmAsync(instance: AzureCloudInstance) = async(CommonPool, false) {
         val name = instance.name
         try {
-            myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).restart()
+            myAzure.withSubscription(mySubscriptionId)
+                    .virtualMachines()
+                    .getByGroup(name, name)
+                    .restart()
             LOG.debug("Virtual machine $name has been successfully restarted")
         } catch (e: Throwable) {
             val message = "Failed to restart virtual machine $name: ${e.message}"
@@ -508,7 +474,10 @@ class AzureApiConnectorImpl(tenantId: String,
     override fun startVmAsync(instance: AzureCloudInstance) = async(CommonPool, false) {
         val name = instance.name
         try {
-            myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).start()
+            myAzure.withSubscription(mySubscriptionId)
+                    .virtualMachines()
+                    .getByGroup(name, name)
+                    .start()
             LOG.debug("Virtual machine $name has been successfully started")
         } catch (e: Throwable) {
             val message = "Failed to start virtual machine $name: ${e.message}"
@@ -520,7 +489,10 @@ class AzureApiConnectorImpl(tenantId: String,
     override fun stopVmAsync(instance: AzureCloudInstance) = async(CommonPool, false) {
         val name = instance.name
         try {
-            myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(name, name).deallocate()
+            myAzure.withSubscription(mySubscriptionId)
+                    .virtualMachines()
+                    .getByGroup(name, name)
+                    .deallocate()
             LOG.debug("Virtual machine $name has been successfully stopped")
         } catch (e: Throwable) {
             val message = "Failed to stop virtual machine $name: ${e.message}"
@@ -669,7 +641,9 @@ class AzureApiConnectorImpl(tenantId: String,
 
     private fun getStorageAccountsAsync() = async(CommonPool, false) {
         try {
-            val accounts = myAzure.withSubscription(mySubscriptionId).storageAccounts().list()
+            val accounts = myAzure.withSubscription(mySubscriptionId)
+                    .storageAccounts()
+                    .list()
             LOG.debug("Received list of storage accounts")
             accounts
         } catch (e: Throwable) {
@@ -681,7 +655,9 @@ class AzureApiConnectorImpl(tenantId: String,
 
     private fun getStorageAccountKeysAsync(groupName: String, storageName: String) = async(CommonPool, false) {
         try {
-            val account = myAzure.withSubscription(mySubscriptionId).storageAccounts().getByGroup(groupName, storageName)
+            val account = myAzure.withSubscription(mySubscriptionId)
+                    .storageAccounts()
+                    .getByGroup(groupName, storageName)
             LOG.debug("Received keys for storage account " + storageName)
             account.keys
         } catch (e: Throwable) {
@@ -723,7 +699,7 @@ class AzureApiConnectorImpl(tenantId: String,
      */
     override fun getLocationsAsync(subscription: String) = async(CommonPool, false) {
         try {
-            val list = myAzure.subscriptions().getByName(mySubscriptionId).listLocations()
+            val list = myAzure.subscriptions().getById(mySubscriptionId).listLocations()
             LOG.debug("Received list of locations in subscription " + subscription)
 
             val locations = LinkedHashMap<String, String>()
@@ -806,26 +782,28 @@ class AzureApiConnectorImpl(tenantId: String,
     /**
      * Configures http proxy settings.
      */
-    private fun configureProxy(builder: OkHttpClient.Builder) {
+    fun Azure.Configurable.configureProxy(): Azure.Configurable {
         // Set HTTP proxy
         val httpProxyHost = TeamCityProperties.getProperty(HTTP_PROXY_HOST)
         val httpProxyPort = TeamCityProperties.getInteger(HTTP_PROXY_PORT, 80)
         if (httpProxyHost.isNotBlank()) {
-            builder.proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpProxyHost, httpProxyPort)))
+            this.withProxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpProxyHost, httpProxyPort)))
         }
 
         // Set HTTPS proxy
         val httpsProxyHost = TeamCityProperties.getProperty(HTTPS_PROXY_HOST)
         val httpsProxyPort = TeamCityProperties.getInteger(HTTPS_PROXY_PORT, 443)
         if (httpsProxyHost.isNotBlank()) {
-            builder.proxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpsProxyHost, httpsProxyPort)))
+            this.withProxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpsProxyHost, httpsProxyPort)))
         }
 
         // Set proxy authentication
         val httpProxyUser = TeamCityProperties.getProperty(HTTP_PROXY_USER)
         val httpProxyPassword = TeamCityProperties.getProperty(HTTP_PROXY_PASSWORD)
         if (httpProxyUser.isNotBlank()) {
-            builder.proxyAuthenticator(CredentialsAuthenticator(httpProxyUser, httpProxyPassword))
+            this.withProxyAuthenticator(CredentialsAuthenticator(httpProxyUser, httpProxyPassword))
         }
+
+        return this
     }
 }

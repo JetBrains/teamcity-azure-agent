@@ -23,13 +23,13 @@ import jetbrains.buildServer.controllers.XmlResponseUtil
 import jetbrains.buildServer.serverSide.SBuildServer
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 import jetbrains.buildServer.web.openapi.WebControllerManager
-import kotlinx.coroutines.experimental.future.toCompletableFuture
+import kotlinx.coroutines.experimental.Deferred
+import kotlinx.coroutines.experimental.runBlocking
 import org.jdom.Content
 import org.jdom.Element
 import org.springframework.web.servlet.ModelAndView
 import java.io.IOException
 import java.util.*
-import java.util.concurrent.CompletableFuture
 import javax.servlet.ServletResponse
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -74,50 +74,35 @@ class SettingsController(server: SBuildServer,
     }
 
     private fun doPost(request: HttpServletRequest,
-                       response: HttpServletResponse) {
+                       response: HttpServletResponse) = runBlocking {
         val xmlResponse = XmlResponseUtil.newXmlResponse()
         val errors = ActionErrors()
         val resources = request.getParameterValues("resource")
-        val promises = hashMapOf<String, CompletableFuture<Content>>()
+        val promises = hashMapOf<String, Deferred<Content>>()
 
-        for (resource in resources) {
-            HANDLERS[resource]?.let {
-                promises += resource to it.handle(request).toCompletableFuture()
-            }
-        }
-
-        if (promises.isEmpty()) {
-            if (errors.hasErrors()) {
-                errors.serialize(xmlResponse)
-            }
-
-            writeResponse(xmlResponse, response)
-            return
-        }
+        resources.filterNotNull()
+                .forEach { resource ->
+                    HANDLERS[resource]?.let {
+                        promises += resource to it.handle(request)
+                    }
+                }
 
         val context = request.startAsync(request, response)
-        CompletableFuture.allOf(*promises.values.toTypedArray()).handle { _, exception ->
-            exception?.let {
-                LOG.debug("Failed to execute requests: ${it.message}")
-                errors.addError("request", it.message)
+        promises.keys.forEach { resource ->
+            try {
+                xmlResponse.addContent(promises[resource]?.await())
+            } catch (e: Throwable) {
+                LOG.debug(e)
+                errors.addError(resource, e.message)
             }
-
-            for ((resource, promise) in promises) {
-                try {
-                    xmlResponse.addContent(promise.get())
-                } catch (e: Throwable) {
-                    LOG.debug(e)
-                    errors.addError(resource, e.message)
-                }
-            }
-
-            if (errors.hasErrors()) {
-                errors.serialize(xmlResponse)
-            }
-
-            writeResponse(xmlResponse, context.response)
-            context.complete()
         }
+
+        if (errors.hasErrors()) {
+            errors.serialize(xmlResponse)
+        }
+
+        writeResponse(xmlResponse, context.response)
+        context.complete()
     }
 
     companion object {

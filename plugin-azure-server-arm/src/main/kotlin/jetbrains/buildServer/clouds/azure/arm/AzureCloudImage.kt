@@ -144,7 +144,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
         async(CommonPool) {
             try {
-                myApiConnector.restartVmAsync(instance)
+                myApiConnector.restartVmAsync(instance).await()
                 LOG.info(String.format("Virtual machine %s has been successfully restarted", instance.name))
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)

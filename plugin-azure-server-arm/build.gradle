@@ -1,13 +1,13 @@
 apply plugin: 'com.github.rodm.teamcity-server'
 apply plugin: 'kotlin'
 
-ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.0.0-beta3'
+ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.0.0-beta5'
 
 repositories {
     mavenCentral()
-    maven {
-        url "https://dl.bintray.com/kotlin/kotlin-eap-1.1/"
-    }
+    maven { url "https://dl.bintray.com/kotlin/kotlin-eap-1.1/" }
+    maven { url "http://repository.springsource.com/maven/bundles/release" }
+    maven { url "http://repository.springsource.com/maven/bundles/external" }
 }
 
 teamcity {
@@ -27,7 +27,6 @@ dependencies {
 
     compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version"
-    compile "org.jetbrains.kotlinx:kotlinx-coroutines-jdk8:$kotlinx_version"
     compile "com.microsoft.azure:azure:$azureSdkVersion"
     compile 'com.microsoft.azure:azure-storage:4.0.0'
     compile 'com.squareup.okio:okio:1.7.0'

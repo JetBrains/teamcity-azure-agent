@@ -92,7 +92,7 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    override fun getInstanceStatusIfExists(instance: AzureCloudInstance): InstanceStatus? = runBlocking {
+    override fun getInstanceStatusIfExists(instance: AzureCloudInstance) = runBlocking {
         val azureInstance = AzureInstance(instance.name)
         val details = instance.image.imageDetails
 
@@ -104,18 +104,24 @@ class AzureApiConnectorImpl(tenantId: String,
             instance.updateErrors()
             status
         } catch (e: Throwable) {
-            val cause = e.cause
+            val cause = e.cause ?: e
             val message = String.format(FAILED_TO_GET_INSTANCE_STATUS_FORMAT, instance.name, e.message)
             LOG.debug(message, e)
-            if (!(cause != null && NOT_FOUND_ERROR == cause.message || PROVISIONING_STATES.contains(instance.status))) {
+
+            if (cause.message == NOT_FOUND_ERROR) {
+                return@runBlocking null
+            }
+
+            if (!PROVISIONING_STATES.contains(instance.status)) {
                 instance.status = InstanceStatus.ERROR
                 instance.updateErrors(TypedCloudErrorInfo.fromException(e))
             }
+
             throw e
         }
     }
 
-    override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>): Map<AzureCloudImage, Map<String, R>> = runBlocking {
+    override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>) = runBlocking {
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
 
         images.forEach { image ->
@@ -216,7 +222,7 @@ class AzureApiConnectorImpl(tenantId: String,
         val name = instance.name
         val promises = arrayListOf<Deferred<Unit>>()
         promises += async(CommonPool, false) {
-            val machine = getVirtualMachineAsync(name, name).await()
+            val machine = getVirtualMachineAsync(name, name).await() ?: throw CloudException(NOT_FOUND_ERROR)
             LOG.debug("Received virtual machine $name info")
 
             for (status in machine.instanceView().statuses()) {
@@ -253,7 +259,7 @@ class AzureApiConnectorImpl(tenantId: String,
     private fun getVirtualMachineAsync(groupId: String, name: String) = async(CommonPool, false) {
         try {
             val machine = myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(groupId, name)
-            machine.refreshInstanceView()
+            machine?.refreshInstanceView()
             LOG.debug("Received virtual machine $name info")
             machine
         } catch (e: Throwable) {
@@ -275,7 +281,7 @@ class AzureApiConnectorImpl(tenantId: String,
         }
     }
 
-    override fun checkImage(image: AzureCloudImage): Array<TypedCloudErrorInfo> = runBlocking {
+    override fun checkImage(image: AzureCloudImage) = runBlocking {
         val exceptions = ArrayList<Throwable>()
         val imageUrl = image.imageDetails.imageUrl
 

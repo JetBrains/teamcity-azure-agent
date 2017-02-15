@@ -88,6 +88,7 @@ class SettingsController(server: SBuildServer,
                 }
 
         val context = request.startAsync(request, response)
+        promises.values.forEach{ it -> it.start() }
         promises.keys.forEach { resource ->
             try {
                 xmlResponse.addContent(promises[resource]?.await())

@@ -18,11 +18,12 @@ package jetbrains.buildServer.clouds.azure;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import com.intellij.openapi.util.text.StringUtil;
 import jetbrains.buildServer.clouds.CloudClientParameters;
+import jetbrains.buildServer.clouds.CloudImageParameters;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
+import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.ParameterizedType;
@@ -38,7 +39,9 @@ public final class AzureUtils {
 
     public static <T extends CloudImageDetails> Collection<T> parseImageData(Class<T> clazz, final CloudClientParameters params) {
         Gson gson = new Gson();
-        final String imageData = params.getParameter("images_data");
+        final String imageData = StringUtil.notEmpty(
+                params.getParameter(CloudImageParameters.SOURCE_IMAGES_JSON),
+                StringUtil.notEmpty(params.getParameter("images_data"), StringUtil.EMPTY));
         if (StringUtil.isEmpty(imageData)) {
             return Collections.emptyList();
         }

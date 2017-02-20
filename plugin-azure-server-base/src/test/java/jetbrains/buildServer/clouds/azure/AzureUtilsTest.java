@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure;
 
 import jetbrains.buildServer.clouds.CloudClientParameters;
+import jetbrains.buildServer.clouds.CloudImageParameters;
 import jetbrains.buildServer.clouds.models.FakeCloudImageDetails;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -34,6 +35,24 @@ public class AzureUtilsTest {
     public void parseImageDataTest() {
         final CloudClientParameters parameters = new CloudClientParameters();
         parameters.setParameter("images_data", "[{\"data\":\"data\"}]");
+        parameters.setParameter("secure:passwords_data", "{\"name\":\"password\"}");
+
+        final Collection<FakeCloudImageDetails> images = AzureUtils.parseImageData(FakeCloudImageDetails.class, parameters);
+        Assert.assertNotNull(images);
+
+        final Iterator<FakeCloudImageDetails> iterator = images.iterator();
+        Assert.assertTrue(iterator.hasNext());
+        final FakeCloudImageDetails details = iterator.next();
+        Assert.assertFalse(iterator.hasNext());
+        Assert.assertNotNull(details);
+        Assert.assertEquals(details.getData(), "data");
+        Assert.assertEquals(details.getPassword(), "password");
+    }
+
+    @Test
+    public void parseNewImageDataTest() {
+        final CloudClientParameters parameters = new CloudClientParameters();
+        parameters.setParameter(CloudImageParameters.SOURCE_IMAGES_JSON, "[{\"data\":\"data\"}]");
         parameters.setParameter("secure:passwords_data", "{\"name\":\"password\"}");
 
         final Collection<FakeCloudImageDetails> images = AzureUtils.parseImageData(FakeCloudImageDetails.class, parameters);

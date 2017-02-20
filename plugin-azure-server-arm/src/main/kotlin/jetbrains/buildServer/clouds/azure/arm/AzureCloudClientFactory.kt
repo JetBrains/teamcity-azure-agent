@@ -16,9 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm
 
-import jetbrains.buildServer.clouds.CloudClientParameters
-import jetbrains.buildServer.clouds.CloudRegistrar
-import jetbrains.buildServer.clouds.CloudState
+import jetbrains.buildServer.clouds.*
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames
 import jetbrains.buildServer.clouds.azure.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl
@@ -122,7 +120,8 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
     companion object {
         private val SKIP_PARAMETERS = Arrays.asList(
                 AzureConstants.IMAGE_URL, AzureConstants.OS_TYPE,
-                AzureConstants.MAX_INSTANCES_COUNT, AzureConstants.VM_NAME_PREFIX,
-                AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD)
+                AzureConstants.MAX_INSTANCES_COUNT, AzureConstants.MAX_INSTANCES_COUNT,
+                AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD,
+                CloudImageParameters.SOURCE_ID_FIELD)
     }
 }

@@ -25,6 +25,8 @@ import jetbrains.buildServer.clouds.base.types.CloneBehaviour
  * ARM cloud image details.
  */
 class AzureCloudImageDetails(
+        @SerializedName(CloudImageParameters.SOURCE_ID_FIELD)
+        val sourceId: String? = null,
         @SerializedName(AzureConstants.IMAGE_URL)
         val imageUrl: String,
         @SerializedName(AzureConstants.OS_TYPE)
@@ -34,7 +36,7 @@ class AzureCloudImageDetails(
         @SerializedName(AzureConstants.SUBNET_ID)
         val subnetId: String,
         @SerializedName(AzureConstants.VM_NAME_PREFIX)
-        val vmNamePrefix: String,
+        val vmNamePrefix: String? = null,
         @SerializedName(AzureConstants.VM_SIZE)
         val vmSize: String,
         @SerializedName(AzureConstants.VM_PUBLIC_IP)
@@ -63,7 +65,7 @@ class AzureCloudImageDetails(
     }
 
     override fun getSourceName(): String {
-        return vmNamePrefix
+        return sourceId ?: vmNamePrefix ?: ""
     }
 
     override fun getBehaviour(): CloneBehaviour {

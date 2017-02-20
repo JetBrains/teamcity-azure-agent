@@ -155,7 +155,7 @@ class AzureApiConnectorImpl(tenantId: String,
 
         for (virtualMachine in machines) {
             val name = virtualMachine.name()
-            if (!name.startsWith(details.vmNamePrefix, true)) {
+            if (!name.startsWith(details.sourceName, true)) {
                 LOG.debug("Ignore vm with name " + name)
                 continue
             }

@@ -61,7 +61,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         vmPublicIp: ko.observable(false),
         vmUsername: ko.observable().extend({required: true, maxLength: maxLength}),
         vmPassword: ko.observable().extend({required: true}),
-        reuseVm: ko.observable(false)
+        reuseVm: ko.observable(false),
+        agentPoolId: ko.observable().extend({required: true}),
     });
 
     // Data from Azure APIs
@@ -70,6 +71,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.networks = ko.observableArray([]);
     self.subNetworks = ko.observableArray([]);
     self.vmSizes = ko.observableArray([]);
+    self.agentPools = ko.observableArray([]);
     self.osTypes = ko.observableArray(["Linux", "Windows"]);
     self.osType = ko.observable();
     self.osTypeImage = {
@@ -139,7 +141,17 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
     self.images_data.subscribe(function (data) {
         var images = ko.utils.parseJson(data || "[]");
+        var saveValue = false;
+        images.forEach(function (image) {
+            if (image["source-id"]) {
+                image.vmNamePrefix = image["source-id"];
+            } else {
+                saveValue = true;
+            }
+        });
+
         self.images(images);
+        if (saveValue) saveImages();
     });
 
     self.passwords_data.subscribe(function (data) {
@@ -165,6 +177,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         model.vmPublicIp(image.vmPublicIp);
         model.vmUsername(image.vmUsername);
         model.reuseVm(image.reuseVm);
+        model.agentPoolId(image.agentPoolId);
 
         var key = image.vmNamePrefix;
         var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
@@ -193,7 +206,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             vmPublicIp: model.vmPublicIp(),
             vmSize: model.vmSize(),
             vmUsername: model.vmUsername(),
-            reuseVm: model.reuseVm()
+            reuseVm: model.reuseVm(),
+            agentPoolId: model.agentPoolId()
         };
 
         var originalImage = self.originalImage;
@@ -222,7 +236,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         }
 
         self.images.remove(image);
-        self.images_data(JSON.stringify(self.images()));
+        saveImages();
 
         var key = image.vmNamePrefix;
         delete self.passwords[key];
@@ -289,6 +303,17 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             self.loadingLocations(false);
         });
     };
+
+    function saveImages() {
+        var images = self.images();
+        images.forEach(function (image) {
+            image["source-id"] = image.vmNamePrefix;
+            delete image.vmNamePrefix;
+            image["agent_pool_id"] = image.agentPoolId;
+            delete image.agentPoolId;
+        });
+        self.images_data(JSON.stringify(images));
+    }
 
     function getBasePath() {
         var credentials = self.credentials();
@@ -420,4 +445,38 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
         return "";
     }
+
+    (function loadAgentPools() {
+        var url = baseUrl + "?resource=agentPools";
+
+        var request = $.post(url).then(function (response) {
+            var $response = $j(response);
+            var errors = getErrors($response);
+            if (errors) {
+                self.errorResources(errors);
+                return;
+            } else {
+                self.errorResources("");
+            }
+
+            var agentPools = $response.find("agentPools:eq(0) agentPool").map(function () {
+                return {
+                    id: $(this).attr("id"),
+                    text: $(this).text()
+                };
+            }).get();
+
+            self.agentPools(agentPools);
+            self.image().agentPoolId.valueHasMutated();
+        }, function (error) {
+            self.errorResources("Failed to load data: " + error.message);
+            console.log(error);
+        });
+
+        request.always(function () {
+            self.loadingOsType(false);
+        });
+
+        return request;
+    })();
 }

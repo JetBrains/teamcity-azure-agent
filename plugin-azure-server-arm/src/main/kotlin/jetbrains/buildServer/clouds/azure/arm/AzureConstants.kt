@@ -16,6 +16,8 @@
 
 package jetbrains.buildServer.clouds.azure.arm
 
+import jetbrains.buildServer.clouds.CloudImageParameters
+
 /**
  * ARM constants.
  */
@@ -67,6 +69,12 @@ class AzureConstants {
 
     val reuseVm: String
         get() = REUSE_VM
+
+    val imagesData: String
+        get() = CloudImageParameters.SOURCE_IMAGES_JSON
+
+    val agentPoolId: String
+        get() = CloudImageParameters.AGENT_POOL_ID_FIELD
 
     companion object {
         const val TENANT_ID = "tenantId"

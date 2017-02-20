@@ -21,6 +21,7 @@ import jetbrains.buildServer.controllers.ActionErrors
 import jetbrains.buildServer.controllers.BaseController
 import jetbrains.buildServer.controllers.XmlResponseUtil
 import jetbrains.buildServer.serverSide.SBuildServer
+import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 import jetbrains.buildServer.web.openapi.WebControllerManager
 import kotlinx.coroutines.experimental.Deferred
@@ -39,13 +40,21 @@ import javax.servlet.http.HttpServletResponse
  */
 class SettingsController(server: SBuildServer,
                          private val myPluginDescriptor: PluginDescriptor,
-                         manager: WebControllerManager) : BaseController(server) {
+                         manager: WebControllerManager,
+                         agentPoolManager: AgentPoolManager) : BaseController(server) {
 
+    private val HANDLERS = TreeMap<String, ResourceHandler>(String.CASE_INSENSITIVE_ORDER)
     private val myJspPath: String = myPluginDescriptor.getPluginResourcesPath("settings.jsp")
     private val myHtmlPath: String = myPluginDescriptor.getPluginResourcesPath("settings.html")
 
     init {
         manager.registerController(myHtmlPath, this)
+        HANDLERS.put("vmSizes", VmSizesHandler())
+        HANDLERS.put("osType", OsTypeHandler())
+        HANDLERS.put("subscriptions", SubscriptionsHandler())
+        HANDLERS.put("networks", NetworksHandler())
+        HANDLERS.put("locations", LocationsHandler())
+        HANDLERS.put("agentPools", AgentPoolHandler(agentPoolManager))
     }
 
     @Throws(Exception::class)
@@ -63,7 +72,6 @@ class SettingsController(server: SBuildServer,
             LOG.error("Failed to handle request: " + e.message, e)
             throw e
         }
-
     }
 
     private fun doGet(): ModelAndView {
@@ -108,15 +116,6 @@ class SettingsController(server: SBuildServer,
 
     companion object {
         private val LOG = Logger.getInstance(SettingsController::class.java.name)
-        private val HANDLERS = TreeMap<String, ResourceHandler>(String.CASE_INSENSITIVE_ORDER)
-
-        init {
-            HANDLERS.put("vmSizes", VmSizesHandler())
-            HANDLERS.put("osType", OsTypeHandler())
-            HANDLERS.put("subscriptions", SubscriptionsHandler())
-            HANDLERS.put("networks", NetworksHandler())
-            HANDLERS.put("locations", LocationsHandler())
-        }
 
         private fun writeResponse(xmlResponse: Element, response: ServletResponse) {
             try {

@@ -224,6 +224,15 @@
                     <span class="error option-error" data-bind="validationMessage: image().vmPassword"></span>
                 </td>
             </tr>
+            <tr class="advancedSetting">
+                <th><label for="${cons.agentPoolId}">Agent pool:</label></th>
+                <td>
+                    <select name="prop:${cons.agentPoolId}" class="longField"
+                            data-bind="options: agentPools, optionsText: 'text', optionsValue: 'id',
+                        value: image().agentPoolId"></select>
+                    <span id="error_${cons.agentPoolId}" class="error"></span>
+                </td>
+            </tr>
         </table>
 
         <div class="popupSaveButtonsBlock">
@@ -268,8 +277,10 @@
                 </tbody>
             </table>
 
+            <c:set var="sourceImagesData" value="${propertiesBean.properties[cons.imagesData]}"/>
             <c:set var="imagesData" value="${propertiesBean.properties['images_data']}"/>
-            <input type="hidden" name="prop:images_data" value="<c:out value="${imagesData}"/>"
+            <input type="hidden" name="prop:${cons.imagesData}"
+                   value="<c:out value="${empty sourceImagesData || sourceImagesData == '[]' ? imagesData : sourceImagesData}"/>"
                    data-bind="initializeValue: images_data, value: images_data"/>
             <c:set var="passwordsValue" value="${propertiesBean.properties['secure:passwords_data']}"/>
             <input type="hidden" name="prop:secure:passwords_data" value="<c:out value="${passwordsValue}"/>"

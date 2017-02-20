@@ -81,7 +81,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      * @return created instance.
      */
     private fun startInstance(userData: CloudInstanceUserData): AzureCloudInstance {
-        val name = myImageDetails.vmNamePrefix.toLowerCase() + myIdProvider.nextId
+        val name = myImageDetails.sourceName.toLowerCase() + myIdProvider.nextId
         val instance = AzureCloudInstance(this, name)
         instance.status = InstanceStatus.SCHEDULED_TO_START
         val data = AzureUtils.setVmNameForTag(userData, name)

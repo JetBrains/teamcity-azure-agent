@@ -25,6 +25,7 @@ import jetbrains.buildServer.controllers.ActionErrors;
 import jetbrains.buildServer.controllers.BaseFormXmlController;
 import jetbrains.buildServer.controllers.BasePropertiesBean;
 import jetbrains.buildServer.serverSide.SBuildServer;
+import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager;
 import jetbrains.buildServer.web.openapi.PluginDescriptor;
 import jetbrains.buildServer.web.openapi.WebControllerManager;
 import org.jdeferred.AlwaysCallback;
@@ -62,7 +63,8 @@ public class ProfileController extends BaseFormXmlController {
 
     public ProfileController(@NotNull final SBuildServer server,
                              @NotNull final PluginDescriptor pluginDescriptor,
-                             @NotNull final WebControllerManager manager) {
+                             @NotNull final WebControllerManager manager,
+                             @NotNull final AgentPoolManager poolManager) {
         super(server);
 
         myResourcePath = pluginDescriptor.getPluginResourcesPath();
@@ -73,6 +75,7 @@ public class ProfileController extends BaseFormXmlController {
         myHandlers.add(new ServicesHandler());
         myHandlers.add(new ImagesHandler());
         myHandlers.add(new NetworksHandler());
+        myHandlers.add(new AgentPoolsHandler(poolManager));
 
         manager.registerController(myHtmlPath, this);
     }

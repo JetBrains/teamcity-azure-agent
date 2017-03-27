@@ -225,7 +225,7 @@
                 </td>
             </tr>
             <tr class="advancedSetting">
-                <th><label for="${cons.agentPoolId}">Agent pool:</label></th>
+                <th><label for="${cons.agentPoolId}">Agent Pool:</label></th>
                 <td>
                     <select name="prop:${cons.agentPoolId}" class="longField"
                             data-bind="options: agentPools, optionsText: 'text', optionsValue: 'id',

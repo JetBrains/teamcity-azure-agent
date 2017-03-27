@@ -128,14 +128,14 @@ public class UnixConfigReader extends AgentConfigReader {
         }
 
         final byte[] bytes = serializedCustomData.getBytes();
-        if (!Base64.isBase64(bytes)) {
+        if (!Base64.isArrayByteBase64(bytes)) {
             LOG.warn(String.format("CustomData value should be Base64 encoded in file %s is empty", UNIX_CUSTOM_DATA_FILE));
             return;
         }
 
         // New azure linux agent execute additional Base64 encode
         final byte[] decodedBytes = Base64.decodeBase64(bytes);
-        if (Base64.isBase64(decodedBytes)) {
+        if (Base64.isArrayByteBase64(decodedBytes)) {
             serializedCustomData = new String(decodedBytes);
         }
 

@@ -16,6 +16,8 @@
 
 package jetbrains.buildServer.clouds.azure.asm.web;
 
+import jetbrains.buildServer.clouds.CloudImageParameters;
+
 /**
  * @author Sergey.Pak
  *         Date: 9/11/2014
@@ -24,19 +26,19 @@ package jetbrains.buildServer.clouds.azure.asm.web;
 public class AzureWebConstants {
 
   public static final String SUBSCRIPTION_ID = "subscriptionId";
-  public static final String MANAGEMENT_CERTIFICATE="managementCertificate";
-  public static final String IMAGES_DATA="imagesData";
-  public static final String SERVICE_NAME="serviceName";
-  public static final String SOURCE_NAME ="sourceName";
-  public static final String NAME_PREFIX="vmNamePrefix";
-  public static final String VM_SIZE="vmSize";
-  public static final String OS_TYPE="osType";
-  public static final String PROVISION_USERNAME="username";
-  public static final String PROVISION_PASSWORD="password";
-  public static final String MAX_INSTANCES_COUNT="maxInstances";
+  public static final String MANAGEMENT_CERTIFICATE = "managementCertificate";
+  public static final String SERVICE_NAME = "serviceName";
+  public static final String SOURCE_NAME = "sourceName";
+  public static final String NAME_PREFIX = "vmNamePrefix";
+  public static final String VM_SIZE = "vmSize";
+  public static final String OS_TYPE = "osType";
+  public static final String PROVISION_USERNAME = "username";
+  public static final String PROVISION_PASSWORD = "password";
+  public static final String MAX_INSTANCES_COUNT = "maxInstances";
   public static final String VNET_NAME = "vnetName";
   public static final String PUBLIC_IP = "publicIp";
   public static final String BEHAVIOUR = "behaviour";
+  public static final String PROFILE_ID = "profileId";
 
   public String getVnetName() {
     return VNET_NAME;
@@ -51,7 +53,7 @@ public class AzureWebConstants {
   }
 
   public String getImagesData() {
-    return IMAGES_DATA;
+    return CloudImageParameters.SOURCE_IMAGES_JSON;
   }
 
   public String getServiceName() {
@@ -59,7 +61,7 @@ public class AzureWebConstants {
   }
 
   public String getSourceName() {
-    return SOURCE_NAME;
+    return CloudImageParameters.SOURCE_ID_FIELD;
   }
 
   public String getNamePrefix() {
@@ -82,7 +84,19 @@ public class AzureWebConstants {
     return PROVISION_PASSWORD;
   }
 
-  public String getMaxInstancesCount() { return MAX_INSTANCES_COUNT; }
+  public String getMaxInstancesCount() {
+    return MAX_INSTANCES_COUNT;
+  }
 
-  public String getPublicIp() { return PUBLIC_IP; }
+  public String getPublicIp() {
+    return PUBLIC_IP;
+  }
+
+  public String getAgentPoolId() {
+    return CloudImageParameters.AGENT_POOL_ID_FIELD;
+  }
+
+  public String getProfileId() {
+    return PROFILE_ID;
+  }
 }

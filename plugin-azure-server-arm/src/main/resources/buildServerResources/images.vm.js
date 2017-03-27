@@ -63,6 +63,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         vmPassword: ko.observable().extend({required: true}),
         reuseVm: ko.observable(false),
         agentPoolId: ko.observable().extend({required: true}),
+        profileId: ko.observable()
     });
 
     // Data from Azure APIs
@@ -146,6 +147,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             if (image["source-id"]) {
                 image.vmNamePrefix = image["source-id"];
             } else {
+                image.vmNamePrefix = image.sourceName;
                 saveValue = true;
             }
         });
@@ -177,7 +179,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         model.vmPublicIp(image.vmPublicIp);
         model.vmUsername(image.vmUsername);
         model.reuseVm(image.reuseVm);
-        model.agentPoolId(image.agentPoolId);
+        model.agentPoolId(image.agent_pool_id);
+        model.profileId(image.profileId);
 
         var key = image.vmNamePrefix;
         var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
@@ -207,7 +210,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             vmSize: model.vmSize(),
             vmUsername: model.vmUsername(),
             reuseVm: model.reuseVm(),
-            agentPoolId: model.agentPoolId()
+            agentPoolId: model.agentPoolId(),
+            profileId: model.profileId()
         };
 
         var originalImage = self.originalImage;

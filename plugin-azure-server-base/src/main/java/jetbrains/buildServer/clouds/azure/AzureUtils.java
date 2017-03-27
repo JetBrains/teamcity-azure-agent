@@ -41,7 +41,7 @@ public final class AzureUtils {
         Gson gson = new Gson();
         final String imageData = StringUtil.notEmpty(
                 params.getParameter(CloudImageParameters.SOURCE_IMAGES_JSON),
-                StringUtil.notEmpty(params.getParameter("images_data"), StringUtil.EMPTY));
+                StringUtil.emptyIfNull(params.getParameter("images_data")));
         if (StringUtil.isEmpty(imageData)) {
             return Collections.emptyList();
         }

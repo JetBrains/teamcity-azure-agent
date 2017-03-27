@@ -25,6 +25,7 @@ dependencies {
     compile "com.microsoft.azure:azure-svc-mgmt-network:$azureSdkVersion"
     compile 'org.bouncycastle:bcprov-jdk15on:1.54'
     compile 'org.jdeferred:jdeferred-core:1.2.4'
+    provided "org.jetbrains.teamcity.internal:server:$teamcityVersion"
     provided 'javax.servlet:jstl:1.1.2'
     provided 'org.slf4j:slf4j-api:1.7.12'
     provided 'net.jcip:jcip-annotations:1.0'

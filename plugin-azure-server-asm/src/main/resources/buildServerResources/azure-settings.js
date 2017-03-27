@@ -23,7 +23,6 @@
 BS.Clouds.Azure = BS.Clouds.Azure || {
   data: [],
   selectors: {
-    sourcesSelect: '#sourceName',
     behaviourRadio: '.behaviourRadio',
     rmImageLink: '.removeImageLink',
     editImageLink: '.editImageLink',
@@ -31,7 +30,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   },
   _passwordsData: {},
   _displayedErrors: {},
-  _errorIds: ['sourceName', 'serviceName', 'maxInstances', 'vmNamePrefix', 'vnetName', 'vmSize', 'username', 'password'],
+  _errorIds: ['source-id', 'serviceName', 'maxInstances', 'vmNamePrefix', 'vnetName', 'vmSize', 'username', 'password'],
   init: function (refreshOptionsUrl) {
     this.$response = null;
     this.refreshOptionsUrl = refreshOptionsUrl;
@@ -39,7 +38,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$certEditLink = $j('.toggle-certificate');
     this.$subscrId = $j('#subscriptionId');
 
-    this.$sourceNameDataElem = $j('#sourceName');
+    this.$sourceNameDataElem = $j('#source-id');
     this.$serviceNameDataElem = $j('#serviceName');
     this.$osTypeDataElem = $j('#osType');
     this.$vmSizeDataElem = $j('#vmSize');
@@ -49,6 +48,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$usernameDataElem = $j('#username');
     this.$passwordDataElem = $j('#password');
     this.$maxInstancesDataElem = $j('#maxInstances');
+    this.$agentPoolDataElem = $j('#agent_pool_id');
+    this.$profileIdDataElem = $j('#agent_pool_id');
 
     this.$showDialogButton = $j('#azureShowDialogButton');
     this.$dialogSubmitButton = $j('#addImageButton');
@@ -87,7 +88,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$imagesTable.on('click', this.selectors.rmImageLink, function () {
       var $this = $j(this),
         id = $this.data('imageId'),
-        name = self.data[id].sourceName;
+        name = self.data[id]['source-id'];
 
       if (confirm('Are you sure you want to remove the image "' + name + '"?')) {
         self.removeImage($this);
@@ -150,6 +151,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       .add(this.$vmSizeDataElem)
       .add(this.$usernameDataElem)
       .add(this.$maxInstancesDataElem)
+      .add(this.$agentPoolDataElem)
       .on('change', function (e, data) {
         if (arguments.length === 1) {
           self._imageData[this.getAttribute('id')] = this.value;
@@ -171,7 +173,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
 
     this.$passwordDataElem.on('change', function (e, data) {
       if (arguments.length === 1) {
-        self._passwordsData[self._imageData.sourceName] = this.value;
+        self._passwordsData[self._imageData['source-id']] = this.value;
       } else {
         this.value = data;
       }
@@ -190,18 +192,30 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
       BS.Log.error('bad images data: ' + rawImagesData);
     }
 
+    var saveImages = false;
+    imagesData.forEach(function (image) {
+      if (!image['source-id']) {
+        image['source-id'] = image.sourceName;
+        delete image.sourceName;
+        saveImages = true;
+      }
+    });
+
     this.data = imagesData.reduce(function (accumulator, imageDataStr) {
       // drop images without sourceName
-      if (imageDataStr.sourceName) {
+      if (imageDataStr['source-id']) {
         accumulator[self._lastImageId++] = imageDataStr;
         self._imagesDataLength++;
       }
 
       return accumulator;
     }, {});
+
+    if (saveImages) this._saveImagesData();
+
     this.fetchOptionsDeferred && this.fetchOptionsDeferred.done(function () {
       Object.keys(this.data).forEach(function (i, key) {
-        var $image = this._getSourceByName(this.data[key].sourceName);
+        var $image = this._getSourceByName(this.data[key]['source-id']);
         this.data[key].$image = $image;
       }.bind(this))
     }.bind(this));
@@ -270,6 +284,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
               addLabel: true,
               defaultOptionValue: '',
               defaultOptionLabel: '<None>'
+            },
+            {
+              selector: 'AgentPools:eq(0) AgentPool',
+              $target: this.$agentPoolDataElem,
+              addLabel: true
             }
           ]);
         } else {
@@ -314,8 +333,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     typeof imageId !== 'undefined' && (this._imageData = $j.extend({}, this.data[imageId]));
 
     var usedMachines = Object.keys(this.data).reduce(function (acc, key) {
-      if (this._imageData.sourceName !== this.data[key].sourceName) {
-        acc.push(this.data[key].sourceName);
+      if (this._imageData['source-id'] !== this.data[key]['source-id']) {
+        acc.push(this.data[key]['source-id']);
       }
 
       return acc;
@@ -354,11 +373,11 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         $image = this._getSourceByName(sourceName);
 
       if (! $image.length) {
-        delete this._imageData.sourceName;
+        delete this._imageData['source-id'];
       } else {
         $j.extend(true, this._imageData, {
           $image: $image,
-          sourceName: sourceName,
+          'source-id': sourceName,
           osType: $image.attr('osType')
         });
 
@@ -516,7 +535,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     $target.append($j('<option>').attr('value', value).text(text || value).attr('data-type', type));
   },
   _imagesTableRowTemplate: $j('<tr class="imagesTableRow">\
-<td class="imageName highlight"><div class="sourceIcon sourceIcon_unknown">?</div><span class="sourceName"></span></td>\
+<td class="imageName highlight"><div class="sourceIcon sourceIcon_unknown">?</div><span class="source-id"></span></td>\
 <td class="serviceName highlight"></td>\
 <td class="vmNamePrefix highlight hidden"></td>\
 <td class="vnetName highlight hidden"></td>\
@@ -530,7 +549,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     var $row = this._imagesTableRowTemplate.clone();
 
     Object.keys(data).forEach(function (className) {
-      if (className === 'maxInstances' && data.sourceName === 'START_STOP' && data[className] == 1) {
+      if (className === 'maxInstances' && data['source-id'] === 'START_STOP' && data[className] == 1) {
         $row.find('.' + className).text(data[className]);
       } else {
         typeof data[className] === 'string' && $row.find('.' + className).text(data[className]);
@@ -625,7 +644,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
   _triggerDialogChange: function () {
     var image = this._imageData;
 
-    this.$sourceNameDataElem.trigger('change', image.sourceName || '');
+    this.$sourceNameDataElem.trigger('change', image['source-id'] || '');
     this.$serviceNameDataElem.trigger('change', image.serviceName || '');
     this.$osTypeDataElem.trigger('change', image.osType || '');
     this.$vmSizeDataElem.trigger('change', image.vmSize || '');
@@ -634,7 +653,8 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     this.$publicIpDataElem.trigger('change', image.publicIp || false);
     this.$maxInstancesDataElem.trigger('change', image.maxInstances || '1');
     this.$usernameDataElem.trigger('change', image.username || '');
-    this.$passwordDataElem.trigger('change', this._passwordsData[image.sourceName] || '');
+    this.$passwordDataElem.trigger('change', this._passwordsData[image['source-id']] || '');
+    this.$agentPoolDataElem.trigger('change', image.agent_pool_id || '');
   },
   _getSourceByName: function (sourceName) {
     var $image = this.$response.find('Images:eq(0) Image[name="' + sourceName + '"]');
@@ -680,14 +700,14 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
         };
       },
       validators = {
-        sourceName: function () {
-          if ( ! this._imageData.sourceName) {
+        'source-id': function () {
+          if ( ! this._imageData['source-id']) {
             this.addOptionError('required', 'sourceName');
             isValid = false;
           } else {
-            var $source = this._getSourceByName(this._imageData.sourceName);
+            var $source = this._getSourceByName(this._imageData['source-id']);
             if (! $source.length) {
-              this.addOptionError({ key: 'nonexistent', props: { elem: 'source', val: this._imageData.sourceName}}, 'sourceName');
+              this.addOptionError({ key: 'nonexistent', props: { elem: 'source', val: this._imageData['source-id']}}, 'sourceName');
               isValid = false;
             } else {
               if (this._getSourceType() === 'image' && this._imageData.behaviour === 'START_STOP') {
@@ -735,7 +755,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
           }
         }.bind(this),
         password: function () {
-          var pwd = this._passwordsData[this._imageData.sourceName];
+          var pwd = this._passwordsData[this._imageData['source-id']];
           if (this._getSourceType() === 'image' && this._isGeneralizedImage() && !(pwd && pwd.length)) {
             this.addOptionError('required', 'password');
             isValid = false;
@@ -797,7 +817,7 @@ BS.Clouds.Azure = BS.Clouds.Azure || {
     }.bind(this);
 
     Object.keys(this.data).forEach(function (imageId) {
-      var name = this.data[imageId].sourceName,
+      var name = this.data[imageId]['source-id'],
         machine = this._getSourceByName(name),
         type = this._getSourceType(machine);
 

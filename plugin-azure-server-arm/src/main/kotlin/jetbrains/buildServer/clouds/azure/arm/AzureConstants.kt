@@ -96,5 +96,6 @@ class AzureConstants {
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"
         const val TAG_SOURCE = "teamcity-source"
+        const val PROFILE_ID = "profileId"
     }
 }

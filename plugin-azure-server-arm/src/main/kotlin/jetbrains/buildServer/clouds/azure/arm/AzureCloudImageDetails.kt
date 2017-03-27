@@ -47,6 +47,8 @@ class AzureCloudImageDetails(
         val username: String,
         @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)
         val agentPoolId: Int?,
+        @SerializedName(AzureConstants.PROFILE_ID)
+        val profileId: String?,
         @SerializedName(AzureConstants.REUSE_VM)
         private val myReuseVm: Boolean) : CloudImagePasswordDetails {
 

@@ -48,6 +48,7 @@
         ><!-- These fake fields are a workaround to disable chrome autofill -->
     <input style="display:none" type="text" name="fakeusernameremembered"/>
     <input style="display:none" type="password" name="fakepasswordremembered"/>
+    <input type="hidden" name="_${cons.profileId}" id="${cons.profileId}"/>
     <table class="runnerFormTable">
     <tr>
         <th>
@@ -151,6 +152,15 @@
               <span class="error option-error option-error_${cons.provisionPassword}"></span>
           </td>
         </tr>
+        <tr>
+            <th>Agent Pool: <l:star/></th>
+            <td>
+                <div>
+                    <select name="_${cons.agentPoolId}" id="${cons.agentPoolId}" data-err-id="${cons.agentPoolId}" class="longField"></select>
+                </div>
+                <span class="error option-error option-error_${cons.agentPoolId}"></span>
+            </td>
+        </tr>
     </table>
     <div class="popupSaveButtonsBlock">
         <forms:submit label="Add" id="addImageButton"/>
@@ -175,10 +185,11 @@
             </tr>
             </tbody>
         </table>
-        <%--<props:hiddenProperty name="images_data"/>--%>
         <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
+        <c:set var="sourceImagesData" value="${propertiesBean.properties[cons.imagesData]}"/>
         <c:set var="imagesData" value="${propertiesBean.properties['images_data']}"/>
-        <input type="hidden" name="prop:images_data" id="images_data" value="<c:out value="${imagesData}"/>"/>
+        <input type="hidden" name="prop:${cons.imagesData}" id="images_data"
+               value="<c:out value="${empty sourceImagesData || sourceImagesData == '[]' ? imagesData : sourceImagesData}"/>"/>
         <c:set var="passwordsValue" value="${propertiesBean.properties['secure:passwords_data']}"/>
         <input type="hidden" name="prop:secure:passwords_data" id="passwords_data" value="<c:out value="${passwordsValue}"/>"/>
     </div>

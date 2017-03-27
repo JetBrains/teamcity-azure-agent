@@ -17,14 +17,11 @@
 package jetbrains.buildServer.clouds.azure.asm;
 
 import com.google.gson.annotations.SerializedName;
-import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudImageParameters;
 import jetbrains.buildServer.clouds.azure.asm.web.AzureWebConstants;
 import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
 import jetbrains.buildServer.util.StringUtil;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * @author Sergey.Pak
@@ -33,60 +30,37 @@ import org.jetbrains.annotations.Nullable;
  */
 public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
+    @SerializedName(CloudImageParameters.SOURCE_ID_FIELD)
+    private String mySourceId;
     @SerializedName(AzureWebConstants.SOURCE_NAME)
-    private final String mySourceName;
+    private String mySourceName;
     @SerializedName(AzureWebConstants.SERVICE_NAME)
-    private final String myServiceName;
+    private String myServiceName;
     @SerializedName(AzureWebConstants.NAME_PREFIX)
-    private final String myVmNamePrefix;
+    private String myVmNamePrefix;
     @SerializedName(AzureWebConstants.VNET_NAME)
-    private final String myVnetName;
+    private String myVnetName;
     @SerializedName(AzureWebConstants.OS_TYPE)
-    private final String myOsType;
+    private String myOsType;
     @SerializedName(AzureWebConstants.VM_SIZE)
-    private final String myVmSize;
+    private String myVmSize;
     @SerializedName(AzureWebConstants.MAX_INSTANCES_COUNT)
-    private final int myMaxInstances;
+    private int myMaxInstances;
     @SerializedName(AzureWebConstants.BEHAVIOUR)
-    private final CloneBehaviour myBehaviour;
+    private CloneBehaviour myBehaviour;
     @SerializedName(AzureWebConstants.PROVISION_USERNAME)
-    private final String myUsername;
+    private String myUsername;
     @SerializedName(AzureWebConstants.PUBLIC_IP)
-    private final boolean myPublicIp;
+    private boolean myPublicIp;
     @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)
     private Integer myAgentPoolId;
+    @SerializedName(AzureWebConstants.PROFILE_ID)
+    private String myProfileId;
 
     private String myPassword = null;
 
-    public AzureCloudImageDetails(@NotNull final CloneBehaviour cloneTypeName,
-                                  @Nullable final String serviceName,
-                                  @NotNull final String sourceName,
-                                  @Nullable final String vmNamePrefix,
-                                  @Nullable final String vnetName,
-                                  @Nullable final String vmSize,
-                                  final int maxInstances,
-                                  @Nullable final String osType,
-                                  @Nullable final String username,
-                                  @Nullable final String password,
-                                  final boolean publicIp,
-                                  final int agentPoolId) {
-        myBehaviour = cloneTypeName;
-        mySourceName = sourceName;
-        myServiceName = serviceName;
-        myVmNamePrefix = vmNamePrefix;
-        myVnetName = vnetName;
-        myOsType = osType;
-        myVmSize = vmSize;
-        myUsername = username;
-        myPassword = password;
-        myMaxInstances = maxInstances;
-        myPublicIp = publicIp;
-        myAgentPoolId = agentPoolId;
-        validateParams();
-    }
-
     public String getSourceName() {
-        return mySourceName;
+        return StringUtil.notEmpty(mySourceId, StringUtil.emptyIfNull(mySourceName));
     }
 
     public String getServiceName() {
@@ -137,19 +111,7 @@ public class AzureCloudImageDetails implements CloudImagePasswordDetails {
         return myAgentPoolId;
     }
 
-    private void validateParams() {
-        if (!myBehaviour.isUseOriginal()) {
-            check(StringUtil.isNotEmpty(myServiceName), "Service name is required");
-            check(StringUtil.isNotEmpty(myVmNamePrefix), "Name prefix is required");
-            check(StringUtil.isNotEmpty(myVmSize), "VM Size is required");
-            check(StringUtil.isNotEmpty(myOsType), "Unable to determine OS Type");
-            check(myMaxInstances > 0, "Max instances is less than 1, no VMs of this Image will be started");
-        }
-    }
-
-    private void check(boolean expression, String errorMessage) {
-        if (!expression) {
-            throw new TeamCityRuntimeException(errorMessage);
-        }
+    public String getProfileId() {
+        return myProfileId;
     }
 }

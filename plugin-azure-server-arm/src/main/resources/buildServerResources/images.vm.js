@@ -147,7 +147,6 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             if (image["source-id"]) {
                 image.vmNamePrefix = image["source-id"];
             } else {
-                image.vmNamePrefix = image.sourceName;
                 saveValue = true;
             }
         });

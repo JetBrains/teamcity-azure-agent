@@ -53,11 +53,14 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         vmNamePrefix: ko.observable().extend({required: true, maxLength: maxLength}).extend({
             validation: {
                 validator: function (value) {
-                    return self.originalImage && self.originalImage.vmNamePrefix == value || !self.passwords[value];
+                    return self.originalImage && self.originalImage.vmNamePrefix === value || !self.passwords[value];
                 },
                 message: 'Name prefix should be unique within subscription'
             }
-        }),
+        }).extend({ pattern: {
+          message: 'Name can contain alphanumeric characters, underscore and hyphen',
+          params: /^[a-z][a-z0-9_-]*$/i
+        }}),
         vmPublicIp: ko.observable(false),
         vmUsername: ko.observable().extend({required: true, maxLength: maxLength}),
         vmPassword: ko.observable().extend({required: true}),
@@ -102,7 +105,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         if (!subscriptionId) return;
 
         var match = ko.utils.arrayFirst(self.subscriptions(), function (item) {
-            return item.id == subscriptionId;
+            return item.id === subscriptionId;
         });
         if (!match) {
             self.subscriptions([{id: subscriptionId, text: subscriptionId}]);
@@ -115,7 +118,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         if (!location) return;
 
         var match = ko.utils.arrayFirst(self.locations(), function (item) {
-            return item.id == location;
+            return item.id === location;
         });
         if (!match) {
             self.locations([{id: location, text: location}]);

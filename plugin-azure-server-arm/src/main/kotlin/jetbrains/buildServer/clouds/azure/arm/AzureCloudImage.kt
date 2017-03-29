@@ -21,7 +21,6 @@ import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.QuotaException
 import jetbrains.buildServer.clouds.azure.AzureUtils
-import jetbrains.buildServer.clouds.azure.IdProvider
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
 import jetbrains.buildServer.clouds.base.AbstractCloudImage
@@ -35,8 +34,7 @@ import kotlinx.coroutines.experimental.async
  * Azure cloud image.
  */
 class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDetails,
-                                  private val myApiConnector: AzureApiConnector,
-                                  private val myIdProvider: IdProvider)
+                                  private val myApiConnector: AzureApiConnector)
     : AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails>(myImageDetails.sourceName, myImageDetails.sourceName) {
     init {
         try {
@@ -81,7 +79,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      * @return created instance.
      */
     private fun startInstance(userData: CloudInstanceUserData): AzureCloudInstance {
-        val name = myImageDetails.sourceName.toLowerCase() + myIdProvider.nextId
+        val name = getInstanceName()
         val instance = AzureCloudInstance(this, name)
         instance.status = InstanceStatus.SCHEDULED_TO_START
         val data = AzureUtils.setVmNameForTag(userData, name)
@@ -183,6 +181,16 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
     override fun getAgentPoolId(): Int? {
         return myImageDetails.agentPoolId
+    }
+
+    private fun getInstanceName(): String {
+        val keys = myInstances.keys.map(String::toLowerCase)
+        val sourceName = myImageDetails.sourceName.toLowerCase()
+        var i: Int = 1
+
+        while (keys.contains(sourceName + i)) i++
+
+        return sourceName + i
     }
 
     /**

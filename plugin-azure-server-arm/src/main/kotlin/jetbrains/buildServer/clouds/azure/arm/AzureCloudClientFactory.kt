@@ -24,10 +24,8 @@ import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.AgentDescription
 import jetbrains.buildServer.serverSide.PropertiesProcessor
-import jetbrains.buildServer.serverSide.ServerPaths
 import jetbrains.buildServer.serverSide.ServerSettings
 import jetbrains.buildServer.web.openapi.PluginDescriptor
-import java.io.File
 import java.util.*
 
 /**
@@ -35,18 +33,8 @@ import java.util.*
  */
 class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                               private val myPluginDescriptor: PluginDescriptor,
-                              serverPaths: ServerPaths,
                               private val mySettings: ServerSettings)
     : AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudClient>(cloudRegistrar) {
-
-    private val myAzureStorage: File
-
-    init {
-        myAzureStorage = File(serverPaths.pluginDataDirectory, "cloud-$cloudCode/indices")
-        if (!myAzureStorage.exists()) {
-            myAzureStorage.mkdirs()
-        }
-    }
 
     override fun createNewClient(state: CloudState,
                                  images: Collection<AzureCloudImageDetails>,
@@ -69,7 +57,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         apiConnector.setProfileId(state.profileId)
         apiConnector.setLocation(location)
 
-        val azureCloudClient = AzureCloudClient(params, apiConnector, myAzureStorage)
+        val azureCloudClient = AzureCloudClient(params, apiConnector)
         azureCloudClient.updateErrors(*errors)
 
         return azureCloudClient

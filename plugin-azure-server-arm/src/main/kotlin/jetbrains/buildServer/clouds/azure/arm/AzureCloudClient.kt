@@ -18,24 +18,17 @@ package jetbrains.buildServer.clouds.azure.arm
 
 import jetbrains.buildServer.clouds.CloudClientParameters
 import jetbrains.buildServer.clouds.azure.AzureCloudClientBase
-import jetbrains.buildServer.clouds.azure.FileIdProvider
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector
-import jetbrains.buildServer.serverSide.crypt.EncryptUtil
-
-import java.io.File
 
 /**
  * ARM cloud client.
  */
 class AzureCloudClient(params: CloudClientParameters,
-                                apiConnector: CloudApiConnector<AzureCloudImage, AzureCloudInstance>,
-                                private val myAzureIdxStorage: File)
+                       apiConnector: CloudApiConnector<AzureCloudImage, AzureCloudInstance>)
     : AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails>(params, apiConnector) {
 
     override fun checkAndCreateImage(imageDetails: AzureCloudImageDetails): AzureCloudImage {
-        val fileName = EncryptUtil.md5(imageDetails.sourceName) + ".idx"
-        val idProvider = FileIdProvider(File(myAzureIdxStorage, fileName))
-        return AzureCloudImage(imageDetails, myApiConnector as AzureApiConnector, idProvider)
+        return AzureCloudImage(imageDetails, myApiConnector as AzureApiConnector)
     }
 }

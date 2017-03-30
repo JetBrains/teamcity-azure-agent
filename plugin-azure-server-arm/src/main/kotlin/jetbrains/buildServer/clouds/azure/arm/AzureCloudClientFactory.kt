@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm
 
 import jetbrains.buildServer.clouds.*
+import jetbrains.buildServer.clouds.azure.AzureCloudImagesHolder
 import jetbrains.buildServer.clouds.azure.AzurePropertiesNames
 import jetbrains.buildServer.clouds.azure.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl
@@ -33,7 +34,8 @@ import java.util.*
  */
 class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                               private val myPluginDescriptor: PluginDescriptor,
-                              private val mySettings: ServerSettings)
+                              private val mySettings: ServerSettings,
+                              private val myImagesHolder: AzureCloudImagesHolder)
     : AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudClient>(cloudRegistrar) {
 
     override fun createNewClient(state: CloudState,
@@ -57,7 +59,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         apiConnector.setProfileId(state.profileId)
         apiConnector.setLocation(location)
 
-        val azureCloudClient = AzureCloudClient(params, apiConnector)
+        val azureCloudClient = AzureCloudClient(params, apiConnector, myImagesHolder)
         azureCloudClient.updateErrors(*errors)
 
         return azureCloudClient

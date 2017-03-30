@@ -16,15 +16,14 @@
 
 package jetbrains.buildServer.clouds.base.connector;
 
-import java.util.Collection;
-import java.util.Map;
-import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.AbstractCloudInstance;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.Map;
 
 /**
  * @author Sergey.Pak
@@ -34,9 +33,6 @@ import org.jetbrains.annotations.Nullable;
 public interface CloudApiConnector<T extends AbstractCloudImage, G extends AbstractCloudInstance> {
 
   void test() throws CheckedCloudException;
-
-  @Nullable
-  InstanceStatus getInstanceStatusIfExists(@NotNull G instance);
 
   @NotNull
   <R extends AbstractInstance> Map<String, R> fetchInstances(@NotNull final T image) throws CheckedCloudException;

@@ -16,15 +16,14 @@
 
 package jetbrains.buildServer.clouds.base.connector;
 
-import java.util.Collection;
-import java.util.Map;
-import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.AbstractCloudInstance;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.Map;
 
 /**
  * @author Sergey.Pak
@@ -35,12 +34,6 @@ public class FakeApiConnector implements CloudApiConnector {
 
   @Override
   public void test() throws CheckedCloudException {
-  }
-
-  @Nullable
-  @Override
-  public InstanceStatus getInstanceStatusIfExists(@NotNull AbstractCloudInstance instance) {
-    return null;
   }
 
   @NotNull

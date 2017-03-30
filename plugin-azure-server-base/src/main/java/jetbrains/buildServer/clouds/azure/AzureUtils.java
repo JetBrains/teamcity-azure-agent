@@ -54,8 +54,8 @@ public final class AzureUtils {
             if (data != null) {
                 for (T image : images) {
                     final CloudImagePasswordDetails userImage = (CloudImagePasswordDetails) image;
-                    if (data.get(image.getSourceName()) != null) {
-                        userImage.setPassword(data.get(image.getSourceName()));
+                    if (data.get(image.getSourceId()) != null) {
+                        userImage.setPassword(data.get(image.getSourceId()));
                     }
                 }
             }

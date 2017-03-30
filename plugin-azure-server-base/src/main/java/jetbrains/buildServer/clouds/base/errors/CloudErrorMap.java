@@ -16,9 +16,10 @@
 
 package jetbrains.buildServer.clouds.base.errors;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import jetbrains.buildServer.clouds.CloudErrorInfo;
-import jetbrains.buildServer.clouds.CloudErrorProvider;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -27,26 +28,18 @@ import org.jetbrains.annotations.Nullable;
  *         Time: 4:51 PM
  */
 public class CloudErrorMap implements UpdatableCloudErrorProvider {
-  protected final Map<String, TypedCloudErrorInfo> myErrors;
   private final ErrorMessageUpdater myMessageUpdater;
-  private CloudErrorInfo myErrorInfo;
-  private final String myDefaultMessage;
+  private final AtomicReference<CloudErrorInfo> myErrorInfo = new AtomicReference<>();
 
-  public CloudErrorMap(final ErrorMessageUpdater messageUpdater, final String defaultMessage) {
+  public CloudErrorMap(final ErrorMessageUpdater messageUpdater) {
     myMessageUpdater = messageUpdater;
-    myErrors = new HashMap<String, TypedCloudErrorInfo>();
-    myDefaultMessage = defaultMessage;
   }
 
   public void updateErrors(@Nullable final TypedCloudErrorInfo... errors){
-    myErrorInfo = null;
-    if (errors != null) {
-      myErrors.clear();
-      myErrors.putAll(mapFromArray(errors));
-      if (myErrors.size() == 0)
-        return;
-      if (myErrors.size() == 1) {
-        final TypedCloudErrorInfo err = myErrors.values().iterator().next();
+    final Map<String, TypedCloudErrorInfo> errorInfoMap = mapFromArray(errors);
+    if (errors != null && errorInfoMap.size() > 0) {
+      if (errorInfoMap.size() == 1) {
+        final TypedCloudErrorInfo err = errorInfoMap.values().iterator().next();
         final String message = err.getMessage();
         final String friendlyErrorMessage = myMessageUpdater.getFriendlyErrorMessage(message);
         final String details;
@@ -56,32 +49,37 @@ public class CloudErrorMap implements UpdatableCloudErrorProvider {
           details = err.getDetails();
         }
         if (err.getThrowable() != null) {
-          myErrorInfo = new CloudErrorInfo(friendlyErrorMessage, details, err.getThrowable());
+          myErrorInfo.set(new CloudErrorInfo(friendlyErrorMessage, details, err.getThrowable()));
         } else {
-          myErrorInfo = new CloudErrorInfo(friendlyErrorMessage, details);
+          myErrorInfo.set(new CloudErrorInfo(friendlyErrorMessage, details));
         }
       } else {
         final StringBuilder msgBuilder = new StringBuilder();
         final StringBuilder detailsBuilder = new StringBuilder();
-        for (TypedCloudErrorInfo errorInfo : myErrors.values()) {
+        for (TypedCloudErrorInfo errorInfo : errorInfoMap.values()) {
           msgBuilder.append(",").append(myMessageUpdater.getFriendlyErrorMessage(errorInfo.getMessage()));
           detailsBuilder.append(",\n[").append(errorInfo.getDetails()).append("]");
         }
-        myErrorInfo = new CloudErrorInfo(msgBuilder.substring(1), detailsBuilder.substring(2));
+        myErrorInfo.set(new CloudErrorInfo(msgBuilder.substring(1), detailsBuilder.substring(2)));
       }
+    } else {
+      myErrorInfo.set(null);
     }
+
   }
 
-  private static Map<String, TypedCloudErrorInfo> mapFromArray(final TypedCloudErrorInfo[] array){
+  private static Map<String, TypedCloudErrorInfo> mapFromArray(@Nullable  final TypedCloudErrorInfo[] array){
     final Map<String, TypedCloudErrorInfo> map = new HashMap<String, TypedCloudErrorInfo>();
-    for (TypedCloudErrorInfo errorInfo : array) {
-      map.put(errorInfo.getType(), errorInfo);
+    if (array != null) {
+      for (TypedCloudErrorInfo errorInfo : array) {
+        map.put(errorInfo.getType(), errorInfo);
+      }
     }
     return map;
   }
 
   public CloudErrorInfo getErrorInfo(){
-    return myErrorInfo;
+    return myErrorInfo.get();
   }
 
 }

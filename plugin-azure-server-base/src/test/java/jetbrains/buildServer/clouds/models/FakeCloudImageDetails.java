@@ -45,7 +45,7 @@ public class FakeCloudImageDetails implements CloudImagePasswordDetails {
     }
 
     @Override
-    public String getSourceName() {
+    public String getSourceId() {
         return "name";
     }
 

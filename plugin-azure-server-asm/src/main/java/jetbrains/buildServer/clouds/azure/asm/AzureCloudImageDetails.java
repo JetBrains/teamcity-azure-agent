@@ -30,88 +30,88 @@ import jetbrains.buildServer.util.StringUtil;
  */
 public class AzureCloudImageDetails implements CloudImagePasswordDetails {
 
-    @SerializedName(CloudImageParameters.SOURCE_ID_FIELD)
-    private String mySourceId;
-    @SerializedName(AzureWebConstants.SOURCE_NAME)
-    private String mySourceName;
-    @SerializedName(AzureWebConstants.SERVICE_NAME)
-    private String myServiceName;
-    @SerializedName(AzureWebConstants.NAME_PREFIX)
-    private String myVmNamePrefix;
-    @SerializedName(AzureWebConstants.VNET_NAME)
-    private String myVnetName;
-    @SerializedName(AzureWebConstants.OS_TYPE)
-    private String myOsType;
-    @SerializedName(AzureWebConstants.VM_SIZE)
-    private String myVmSize;
-    @SerializedName(AzureWebConstants.MAX_INSTANCES_COUNT)
-    private int myMaxInstances;
-    @SerializedName(AzureWebConstants.BEHAVIOUR)
-    private CloneBehaviour myBehaviour;
-    @SerializedName(AzureWebConstants.PROVISION_USERNAME)
-    private String myUsername;
-    @SerializedName(AzureWebConstants.PUBLIC_IP)
-    private boolean myPublicIp;
-    @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)
-    private Integer myAgentPoolId;
-    @SerializedName(AzureWebConstants.PROFILE_ID)
-    private String myProfileId;
+  @SerializedName(CloudImageParameters.SOURCE_ID_FIELD)
+  private String mySourceId;
+  @SerializedName(AzureWebConstants.SOURCE_NAME)
+  private String mySourceName;
+  @SerializedName(AzureWebConstants.SERVICE_NAME)
+  private String myServiceName;
+  @SerializedName(AzureWebConstants.NAME_PREFIX)
+  private String myVmNamePrefix;
+  @SerializedName(AzureWebConstants.VNET_NAME)
+  private String myVnetName;
+  @SerializedName(AzureWebConstants.OS_TYPE)
+  private String myOsType;
+  @SerializedName(AzureWebConstants.VM_SIZE)
+  private String myVmSize;
+  @SerializedName(AzureWebConstants.MAX_INSTANCES_COUNT)
+  private int myMaxInstances;
+  @SerializedName(AzureWebConstants.BEHAVIOUR)
+  private CloneBehaviour myBehaviour;
+  @SerializedName(AzureWebConstants.PROVISION_USERNAME)
+  private String myUsername;
+  @SerializedName(AzureWebConstants.PUBLIC_IP)
+  private boolean myPublicIp;
+  @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)
+  private Integer myAgentPoolId;
+  @SerializedName(AzureWebConstants.PROFILE_ID)
+  private String myProfileId;
 
-    private String myPassword = null;
+  private String myPassword = null;
 
-    public String getSourceName() {
-        return StringUtil.notEmpty(mySourceId, StringUtil.emptyIfNull(mySourceName));
-    }
+  public String getSourceId() {
+    return StringUtil.notEmpty(mySourceId, StringUtil.emptyIfNull(mySourceName));
+  }
 
-    public String getServiceName() {
-        return myServiceName;
-    }
+  public String getServiceName() {
+    return myServiceName;
+  }
 
-    public String getOsType() {
-        return myOsType;
-    }
+  public String getOsType() {
+    return myOsType;
+  }
 
-    public String getVmSize() {
-        return myVmSize;
-    }
+  public String getVmSize() {
+    return myVmSize;
+  }
 
-    public String getVmNamePrefix() {
-        return myVmNamePrefix;
-    }
+  public String getVmNamePrefix() {
+    return myVmNamePrefix;
+  }
 
-    public String getVnetName() {
-        return myVnetName;
-    }
+  public String getVnetName() {
+    return myVnetName;
+  }
 
-    public String getUsername() {
-        return myUsername;
-    }
+  public String getUsername() {
+    return myUsername;
+  }
 
-    public String getPassword() {
-        return myPassword;
-    }
+  public String getPassword() {
+    return myPassword;
+  }
 
-    public void setPassword(final String password) {
-        myPassword = password;
-    }
+  public void setPassword(final String password) {
+    myPassword = password;
+  }
 
-    public int getMaxInstances() {
-        return myMaxInstances;
-    }
+  public int getMaxInstances() {
+    return myMaxInstances;
+  }
 
-    public CloneBehaviour getBehaviour() {
-        return myBehaviour;
-    }
+  public CloneBehaviour getBehaviour() {
+    return myBehaviour;
+  }
 
-    public boolean getPublicIp() {
-        return myPublicIp;
-    }
+  public boolean getPublicIp() {
+    return myPublicIp;
+  }
 
-    public Integer getAgentPoolId() {
-        return myAgentPoolId;
-    }
+  public Integer getAgentPoolId() {
+    return myAgentPoolId;
+  }
 
-    public String getProfileId() {
-        return myProfileId;
-    }
+  public String getProfileId() {
+    return myProfileId;
+  }
 }

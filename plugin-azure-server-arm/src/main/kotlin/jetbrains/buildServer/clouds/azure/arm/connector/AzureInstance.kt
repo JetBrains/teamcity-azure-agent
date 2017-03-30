@@ -25,7 +25,7 @@ import java.util.TreeMap
 /**
  * Azure cloud instance.
  */
-class AzureInstance internal constructor(private val myName: String) : AbstractInstance {
+class AzureInstance internal constructor(private val myName: String) : AbstractInstance() {
     private var myProvisioningState: String? = null
     private var myStartDate: Date? = null
     private var myPowerState: String? = null

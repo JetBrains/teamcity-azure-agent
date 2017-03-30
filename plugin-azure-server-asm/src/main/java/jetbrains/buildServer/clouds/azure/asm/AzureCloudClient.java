@@ -16,16 +16,18 @@
 
 package jetbrains.buildServer.clouds.azure.asm;
 
+import jetbrains.buildServer.TeamCityRuntimeException;
 import jetbrains.buildServer.clouds.CloudClientParameters;
 import jetbrains.buildServer.clouds.azure.AzureCloudClientBase;
+import jetbrains.buildServer.clouds.azure.AzureCloudImagesHolder;
 import jetbrains.buildServer.clouds.azure.FileIdProvider;
 import jetbrains.buildServer.clouds.azure.IdProvider;
 import jetbrains.buildServer.clouds.azure.asm.connector.AzureApiConnector;
 import jetbrains.buildServer.clouds.azure.connector.ProvisionActionsQueue;
+import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
-import java.util.Collection;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -35,23 +37,33 @@ import java.util.concurrent.TimeUnit;
  */
 public class AzureCloudClient extends AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails> {
 
-    private final File myAzureIdxStorage;
+  private final File myAzureIdxStorage;
 
-    private final ProvisionActionsQueue myActionsQueue;
+  private final ProvisionActionsQueue myActionsQueue;
 
-    public AzureCloudClient(@NotNull final CloudClientParameters params,
-                            @NotNull final Collection<AzureCloudImageDetails> images,
-                            @NotNull final AzureApiConnector apiConnector,
-                            @NotNull final File azureIdxStorage) {
-        super(params, apiConnector);
-        myAzureIdxStorage = azureIdxStorage;
-        myActionsQueue = new ProvisionActionsQueue(myAsyncTaskExecutor);
-        myAsyncTaskExecutor.scheduleWithFixedDelay("Update instances", myActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
+  public AzureCloudClient(@NotNull final CloudClientParameters params,
+                          @NotNull final AzureApiConnector apiConnector,
+                          @NotNull final File azureIdxStorage,
+                          @NotNull final AzureCloudImagesHolder imagesHolder) {
+    super(params, apiConnector, imagesHolder);
+    myAzureIdxStorage = azureIdxStorage;
+    myActionsQueue = new ProvisionActionsQueue(myAsyncTaskExecutor);
+    myAsyncTaskExecutor.scheduleWithFixedDelay("Update instances", myActionsQueue.getRequestCheckerCleanable(apiConnector), 0, 20, TimeUnit.SECONDS);
+  }
+
+  @Override
+  protected AzureCloudImage createImage(@NotNull final AzureCloudImageDetails imageDetails) {
+    final AzureApiConnector apiConnector = (AzureApiConnector)myApiConnector;
+
+    // Check that image is generalized
+    final boolean isGeneralized = !imageDetails.getBehaviour().isUseOriginal() && apiConnector.isImageGeneralized(imageDetails.getSourceId());
+    if (isGeneralized) {
+      if (StringUtil.isEmpty(imageDetails.getUsername()) || StringUtil.isEmpty(imageDetails.getPassword())) {
+        throw new TeamCityRuntimeException("No credentials supplied for VM creation");
+      }
     }
 
-    @Override
-    protected AzureCloudImage checkAndCreateImage(@NotNull final AzureCloudImageDetails imageDetails) {
-        final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, imageDetails.getSourceName() + ".idx"));
-        return new AzureCloudImage(imageDetails, myActionsQueue, (AzureApiConnector) myApiConnector, idProvider);
-    }
+    final IdProvider idProvider = new FileIdProvider(new File(myAzureIdxStorage, imageDetails.getSourceId() + ".idx"));
+    return new AzureCloudImage(imageDetails, myActionsQueue, (AzureApiConnector) myApiConnector, idProvider);
+  }
 }

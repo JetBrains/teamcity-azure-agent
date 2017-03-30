@@ -26,7 +26,7 @@ import jetbrains.buildServer.clouds.base.types.CloneBehaviour
  */
 class AzureCloudImageDetails(
         @SerializedName(CloudImageParameters.SOURCE_ID_FIELD)
-        val sourceId: String? = null,
+        val mySourceId: String? = null,
         @SerializedName(AzureConstants.IMAGE_URL)
         val imageUrl: String,
         @SerializedName(AzureConstants.OS_TYPE)
@@ -66,8 +66,8 @@ class AzureCloudImageDetails(
         myPassword = password
     }
 
-    override fun getSourceName(): String {
-        return sourceId ?: vmNamePrefix ?: ""
+    override fun getSourceId(): String {
+        return mySourceId ?: vmNamePrefix ?: ""
     }
 
     override fun getBehaviour(): CloneBehaviour {

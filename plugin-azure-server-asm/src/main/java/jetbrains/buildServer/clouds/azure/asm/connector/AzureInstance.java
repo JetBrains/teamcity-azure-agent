@@ -31,58 +31,58 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 8/5/2014
  *         Time: 2:14 PM
  */
-public class AzureInstance implements AbstractInstance {
+public class AzureInstance extends AbstractInstance {
 
-    @NotNull
-    private final RoleInstance myInstance;
+  @NotNull
+  private final RoleInstance myInstance;
 
-    AzureInstance(@NotNull final RoleInstance instance) {
-        myInstance = instance;
-    }
+  AzureInstance(@NotNull final RoleInstance instance) {
+    myInstance = instance;
+  }
 
-    @NotNull
-    @Override
-    public String getName() {
-        return myInstance.getInstanceName();
-    }
+  @NotNull
+  @Override
+  public String getName() {
+    return myInstance.getInstanceName();
+  }
 
-    @Override
-    public boolean isInitialized() {
-        return true;
-    }
+  @Override
+  public boolean isInitialized() {
+    return true;
+  }
 
-    @Override
-    public Date getStartDate() {
-        return null;
-    } //TODO fix, when API will allow this
+  @Override
+  public Date getStartDate() {
+    return null;
+  } //TODO fix, when API will allow this
 
-    @Override
-    public String getIpAddress() {
-        final InetAddress ipAddress = myInstance.getIPAddress();
-        return ipAddress != null ? ipAddress.toString() : null;
-    }
+  @Override
+  public String getIpAddress() {
+    final InetAddress ipAddress = myInstance.getIPAddress();
+    return ipAddress != null ? ipAddress.toString() : null;
+  }
 
-    @Override
-    @NotNull
-    public InstanceStatus getInstanceStatus() {
-        switch (myInstance.getPowerState()) {
-            case Started:
-                return InstanceStatus.RUNNING;
-            case Starting:
-                return InstanceStatus.STARTING;
-            case Stopped:
-                return InstanceStatus.STOPPED;
-            case Stopping:
-                return InstanceStatus.STOPPING;
-            case Unknown:
-                return InstanceStatus.UNKNOWN;
-        }
+  @Override
+  @NotNull
+  public InstanceStatus getInstanceStatus() {
+    switch (myInstance.getPowerState()) {
+      case Started:
+        return InstanceStatus.RUNNING;
+      case Starting:
+        return InstanceStatus.STARTING;
+      case Stopped:
+        return InstanceStatus.STOPPED;
+      case Stopping:
+        return InstanceStatus.STOPPING;
+      case Unknown:
         return InstanceStatus.UNKNOWN;
     }
+    return InstanceStatus.UNKNOWN;
+  }
 
-    @Nullable
-    @Override
-    public String getProperty(final String name) {
-        return null;
-    }
+  @Nullable
+  @Override
+  public String getProperty(final String name) {
+    return null;
+  }
 }

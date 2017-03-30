@@ -22,10 +22,8 @@ import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.QuotaException
 import jetbrains.buildServer.clouds.azure.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
 import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
-import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.async
@@ -35,21 +33,7 @@ import kotlinx.coroutines.experimental.async
  */
 class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDetails,
                                   private val myApiConnector: AzureApiConnector)
-    : AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails>(myImageDetails.sourceName, myImageDetails.sourceName) {
-    init {
-        try {
-            val realInstances = myApiConnector.fetchInstances<AzureInstance>(this)
-            for (azureInstance in realInstances.values) {
-                val instance = createInstanceFromReal(azureInstance)
-                instance.status = azureInstance.instanceStatus
-                myInstances.put(instance.instanceId, instance)
-            }
-        } catch (e: CheckedCloudException) {
-            val message = String.format("Failed to get instances for image %s: %s", name, e.message)
-            LOG.warnAndDebugDetails(message, e)
-            updateErrors(TypedCloudErrorInfo.fromException(e))
-        }
-    }
+    : AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails>(myImageDetails.sourceId, myImageDetails.sourceId) {
 
     override fun getImageDetails(): AzureCloudImageDetails {
         return myImageDetails
@@ -105,7 +89,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             }
         }
 
-        myInstances.put(instance.instanceId, instance)
+        addInstance(instance)
 
         return instance
     }
@@ -167,7 +151,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 instance.status = InstanceStatus.STOPPED
 
                 if (myImageDetails.behaviour.isDeleteAfterStop) {
-                    myInstances.remove(instance.instanceId)
+                    removeInstance(instance.instanceId)
                 }
 
                 LOG.info(String.format("Virtual machine %s has been successfully stopped", instance.name))
@@ -184,8 +168,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     }
 
     private fun getInstanceName(): String {
-        val keys = myInstances.keys.map(String::toLowerCase)
-        val sourceName = myImageDetails.sourceName.toLowerCase()
+        val keys = instances.map { it.instanceId.toLowerCase() }
+        val sourceName = myImageDetails.sourceId.toLowerCase()
         var i: Int = 1
 
         while (keys.contains(sourceName + i)) i++
@@ -199,7 +183,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      * @return instances.
      */
     private val activeInstances: List<AzureCloudInstance>
-        get() = myInstances.values.filter { instance -> instance.status.isStartingOrStarted }
+        get() = instances.filter { instance -> instance.status.isStartingOrStarted }
 
     /**
      * Returns stopped instances.
@@ -207,7 +191,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      * @return instances.
      */
     private val stoppedInstances: List<AzureCloudInstance>
-        get() = myInstances.values.filter { instance -> instance.status == InstanceStatus.STOPPED }
+        get() = instances.filter { instance -> instance.status == InstanceStatus.STOPPED }
 
     companion object {
         private val LOG = Logger.getInstance(AzureCloudImage::class.java.name)

@@ -22,10 +22,9 @@ package jetbrains.buildServer.clouds.base.types;
  *         Time: 1:23 PM
  */
 public enum CloneBehaviour {
-  START_STOP (false, true),
-  FRESH_CLONE (true, false),
-  ON_DEMAND_CLONE(false, false)
-  ;
+  START_STOP(false, true),
+  FRESH_CLONE(true, false),
+  ON_DEMAND_CLONE(false, false);
   private final boolean myDeleteAfterStop;
   private final boolean myUseOriginal;
 

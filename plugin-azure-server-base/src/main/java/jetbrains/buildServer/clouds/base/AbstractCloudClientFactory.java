@@ -31,38 +31,38 @@ import org.jetbrains.annotations.Nullable;
  */
 public abstract class AbstractCloudClientFactory<D extends CloudImageDetails, C extends AbstractCloudClient>
 
-        implements CloudClientFactory {
+  implements CloudClientFactory {
 
-    public AbstractCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar) {
-        cloudRegistrar.registerCloudFactory(this);
+  public AbstractCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar) {
+    cloudRegistrar.registerCloudFactory(this);
+  }
+
+  @NotNull
+  public C createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params) {
+    try {
+      final TypedCloudErrorInfo[] profileErrors = checkClientParams(params);
+      if (profileErrors != null && profileErrors.length > 0) {
+        return createNewClient(state, params, profileErrors);
+      }
+      final Collection<D> imageDetailsList = parseImageData(params);
+      final C newClient = createNewClient(state, imageDetailsList, params);
+      newClient.populateImagesData(imageDetailsList);
+      return newClient;
+    } catch (Exception ex) {
+      return createNewClient(state, params, new TypedCloudErrorInfo[]{TypedCloudErrorInfo.fromException(ex)});
     }
+  }
 
-    @NotNull
-    public C createNewClient(@NotNull final CloudState state, @NotNull final CloudClientParameters params) {
-        try {
-            final TypedCloudErrorInfo[] profileErrors = checkClientParams(params);
-            if (profileErrors != null && profileErrors.length > 0) {
-                return createNewClient(state, params, profileErrors);
-            }
-            final Collection<D> imageDetailsList = parseImageData(params);
-            final C newClient = createNewClient(state, imageDetailsList, params);
-            newClient.populateImagesDataAsync(imageDetailsList).get();
-            return newClient;
-        } catch (Exception ex) {
-            return createNewClient(state, params, new TypedCloudErrorInfo[]{TypedCloudErrorInfo.fromException(ex)});
-        }
-    }
+  public abstract C createNewClient(
+    @NotNull final CloudState state, @NotNull final Collection<D> images, @NotNull final CloudClientParameters params);
 
-    public abstract C createNewClient(
-            @NotNull final CloudState state, @NotNull final Collection<D> images, @NotNull final CloudClientParameters params);
+  public abstract C createNewClient(
+    @NotNull final CloudState state, @NotNull final CloudClientParameters params, final TypedCloudErrorInfo[] profileErrors);
 
-    public abstract C createNewClient(
-            @NotNull final CloudState state, @NotNull final CloudClientParameters params, final TypedCloudErrorInfo[] profileErrors);
+  public abstract Collection<D> parseImageData(CloudClientParameters params);
 
-    public abstract Collection<D> parseImageData(CloudClientParameters params);
-
-    @Nullable
-    protected abstract TypedCloudErrorInfo[] checkClientParams(@NotNull final CloudClientParameters params);
+  @Nullable
+  protected abstract TypedCloudErrorInfo[] checkClientParams(@NotNull final CloudClientParameters params);
 
 
 }

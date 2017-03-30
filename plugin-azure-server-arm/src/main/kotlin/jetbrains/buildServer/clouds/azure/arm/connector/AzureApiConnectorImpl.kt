@@ -28,7 +28,6 @@ import com.microsoft.azure.storage.blob.CloudBlob
 import com.microsoft.azure.storage.blob.CloudBlobContainer
 import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
-import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.models.JsonValue
 import jetbrains.buildServer.clouds.azure.arm.utils.*
@@ -49,11 +48,10 @@ import java.util.regex.Pattern
 /**
  * Provides azure arm management capabilities.
  */
-class AzureApiConnectorImpl(tenantId: String,
-                            clientId: String,
-                            secret: String) : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
+class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
+    : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
+
     private val LOG = Logger.getInstance(AzureApiConnectorImpl::class.java.name)
-    private val FAILED_TO_GET_INSTANCE_STATUS_FORMAT = "Failed to get instance %s status: %s"
     private val RESOURCE_GROUP_PATTERN = Pattern.compile("resourceGroups/(.+)/providers/")
     private val PUBLIC_IP_SUFFIX = "-pip"
     private val PROVISIONING_STATE = "ProvisioningState/"
@@ -65,9 +63,6 @@ class AzureApiConnectorImpl(tenantId: String,
     private val HTTPS_PROXY_PORT = "https.proxyPort"
     private val HTTP_PROXY_USER = "http.proxyUser"
     private val HTTP_PROXY_PASSWORD = "http.proxyPassword"
-    private val PROVISIONING_STATES = Arrays.asList(
-            InstanceStatus.SCHEDULED_TO_START,
-            InstanceStatus.SCHEDULED_TO_STOP)
 
     private val myAzure: Azure.Authenticated
     private var mySubscriptionId: String? = null
@@ -89,35 +84,6 @@ class AzureApiConnectorImpl(tenantId: String,
             val message = "Failed to get list of groups: " + e.message
             LOG.debug(message, e)
             throw CloudException(message, e)
-        }
-    }
-
-    override fun getInstanceStatusIfExists(instance: AzureCloudInstance) = runBlocking {
-        val azureInstance = AzureInstance(instance.name)
-        val details = instance.image.imageDetails
-
-        try {
-            getInstanceDataAsync(azureInstance, details).await()
-            val status = azureInstance.instanceStatus
-            LOG.debug("Instance ${instance.name} status is $status")
-            instance.status = status
-            instance.updateErrors()
-            status
-        } catch (e: Throwable) {
-            val cause = e.cause ?: e
-            val message = String.format(FAILED_TO_GET_INSTANCE_STATUS_FORMAT, instance.name, e.message)
-            LOG.debug(message, e)
-
-            if (cause.message == NOT_FOUND_ERROR) {
-                return@runBlocking null
-            }
-
-            if (!PROVISIONING_STATES.contains(instance.status)) {
-                instance.status = InstanceStatus.ERROR
-                instance.updateErrors(TypedCloudErrorInfo.fromException(e))
-            }
-
-            throw e
         }
     }
 
@@ -155,7 +121,7 @@ class AzureApiConnectorImpl(tenantId: String,
 
         for (virtualMachine in machines) {
             val name = virtualMachine.name()
-            if (!name.startsWith(details.sourceName, true)) {
+            if (!name.startsWith(details.sourceId, true)) {
                 LOG.debug("Ignore vm with name " + name)
                 continue
             }
@@ -179,7 +145,7 @@ class AzureApiConnectorImpl(tenantId: String,
             }
 
             val sourceName = tags[AzureConstants.TAG_SOURCE]
-            if (!sourceName.equals(details.sourceName, true)) {
+            if (!sourceName.equals(details.sourceId, true)) {
                 LOG.debug("Ignore vm with invalid source tag " + sourceName)
                 continue
             }
@@ -359,7 +325,7 @@ class AzureApiConnectorImpl(tenantId: String,
         params.put("customData", JsonValue(customData))
         params.put("serverId", JsonValue(myServerId!!))
         params.put("profileId", JsonValue(userData.profileId))
-        params.put("sourceId", JsonValue(details.sourceName))
+        params.put("sourceId", JsonValue(details.sourceId))
 
         val deploymentParameters = "Deployment parameters:"
         params.entries.joinToString("\n") {
@@ -399,7 +365,7 @@ class AzureApiConnectorImpl(tenantId: String,
                     .createAsync()
                     .awaitOne()
         } catch (e: com.microsoft.azure.CloudException) {
-            val details = e.body().details().joinToString("\n")
+            val details = e.body()?.details()?.joinToString("\n") ?: e.message
             val message = "Failed to create deployment in resource group $groupId: ${e.message}\n$details"
             LOG.debug(message, e)
             throw CloudException(message, e)

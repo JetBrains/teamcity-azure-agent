@@ -26,18 +26,18 @@ import org.jetbrains.annotations.Nullable;
  *         Date: 7/25/2014
  *         Time: 5:17 PM
  */
-public interface AbstractInstance {
+public abstract class AbstractInstance {
   @NotNull
-  public String getName();
+  public abstract String getName();
 
-  public boolean isInitialized();
+  public abstract boolean isInitialized();
 
-  public Date getStartDate();
+  public abstract Date getStartDate();
 
-  public String getIpAddress();
+  public abstract String getIpAddress();
 
-  public InstanceStatus getInstanceStatus();
+  public abstract InstanceStatus getInstanceStatus();
 
   @Nullable
-  public String getProperty(String name);
+  public abstract String getProperty(String name);
 }

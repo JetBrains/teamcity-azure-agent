@@ -18,6 +18,7 @@ package jetbrains.buildServer.clouds.azure.arm
 
 import jetbrains.buildServer.clouds.CloudClientParameters
 import jetbrains.buildServer.clouds.azure.AzureCloudClientBase
+import jetbrains.buildServer.clouds.azure.AzureCloudImagesHolder
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector
 
@@ -25,10 +26,11 @@ import jetbrains.buildServer.clouds.base.connector.CloudApiConnector
  * ARM cloud client.
  */
 class AzureCloudClient(params: CloudClientParameters,
-                       apiConnector: CloudApiConnector<AzureCloudImage, AzureCloudInstance>)
-    : AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails>(params, apiConnector) {
+                       apiConnector: CloudApiConnector<AzureCloudImage, AzureCloudInstance>,
+                       imagesHolder: AzureCloudImagesHolder)
+    : AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails>(params, apiConnector, imagesHolder) {
 
-    override fun checkAndCreateImage(imageDetails: AzureCloudImageDetails): AzureCloudImage {
+    override fun createImage(imageDetails: AzureCloudImageDetails): AzureCloudImage {
         return AzureCloudImage(imageDetails, myApiConnector as AzureApiConnector)
     }
 }

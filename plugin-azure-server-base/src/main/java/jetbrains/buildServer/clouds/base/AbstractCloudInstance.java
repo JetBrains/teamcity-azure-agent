@@ -17,6 +17,11 @@
 package jetbrains.buildServer.clouds.base;
 
 import com.intellij.openapi.diagnostic.Logger;
+
+import java.util.Date;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+
 import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudInstance;
 import jetbrains.buildServer.clouds.InstanceStatus;
@@ -27,108 +32,121 @@ import jetbrains.buildServer.clouds.base.errors.UpdatableCloudErrorProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Date;
-
 /**
  * @author Sergey.Pak
  *         Date: 7/22/2014
  *         Time: 1:51 PM
  */
 public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implements CloudInstance, UpdatableCloudErrorProvider {
-    private static final Logger LOG = Logger.getInstance(AbstractCloudInstance.class.getName());
+  private static final Logger LOG = Logger.getInstance(AbstractCloudInstance.class.getName());
+  private static final AtomicInteger STARTING_INSTANCE_IDX = new AtomicInteger(0);
 
-    private final UpdatableCloudErrorProvider myErrorProvider;
-    protected InstanceStatus myStatus = InstanceStatus.UNKNOWN;
+  private final UpdatableCloudErrorProvider myErrorProvider;
+  private final AtomicReference<InstanceStatus> myStatus = new AtomicReference<>(InstanceStatus.UNKNOWN);
 
-    @NotNull
-    protected final T myImage;
-    private Date myStartDate = new Date();
-    private Date myStatusUpdateTime = new Date();
-    private String myNetworkIdentify = null;
-    private final String myName;
-    private final String myInstanceId;
+  @NotNull
+  private final T myImage;
+  private final AtomicReference<Date> myStartDate = new AtomicReference<Date>(new Date());
+  private final AtomicReference<Date> myStatusUpdateTime = new AtomicReference<>(new Date());
+  private final AtomicReference<String> myNetworkIdentify = new AtomicReference<String>();
 
-    protected AbstractCloudInstance(@NotNull final T image,
-                                    @NotNull final String name,
-                                    @NotNull final String instanceId) {
-        myImage = image;
-        myName = name;
-        myInstanceId = instanceId;
-        myErrorProvider = new CloudErrorMap(new DefaultErrorMessageUpdater(), "Unable to get instance details. See details");
+  private volatile String myName;
+  private volatile String myInstanceId;
+
+  protected AbstractCloudInstance(@NotNull final T image) {
+    this(image, "Initializing...", String.format("%s-%d", image.getName(), STARTING_INSTANCE_IDX.incrementAndGet()));
+  }
+
+  protected AbstractCloudInstance(@NotNull final T image, @NotNull final String name, @NotNull final String instanceId) {
+    myImage = image;
+    myName = name;
+    myInstanceId = instanceId;
+    myErrorProvider = new CloudErrorMap(new DefaultErrorMessageUpdater());
+  }
+
+  public void setName(@NotNull final String name) {
+    myName = name;
+  }
+
+  public void setInstanceId(@NotNull final String instanceId) {
+    myImage.removeInstance(myInstanceId);
+    myInstanceId = instanceId;
+    myImage.addInstance(this);
+  }
+
+  @NotNull
+  public String getName() {
+    return myName;
+  }
+
+  @NotNull
+  public String getInstanceId() {
+    return myInstanceId;
+  }
+
+
+  public void updateErrors(TypedCloudErrorInfo... errors) {
+    myErrorProvider.updateErrors(errors);
+  }
+
+  @NotNull
+  public T getImage() {
+    return myImage;
+  }
+
+  @NotNull
+  public String getImageId() {
+    return myImage.getId();
+  }
+
+  @Nullable
+  public CloudErrorInfo getErrorInfo() {
+    return myErrorProvider.getErrorInfo();
+  }
+
+  @NotNull
+  public InstanceStatus getStatus() {
+    return myStatus.get();
+  }
+
+  public void setStatus(@NotNull final InstanceStatus status) {
+    if (myStatus.get() == status) {
+      return;
     }
+    LOG.info(String.format("Changing %s(%x) status from %s to %s ", getName(), hashCode(), myStatus, status));
+    myStatus.set(status);
+    myStatusUpdateTime.set(new Date());
+  }
 
-    @NotNull
-    public String getName() {
-        return myName;
+  @NotNull
+  public Date getStartedTime() {
+    return myStartDate.get();
+  }
+
+  public void setStartDate(@NotNull final Date startDate) {
+    if (startDate.after(myStartDate.get())) {
+      myStartDate.set(startDate);
+    } else if (startDate.before(myStartDate.get())) {
+      LOG.debug(String.format("Attempted to set start date to %s from %s", startDate.toString(), myStartDate.get().toString()));
     }
+  }
 
-    @NotNull
-    public String getInstanceId() {
-        return myInstanceId;
-    }
+  @NotNull
+  public Date getStatusUpdateTime() {
+    return myStatusUpdateTime.get();
+  }
 
+  public void setNetworkIdentify(@NotNull final String networkIdentify) {
+    myNetworkIdentify.set(networkIdentify);
+  }
 
-    public void updateErrors(TypedCloudErrorInfo... errors) {
-        myErrorProvider.updateErrors(errors);
-    }
+  @Nullable
+  public String getNetworkIdentity() {
+    return myNetworkIdentify.get();
+  }
 
-    @NotNull
-    public T getImage() {
-        return myImage;
-    }
-
-    @NotNull
-    public String getImageId() {
-        return myImage.getId();
-    }
-
-    @Nullable
-    public CloudErrorInfo getErrorInfo() {
-        return myErrorProvider.getErrorInfo();
-    }
-
-    @NotNull
-    public InstanceStatus getStatus() {
-        return myStatus;
-    }
-
-    public void setStatus(@NotNull final InstanceStatus status) {
-        if (myStatus == status) {
-            return;
-        }
-        LOG.info(String.format("Changing %s(%x) status from %s to %s ", getName(), hashCode(), myStatus, status));
-        myStatus = status;
-        myStatusUpdateTime = new Date();
-    }
-
-    @NotNull
-    public Date getStartedTime() {
-        return myStartDate;
-    }
-
-    public void setStartDate(final Date startDate) {
-        if (startDate.after(myStartDate)) {
-            myStartDate = startDate;
-        } else if (startDate.before(myStartDate)) {
-            LOG.debug(String.format("Attempted to set start date to %s from %s", startDate.toString(), myStartDate.toString()));
-        }
-    }
-
-    public Date getStatusUpdateTime() {
-        return myStatusUpdateTime;
-    }
-
-    public void setNetworkIdentify(final String networkIdentify) {
-        myNetworkIdentify = networkIdentify;
-    }
-
-    @Nullable
-    public String getNetworkIdentity() {
-        return myNetworkIdentify;
-    }
-
-    @Override
-    public String toString() {
-        return getClass().getSimpleName() + "{" + "myName='" + getInstanceId() + '\'' + '}';
-    }
+  @Override
+  public String toString() {
+    return getClass().getSimpleName() + "{" + "myName='" + getInstanceId() + '\'' + '}';
+  }
 }

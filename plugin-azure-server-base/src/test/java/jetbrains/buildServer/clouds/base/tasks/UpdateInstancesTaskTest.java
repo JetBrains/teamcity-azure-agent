@@ -16,22 +16,19 @@
 
 package jetbrains.buildServer.clouds.base.tasks;
 
-import java.util.Collection;
-import java.util.Map;
-import jetbrains.buildServer.clouds.CloudException;
-import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import jetbrains.buildServer.clouds.base.AbstractCloudInstance;
-import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
+
+import java.util.Collection;
+import java.util.Map;
 
 /**
  * @author Sergey.Pak
@@ -50,12 +47,6 @@ public class UpdateInstancesTaskTest {
     myApiConnector = new CloudApiConnector() {
       @Override
       public void test() throws CheckedCloudException {
-      }
-
-      @Nullable
-      @Override
-      public InstanceStatus getInstanceStatusIfExists(@NotNull AbstractCloudInstance instance) {
-        return null;
       }
 
       @NotNull

@@ -44,7 +44,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   // Image details
   var maxLength = 12;
   self.image = ko.validatedObservable({
-    imageUrl: ko.observable('').trimmed().extend({required: true}),
+    imageUrl: ko.observable('').trimmed().extend({required: true, rateLimit: 500}),
     networkId: ko.observable().extend({required: true}),
     subnetId: ko.observable().extend({required: true}),
     osType: ko.observable().extend({required: true}),
@@ -154,6 +154,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
       } else {
         saveValue = true;
       }
+      image.reuseVm = JSON.parse(image.reuseVm);
+      image.vmPublicIp = JSON.parse(image.vmPublicIp);
     });
 
     self.images(images);

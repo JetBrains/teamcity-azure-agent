@@ -69,7 +69,7 @@ class SettingsController(server: SBuildServer,
 
             return doGet()
         } catch (e: Throwable) {
-            LOG.error("Failed to handle request: " + e.message, e)
+            LOG.infoAndDebugDetails("Failed to handle request: " + e.message, e)
             throw e
         }
     }

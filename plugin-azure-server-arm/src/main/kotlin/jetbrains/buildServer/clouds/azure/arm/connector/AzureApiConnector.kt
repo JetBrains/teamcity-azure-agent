@@ -45,4 +45,6 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
     fun getNetworksAsync(): Deferred<Map<String, List<String>>>
 
     fun getVhdOsTypeAsync(imageUrl: String): Deferred<String?>
+
+    fun getVhdMetadataAsync(imageUrl: String): Deferred<Map<String, String>?>
 }

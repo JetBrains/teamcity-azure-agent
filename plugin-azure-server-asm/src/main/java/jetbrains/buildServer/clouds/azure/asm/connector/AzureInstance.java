@@ -19,7 +19,9 @@ package jetbrains.buildServer.clouds.azure.asm.connector;
 import com.microsoft.windowsazure.management.compute.models.RoleInstance;
 
 import java.net.InetAddress;
+import java.util.Collections;
 import java.util.Date;
+import java.util.Map;
 
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
@@ -84,5 +86,10 @@ public class AzureInstance extends AbstractInstance {
   @Override
   public String getProperty(final String name) {
     return null;
+  }
+
+  @NotNull
+  public Map<String, String> getProperties() {
+    return Collections.emptyMap();
   }
 }

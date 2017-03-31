@@ -27,6 +27,7 @@ import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.runBlocking
 
 /**
  * Azure cloud image.
@@ -35,12 +36,16 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                                   private val myApiConnector: AzureApiConnector)
     : AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails>(myImageDetails.sourceId, myImageDetails.sourceId) {
 
+    private val METADATA_CONTENT_MD5 = "contentMD5"
+
     override fun getImageDetails(): AzureCloudImageDetails {
         return myImageDetails
     }
 
     override fun createInstanceFromReal(realInstance: AbstractInstance): AzureCloudInstance {
-        return AzureCloudInstance(this, realInstance.name)
+        return AzureCloudInstance(this, realInstance.name).apply {
+            properties = realInstance.properties
+        }
     }
 
     override fun canStartNewInstance(): Boolean {
@@ -69,6 +74,12 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val data = AzureUtils.setVmNameForTag(userData, name)
 
         async(CommonPool) {
+            val metadata = myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl).await() ?: emptyMap()
+
+            instance.properties[AzureConstants.TAG_PROFILE] = userData.profileId
+            instance.properties[AzureConstants.TAG_SOURCE] = imageDetails.sourceId
+            instance.properties[AzureConstants.TAG_IMAGE_HASH] = metadata[METADATA_CONTENT_MD5] ?: ""
+
             try {
                 myApiConnector.createVmAsync(instance, data).await()
                 LOG.info("Virtual machine $name has been successfully created")
@@ -99,27 +110,47 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      *
      * @return instance if it found.
      */
-    private fun tryToStartStoppedInstance(): AzureCloudInstance? {
+    private fun tryToStartStoppedInstance(): AzureCloudInstance? = runBlocking {
         val instances = stoppedInstances
         if (instances.isNotEmpty()) {
-            val instance = instances[0]
-            instance.status = InstanceStatus.SCHEDULED_TO_START
+            val metadata = myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl).await()
+            val validInstances = instances.filter {
+                metadata != null && metadata[METADATA_CONTENT_MD5] == it.properties[AzureConstants.TAG_IMAGE_HASH]
+            }
+
+            val invalidInstances = instances - validInstances
+            val instance = validInstances.firstOrNull()
+
+            instance?.status = InstanceStatus.SCHEDULED_TO_START
 
             async(CommonPool) {
-                try {
-                    myApiConnector.startVmAsync(instance).await()
-                    LOG.info(String.format("Virtual machine %s has been successfully started", instance.name))
-                } catch (e: Throwable) {
-                    LOG.warnAndDebugDetails(e.message, e)
-                    instance.status = InstanceStatus.ERROR
-                    instance.updateErrors(TypedCloudErrorInfo.fromException(e))
+                invalidInstances.forEach {
+                    try {
+                        LOG.info("Removing outdated virtual machine ${it.name}")
+                        myApiConnector.deleteVmAsync(it)
+                    } catch (e: Throwable) {
+                        LOG.warnAndDebugDetails(e.message, e)
+                        it.status = InstanceStatus.ERROR
+                        it.updateErrors(TypedCloudErrorInfo.fromException(e))
+                    }
+                }
+
+                instance?.let {
+                    try {
+                        myApiConnector.startVmAsync(it).await()
+                        LOG.info(String.format("Virtual machine %s has been successfully started", it.name))
+                    } catch (e: Throwable) {
+                        LOG.warnAndDebugDetails(e.message, e)
+                        it.status = InstanceStatus.ERROR
+                        it.updateErrors(TypedCloudErrorInfo.fromException(e))
+                    }
                 }
             }
 
-            return instance
+            return@runBlocking instance
         }
 
-        return null
+        null
     }
 
     override fun restartInstance(instance: AzureCloudInstance) {
@@ -142,7 +173,11 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
         async(CommonPool) {
             try {
-                if (myImageDetails.behaviour.isDeleteAfterStop) {
+                val metadata = myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl).await()
+                val sameVhdImage = metadata != null && metadata[METADATA_CONTENT_MD5] ==
+                        instance.properties[AzureConstants.TAG_IMAGE_HASH]
+
+                if (myImageDetails.behaviour.isDeleteAfterStop || !sameVhdImage) {
                     myApiConnector.deleteVmAsync(instance).await()
                 } else {
                     myApiConnector.stopVmAsync(instance).await()

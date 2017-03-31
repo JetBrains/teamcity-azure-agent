@@ -83,6 +83,7 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
   }
 
   public void addInstance(@NotNull final T instance) {
+    instance.setImage(this);
     myInstances.put(instance.getInstanceId(), instance);
   }
 

@@ -17,6 +17,8 @@
 package jetbrains.buildServer.clouds.base.connector;
 
 import java.util.Date;
+import java.util.Map;
+
 import jetbrains.buildServer.clouds.InstanceStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -40,4 +42,7 @@ public abstract class AbstractInstance {
 
   @Nullable
   public abstract String getProperty(String name);
+
+  @NotNull
+  public abstract Map<String, String> getProperties();
 }

@@ -44,6 +44,7 @@ import org.apache.commons.codec.binary.Base64
 import java.net.*
 import java.util.*
 import java.util.regex.Pattern
+import kotlin.collections.HashMap
 
 /**
  * Provides azure arm management capabilities.
@@ -151,6 +152,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
             }
 
             val instance = AzureInstance(name)
+            instance.setProperties(tags)
             instances.put(name, instance)
         }
 
@@ -313,6 +315,9 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
         val templateName = if (publicIp) "/templates/vm-template-pip.json" else "/templates/vm-template.json"
         val templateValue = AzureUtils.getResourceAsString(templateName)
 
+        instance.properties[AzureConstants.TAG_SERVER] = myServerId!!
+        val templateWithTags = AzureUtils.setTags(templateValue, instance.properties)
+
         val params = HashMap<String, JsonValue>()
         params.put("imageUrl", JsonValue(details.imageUrl))
         params.put("vmName", JsonValue(name))
@@ -323,9 +328,6 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
         params.put("osType", JsonValue(details.osType))
         params.put("vmSize", JsonValue(details.vmSize))
         params.put("customData", JsonValue(customData))
-        params.put("serverId", JsonValue(myServerId!!))
-        params.put("profileId", JsonValue(userData.profileId))
-        params.put("sourceId", JsonValue(details.sourceId))
 
         val deploymentParameters = "Deployment parameters:"
         params.entries.joinToString("\n") {
@@ -337,9 +339,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
         LOG.debug(deploymentParameters)
 
         val parameters = AzureUtils.serializeObject(params)
-        LOG.debug("Deployment template: \n" + templateValue)
+        LOG.debug("Deployment template: \n" + templateWithTags)
 
-        createDeploymentAsync(name, name, templateValue, parameters).await()
+        deleteVmBlobsAsync(instance).await()
+        createDeploymentAsync(name, name, templateWithTags, parameters).await()
     }
 
     private fun createResourceGroupAsync(groupId: String, location: String) = async(CommonPool) {
@@ -383,9 +386,12 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
      * @return promise.
      */
     override fun deleteVmAsync(instance: AzureCloudInstance) = async(CommonPool) {
-        val name = instance.name
         deleteResourceGroupAsync(instance.name).await()
+        deleteVmBlobsAsync(instance).await()
+    }
 
+    private fun deleteVmBlobsAsync(instance: AzureCloudInstance) = async(CommonPool) {
+        val name = instance.name
         val url = instance.image.imageDetails.imageUrl
         val storageBlobs: URI
         try {
@@ -475,12 +481,36 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
 
     /**
      * Gets an OS type of VHD image.
-
      * @param imageUrl is image URL.
-     * *
      * @return OS type (Linux, Windows).
      */
     override fun getVhdOsTypeAsync(imageUrl: String) = async(CommonPool) {
+        val metadata = getVhdMetadataAsync(imageUrl).await()
+        when (metadata) {
+            null -> null
+            else -> {
+                if ("OSDisk" != metadata["MicrosoftAzureCompute_ImageType"]) {
+                    val message = "Found blob $imageUrl with invalid OSDisk metadata"
+                    LOG.debug(message)
+                    return@async null
+                }
+
+                if ("Generalized" != metadata["MicrosoftAzureCompute_OSState"]) {
+                    LOG.debug("Found blob $imageUrl with invalid Generalized metadata")
+                    throw CloudException("VHD image should be generalized.")
+                }
+
+                metadata["MicrosoftAzureCompute_OSType"]
+            }
+        }
+    }
+
+    /**
+     * Gets VHD image metadata.
+     * @param imageUrl is image URL.
+     * @return metadata.
+     */
+    override fun getVhdMetadataAsync(imageUrl: String) = async(CommonPool) {
         val uri: URI
         try {
             uri = URI.create(imageUrl)
@@ -524,19 +554,13 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
             throw CloudException(message, e)
         }
 
-        val metadata = blob.metadata
-        if ("OSDisk" != metadata["MicrosoftAzureCompute_ImageType"]) {
-            val message = "Found blob ${blob.uri} with invalid OSDisk metadata"
-            LOG.debug(message)
-            return@async null
+        HashMap(blob.metadata).apply {
+            this["blobType"] = blob.properties.blobType.name
+            this["contentType"] = blob.properties.contentType
+            this["etag"] = blob.properties.etag
+            this["length"] = blob.properties.length.toString()
+            this["contentMD5"] = blob.properties.contentMD5
         }
-
-        if ("Generalized" != metadata["MicrosoftAzureCompute_OSState"]) {
-            LOG.debug("Found blob ${blob.uri} with invalid Generalized metadata")
-            throw CloudException("VHD image should be generalized.")
-        }
-
-        metadata["MicrosoftAzureCompute_OSType"]
     }
 
     private fun getBlobsAsync(uri: URI) = async(CommonPool, false) {

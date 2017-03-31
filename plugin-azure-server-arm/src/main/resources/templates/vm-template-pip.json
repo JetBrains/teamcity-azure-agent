@@ -59,24 +59,6 @@
       "metadata": {
         "description": "This is the custom data passed to VM"
       }
-    },
-    "serverId": {
-      "type": "string",
-      "metadata": {
-        "description": "This is the TeamCity server identifier"
-      }
-    },
-    "profileId": {
-      "type": "string",
-      "metadata": {
-        "description": "This is the TeamCity cloud profile identifier"
-      }
-    },
-    "sourceId": {
-      "type": "string",
-      "metadata": {
-        "description": "This is the TeamCity cloud image identifier"
-      }
     }
   },
   "variables": {
@@ -160,11 +142,6 @@
             }
           ]
         }
-      },
-      "tags": {
-        "teamcity-server": "[parameters('serverId')]",
-        "teamcity-profile": "[parameters('profileId')]",
-        "teamcity-source": "[parameters('sourceId')]"
       }
     }
   ]

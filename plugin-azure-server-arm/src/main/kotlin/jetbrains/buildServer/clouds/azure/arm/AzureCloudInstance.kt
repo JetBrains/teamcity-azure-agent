@@ -28,6 +28,8 @@ import jetbrains.buildServer.serverSide.AgentDescription
 class AzureCloudInstance internal constructor(image: AzureCloudImage, name: String)
     : AbstractCloudInstance<AzureCloudImage>(image, name, name) {
 
+    var properties: MutableMap<String, String> = HashMap()
+
     override fun containsAgent(agent: AgentDescription): Boolean {
         val agentInstanceName = agent.configurationParameters[AzurePropertiesNames.INSTANCE_NAME]
         return name.equals(agentInstanceName, ignoreCase = true)

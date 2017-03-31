@@ -30,6 +30,7 @@ class AzureInstance internal constructor(private val myName: String) : AbstractI
     private var myStartDate: Date? = null
     private var myPowerState: String? = null
     private var myIpAddress: String? = null
+    private var myProperties: Map<String, String> = HashMap()
 
     override fun getName(): String {
         return myName
@@ -82,7 +83,13 @@ class AzureInstance internal constructor(private val myName: String) : AbstractI
     }
 
     override fun getProperty(name: String): String? {
-        return null
+        return myProperties[name]
+    }
+
+    override fun getProperties() = myProperties
+
+    internal fun setProperties(properties: Map<String, String>) {
+        myProperties = properties
     }
 
     companion object {

@@ -18,15 +18,18 @@ package jetbrains.buildServer.clouds.azure.arm.utils
 
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intellij.openapi.util.io.StreamUtil
 import jetbrains.buildServer.util.StringUtil
-
-import java.io.*
+import java.io.IOException
 
 /**
  * Utilities.
  */
 object AzureUtils {
+    private val mapper = ObjectMapper()
+
     fun getResourceAsString(name: String): String {
         val stream = AzureUtils::class.java.getResourceAsStream(name) ?: return ""
 
@@ -38,11 +41,27 @@ object AzureUtils {
     }
 
     fun serializeObject(data: Any): String {
-        val mapper = ObjectMapper()
         try {
             return mapper.writeValueAsString(data)
         } catch (e: JsonProcessingException) {
             return StringUtil.EMPTY
+        }
+    }
+
+    fun setTags(templateValue: String, tags: Map<String, String>): String {
+        val reader = mapper.reader()
+        try {
+            val template = reader.readTree(templateValue) as ObjectNode
+            val resources = template["resources"] as ArrayNode
+            val machine = resources[resources.size() - 1] as ObjectNode
+            machine.putObject("tags").apply {
+                for ((key, value) in tags) {
+                    this.put(key, value)
+                }
+            }
+            return template.toString()
+        } catch (e: Exception) {
+            return templateValue
         }
     }
 }

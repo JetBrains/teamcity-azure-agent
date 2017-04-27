@@ -111,7 +111,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
         val instances = hashMapOf<String, AzureInstance>()
         val details = image.imageDetails
 
-        val machines: PagedList<VirtualMachine>
+        val machines: List<VirtualMachine>
         try {
             machines = getVirtualMachinesAsync().await()
         } catch (e: Throwable) {
@@ -152,7 +152,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
             }
 
             val instance = AzureInstance(name)
-            instance.setProperties(tags)
+            instance.properties = tags
             instances.put(name, instance)
         }
 
@@ -176,7 +176,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
 
     private fun getVirtualMachinesAsync() = async(CommonPool, false) {
         try {
-            val list = myAzure.withSubscription(mySubscriptionId).virtualMachines().list()
+            val list = myAzure.withSubscription(mySubscriptionId)
+                    .virtualMachines()
+                    .listAsync()
+                    .awaitList()
             LOG.debug("Received list of virtual machines")
             list
         } catch (t: Throwable) {
@@ -226,7 +229,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
 
     private fun getVirtualMachineAsync(groupId: String, name: String) = async(CommonPool, false) {
         try {
-            val machine = myAzure.withSubscription(mySubscriptionId).virtualMachines().getByGroup(groupId, name)
+            val machine = myAzure.withSubscription(mySubscriptionId)
+                    .virtualMachines()
+                    .getByResourceGroupAsync(groupId, name)
+                    .awaitOne()
             machine?.refreshInstanceView()
             LOG.debug("Received virtual machine $name info")
             machine
@@ -239,7 +245,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
 
     private fun getPublicIpAsync(groupId: String, name: String) = async(CommonPool, false) {
         try {
-            val ipAddress = myAzure.withSubscription(mySubscriptionId).publicIpAddresses().getByGroup(groupId, name)
+            val ipAddress = myAzure.withSubscription(mySubscriptionId)
+                    .publicIPAddresses()
+                    .getByResourceGroupAsync(groupId, name)
+                    .awaitOne()
             LOG.debug("Received public ip $ipAddress for $name")
             ipAddress.ipAddress()
         } catch (e: Throwable) {
@@ -278,7 +287,8 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
             val vmSizes = myAzure.withSubscription(mySubscriptionId)
                     .virtualMachines()
                     .sizes()
-                    .listByRegion(myLocation)
+                    .listByRegionAsync(myLocation)
+                    .awaitList()
             LOG.debug("Received list of vm sizes in location " + myLocation!!)
             val comparator = AlphaNumericStringComparator()
             vmSizes.map { it.name() }.sortedWith(comparator)
@@ -439,8 +449,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
         try {
             myAzure.withSubscription(mySubscriptionId)
                     .virtualMachines()
-                    .getByGroup(name, name)
-                    .restart()
+                    .getByResourceGroupAsync(name, name)
+                    .awaitOne()
+                    .restartAsync()
+                    .awaitOne()
             LOG.debug("Virtual machine $name has been successfully restarted")
         } catch (e: Throwable) {
             val message = "Failed to restart virtual machine $name: ${e.message}"
@@ -454,8 +466,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
         try {
             myAzure.withSubscription(mySubscriptionId)
                     .virtualMachines()
-                    .getByGroup(name, name)
-                    .start()
+                    .getByResourceGroupAsync(name, name)
+                    .awaitOne()
+                    .startAsync()
+                    .awaitOne()
             LOG.debug("Virtual machine $name has been successfully started")
         } catch (e: Throwable) {
             val message = "Failed to start virtual machine $name: ${e.message}"
@@ -469,8 +483,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
         try {
             myAzure.withSubscription(mySubscriptionId)
                     .virtualMachines()
-                    .getByGroup(name, name)
-                    .deallocate()
+                    .getByResourceGroupAsync(name, name)
+                    .awaitOne()
+                    .deallocateAsync()
+                    .awaitOne()
             LOG.debug("Virtual machine $name has been successfully stopped")
         } catch (e: Throwable) {
             val message = "Failed to stop virtual machine $name: ${e.message}"
@@ -639,7 +655,8 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
         try {
             val accounts = myAzure.withSubscription(mySubscriptionId)
                     .storageAccounts()
-                    .list()
+                    .listAsync()
+                    .awaitList()
             LOG.debug("Received list of storage accounts")
             accounts
         } catch (e: Throwable) {
@@ -653,7 +670,8 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
         try {
             val account = myAzure.withSubscription(mySubscriptionId)
                     .storageAccounts()
-                    .getByGroup(groupName, storageName)
+                    .getByResourceGroupAsync(groupName, storageName)
+                    .awaitOne()
             LOG.debug("Received keys for storage account " + storageName)
             account.keys
         } catch (e: Throwable) {
@@ -670,7 +688,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
      */
     override fun getSubscriptionsAsync() = async(CommonPool, false) {
         try {
-            val list = myAzure.subscriptions().list()
+            val list = myAzure.subscriptions().listAsync().awaitList()
             LOG.debug("Received list of subscriptions")
 
             val subscriptions = LinkedHashMap<String, String>()
@@ -695,7 +713,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
      */
     override fun getLocationsAsync(subscription: String) = async(CommonPool, false) {
         try {
-            val list = myAzure.subscriptions().getById(mySubscriptionId).listLocations()
+            val list = myAzure.subscriptions()
+                    .getByIdAsync(subscription)
+                    .awaitOne()
+                    .listLocations()
             LOG.debug("Received list of locations in subscription " + subscription)
 
             val locations = LinkedHashMap<String, String>()
@@ -720,9 +741,11 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
      */
     override fun getNetworksAsync() = async(CommonPool, false) {
         try {
-            val list = myAzure.withSubscription(mySubscriptionId).networks().list()
+            val list = myAzure.withSubscription(mySubscriptionId)
+                    .networks()
+                    .listAsync()
+                    .awaitList()
             LOG.debug("Received list of networks")
-
             val networks = LinkedHashMap<String, List<String>>()
             for (network in list) {
                 if (!network.regionName().equals(myLocation!!, ignoreCase = true)) continue

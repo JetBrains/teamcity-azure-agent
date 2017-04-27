@@ -39,3 +39,13 @@ suspend fun <T> Observable<T>.awaitOne(): T {
         })
     }
 }
+
+suspend fun <T> Observable<T>.awaitList(): List<T> {
+    return suspendCoroutine { cont ->
+        toList().subscribe({ r ->
+            cont.resume(r)
+        }, { e ->
+            cont.resumeWithException(e)
+        })
+    }
+}

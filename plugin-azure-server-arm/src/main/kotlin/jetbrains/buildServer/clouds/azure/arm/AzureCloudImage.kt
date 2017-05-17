@@ -28,6 +28,7 @@ import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.runBlocking
+import java.util.*
 
 /**
  * Azure cloud image.
@@ -57,8 +58,10 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             throw QuotaException("Unable to start more instances. Limit has reached")
         }
 
-        val instance = tryToStartStoppedInstanceAsync().await()
-        instance ?: createInstance(userData)
+        val instance = tryToStartStoppedInstanceAsync().await() ?: createInstance(userData)
+        instance.apply {
+            setStartDate(Date())
+        }
     }
 
     /**

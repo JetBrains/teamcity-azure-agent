@@ -1,5 +1,5 @@
 plugins {
-    id 'com.github.rodm.teamcity-agent' version "0.11"
+    id 'com.github.rodm.teamcity-agent' version "1.0"
 }
 
 sourceCompatibility = 1.6
@@ -19,9 +19,11 @@ configurations {
 
 teamcity {
     version = teamcityVersion
-    descriptor {
-        pluginDeployment {
-            useSeparateClassloader = true
+    agent {
+        descriptor {
+            pluginDeployment {
+                useSeparateClassloader = true
+            }
         }
     }
 }

@@ -73,12 +73,16 @@ public class WindowsConfigReader extends AgentConfigReader {
             @Override
             public void changesDetected(@NotNull List<File> newFiles, @NotNull List<File> modifiedFiles, @NotNull List<File> removedFiles) {
                 for (File file : modifiedFiles) {
-                    if (file.equals(configDir)) {
-                        LOG.info(String.format("Found changes in configs directory %s", file.getAbsolutePath()));
-                        processConfigs(configDir);
-                    } else if (file.equals(customDataFile)) {
-                        LOG.info(String.format("Found changes in custom data file %s", file.getAbsolutePath()));
-                        processCustomData(customDataFile);
+                    try {
+                        if (FileUtil.areTheSame(file, configDir)) {
+                            LOG.info(String.format("Found changes in configs directory %s", file.getAbsolutePath()));
+                            processConfigs(configDir);
+                        } else if (FileUtil.areTheSame(file, customDataFile)) {
+                            LOG.info(String.format("Found changes in custom data file %s", file.getAbsolutePath()));
+                            processCustomData(customDataFile);
+                        }
+                    } catch (IOException e) {
+                        LOG.warnAndDebugDetails("Failed to access file " + file.getAbsolutePath(), e);
                     }
                 }
             }

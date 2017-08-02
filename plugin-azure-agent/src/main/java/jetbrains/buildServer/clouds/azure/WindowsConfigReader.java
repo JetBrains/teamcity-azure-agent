@@ -18,15 +18,19 @@ package jetbrains.buildServer.clouds.azure;
 
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx;
+import jetbrains.buildServer.configuration.FileWatcherListener;
+import jetbrains.buildServer.configuration.FilesWatcher;
 import jetbrains.buildServer.util.FileUtil;
 import jetbrains.buildServer.util.StringUtil;
 import org.jdom.Element;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
 
 /**
  * Reads configuration settings on Windows.
@@ -50,6 +54,40 @@ public class WindowsConfigReader extends AgentConfigReader {
     public void process() {
         // Check custom data file existence
         final File customDataFile = new File(WINDOWS_CUSTOM_DATA_FILE);
+        processCustomData(customDataFile);
+
+        // Check properties file existence
+        final File configDir = new File(WINDOWS_PROP_FILE_DIR);
+        processConfigs(configDir);
+
+        // Watch for changes in the files
+        final FilesWatcher watcher = new FilesWatcher(new FilesWatcher.WatchedFilesProvider() {
+            @NotNull
+            @Override
+            public File[] getWatchedFiles() throws IOException {
+                return new File[]{configDir, customDataFile};
+            }
+        });
+
+        watcher.registerListener(new FileWatcherListener() {
+            @Override
+            public void changesDetected(@NotNull List<File> newFiles, @NotNull List<File> modifiedFiles, @NotNull List<File> removedFiles) {
+                for (File file : modifiedFiles) {
+                    if (file.equals(configDir)) {
+                        LOG.info(String.format("Found changes in configs directory %s", file.getAbsolutePath()));
+                        processConfigs(configDir);
+                    } else if (file.equals(customDataFile)) {
+                        LOG.info(String.format("Found changes in custom data file %s", file.getAbsolutePath()));
+                        processCustomData(customDataFile);
+                    }
+                }
+            }
+        });
+
+        watcher.start();
+    }
+
+    private void processCustomData(File customDataFile) {
         final String customData = myFileUtils.readFile(customDataFile);
         if (StringUtil.isEmpty(customData)) {
             LOG.info(String.format(CUSTOM_DATA_FILE_IS_EMPTY, customDataFile));
@@ -61,9 +99,9 @@ public class WindowsConfigReader extends AgentConfigReader {
                 LOG.warnAndDebugDetails(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFile), e);
             }
         }
+    }
 
-        // Check properties file existence
-        final File configDir = new File(WINDOWS_PROP_FILE_DIR);
+    private void processConfigs(File configDir) {
         final File[] files = myFileUtils.listFiles(configDir);
         if (files == null || files.length == 0) {
             LOG.info(String.format("Unable to find azure properties file in directory %s", WINDOWS_PROP_FILE_DIR));

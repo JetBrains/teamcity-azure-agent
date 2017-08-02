@@ -39,9 +39,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
     private val METADATA_CONTENT_MD5 = "contentMD5"
 
-    override fun getImageDetails(): AzureCloudImageDetails {
-        return myImageDetails
-    }
+    override fun getImageDetails(): AzureCloudImageDetails = myImageDetails
 
     override fun createInstanceFromReal(realInstance: AbstractInstance): AzureCloudInstance {
         return AzureCloudInstance(this, realInstance.name).apply {
@@ -49,9 +47,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         }
     }
 
-    override fun canStartNewInstance(): Boolean {
-        return activeInstances.size < myImageDetails.maxInstances
-    }
+    override fun canStartNewInstance(): Boolean = activeInstances.size < myImageDetails.maxInstances
 
     override fun startNewInstance(userData: CloudInstanceUserData): AzureCloudInstance = runBlocking {
         if (!canStartNewInstance()) {
@@ -77,11 +73,15 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val data = AzureUtils.setVmNameForTag(userData, name)
 
         async(CommonPool) {
-            val metadata = myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl).await() ?: emptyMap()
+            if (imageDetails.getType() == AzureCloudImageType.Vhd) {
+                val metadata = myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl!!).await() ?: emptyMap()
+                instance.properties[AzureConstants.TAG_IMAGE_HASH] = metadata[METADATA_CONTENT_MD5] ?: ""
+            } else {
+                instance.properties[AzureConstants.TAG_IMAGE_HASH] = getImageIdHash(imageDetails)
+            }
 
             instance.properties[AzureConstants.TAG_PROFILE] = userData.profileId
             instance.properties[AzureConstants.TAG_SOURCE] = imageDetails.sourceId
-            instance.properties[AzureConstants.TAG_IMAGE_HASH] = metadata[METADATA_CONTENT_MD5] ?: ""
 
             try {
                 LOG.info("Creating new virtual machine ${instance.name}")
@@ -122,9 +122,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 LOG.info("Will remove all virtual machines due to cloud image settings")
                 emptyList()
             } else {
-                val metadata = myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl).await()
                 instances.filter {
-                    isSameImageInstance(it, metadata).apply {
+                    isSameImageInstance(it).await().apply {
                         if (!this) {
                             LOG.info("Will remove virtual machine ${it.name} due to cloud image retention policy")
                         }
@@ -168,8 +167,15 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         null
     }
 
-    private fun isSameImageInstance(it: AzureCloudInstance, metadata: Map<String, String>?) = metadata != null &&
-            metadata[METADATA_CONTENT_MD5] == it.properties[AzureConstants.TAG_IMAGE_HASH]
+    private fun isSameImageInstance(it: AzureCloudInstance) = async(CommonPool) {
+        val metadata = (if (myImageDetails.getType() == AzureCloudImageType.Vhd) {
+            myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl!!).await()
+        } else {
+            mapOf(METADATA_CONTENT_MD5 to getImageIdHash(imageDetails))
+        }) ?: return@async false
+
+        metadata[METADATA_CONTENT_MD5] == it.properties[AzureConstants.TAG_IMAGE_HASH]
+    }
 
     override fun restartInstance(instance: AzureCloudInstance) {
         instance.status = InstanceStatus.RESTARTING
@@ -191,10 +197,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
         async(CommonPool) {
             try {
-                val metadata = myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl).await()
-                val sameVhdImage = metadata != null && metadata[METADATA_CONTENT_MD5] ==
-                        instance.properties[AzureConstants.TAG_IMAGE_HASH]
-
+                val sameVhdImage = isSameImageInstance(instance).await()
                 if (myImageDetails.behaviour.isDeleteAfterStop) {
                     LOG.info("Removing virtual machine ${instance.name} due to cloud image settings")
                     myApiConnector.deleteVmAsync(instance).await()
@@ -218,19 +221,19 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         }
     }
 
-    override fun getAgentPoolId(): Int? {
-        return myImageDetails.agentPoolId
-    }
+    override fun getAgentPoolId(): Int? = myImageDetails.agentPoolId
 
     private fun getInstanceName(): String {
         val keys = instances.map { it.instanceId.toLowerCase() }
         val sourceName = myImageDetails.sourceId.toLowerCase()
-        var i: Int = 1
+        var i = 1
 
         while (keys.contains(sourceName + i)) i++
 
         return sourceName + i
     }
+
+    private fun getImageIdHash(imageDetails: AzureCloudImageDetails) = Integer.toHexString(imageDetails.imageId!!.hashCode())
 
     /**
      * Returns active instances.

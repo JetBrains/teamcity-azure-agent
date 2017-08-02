@@ -109,6 +109,15 @@
                dialogClass="AzureImageDialog" titleId="ArmImageDialogTitle">
         <table class="runnerFormTable">
             <tr>
+                <th><label for="${cons.imageType}">Image Type: <l:star/></label></th>
+                <td>
+                    <select name="${cons.imageType}" class="longField"
+                            data-bind="options: imageTypes, optionsText: 'text', optionsValue: 'id',
+                            value: image().imageType"></select>
+                    <span class="error option-error" data-bind="validationMessage: image().imageType"></span>
+                </td>
+            </tr>
+            <tr data-bind="css: {hidden: image().imageType() != 'Vhd'}">
                 <th><label for="${cons.imageUrl}">Source Image: <l:star/></label></th>
                 <td>
                     <input type="text" name="${cons.imageUrl}" class="longField"
@@ -125,6 +134,24 @@
                             anchor="TeamCitySetupforCloudIntegration"/>
                     </span>
                     <span class="error option-error" data-bind="validationMessage: image().imageUrl"></span>
+                </td>
+            </tr>
+            <tr data-bind="css: {hidden: image().imageType() != 'Image'}">
+                <th><label for="${cons.imageId}">Source Image: <l:star/></label></th>
+                <td>
+                    <div data-bind="if: sourceImages().length > 0">
+                        <select name="${cons.imageId}" class="longField"
+                                data-bind="options: sourceImages, optionsText: 'text', optionsValue: 'id',
+                                    optionsCaption: 'Select', value: image().imageId"></select>
+                        <span class="osIcon osIconSmall"
+                              data-bind="attr: {title: image().osType}, css: {invisible: !image().osType()},
+                            style: {backgroundImage: getOsImage(image().osType())}"/>
+                        </span>
+                        <span class="error option-error" data-bind="validationMessage: image().imageId"></span>
+                    </div>
+                    <div data-bind="if: sourceImages().length == 0">
+                      <span class="error option-error">No source images found in resource groups</span>
+                    </div>
                 </td>
             </tr>
             <tr data-bind="css: {hidden: osType()}">
@@ -182,7 +209,7 @@
                                 return item.substring(item.lastIndexOf('/') + 1);
                             }, value: image().networkId, css: {hidden: networks().length == 0}"></select>
                     <div class="longField inline-block" data-bind="css: {hidden: networks().length > 0}">
-                        <span class="error option-error">No virtual networks found in the resource group</span>
+                        <span class="error option-error">No virtual networks found in resource groups</span>
                     </div>
                     <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingResources()}"></i>
                 </td>
@@ -261,11 +288,18 @@
                 <tr>
                     <td class="nowrap" data-bind="text: vmNamePrefix"></td>
                     <td class="nowrap">
-                        <span class="osIcon osIconSmall"
-                              data-bind="attr: {title: osType},
-                              style: {backgroundImage: $parent.getOsImage(osType)}"/>
-                        </span>
-                        <span data-bind="text: imageUrl.slice(-80), attr: {title: imageUrl}"></span>
+                        <!-- ko if: $data.osType -->
+                            <span class="osIcon osIconSmall"
+                                 data-bind="attr: {title: osType},
+                                      style: {backgroundImage: $parent.getOsImage(osType)}"/>
+                            </span>
+                        <!-- /ko -->
+                        <!-- ko if: imageType === 'Vhd' -->
+                            <span data-bind="text: imageUrl.slice(-80), attr: {title: imageUrl}"></span>
+                        <!-- /ko -->
+                        <!-- ko if: imageType === 'Image' -->
+                            <span data-bind="text: $parent.getFileName(imageId)"></span>
+                        <!-- /ko -->
                     </td>
                     <td class="center" data-bind="text: maxInstances"></td>
                     <td class="edit">

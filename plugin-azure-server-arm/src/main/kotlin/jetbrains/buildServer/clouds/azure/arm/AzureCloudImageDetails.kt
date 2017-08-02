@@ -27,8 +27,12 @@ import jetbrains.buildServer.clouds.base.types.CloneBehaviour
 class AzureCloudImageDetails(
         @SerializedName(CloudImageParameters.SOURCE_ID_FIELD)
         val mySourceId: String? = null,
+        @SerializedName(AzureConstants.IMAGE_TYPE)
+        val imageType: AzureCloudImageType?,
         @SerializedName(AzureConstants.IMAGE_URL)
-        val imageUrl: String,
+        val imageUrl: String?,
+        @SerializedName(AzureConstants.IMAGE_ID)
+        val imageId: String?,
         @SerializedName(AzureConstants.OS_TYPE)
         val osType: String,
         @SerializedName(AzureConstants.NETWORK_ID)
@@ -54,23 +58,19 @@ class AzureCloudImageDetails(
 
     private var myPassword: String? = null
 
-    override fun getMaxInstances(): Int {
-        return myMaxInstances
-    }
+    override fun getMaxInstances(): Int = myMaxInstances
 
-    override fun getPassword(): String? {
-        return myPassword
-    }
+    override fun getPassword(): String? = myPassword
 
     override fun setPassword(password: String) {
         myPassword = password
     }
 
-    override fun getSourceId(): String {
-        return mySourceId ?: vmNamePrefix ?: ""
-    }
+    override fun getSourceId(): String = mySourceId ?: vmNamePrefix ?: ""
 
-    override fun getBehaviour(): CloneBehaviour {
-        return if (myReuseVm) CloneBehaviour.ON_DEMAND_CLONE else CloneBehaviour.FRESH_CLONE
-    }
+    override fun getBehaviour(): CloneBehaviour =
+            if (myReuseVm) CloneBehaviour.ON_DEMAND_CLONE else CloneBehaviour.FRESH_CLONE
+
+    fun getType(): AzureCloudImageType = imageType ?: AzureCloudImageType.Vhd
+
 }

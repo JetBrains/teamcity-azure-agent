@@ -2,12 +2,6 @@
   "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
   "contentVersion": "1.0.0.0",
   "parameters": {
-    "imageUrl": {
-      "type": "string",
-      "metadata": {
-        "description": "This is the name of the generalized VHD image"
-      }
-    },
     "vmName": {
       "type": "string",
       "metadata": {
@@ -64,12 +58,11 @@
   "variables": {
     "location": "[resourceGroup().location]",
     "nicName": "[concat(parameters('vmName'), '-net')]",
-    "subnetRef": "[concat(parameters('networkId'), '/subnets/', parameters('subnetName'))]",
-    "osDiskUrl": "[concat('https://', split(parameters('imageUrl'),'/')[2], '/vhds/', parameters('vmName'), '-os.vhd')]"
+    "subnetRef": "[concat(parameters('networkId'), '/subnets/', parameters('subnetName'))]"
   },
   "resources": [
     {
-      "apiVersion": "2015-05-01-preview",
+      "apiVersion": "2016-09-01",
       "type": "Microsoft.Network/networkInterfaces",
       "name": "[variables('nicName')]",
       "location": "[variables('location')]",
@@ -88,7 +81,7 @@
       }
     },
     {
-      "apiVersion": "2015-06-15",
+      "apiVersion": "2016-04-30-preview",
       "type": "Microsoft.Compute/virtualMachines",
       "name": "[parameters('vmName')]",
       "location": "[variables('location')]",
@@ -109,14 +102,8 @@
           "osDisk": {
             "name": "[concat(parameters('vmName'), '-os')]",
             "osType": "[parameters('osType')]",
-            "caching": "None",
-            "createOption": "FromImage",
-            "image": {
-              "uri": "[parameters('imageUrl')]"
-            },
-            "vhd": {
-              "uri": "[variables('osDiskUrl')]"
-            }
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
           }
         },
         "networkProfile": {
@@ -126,11 +113,6 @@
             }
           ]
         }
-      },
-      "tags": {
-        "teamcity-server": "[parameters('serverId')]",
-        "teamcity-profile": "[parameters('profileId')]",
-        "teamcity-source": "[parameters('sourceId')]"
       }
     }
   ]

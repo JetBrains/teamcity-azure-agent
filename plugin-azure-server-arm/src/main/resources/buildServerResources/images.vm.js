@@ -42,9 +42,34 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   });
 
   // Image details
+  var requiredField = 'This field is required.';
   var maxLength = 12;
+  var imageTypes = {
+    image: 'Image',
+    vhd: 'Vhd'
+  };
+
+  self.imageType = ko.observable();
   self.image = ko.validatedObservable({
-    imageUrl: ko.observable('').trimmed().extend({required: true, rateLimit: 500}),
+    imageType: self.imageType.extend({required: true}),
+    imageUrl: ko.observable('').trimmed().extend({rateLimit: 500}).extend({
+      validation: {
+        validator: function (value, imageType) {
+          return imageType !== imageTypes.vhd || value;
+        },
+        message: requiredField,
+        params: self.imageType
+      }
+    }),
+    imageId: ko.observable().extend({
+      validation: {
+        validator: function (value, imageType) {
+          return imageType !== imageTypes.image || value;
+        },
+        message: requiredField,
+        params: self.imageType
+      }
+    }),
     networkId: ko.observable().extend({required: true}),
     subnetId: ko.observable().extend({required: true}),
     osType: ko.observable().extend({required: true}),
@@ -64,8 +89,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
       }
     }),
     vmPublicIp: ko.observable(false),
-    vmUsername: ko.observable().extend({required: true, maxLength: maxLength}).trimmed(),
-    vmPassword: ko.observable().extend({required: true}).trimmed(),
+    vmUsername: ko.observable('').trimmed().extend({required: true, minLength: 3, maxLength: maxLength}),
+    vmPassword: ko.observable('').trimmed().extend({required: true, minLength: 8}),
     reuseVm: ko.observable(false),
     agentPoolId: ko.observable().extend({required: true}),
     profileId: ko.observable()
@@ -74,6 +99,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   // Data from Azure APIs
   self.subscriptions = ko.observableArray([]);
   self.locations = ko.observableArray([]);
+  self.sourceImages = ko.observableArray([]);
   self.networks = ko.observableArray([]);
   self.subNetworks = ko.observableArray([]);
   self.vmSizes = ko.observableArray([]);
@@ -84,6 +110,11 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     "Linux": "/img/os/lin-small-bw.png",
     "Windows": "/img/os/win-small-bw.png"
   };
+
+  self.imageTypes = ko.observableArray([
+    {id: imageTypes.image, text: "Image"},
+    {id: imageTypes.vhd, text: "VHD"}
+  ]);
 
   // Hidden fields for serialized values
   self.images_data = ko.observable();
@@ -134,9 +165,31 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
     loadOsType(url);
 
-    // Fill vm name prefix from url
     if (self.image().vmNamePrefix()) return;
-    var vmName = getFileName(url).slice(-maxLength);
+
+    // Fill vm name prefix from url
+    var fileName = getFileName(url);
+    var vmName = getVmNamePrefix(fileName);
+    self.image().vmNamePrefix(vmName);
+  });
+
+  self.image().imageId.subscribe(function (imageId) {
+    if (!imageId) return;
+
+    var images = self.sourceImages().filter(function (image) {
+      return image.id === imageId;
+    });
+
+    if (images.length) {
+      var osType = images[0].osType;
+      self.osType(osType);
+      self.image().osType(osType);
+    }
+
+    if (self.image().vmNamePrefix()) return;
+
+    // Fill vm imageId prefix from image imageId
+    var vmName = getVmNamePrefix(imageId);
     self.image().vmNamePrefix(vmName);
   });
 
@@ -173,9 +226,16 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.originalImage = data;
 
     var model = self.image();
-    var image = data || {maxInstances: 1, vmPublicIp: false, reuseVm: true};
+    var image = data || {
+      imageType: imageTypes.image,
+      maxInstances: 1,
+      vmPublicIp: false,
+      reuseVm: true
+    };
 
+    model.imageType(image.imageType || imageTypes.vhd);
     model.imageUrl(image.imageUrl);
+    model.imageId(image.imageId);
     model.osType(image.osType);
     model.networkId(image.networkId);
     model.subnetId(image.subnetId);
@@ -206,7 +266,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   self.saveImage = function () {
     var model = self.image();
     var image = {
+      imageType: model.imageType(),
       imageUrl: model.imageUrl(),
+      imageId: model.imageId(),
       osType: model.osType(),
       networkId: model.networkId(),
       subnetId: model.subnetId(),
@@ -239,7 +301,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   };
 
   self.deleteImage = function (image) {
-    var message = "Do you really want to delete agent image based on VHD " + image.imageUrl + "?";
+    var imageName = image.imageType === imageTypes.image ? 'source image ' + image.imageId : 'VHD ' + image.imageUrl;
+    var message = "Do you really want to delete agent image based on " + imageName + "?";
     var remove = confirm(message);
     if (!remove) {
       return false;
@@ -314,6 +377,20 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     });
   };
 
+  self.getFileName = function (url) {
+    var slashIndex = url.lastIndexOf('/');
+    var dotIndex = url.lastIndexOf('.');
+    if (dotIndex < slashIndex) {
+      dotIndex = url.length;
+    }
+
+    if (slashIndex > 0 && dotIndex > 0) {
+      return url.substring(slashIndex + 1, dotIndex);
+    }
+
+    return "";
+  };
+
   function saveImages() {
     var images = self.images();
     images.forEach(function (image) {
@@ -339,7 +416,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.loadingResources(true);
     var url = getBasePath() +
       "&resource=vmSizes" +
-      "&resource=networks";
+      "&resource=networks" +
+      "&resource=images";
 
     var request = $.post(url).then(function (response) {
       var $response = $j(response);
@@ -350,6 +428,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
       } else {
         self.errorResources("");
       }
+
+      var images = getImages($response);
+      self.sourceImages(images);
 
       var vmSizes = getVmSizes($response);
       self.vmSizes(vmSizes);
@@ -428,6 +509,12 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     }).get();
   }
 
+  function getImages($response) {
+    return $response.find("images:eq(0) image").map(function () {
+      return {id: $(this).attr("id"), osType: $(this).attr("osType"), text: $(this).text()};
+    }).get();
+  }
+
   function getNetworks($response) {
     self.nets = {};
 
@@ -442,18 +529,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     }).get();
   }
 
-  function getFileName(url) {
-    var slashIndex = url.lastIndexOf('/');
-    var dotIndex = url.lastIndexOf('.');
-    if (dotIndex < slashIndex) {
-      dotIndex = url.length;
-    }
-
-    if (slashIndex > 0 && dotIndex > 0) {
-      return url.substring(slashIndex + 1, dotIndex);
-    }
-
-    return "";
+  function getVmNamePrefix(name) {
+    if (!name) return "";
+    return name.slice(-maxLength).replace(/^([^a-z])*|([^\w])*$/g, '');
   }
 
   (function loadAgentPools() {

@@ -40,6 +40,8 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     fun getLocationsAsync(subscription: String): Deferred<Map<String, String>>
 
+    fun getImagesAsync(): Deferred<Map<String, List<String>>>
+
     fun getVmSizesAsync(): Deferred<List<String>>
 
     fun getNetworksAsync(): Deferred<Map<String, List<String>>>

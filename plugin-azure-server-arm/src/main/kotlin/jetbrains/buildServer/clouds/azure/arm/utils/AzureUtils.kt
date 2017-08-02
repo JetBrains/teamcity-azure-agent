@@ -18,8 +18,6 @@ package jetbrains.buildServer.clouds.azure.arm.utils
 
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intellij.openapi.util.io.StreamUtil
 import jetbrains.buildServer.util.StringUtil
 import java.io.IOException
@@ -33,35 +31,36 @@ object AzureUtils {
     fun getResourceAsString(name: String): String {
         val stream = AzureUtils::class.java.getResourceAsStream(name) ?: return ""
 
-        try {
-            return StreamUtil.readText(stream)
+        return try {
+            StreamUtil.readText(stream)
         } catch (e: IOException) {
-            return ""
+            ""
         }
     }
 
     fun serializeObject(data: Any): String {
-        try {
-            return mapper.writeValueAsString(data)
+        return try {
+            mapper.writeValueAsString(data)
         } catch (e: JsonProcessingException) {
-            return StringUtil.EMPTY
+            StringUtil.EMPTY
         }
     }
 
-    fun setTags(templateValue: String, tags: Map<String, String>): String {
-        val reader = mapper.reader()
-        try {
-            val template = reader.readTree(templateValue) as ObjectNode
-            val resources = template["resources"] as ArrayNode
-            val machine = resources[resources.size() - 1] as ObjectNode
-            machine.putObject("tags").apply {
-                for ((key, value) in tags) {
-                    this.put(key, value)
-                }
-            }
-            return template.toString()
-        } catch (e: Exception) {
-            return templateValue
+    fun getExceptionDetails(e: com.microsoft.azure.CloudException): String {
+        val details = e.body()?.message() ?: "" + e.body()?.details()?.joinToString("\n",
+                transform = { AzureUtils.getAzureErrorMessage(it.message()) + " (${it.code()})" }) ?: ""
+        return if (details.isEmpty()) e.message ?: "" else details
+    }
+
+    private fun getAzureErrorMessage(json: String): String {
+        return try {
+            mapper.readValue<CloudErrorDetails>(json, CloudErrorDetails::class.java)?.error?.message ?: json
+        } catch (e: JsonProcessingException) {
+            json
         }
     }
 }
+
+private data class CloudErrorDetails(val error: CloudError?)
+
+private data class CloudError(val message: String?)

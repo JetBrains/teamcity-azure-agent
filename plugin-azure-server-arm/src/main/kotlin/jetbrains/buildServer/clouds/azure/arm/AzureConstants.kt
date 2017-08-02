@@ -37,8 +37,14 @@ class AzureConstants {
     val location: String
         get() = LOCATION
 
+    val imageType: String
+        get() = IMAGE_TYPE
+
     val imageUrl: String
         get() = IMAGE_URL
+
+    val imageId: String
+        get() = IMAGE_ID
 
     val osType: String
         get() = OS_TYPE
@@ -82,7 +88,9 @@ class AzureConstants {
         const val CLIENT_SECRET = "clientSecret"
         const val SUBSCRIPTION_ID = "subscriptionId"
         const val LOCATION = "location"
+        const val IMAGE_TYPE = "imageType"
         const val IMAGE_URL = "imageUrl"
+        const val IMAGE_ID = "imageId"
         const val OS_TYPE = "osType"
         const val NETWORK_ID = "networkId"
         const val SUBNET_ID = "subnetId"

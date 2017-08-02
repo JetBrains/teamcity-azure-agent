@@ -23,7 +23,7 @@
         <tr>
             <th><label for="${cons.tenantId}">Tenant ID: <l:star/></label></th>
             <td>
-                <input type="text" name="prop:${cons.tenantId}" class="longField"
+                <input type="text" name="prop:${cons.tenantId}" class="longField ignoreModified"
                        value="${propertiesBean.properties[cons.tenantId]}"
                        data-bind="initializeValue: tenantId, textInput: tenantId"/>
                 <span class="smallNote">Azure AD domain or tenant ID <a
@@ -36,7 +36,7 @@
         <tr>
             <th><label for="prop:${cons.clientId}">Client ID: <l:star/></label></th>
             <td>
-                <input type="text" name="prop:${cons.clientId}" class="longField"
+                <input type="text" name="prop:${cons.clientId}" class="longField ignoreModified"
                        value="${propertiesBean.properties[cons.clientId]}"
                        data-bind="initializeValue: clientId, textInput: clientId"/>
                 <span class="smallNote">Azure AD application client ID <a
@@ -49,7 +49,7 @@
         <tr>
             <th><label for="${cons.clientSecret}">Client Secret: <l:star/></label></th>
             <td>
-                <input type="password" name="${cons.clientSecret}" class="longField"
+                <input type="password" name="${cons.clientSecret}" class="longField ignoreModified"
                        data-bind="textInput: clientSecret"/>
                 <input type="hidden" name="prop:secure:${cons.clientSecret}"
                        value="${propertiesBean.properties[cons.clientSecret]}"
@@ -64,7 +64,7 @@
         <tr>
             <th><label for="${cons.subscriptionId}">Subscription: <l:star/></label></th>
             <td>
-                <select name="prop:${cons.subscriptionId}" class="longField"
+                <select name="prop:${cons.subscriptionId}" class="longField ignoreModified"
                         data-bind="options: $parent.subscriptions, optionsText: 'text', optionsValue: 'id',
                         value: subscriptionId, enable: $parent.subscriptions().length > 0"></select>
                 <a href="#" title="Reload subscriptions"
@@ -81,7 +81,7 @@
         <tr>
             <th><label for="${cons.location}">Location: <l:star/></label></th>
             <td>
-                <select name="prop:${cons.location}" class="longField"
+                <select name="prop:${cons.location}" class="longField ignoreModified"
                         data-bind="options: $parent.locations, optionsText: 'text', optionsValue: 'id',
                         value: location, enable: $parent.locations().length > 0"></select>
                 <a href="#" title="Reload locations"
@@ -111,7 +111,7 @@
             <tr>
                 <th><label for="${cons.imageType}">Image Type: <l:star/></label></th>
                 <td>
-                    <select name="${cons.imageType}" class="longField"
+                    <select name="${cons.imageType}" class="longField ignoreModified"
                             data-bind="options: imageTypes, optionsText: 'text', optionsValue: 'id',
                             value: image().imageType"></select>
                     <span class="error option-error" data-bind="validationMessage: image().imageType"></span>
@@ -120,7 +120,7 @@
             <tr data-bind="css: {hidden: image().imageType() != 'Vhd'}">
                 <th><label for="${cons.imageUrl}">Source Image: <l:star/></label></th>
                 <td>
-                    <input type="text" name="${cons.imageUrl}" class="longField"
+                    <input type="text" name="${cons.imageUrl}" class="longField ignoreModified"
                            placeholder="Example: http://storage.blob.core.windows.net/vhds/image.vhd"
                            data-bind="textInput: image().imageUrl"/>
                     <span class="osIcon osIconSmall"
@@ -140,7 +140,7 @@
                 <th><label for="${cons.imageId}">Source Image: <l:star/></label></th>
                 <td>
                     <div data-bind="if: sourceImages().length > 0">
-                        <select name="${cons.imageId}" class="longField"
+                        <select name="${cons.imageId}" class="longField ignoreModified"
                                 data-bind="options: sourceImages, optionsText: 'text', optionsValue: 'id',
                                     optionsCaption: 'Select', value: image().imageId"></select>
                         <span class="osIcon osIconSmall"
@@ -157,7 +157,7 @@
             <tr data-bind="css: {hidden: osType()}">
                 <th class="noBorder"><label for="${cons.osType}">OS Type: <l:star/></label></th>
                 <td>
-                    <select name="${cons.osType}" class="longField"
+                    <select name="${cons.osType}" class="longField ignoreModified"
                             data-bind="options: osTypes, optionsCaption: 'Select', value: image().osType"></select>
                     <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingOsType()}"></i>
                     <span class="error option-error" data-bind="validationMessage: image().osType"></span>
@@ -167,7 +167,7 @@
                 <th><label for="${cons.maxInstancesCount}">Instances Limit: <l:star/></label></th>
                 <td>
                     <div>
-                        <input type="text" name="${cons.maxInstancesCount}" class="longField"
+                        <input type="text" name="${cons.maxInstancesCount}" class="longField ignoreModified"
                                data-bind="textInput: image().maxInstances"/>
                         <span class="smallNote">Maximum number of instances which can be started</span>
                         <span class="error option-error" data-bind="validationMessage: image().maxInstances"></span>
@@ -185,7 +185,7 @@
             <tr>
                 <th><label for="${cons.vmNamePrefix}">Name Prefix: <l:star/></label></th>
                 <td>
-                    <input type="text" name="${cons.vmNamePrefix}" class="longField"
+                    <input type="text" name="${cons.vmNamePrefix}" class="longField ignoreModified"
                            data-bind="textInput: image().vmNamePrefix"/>
                     <span class="smallNote">Unique name prefix to create resource groups</span>
                     <span class="error option-error" data-bind="validationMessage: image().vmNamePrefix"></span>
@@ -194,7 +194,7 @@
             <tr>
                 <th><label for="${cons.vmSize}">Virtual Machine Size: <l:star/></label></th>
                 <td>
-                    <select name="${cons.vmSize}" class="longField"
+                    <select name="${cons.vmSize}" class="longField ignoreModified"
                             data-bind="options: vmSizes, optionsText: function (item) {
                                 return item.replace(/_/g, ' ');
                             }, value: image().vmSize"></select>
@@ -204,7 +204,7 @@
             <tr>
                 <th><label for="${cons.networkId}">Virtual Network: <l:star/></label></th>
                 <td>
-                    <select name="${cons.networkId}" class="longField"
+                    <select name="${cons.networkId}" class="longField ignoreModified"
                             data-bind="options: networks, optionsText: function (item) {
                                 return item.substring(item.lastIndexOf('/') + 1);
                             }, value: image().networkId, css: {hidden: networks().length == 0}"></select>
@@ -217,7 +217,7 @@
             <tr>
                 <th class="noBorder"><label for="${cons.subnetId}">Sub Network: <l:star/></label></th>
                 <td>
-                    <select name="${cons.subnetId}" class="longField"
+                    <select name="${cons.subnetId}" class="longField ignoreModified"
                             data-bind="options: subNetworks, value: image().subnetId, css: {hidden: subNetworks().length == 0}"></select>
                     <div class="longField inline-block" data-bind="css: {hidden: subNetworks().length > 0}">
                         <span class="error option-error">No sub networks found in the virtual network</span>
@@ -235,7 +235,7 @@
             <tr>
                 <th><label for="${cons.vmUsername}">Provision Username: <l:star/></label></th>
                 <td>
-                    <input type="text" id="${cons.vmUsername}" class="longField"
+                    <input type="text" id="${cons.vmUsername}" class="longField ignoreModified"
                            data-bind="textInput: image().vmUsername"/>
                     <span class="error option-error" data-bind="validationMessage: image().vmUsername"></span>
                 </td>
@@ -243,7 +243,7 @@
             <tr>
                 <th class="noBorder"><label for="${cons.vmPassword}">Provision Password: <l:star/></label></th>
                 <td>
-                    <input type="password" id="${cons.vmPassword}" class="longField"
+                    <input type="password" id="${cons.vmPassword}" class="longField ignoreModified"
                            data-bind="textInput: image().vmPassword"/>
                     <span class="smallNote">Choose value according to the <a
                             href="https://msdn.microsoft.com/en-us/library/azure/jj943764.aspx#Anchor_1"
@@ -254,7 +254,7 @@
             <tr class="advancedSetting">
                 <th><label for="${cons.agentPoolId}">Agent Pool:</label></th>
                 <td>
-                    <select name="prop:${cons.agentPoolId}" class="longField"
+                    <select name="prop:${cons.agentPoolId}" class="longField ignoreModified"
                             data-bind="options: agentPools, optionsText: 'text', optionsValue: 'id',
                         value: image().agentPoolId"></select>
                     <span id="error_${cons.agentPoolId}" class="error"></span>

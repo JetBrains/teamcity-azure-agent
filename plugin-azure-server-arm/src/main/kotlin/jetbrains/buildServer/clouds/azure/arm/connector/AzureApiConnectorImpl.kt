@@ -697,8 +697,9 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
 
         try {
             container = account.createCloudBlobClient().getContainerReference(containerName)
+            container.createIfNotExists()
         } catch (e: Throwable) {
-            val message = "Failed to connect to storage account $storage: ${e.message}"
+            val message = "Failed to get container $containerName reference in storage account $storage: ${e.message}"
             LOG.debug(message, e)
             throw CloudException(message, e)
         }

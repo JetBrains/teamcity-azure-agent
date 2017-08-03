@@ -209,6 +209,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
       }
       image.reuseVm = JSON.parse(image.reuseVm);
       image.vmPublicIp = JSON.parse(image.vmPublicIp);
+      image.imageType = image.imageType || imageTypes.vhd
     });
 
     self.images(images);

@@ -1,0 +1,31 @@
+plugins {
+    id 'com.github.rodm.teamcity-agent' version "1.0"
+}
+
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
+
+teamcity {
+    version = teamcityVersion
+    agent {
+        descriptor {
+            pluginDeployment {
+                useSeparateClassloader = true
+            }
+        }
+    }
+}
+
+dependencies {
+    compile project(':plugin-azure-common')
+    compile project(':plugin-azure-agent-base')
+    provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
+    provided "org.jetbrains.teamcity:cloud-shared:$teamcityVersion"
+    provided "org.jetbrains.teamcity.internal:agent:$teamcityVersion"
+    testCompile 'org.testng:testng:6.8'
+    testCompile 'org.jmock:jmock:2.5.1'
+    testCompile 'org.jmock:jmock-legacy:2.5.1'
+}
+
+agentPlugin.version = null
+agentPlugin.baseName = 'azure-cloud'

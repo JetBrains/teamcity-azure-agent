@@ -8,3 +8,7 @@ targetCompatibility = 1.6
 teamcity {
     version = teamcityVersion
 }
+
+dependencies {
+    provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
+}

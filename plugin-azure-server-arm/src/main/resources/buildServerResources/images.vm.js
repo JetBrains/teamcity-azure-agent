@@ -189,7 +189,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     if (self.image().vmNamePrefix()) return;
 
     // Fill vm imageId prefix from image imageId
-    var vmName = getVmNamePrefix(imageId);
+    var imageName = self.getFileName(imageId);
+    var vmName = getVmNamePrefix(imageName);
     self.image().vmNamePrefix(vmName);
   });
 
@@ -536,7 +537,11 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     if (!name) return "";
     var vhdSuffix = name.indexOf("-osDisk.");
     if (vhdSuffix > 0) name = name.substring(0, vhdSuffix);
-    return name.slice(-maxLength).replace(/^([^a-z])*|([^\w])*$/g, '');
+    return cleanupVmName(cleanupVmName(name).substr(0, maxLength));
+  }
+
+  function cleanupVmName(name) {
+    return name.replace(/^([^a-z])*|([^\w])*$/g, '');
   }
 
   (function loadAgentPools() {

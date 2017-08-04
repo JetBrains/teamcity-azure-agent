@@ -217,7 +217,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
                 val ip = getPublicIpAsync(name, pipName).await()
                 LOG.debug("Received public ip $ip for virtual machine $name")
 
-                if (!ip.isNotBlank()) {
+                if (!ip.isNullOrBlank()) {
                     instance.setIpAddress(ip)
                 }
             }

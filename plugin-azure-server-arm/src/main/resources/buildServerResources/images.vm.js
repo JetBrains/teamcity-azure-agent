@@ -168,7 +168,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     if (self.image().vmNamePrefix()) return;
 
     // Fill vm name prefix from url
-    var fileName = getFileName(url);
+    var fileName = self.getFileName(url);
     var vmName = getVmNamePrefix(fileName);
     self.image().vmNamePrefix(vmName);
   });
@@ -302,7 +302,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   };
 
   self.deleteImage = function (image) {
-    var imageName = image.imageType === imageTypes.image ? 'source image ' + image.imageId : 'VHD ' + image.imageUrl;
+    var imageName = image.imageType === imageTypes.image
+      ? 'source image ' + self.getFileName(image.imageId)
+      : 'VHD ' + image.imageUrl;
     var message = "Do you really want to delete agent image based on " + imageName + "?";
     var remove = confirm(message);
     if (!remove) {
@@ -532,6 +534,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
   function getVmNamePrefix(name) {
     if (!name) return "";
+    var vhdSuffix = name.indexOf("-osDisk.");
+    if (vhdSuffix > 0) name = name.substring(0, vhdSuffix);
     return name.slice(-maxLength).replace(/^([^a-z])*|([^\w])*$/g, '');
   }
 

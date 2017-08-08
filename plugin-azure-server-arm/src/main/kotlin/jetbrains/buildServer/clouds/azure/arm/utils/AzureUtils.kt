@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.utils
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.util.io.StreamUtil
@@ -48,22 +49,25 @@ object AzureUtils {
 
     fun getExceptionDetails(e: com.microsoft.azure.CloudException): String {
         e.body()?.let {
-            return it.message() + it.details().joinToString("\n", transform = {
+            return it.message() + " " + it.details().joinToString("\n", transform = {
                 AzureUtils.getAzureErrorMessage(it.message()) + " (${it.code()})"
             })
         }
         return e.message ?: ""
     }
 
-    private fun getAzureErrorMessage(json: String): String {
-        return try {
-            mapper.readValue<CloudErrorDetails>(json, CloudErrorDetails::class.java)?.error?.message ?: json
-        } catch (e: JsonProcessingException) {
-            json
-        }
+    internal fun getAzureErrorMessage(json: String) = try {
+        mapper.readValue<CloudErrorDetails>(json, CloudErrorDetails::class.java)?.error?.let {
+            "${it.message} (${it.code})"
+        } ?: json
+    } catch (e: JsonProcessingException) {
+        json
     }
 }
 
-private data class CloudErrorDetails(val error: CloudError?)
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class CloudErrorDetails(val error: CloudError? = null)
 
-private data class CloudError(val message: String?)
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class CloudError(val code: String? = null,
+                              val message: String? = null)

@@ -25,12 +25,16 @@ import jetbrains.buildServer.clouds.base.connector.CloudApiConnector
 /**
  * ARM cloud client.
  */
-class AzureCloudClient(params: CloudClientParameters,
+class AzureCloudClient(private val params: CloudClientParameters,
                        apiConnector: CloudApiConnector<AzureCloudImage, AzureCloudInstance>,
                        imagesHolder: AzureCloudImagesHolder)
     : AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails>(params, apiConnector, imagesHolder) {
 
     override fun createImage(imageDetails: AzureCloudImageDetails): AzureCloudImage {
+        if (imageDetails.target == AzureCloudDeployTarget.NewGroup && imageDetails.region.isNullOrEmpty()) {
+            imageDetails.region = params.getParameter(AzureConstants.REGION)
+        }
+
         return AzureCloudImage(imageDetails, myApiConnector as AzureApiConnector)
     }
 }

@@ -39,11 +39,9 @@ internal abstract class AzureResourceHandler : ResourceHandler {
         val clientId = props[AzureConstants.CLIENT_ID]!!
         val clientSecret = props["secure:" + AzureConstants.CLIENT_SECRET]!!
         val subscriptionId = props[AzureConstants.SUBSCRIPTION_ID]!!
-        val location = props[AzureConstants.LOCATION]!!
 
         val apiConnector = AzureApiConnectorImpl(tenantId, clientId, clientSecret)
         apiConnector.setSubscriptionId(subscriptionId)
-        apiConnector.setLocation(location)
 
         return handle(apiConnector, request)
     }

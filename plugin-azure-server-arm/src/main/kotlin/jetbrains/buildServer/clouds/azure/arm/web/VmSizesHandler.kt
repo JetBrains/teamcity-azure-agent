@@ -27,7 +27,8 @@ import javax.servlet.http.HttpServletRequest
  */
 internal class VmSizesHandler : AzureResourceHandler() {
     override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
-        val sizes = connector.getVmSizesAsync().await()
+        val region = request.getParameter("region")
+        val sizes = connector.getVmSizesAsync(region).await()
 
         val sizesElement = Element("vmSizes")
         for (size in sizes) {

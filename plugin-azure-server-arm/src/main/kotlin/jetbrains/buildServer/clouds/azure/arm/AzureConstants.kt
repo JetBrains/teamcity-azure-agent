@@ -34,8 +34,14 @@ class AzureConstants {
     val subscriptionId: String
         get() = SUBSCRIPTION_ID
 
-    val location: String
-        get() = LOCATION
+    val deployTarget: String
+        get() = DEPLOY_TARGET
+
+    val region: String
+        get() = REGION
+
+    val groupId: String
+        get() = GROUP_ID
 
     val imageType: String
         get() = IMAGE_TYPE
@@ -87,7 +93,9 @@ class AzureConstants {
         const val CLIENT_ID = "clientId"
         const val CLIENT_SECRET = "clientSecret"
         const val SUBSCRIPTION_ID = "subscriptionId"
-        const val LOCATION = "location"
+        const val DEPLOY_TARGET = "deployTarget"
+        const val REGION = "region"
+        const val GROUP_ID = "groupId"
         const val IMAGE_TYPE = "imageType"
         const val IMAGE_URL = "imageUrl"
         const val IMAGE_ID = "imageId"

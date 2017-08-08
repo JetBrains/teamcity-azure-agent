@@ -41,7 +41,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
     override fun createNewClient(state: CloudState,
                                  images: Collection<AzureCloudImageDetails>,
                                  params: CloudClientParameters): AzureCloudClient {
-        return createNewClient(state, params, arrayOf<TypedCloudErrorInfo>())
+        return createNewClient(state, params, arrayOf())
     }
 
     override fun createNewClient(state: CloudState,
@@ -51,13 +51,11 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         val clientId = getParameter(params, AzureConstants.CLIENT_ID)
         val clientSecret = getParameter(params, AzureConstants.CLIENT_SECRET)
         val subscriptionId = getParameter(params, AzureConstants.SUBSCRIPTION_ID)
-        val location = getParameter(params, AzureConstants.LOCATION)
 
         val apiConnector = AzureApiConnectorImpl(tenantId, clientId, clientSecret)
         apiConnector.setSubscriptionId(subscriptionId)
         apiConnector.setServerId(mySettings.serverUUID)
         apiConnector.setProfileId(state.profileId)
-        apiConnector.setLocation(location)
 
         val azureCloudClient = AzureCloudClient(params, apiConnector, myImagesHolder)
         azureCloudClient.updateErrors(*errors)

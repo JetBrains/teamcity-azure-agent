@@ -49,12 +49,13 @@ class SettingsController(server: SBuildServer,
 
     init {
         manager.registerController(myHtmlPath, this)
+        HANDLERS.put("resourceGroups", ResourceGroupsHandler())
         HANDLERS.put("images", ImagesHandler())
         HANDLERS.put("vmSizes", VmSizesHandler())
         HANDLERS.put("osType", OsTypeHandler())
         HANDLERS.put("subscriptions", SubscriptionsHandler())
         HANDLERS.put("networks", NetworksHandler())
-        HANDLERS.put("locations", LocationsHandler())
+        HANDLERS.put("regions", RegionsHandler())
         HANDLERS.put("agentPools", AgentPoolHandler(agentPoolManager))
     }
 

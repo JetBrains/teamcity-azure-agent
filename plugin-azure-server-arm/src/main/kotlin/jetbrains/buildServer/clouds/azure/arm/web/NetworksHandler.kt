@@ -27,7 +27,8 @@ import javax.servlet.http.HttpServletRequest
  */
 internal class NetworksHandler : AzureResourceHandler() {
     override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
-        val networks = connector.getNetworksAsync().await()
+        val region = request.getParameter("region")
+        val networks = connector.getNetworksAsync(region).await()
         val networksElement = Element("networks")
 
         for ((name, subnets) in networks) {

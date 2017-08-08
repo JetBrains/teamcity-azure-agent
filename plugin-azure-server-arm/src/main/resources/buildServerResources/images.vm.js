@@ -16,10 +16,12 @@
 function ArmImagesViewModel($, ko, baseUrl, dialog) {
   var self = this;
 
-  self.loadingLocations = ko.observable(false);
+  self.loadingSubscriptions = ko.observable(false);
+  self.loadingRegions = ko.observable(false);
   self.loadingResources = ko.observable(false);
   self.loadingOsType = ko.observable(false);
-  self.errorLocations = ko.observable("");
+  self.errorSubscriptions = ko.observable("");
+  self.errorRegions = ko.observable("");
   self.errorResources = ko.observable("");
 
   // Credentials
@@ -28,7 +30,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     clientId: ko.observable('').trimmed().extend({required: true}),
     clientSecret: ko.observable('').trimmed().extend({required: true}),
     subscriptionId: ko.observable().extend({required: true}),
-    location: ko.observable().extend({required: true})
+    region: ko.observable()
   });
 
   self.isValidClientData = ko.pureComputed(function () {
@@ -38,19 +40,35 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   });
 
   self.isValidCredentials = ko.pureComputed(function () {
-    return self.credentials.isValid() && !self.errorLocations();
+    return self.credentials.isValid() && !self.errorRegions();
   });
 
   // Image details
   var requiredField = 'This field is required.';
   var maxLength = 12;
+  var deployTargets = {
+    newGroup: 'NewGroup',
+    specificGroup: 'SpecificGroup'
+  };
   var imageTypes = {
     image: 'Image',
     vhd: 'Vhd'
   };
 
+  self.deployTarget = ko.observable();
   self.imageType = ko.observable();
   self.image = ko.validatedObservable({
+    deployTarget: self.deployTarget.extend({required: true}),
+    region: ko.observable().extend({required: true}),
+    groupId: ko.observable().extend({
+      validation: {
+        validator: function (value, deployTarget) {
+          return deployTarget !== deployTargets.specificGroup || value;
+        },
+        message: requiredField,
+        params: self.deployTarget
+      }
+    }),
     imageType: self.imageType.extend({required: true}),
     imageUrl: ko.observable('').trimmed().extend({rateLimit: 500}).extend({
       validation: {
@@ -98,7 +116,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
   // Data from Azure APIs
   self.subscriptions = ko.observableArray([]);
-  self.locations = ko.observableArray([]);
+  self.resourceGroups = ko.observableArray([]);
+  self.regions = ko.observableArray([]);
+  self.regionName = ko.observable("");
   self.sourceImages = ko.observableArray([]);
   self.networks = ko.observableArray([]);
   self.subNetworks = ko.observableArray([]);
@@ -110,6 +130,11 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     "Linux": "/img/os/lin-small-bw.png",
     "Windows": "/img/os/win-small-bw.png"
   };
+
+  self.deployTargets = ko.observableArray([
+    {id: deployTargets.newGroup, text: "New resource group"},
+    {id: deployTargets.specificGroup, text: "Specific resource group"}
+  ]);
 
   self.imageTypes = ko.observableArray([
     {id: imageTypes.image, text: "Image"},
@@ -125,39 +150,56 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   self.nets = {};
   self.passwords = {};
 
-  // Reload subscriptions on credentials change
-  ko.computed(function () {
-    if (!self.credentials().tenantId() || !self.credentials().clientId() || !self.credentials().clientSecret()) {
-      return;
-    }
+  self.credentials().tenantId.subscribe(function () {
+    self.loadSubscriptions();
+  });
 
+  self.credentials().clientId.subscribe(function () {
+    self.loadSubscriptions();
+  });
+
+  self.credentials().clientSecret.subscribe(function () {
     self.loadSubscriptions();
   });
 
   self.credentials().subscriptionId.subscribe(function (subscriptionId) {
     if (!subscriptionId) return;
 
-    var match = ko.utils.arrayFirst(self.subscriptions(), function (item) {
+    var subscription = ko.utils.arrayFirst(self.subscriptions(), function (item) {
       return item.id === subscriptionId;
     });
-    if (!match) {
+
+    if (!subscription) {
       self.subscriptions([{id: subscriptionId, text: subscriptionId}]);
     }
 
-    self.loadLocations();
+    self.loadRegions();
   });
 
-  self.credentials().location.subscribe(function (location) {
-    if (!location) return;
+  self.image().groupId.subscribe(function (groupId) {
+    if (!groupId) return;
 
-    var match = ko.utils.arrayFirst(self.locations(), function (item) {
-      return item.id === location;
+    var group = ko.utils.arrayFirst(self.resourceGroups(), function (item) {
+      return item.text === groupId;
     });
-    if (!match) {
-      self.locations([{id: location, text: location}]);
+
+    if (group) {
+      self.image().region(group.region);
+    }
+  });
+
+  self.image().region.subscribe(function (value) {
+    if (!value) return;
+
+    var region = ko.utils.arrayFirst(self.regions(), function (item) {
+      return item.id === value;
+    });
+
+    if (region) {
+      self.regionName(region.text)
     }
 
-    loadResourcesByLocation();
+    loadResourcesByRegion();
   });
 
   self.image().imageUrl.subscribe(function (url) {
@@ -173,23 +215,23 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     self.image().vmNamePrefix(vmName);
   });
 
-  self.image().imageId.subscribe(function (imageId) {
-    if (!imageId) return;
+  self.image().imageId.subscribe(function (value) {
+    if (!value) return;
 
-    var images = self.sourceImages().filter(function (image) {
-      return image.id === imageId;
+    var image = ko.utils.arrayFirst(self.sourceImages(), function (item) {
+      return item.id === value;
     });
 
-    if (images.length) {
-      var osType = images[0].osType;
+    if (image) {
+      var osType = image.osType;
       self.osType(osType);
       self.image().osType(osType);
     }
 
     if (self.image().vmNamePrefix()) return;
 
-    // Fill vm imageId prefix from image imageId
-    var imageName = self.getFileName(imageId);
+    // Fill vm prefix from image ID
+    var imageName = self.getFileName(value);
     var vmName = getVmNamePrefix(imageName);
     self.image().vmNamePrefix(vmName);
   });
@@ -202,6 +244,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   self.images_data.subscribe(function (data) {
     var images = ko.utils.parseJson(data || "[]");
     var saveValue = false;
+
     images.forEach(function (image) {
       if (image["source-id"]) {
         image.vmNamePrefix = image["source-id"];
@@ -210,7 +253,11 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
       }
       image.reuseVm = JSON.parse(image.reuseVm);
       image.vmPublicIp = JSON.parse(image.vmPublicIp);
-      image.imageType = image.imageType || imageTypes.vhd
+      image.deployTarget = image.deployTarget || deployTargets.newGroup;
+      if (image.deployTarget === deployTargets.newGroup) {
+        image.region = image.region || self.credentials().region();
+      }
+      image.imageType = image.imageType || imageTypes.vhd;
     });
 
     self.images(images);
@@ -225,23 +272,53 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   self.originalImage = null;
 
   self.showDialog = function (data) {
+    if (!self.isValidCredentials() || self.loadingSubscriptions() || self.loadingRegions()) {
+      return false;
+    }
+
     self.originalImage = data;
 
     var model = self.image();
     var image = data || {
+      deployTarget: deployTargets.newGroup,
       imageType: imageTypes.image,
       maxInstances: 1,
       vmPublicIp: false,
       reuseVm: true
     };
 
+    // Pre-fill collections while loading resources
+    var imageId = image.imageId;
+    if (imageId && !ko.utils.arrayFirst(self.sourceImages(), function(item) {
+      return item.id === image.imageId;
+      })) {
+      var id = imageId;
+      self.sourceImages([{id: id, text: self.getFileName(id), osType: image.osType}]);
+    }
+
+    var vmSize = image.vmSize;
+    if (vmSize && self.vmSizes.indexOf(vmSize) < 0) {
+      self.vmSizes([vmSize]);
+    }
+
+    var networkId = image.networkId;
+    if (networkId && self.networks.indexOf(networkId) < 0) {
+      self.networks([networkId]);
+      var subNetworks = [image.subnetId];
+      self.nets[networkId] = subNetworks;
+      self.subNetworks(subNetworks);
+    }
+
+    model.deployTarget(image.deployTarget || deployTargets.newGroup);
+    model.groupId(image.groupId);
+    model.region(image.region);
     model.imageType(image.imageType || imageTypes.vhd);
     model.imageUrl(image.imageUrl);
-    model.imageId(image.imageId);
+    model.imageId(imageId);
     model.osType(image.osType);
-    model.networkId(image.networkId);
+    model.networkId(networkId);
     model.subnetId(image.subnetId);
-    model.vmSize(image.vmSize);
+    model.vmSize(vmSize);
     model.maxInstances(image.maxInstances);
     model.vmNamePrefix(image.vmNamePrefix);
     model.vmPublicIp(image.vmPublicIp);
@@ -268,6 +345,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   self.saveImage = function () {
     var model = self.image();
     var image = {
+      deployTarget: model.deployTarget(),
+      groupId: model.groupId(),
+      region: model.region(),
       imageType: model.imageType(),
       imageUrl: model.imageUrl(),
       imageId: model.imageId(),
@@ -327,57 +407,64 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   };
 
   self.loadSubscriptions = function () {
-    if (!self.isValidClientData()) return;
+    if (!self.isValidClientData() || self.loadingSubscriptions()) return;
 
-    self.loadingLocations(true);
+    self.loadingSubscriptions(true);
 
     var url = getBasePath() + "&resource=subscriptions";
     $.post(url).then(function (response) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {
-        self.errorLocations(errors);
+        self.errorSubscriptions(errors);
         return;
       } else {
-        self.errorLocations("");
+        self.errorSubscriptions("");
       }
 
       var subscriptions = getSubscriptions($response);
       self.subscriptions(subscriptions);
     }, function (error) {
-      self.errorLocations("Failed to load data: " + error.message);
+      self.errorSubscriptions("Failed to load subscriptions: " + error.message);
       console.log(error);
     }).always(function () {
-      self.loadingLocations(false);
+      self.loadingSubscriptions(false);
     });
   };
 
-  self.loadLocations = function () {
-    var subscription = self.credentials().subscriptionId();
-    if (!subscription) return;
+  self.loadRegions = function (types) {
+    types = types || ['regions', 'resourceGroups'];
 
-    self.loadingLocations(true);
+    var url = types.reduce(function (prev, element) {
+      return prev + "&resource=" + element;
+    }, getBasePath());
 
-    var url = getBasePath() +
-      "&resource=locations" +
-      "&subscription=" + subscription;
+    self.loadingRegions(true);
+
     $.post(url).then(function (response) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {
-        self.errorLocations(errors);
+        self.errorRegions(errors);
         return;
       } else {
-        self.errorLocations("");
+        self.errorRegions("");
       }
 
-      var locations = getLocations($response);
-      self.locations(locations);
+      if (types.indexOf('regions') >= 0) {
+        var regions = getRegions($response);
+        self.regions(regions);
+      }
+
+      if (types.indexOf('resourceGroups') >= 0) {
+        var groups = getResourceGroups($response);
+        self.resourceGroups(groups);
+      }
     }, function (error) {
-      self.errorLocations("Failed to load data: " + error.message);
+      self.errorRegions("Failed to data: " + error.message);
       console.log(error);
     }).always(function () {
-      self.loadingLocations(false);
+      self.loadingRegions(false);
     });
   };
 
@@ -412,18 +499,22 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
       "?prop%3AtenantId=" + encodeURIComponent(credentials.tenantId()) +
       "&prop%3AclientId=" + encodeURIComponent(credentials.clientId()) +
       "&prop%3Asecure%3AclientSecret=" + encodeURIComponent(credentials.clientSecret()) +
-      "&prop%3AsubscriptionId=" + encodeURIComponent(credentials.subscriptionId()) +
-      "&prop%3Alocation=" + encodeURIComponent(credentials.location());
+      "&prop%3AsubscriptionId=" + encodeURIComponent(credentials.subscriptionId());
   }
 
-  function loadResourcesByLocation() {
-    self.loadingResources(true);
+  function loadResourcesByRegion() {
+    var region = self.image().region();
+    if (!region) return;
+
     var url = getBasePath() +
       "&resource=vmSizes" +
       "&resource=networks" +
-      "&resource=images";
+      "&resource=images" +
+      "&region=" + region;
 
-    var request = $.post(url).then(function (response) {
+    self.loadingResources(true);
+
+    $.post(url).then(function (response) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {
@@ -445,23 +536,20 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     }, function (error) {
       self.errorResources("Failed to load data: " + error.message);
       console.log(error);
-    });
-
-    request.always(function () {
+    }).always(function () {
       self.loadingResources(false);
     });
-
-    return request;
   }
 
   function loadOsType(imageUrl) {
-    self.loadingOsType(true);
-
     var url = getBasePath() +
       "&resource=osType" +
-      "&imageUrl=" + encodeURIComponent(imageUrl);
+      "&imageUrl=" + encodeURIComponent(imageUrl) +
+      "&region=" + self.image().region();
 
-    var request = $.post(url).then(function (response) {
+    self.loadingOsType(true);
+
+    $.post(url).then(function (response) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {
@@ -477,13 +565,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     }, function (error) {
       self.errorResources("Failed to load data: " + error.message);
       console.log(error);
-    });
-
-    request.always(function () {
+    }).always(function () {
       self.loadingOsType(false);
     });
-
-    return request;
   }
 
   function getErrors($response) {
@@ -501,8 +585,14 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     }).get();
   }
 
-  function getLocations($response) {
-    return $response.find("locations:eq(0) location").map(function () {
+  function getResourceGroups($response) {
+    return $response.find("resourceGroups:eq(0) resourceGroup").map(function () {
+      return {region: $(this).attr("region"), text: $(this).text()};
+    }).get();
+  }
+
+  function getRegions($response) {
+    return $response.find("regions:eq(0) region").map(function () {
       return {id: $(this).attr("id"), text: $(this).text()};
     }).get();
   }
@@ -547,7 +637,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   (function loadAgentPools() {
     var url = baseUrl + "?resource=agentPools";
 
-    var request = $.post(url).then(function (response) {
+    $.post(url).then(function (response) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {
@@ -569,12 +659,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     }, function (error) {
       self.errorResources("Failed to load data: " + error.message);
       console.log(error);
-    });
-
-    request.always(function () {
+    }).always(function () {
       self.loadingOsType(false);
     });
-
-    return request;
   })();
 }

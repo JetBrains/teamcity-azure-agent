@@ -17,7 +17,7 @@
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}settings.css'/>");
 </script>
 
-<div id="arm-setting" data-bind="validationOptions: {insertMessages: false}">
+<div id="arm-setting">
 
     <table class="runnerFormTable" data-bind="with: credentials()">
         <tr>
@@ -32,9 +32,8 @@
                 <span class="error option-error" data-bind="validationMessage: tenantId"></span>
             </td>
         </tr>
-
         <tr>
-            <th><label for="prop:${cons.clientId}">Client ID: <l:star/></label></th>
+            <th class="noBorder"><label for="prop:${cons.clientId}">Client ID: <l:star/></label></th>
             <td>
                 <input type="text" name="prop:${cons.clientId}" class="longField ignoreModified"
                        value="${propertiesBean.properties[cons.clientId]}"
@@ -45,9 +44,8 @@
                 <span class="error option-error" data-bind="validationMessage: clientId"></span>
             </td>
         </tr>
-
         <tr>
-            <th><label for="${cons.clientSecret}">Client Secret: <l:star/></label></th>
+            <th class="noBorder"><label for="${cons.clientSecret}">Client Secret: <l:star/></label></th>
             <td>
                 <input type="password" name="${cons.clientSecret}" class="longField ignoreModified"
                        data-bind="textInput: clientSecret"/>
@@ -60,7 +58,6 @@
                 <span class="error option-error" data-bind="validationMessage: clientSecret"></span>
             </td>
         </tr>
-
         <tr>
             <th><label for="${cons.subscriptionId}">Subscription: <l:star/></label></th>
             <td>
@@ -69,38 +66,18 @@
                         value: subscriptionId, enable: $parent.subscriptions().length > 0"></select>
                 <a href="#" title="Reload subscriptions"
                    data-bind="click: $parent.loadSubscriptions,
-                    css: {invisible: $parent.loadingLocations() || !$parent.isValidClientData()}">
-                    <i class="icon-refresh"></i>
+                   css: {invisible: !$parent.isValidClientData()}">
+                    <i data-bind="css: {'icon-spin': $parent.loadingSubscriptions}" class="icon-refresh"></i>
                 </a>
                 <input type="hidden" class="longField"
                        value="${propertiesBean.properties[cons.subscriptionId]}"
                        data-bind="initializeValue: subscriptionId"/>
-                <span class="error option-error" data-bind="validationMessage: subscriptionId"></span>
-            </td>
-        </tr>
-        <tr>
-            <th><label for="${cons.location}">Location: <l:star/></label></th>
-            <td>
-                <select name="prop:${cons.location}" class="longField ignoreModified"
-                        data-bind="options: $parent.locations, optionsText: 'text', optionsValue: 'id',
-                        value: location, enable: $parent.locations().length > 0"></select>
-                <a href="#" title="Reload locations"
-                   data-bind="click: $parent.loadLocations,
-                   css: {invisible: $parent.loadingLocations() || !subscriptionId()}">
-                    <i class="icon-refresh"></i>
-                </a>
                 <input type="hidden" class="longField"
-                       value="${propertiesBean.properties[cons.location]}"
-                       data-bind="initializeValue: location"/>
-                <span class="smallNote">Target location for cloud agent resources</span>
-                <span class="error option-error" data-bind="validationMessage: location"></span>
-            </td>
-        </tr>
-        <tr>
-            <td colspan="2" data-bind="with: $parent">
-                <span data-bind="css: {hidden: !loadingLocations()}"><i class="icon-refresh icon-spin"></i> Loading service data...</span>
-                <span class="error option-error"
-                      data-bind="text: errorLocations, css: {hidden: loadingLocations}"></span>
+                       value="${propertiesBean.properties['location']}"
+                       data-bind="initializeValue: region"/>
+                <span class="error option-error" data-bind="validationMessage: subscriptionId"></span>
+                <span class="error option-error" data-bind="text: $parent.errorSubscriptions,
+                    css: {hidden: $parent.loadingSubscriptions}"></span>
             </td>
         </tr>
     </table>
@@ -109,16 +86,55 @@
                dialogClass="AzureImageDialog" titleId="ArmImageDialogTitle">
         <table class="runnerFormTable">
             <tr>
+                <th><label for="${cons.deployTarget}">Deploy To: <l:star/></label></th>
+                <td>
+                    <select name="${cons.deployTarget}" class="longField ignoreModified"
+                            data-bind="options: deployTargets, optionsText: 'text', optionsValue: 'id',
+                            value: image().deployTarget"></select>
+                    <span class="error option-error" data-bind="validationMessage: image().deployTarget"></span>
+                </td>
+            </tr>
+            <tr data-bind="css: {hidden: image().deployTarget() != 'NewGroup'}">
+                <th class="noBorder"><label for="${cons.region}">Region: <l:star/></label></th>
+                <td>
+                    <select name="${cons.region}" class="longField ignoreModified"
+                            data-bind="options: regions, optionsText: 'text', optionsValue: 'id',
+                            optionsCaption: 'Select', value: image().region, enable: regions().length > 0"></select>
+                    <a href="#" title="Reload regions" data-bind="click: loadRegions.bind($data, ['regions'])">
+                        <i data-bind="css: {'icon-spin': loadingRegions}" class="icon-refresh"></i>
+                    </a>
+                    <span class="error option-error" data-bind="validationMessage: image().region"></span>
+                </td>
+            </tr>
+            <tr data-bind="if: image().deployTarget() == 'SpecificGroup'">
+                <th class="noBorder"><label for="${cons.groupId}">Resource Group: <l:star/></label></th>
+                <td>
+                    <div data-bind="if: resourceGroups().length > 0">
+                        <select name="${cons.groupId}" class="longField ignoreModified"
+                                data-bind="options: resourceGroups, optionsText: 'text', optionsValue: 'text',
+                                optionsCaption: 'Select', value: image().groupId"></select>
+                        <a href="#" title="Reload resource groups" data-bind="click: loadRegions.bind($data, ['resourceGroups'])">
+                            <i data-bind="css: {'icon-spin': loadingRegions}" class="icon-refresh"></i>
+                        </a>
+                        <span class="error option-error" data-bind="validationMessage: image().groupId"></span>
+                    </div>
+                    <div data-bind="if: resourceGroups().length == 0">
+                        <span class="error option-error">No available resource groups in subscription</span>
+                    </div>
+                </td>
+            </tr>
+            <tr>
                 <th><label for="${cons.imageType}">Image Type: <l:star/></label></th>
                 <td>
                     <select name="${cons.imageType}" class="longField ignoreModified"
                             data-bind="options: imageTypes, optionsText: 'text', optionsValue: 'id',
                             value: image().imageType"></select>
                     <span class="error option-error" data-bind="validationMessage: image().imageType"></span>
+                    <span class="error option-error" data-bind="text: errorResources"></span>
                 </td>
             </tr>
             <tr data-bind="css: {hidden: image().imageType() != 'Vhd'}">
-                <th><label for="${cons.imageUrl}">Source Image: <l:star/></label></th>
+                <th class="noBorder"><label for="${cons.imageUrl}">Source Image: <l:star/></label></th>
                 <td>
                     <input type="text" name="${cons.imageUrl}" class="longField ignoreModified"
                            placeholder="Example: http://storage.blob.core.windows.net/vhds/image.vhd"
@@ -137,7 +153,7 @@
                 </td>
             </tr>
             <tr data-bind="css: {hidden: image().imageType() != 'Image'}">
-                <th><label for="${cons.imageId}">Source Image: <l:star/></label></th>
+                <th class="noBorder"><label for="${cons.imageId}">Source Image: <l:star/></label></th>
                 <td>
                     <div data-bind="if: sourceImages().length > 0">
                         <select name="${cons.imageId}" class="longField ignoreModified"
@@ -150,7 +166,9 @@
                         <span class="error option-error" data-bind="validationMessage: image().imageId"></span>
                     </div>
                     <div data-bind="if: sourceImages().length == 0">
-                      <span class="error option-error">No source images found in resource groups</span>
+                      <span class="error option-error">
+                          No images found in <span data-bind="text: regionName"></span> region
+                      </span>
                     </div>
                 </td>
             </tr>
@@ -159,7 +177,9 @@
                 <td>
                     <select name="${cons.osType}" class="longField ignoreModified"
                             data-bind="options: osTypes, optionsCaption: 'Select', value: image().osType"></select>
-                    <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingOsType()}"></i>
+                    <!-- ko if: loadingOsType -->
+                    <i class="icon-refresh icon-spin"></i>
+                    <!-- /ko -->
                     <span class="error option-error" data-bind="validationMessage: image().osType"></span>
                 </td>
             </tr>
@@ -198,7 +218,9 @@
                             data-bind="options: vmSizes, optionsText: function (item) {
                                 return item.replace(/_/g, ' ');
                             }, value: image().vmSize"></select>
-                    <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingResources()}"></i>
+                    <!-- ko if: loadingResources -->
+                    <i class="icon-refresh icon-spin"></i>
+                    <!-- /ko -->
                 </td>
             </tr>
             <tr>
@@ -209,9 +231,13 @@
                                 return item.substring(item.lastIndexOf('/') + 1);
                             }, value: image().networkId, css: {hidden: networks().length == 0}"></select>
                     <div class="longField inline-block" data-bind="css: {hidden: networks().length > 0}">
-                        <span class="error option-error">No virtual networks found in resource groups</span>
+                        <span class="error option-error">
+                            No virtual networks found in <span data-bind="text: regionName"></span> region
+                        </span>
                     </div>
-                    <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingResources()}"></i>
+                    <!-- ko if: loadingResources -->
+                    <i class="icon-refresh icon-spin"></i>
+                    <!-- /ko -->
                 </td>
             </tr>
             <tr>
@@ -220,9 +246,13 @@
                     <select name="${cons.subnetId}" class="longField ignoreModified"
                             data-bind="options: subNetworks, value: image().subnetId, css: {hidden: subNetworks().length == 0}"></select>
                     <div class="longField inline-block" data-bind="css: {hidden: subNetworks().length > 0}">
-                        <span class="error option-error">No sub networks found in the virtual network</span>
+                        <span class="error option-error">
+                            No sub networks found in <span data-bind="text: regionName"></span> region
+                        </span>
                     </div>
-                    <i class="icon-refresh icon-spin" data-bind="css: {invisible: !loadingResources()}"></i>
+                    <!-- ko if: loadingResources -->
+                    <i class="icon-refresh icon-spin"></i>
+                    <!-- /ko -->
                 </td>
             </tr>
             <tr>
@@ -304,7 +334,8 @@
                     <td class="center" data-bind="text: maxInstances"></td>
                     <td class="edit">
                         <a href="#" data-bind="click: $parent.showDialog,
-                        css: {hidden: !$parent.isValidCredentials() || $parent.loadingLocations() || $parent.loadingResources()}">Edit</a>
+                        css: {hidden: !$parent.isValidCredentials() || $parent.loadingSubscriptions ||
+                        $parent.loadingRegions}">Edit</a>
                     </td>
                     <td class="remove"><a href="#" data-bind="click: $parent.deleteImage">Delete</a></td>
                 </tr>
@@ -322,7 +353,8 @@
         </div>
 
         <a class="btn" href="#" disabled="disabled"
-           data-bind="click: showDialog.bind($data, null), attr: {disabled: !isValidCredentials() || loadingLocations() ? 'disabled' : null}">
+           data-bind="click: showDialog.bind($data, null),
+           attr: {disabled: (!isValidCredentials() || loadingSubscriptions() || loadingRegions()) ? 'disabled' : null}">
             <span class="addNew">Add image</span>
         </a>
     </div>
@@ -348,6 +380,7 @@
             $j.getScript("<c:url value="${resPath}images.vm.js"/>")
     ).then(function () {
         var dialog = document.getElementById("arm-setting");
+        ko.validation.init({insertMessages: false});
         ko.applyBindings(new ArmImagesViewModel($j, ko, "<c:url value='${basePath}'/>", BS.ArmImageDialog), dialog);
     });
 </script>

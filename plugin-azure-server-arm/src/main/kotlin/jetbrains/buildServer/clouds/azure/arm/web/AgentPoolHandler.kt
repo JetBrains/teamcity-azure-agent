@@ -25,7 +25,7 @@ import javax.servlet.http.HttpServletRequest
 /**
  * Handles agent pools request.
  */
-internal class AgentPoolHandler(val agentPoolManager: AgentPoolManager) : ResourceHandler {
+internal class AgentPoolHandler(private val agentPoolManager: AgentPoolManager) : ResourceHandler {
     override fun handle(request: HttpServletRequest) = async(CommonPool) {
         val agentPoolsElement = Element("agentPools")
 

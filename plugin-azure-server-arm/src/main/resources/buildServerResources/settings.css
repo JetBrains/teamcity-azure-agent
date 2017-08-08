@@ -114,3 +114,7 @@ table.arm-settings .nowrap {
 .AzureImageDialog label {
     white-space: nowrap;
 }
+
+.AzureImageDialog div.longField {
+    width: 30.5em;
+}

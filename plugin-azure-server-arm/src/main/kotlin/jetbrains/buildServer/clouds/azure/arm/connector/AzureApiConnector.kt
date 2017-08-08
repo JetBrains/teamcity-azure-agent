@@ -38,15 +38,17 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     fun getSubscriptionsAsync(): Deferred<Map<String, String>>
 
-    fun getLocationsAsync(subscription: String): Deferred<Map<String, String>>
+    fun getRegionsAsync(): Deferred<Map<String, String>>
 
-    fun getImagesAsync(): Deferred<Map<String, List<String>>>
+    fun getResourceGroupsAsync(): Deferred<Map<String, String>>
 
-    fun getVmSizesAsync(): Deferred<List<String>>
+    fun getImagesAsync(region: String): Deferred<Map<String, List<String>>>
 
-    fun getNetworksAsync(): Deferred<Map<String, List<String>>>
+    fun getVmSizesAsync(region: String): Deferred<List<String>>
 
-    fun getVhdOsTypeAsync(imageUrl: String): Deferred<String?>
+    fun getNetworksAsync(region: String): Deferred<Map<String, List<String>>>
 
-    fun getVhdMetadataAsync(imageUrl: String): Deferred<Map<String, String>?>
+    fun getVhdOsTypeAsync(imageUrl: String, region: String): Deferred<String?>
+
+    fun getVhdMetadataAsync(imageUrl: String, region: String): Deferred<Map<String, String>?>
 }

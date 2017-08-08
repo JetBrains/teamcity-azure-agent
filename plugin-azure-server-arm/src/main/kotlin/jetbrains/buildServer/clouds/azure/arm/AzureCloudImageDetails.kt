@@ -27,6 +27,12 @@ import jetbrains.buildServer.clouds.base.types.CloneBehaviour
 class AzureCloudImageDetails(
         @SerializedName(CloudImageParameters.SOURCE_ID_FIELD)
         val mySourceId: String? = null,
+        @SerializedName(AzureConstants.DEPLOY_TARGET)
+        val deployTarget: AzureCloudDeployTarget?,
+        @SerializedName(AzureConstants.REGION)
+        private var regionId: String?,
+        @SerializedName(AzureConstants.GROUP_ID)
+        val groupId: String?,
         @SerializedName(AzureConstants.IMAGE_TYPE)
         val imageType: AzureCloudImageType?,
         @SerializedName(AzureConstants.IMAGE_URL)
@@ -71,6 +77,15 @@ class AzureCloudImageDetails(
     override fun getBehaviour(): CloneBehaviour =
             if (myReuseVm) CloneBehaviour.ON_DEMAND_CLONE else CloneBehaviour.FRESH_CLONE
 
-    fun getType(): AzureCloudImageType = imageType ?: AzureCloudImageType.Vhd
+    val target
+        get(): AzureCloudDeployTarget = deployTarget ?: AzureCloudDeployTarget.NewGroup
 
+    val type
+        get(): AzureCloudImageType = imageType ?: AzureCloudImageType.Vhd
+
+    var region: String?
+        get() = regionId
+        set(value) {
+            regionId = value
+        }
 }

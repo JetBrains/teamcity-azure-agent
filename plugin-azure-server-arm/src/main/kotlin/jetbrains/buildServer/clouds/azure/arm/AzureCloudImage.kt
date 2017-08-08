@@ -73,8 +73,10 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val data = AzureUtils.setVmNameForTag(userData, name)
 
         async(CommonPool) {
-            if (imageDetails.getType() == AzureCloudImageType.Vhd) {
-                val metadata = myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl!!).await() ?: emptyMap()
+            if (imageDetails.type == AzureCloudImageType.Vhd) {
+                val imageUrl = imageDetails.imageUrl!!
+                val region = imageDetails.region!!
+                val metadata = myApiConnector.getVhdMetadataAsync(imageUrl, region).await() ?: emptyMap()
                 instance.properties[AzureConstants.TAG_IMAGE_HASH] = metadata[METADATA_CONTENT_MD5] ?: ""
             } else {
                 instance.properties[AzureConstants.TAG_IMAGE_HASH] = getImageIdHash(imageDetails)
@@ -168,8 +170,10 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     }
 
     private fun isSameImageInstance(it: AzureCloudInstance) = async(CommonPool) {
-        val metadata = (if (myImageDetails.getType() == AzureCloudImageType.Vhd) {
-            myApiConnector.getVhdMetadataAsync(imageDetails.imageUrl!!).await()
+        val metadata = (if (myImageDetails.type == AzureCloudImageType.Vhd) {
+            val imageUrl = imageDetails.imageUrl!!
+            val region = imageDetails.region!!
+            myApiConnector.getVhdMetadataAsync(imageUrl, region).await()
         } else {
             mapOf(METADATA_CONTENT_MD5 to getImageIdHash(imageDetails))
         }) ?: return@async false

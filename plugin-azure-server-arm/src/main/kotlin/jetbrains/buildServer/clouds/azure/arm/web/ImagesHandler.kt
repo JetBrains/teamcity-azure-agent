@@ -27,7 +27,8 @@ import javax.servlet.http.HttpServletRequest
  */
 internal class ImagesHandler : AzureResourceHandler() {
     override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
-        val images = connector.getImagesAsync().await()
+        val region = request.getParameter("region")
+        val images = connector.getImagesAsync(region).await()
 
         val imagesElement = Element("images")
         for ((id, props) in images) {

@@ -23,21 +23,20 @@ import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
 /**
- * Handles locations request.
+ * Handles region request.
  */
-internal class LocationsHandler : AzureResourceHandler() {
+internal class RegionsHandler : AzureResourceHandler() {
     override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
-        val subscription = request.getParameter("subscription")
-        val locations = connector.getLocationsAsync(subscription).await()
-        val locationsElement = Element("locations")
+        val regions = connector.getRegionsAsync().await()
+        val regionsElement = Element("regions")
 
-        for ((id, displayName) in locations) {
-            locationsElement.addContent(Element("location").apply {
+        for ((id, displayName) in regions) {
+            regionsElement.addContent(Element("region").apply {
                 setAttribute("id", id)
                 text = displayName
             })
         }
 
-        locationsElement
+        regionsElement
     }
 }

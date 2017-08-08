@@ -28,7 +28,8 @@ import javax.servlet.http.HttpServletRequest
 internal class OsTypeHandler : AzureResourceHandler() {
     override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
         val imageUrl = request.getParameter("imageUrl")
-        val osType = connector.getVhdOsTypeAsync(imageUrl).await()
+        val region = request.getParameter("region")
+        val osType = connector.getVhdOsTypeAsync(imageUrl, region).await()
 
         Element("osType").apply {
             text = osType

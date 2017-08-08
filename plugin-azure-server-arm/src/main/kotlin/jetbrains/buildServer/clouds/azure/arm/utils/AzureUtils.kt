@@ -47,9 +47,12 @@ object AzureUtils {
     }
 
     fun getExceptionDetails(e: com.microsoft.azure.CloudException): String {
-        val details = e.body()?.message() ?: "" + e.body()?.details()?.joinToString("\n",
-                transform = { AzureUtils.getAzureErrorMessage(it.message()) + " (${it.code()})" }) ?: ""
-        return if (details.isEmpty()) e.message ?: "" else details
+        e.body()?.let {
+            return it.message() + it.details().joinToString("\n", transform = {
+                AzureUtils.getAzureErrorMessage(it.message()) + " (${it.code()})"
+            })
+        }
+        return e.message ?: ""
     }
 
     private fun getAzureErrorMessage(json: String): String {

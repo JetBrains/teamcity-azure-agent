@@ -63,7 +63,12 @@
             <td>
                 <select name="prop:${cons.subscriptionId}" class="longField ignoreModified"
                         data-bind="options: $parent.subscriptions, optionsText: 'text', optionsValue: 'id',
-                        value: subscriptionId, enable: $parent.subscriptions().length > 0"></select>
+                        value: subscriptionId, css: {hidden: $parent.subscriptions().length == 0}"></select>
+                <div class="longField inline-block" data-bind="css: {hidden: $parent.subscriptions().length > 0}">
+                    <span class="error option-error">
+                        No subscriptions, please grant Contributor role for your application
+                    </span>
+                </div>
                 <a href="#" title="Reload subscriptions"
                    data-bind="click: $parent.loadSubscriptions,
                    css: {invisible: !$parent.isValidClientData()}">
@@ -75,7 +80,6 @@
                 <input type="hidden" class="longField"
                        value="${propertiesBean.properties['location']}"
                        data-bind="initializeValue: region"/>
-                <span class="error option-error" data-bind="validationMessage: subscriptionId"></span>
                 <span class="error option-error" data-bind="text: $parent.errorSubscriptions,
                     css: {hidden: $parent.loadingSubscriptions}"></span>
             </td>
@@ -113,7 +117,8 @@
                         <select name="${cons.groupId}" class="longField ignoreModified"
                                 data-bind="options: resourceGroups, optionsText: 'text', optionsValue: 'text',
                                 optionsCaption: 'Select', value: image().groupId"></select>
-                        <a href="#" title="Reload resource groups" data-bind="click: loadRegions.bind($data, ['resourceGroups'])">
+                        <a href="#" title="Reload resource groups"
+                           data-bind="click: loadRegions.bind($data, ['resourceGroups'])">
                             <i data-bind="css: {'icon-spin': loadingRegions}" class="icon-refresh"></i>
                         </a>
                         <span class="error option-error" data-bind="validationMessage: image().groupId"></span>
@@ -319,16 +324,16 @@
                     <td class="nowrap" data-bind="text: vmNamePrefix"></td>
                     <td class="nowrap">
                         <!-- ko if: $data.osType -->
-                            <span class="osIcon osIconSmall"
-                                 data-bind="attr: {title: osType},
+                        <span class="osIcon osIconSmall"
+                              data-bind="attr: {title: osType},
                                       style: {backgroundImage: $parent.getOsImage(osType)}"/>
-                            </span>
+                        </span>
                         <!-- /ko -->
                         <!-- ko if: imageType === 'Vhd' -->
-                            <span data-bind="text: imageUrl.slice(-80), attr: {title: imageUrl}"></span>
+                        <span data-bind="text: imageUrl.slice(-80), attr: {title: imageUrl}"></span>
                         <!-- /ko -->
                         <!-- ko if: imageType === 'Image' -->
-                            <span data-bind="text: $parent.getFileName(imageId)"></span>
+                        <span data-bind="text: $parent.getFileName(imageId)"></span>
                         <!-- /ko -->
                     </td>
                     <td class="center" data-bind="text: maxInstances"></td>

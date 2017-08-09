@@ -67,6 +67,7 @@ class AzureMetadataReader(private val configuration: BuildAgentConfigurationEx) 
             if (it.isNotBlank()) {
                 LOG.info("Setting external IP address from instance metadata: $it")
                 configuration.addAlternativeAgentAddress(it)
+                configuration.addSystemProperty("ec2.public-hostname", it)
             }
         }
     }

@@ -21,6 +21,7 @@ class AzureMetadataReaderTest {
                 will(returnValue(""))
                 one(agentConfiguration).name = "IMDSSample"
                 one(agentConfiguration).addAlternativeAgentAddress("X.X.X.X")
+                one(agentConfiguration).addSystemProperty("ec2.public-hostname", "X.X.X.X")
             }
         })
 

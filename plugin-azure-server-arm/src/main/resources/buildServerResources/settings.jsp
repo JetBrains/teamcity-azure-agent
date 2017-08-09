@@ -64,7 +64,7 @@
                 <select name="prop:${cons.subscriptionId}" class="longField ignoreModified"
                         data-bind="options: $parent.subscriptions, optionsText: 'text', optionsValue: 'id',
                         value: subscriptionId, css: {hidden: $parent.subscriptions().length == 0}"></select>
-                <div class="longField inline-block" data-bind="css: {hidden: $parent.subscriptions().length > 0}">
+                <div class="longField inline-block hidden" data-bind="css: {hidden: $parent.subscriptions().length > 0}">
                     <span class="error option-error">
                         No subscriptions, please grant Contributor role for your application
                     </span>

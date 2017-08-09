@@ -26,6 +26,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
   // Credentials
   self.credentials = ko.validatedObservable({
+    environment: ko.observable().extend({required: true}),
     tenantId: ko.observable('').trimmed().extend({required: true}),
     clientId: ko.observable('').trimmed().extend({required: true}),
     clientSecret: ko.observable('').trimmed().extend({required: true}),
@@ -130,6 +131,12 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     "Linux": "/img/os/lin-small-bw.png",
     "Windows": "/img/os/win-small-bw.png"
   };
+  self.environments = ko.observableArray([
+    {id: "AZURE", text: "Azure"},
+    {id: "AZURE_CHINA", text: "Azure China"},
+    {id: "AZURE_GERMANY", text: "Azure Germany"},
+    {id: "AZURE_US_GOVERNMENT", text: "Azure US Government"}
+  ]);
 
   self.deployTargets = ko.observableArray([
     {id: deployTargets.newGroup, text: "New resource group"},
@@ -149,6 +156,10 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   self.images = ko.observableArray();
   self.nets = {};
   self.passwords = {};
+
+  self.credentials().environment.subscribe(function () {
+    self.loadSubscriptions();
+  });
 
   self.credentials().tenantId.subscribe(function () {
     self.loadSubscriptions();
@@ -496,7 +507,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   function getBasePath() {
     var credentials = self.credentials();
     return baseUrl +
-      "?prop%3AtenantId=" + encodeURIComponent(credentials.tenantId()) +
+      "?prop%3Aenvironment=" + encodeURIComponent(credentials.environment()) +
+      "&prop%3AtenantId=" + encodeURIComponent(credentials.tenantId()) +
       "&prop%3AclientId=" + encodeURIComponent(credentials.clientId()) +
       "&prop%3Asecure%3AclientSecret=" + encodeURIComponent(credentials.clientSecret()) +
       "&prop%3AsubscriptionId=" + encodeURIComponent(credentials.subscriptionId());

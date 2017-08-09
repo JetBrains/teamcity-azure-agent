@@ -51,8 +51,9 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         val clientId = getParameter(params, AzureConstants.CLIENT_ID)
         val clientSecret = getParameter(params, AzureConstants.CLIENT_SECRET)
         val subscriptionId = getParameter(params, AzureConstants.SUBSCRIPTION_ID)
+        val environment = params.getParameter(AzureConstants.ENVIRONMENT)
 
-        val apiConnector = AzureApiConnectorImpl(tenantId, clientId, clientSecret)
+        val apiConnector = AzureApiConnectorImpl(tenantId, clientId, clientSecret, environment)
         apiConnector.setSubscriptionId(subscriptionId)
         apiConnector.setServerId(mySettings.serverUUID)
         apiConnector.setProfileId(state.profileId)

@@ -21,6 +21,20 @@
 
     <table class="runnerFormTable" data-bind="with: credentials()">
         <tr>
+            <th><label for="${cons.environment}">Environment: <l:star/></label></th>
+            <td>
+                <select name="prop:${cons.environment}" class="longField ignoreModified"
+                        data-bind="options: $parent.environments, optionsText: 'text', optionsValue: 'id',
+                        value: environment"></select>
+                <span class="smallNote">Azure data center environment <a
+                        href="https://azure.microsoft.com/en-us/overview/datacenters/"
+                        target="_blank"><bs:helpIcon iconTitle=""/></a></span>
+                <input type="hidden" class="longField"
+                       value="${propertiesBean.properties[cons.environment]}"
+                       data-bind="initializeValue: environment"/>
+            </td>
+        </tr>
+        <tr>
             <th><label for="${cons.tenantId}">Tenant ID: <l:star/></label></th>
             <td>
                 <input type="text" name="prop:${cons.tenantId}" class="longField ignoreModified"

@@ -22,6 +22,9 @@ import jetbrains.buildServer.clouds.CloudImageParameters
  * ARM constants.
  */
 class AzureConstants {
+    val environment: String
+        get() = ENVIRONMENT
+
     val tenantId: String
         get() = TENANT_ID
 
@@ -89,6 +92,7 @@ class AzureConstants {
         get() = CloudImageParameters.AGENT_POOL_ID_FIELD
 
     companion object {
+        const val ENVIRONMENT = "environment"
         const val TENANT_ID = "tenantId"
         const val CLIENT_ID = "clientId"
         const val CLIENT_SECRET = "clientSecret"

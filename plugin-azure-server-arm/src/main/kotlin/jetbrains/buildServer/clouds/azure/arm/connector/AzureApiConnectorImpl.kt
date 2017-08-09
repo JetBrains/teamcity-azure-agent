@@ -48,7 +48,7 @@ import kotlin.collections.HashMap
 /**
  * Provides azure arm management capabilities.
  */
-class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
+class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, environment: String?)
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
     private val LOG = Logger.getInstance(AzureApiConnectorImpl::class.java.name)
@@ -70,7 +70,14 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String)
     private var myProfileId: String? = null
 
     init {
-        val credentials = ApplicationTokenCredentials(clientId, tenantId, secret, AzureEnvironment.AZURE)
+        val env = when (environment) {
+            "AZURE_CHINA" -> AzureEnvironment.AZURE_CHINA
+            "AZURE_GERMANY" -> AzureEnvironment.AZURE_GERMANY
+            "AZURE_US_GOVERNMENT" -> AzureEnvironment.AZURE_US_GOVERNMENT
+            else -> AzureEnvironment.AZURE
+        }
+
+        val credentials = ApplicationTokenCredentials(clientId, tenantId, secret, env)
         myAzure = Azure.configure()
                 .configureProxy()
                 .authenticate(credentials)

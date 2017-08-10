@@ -1008,11 +1008,14 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
      * Configures http proxy settings.
      */
     private fun Azure.Configurable.configureProxy(): Azure.Configurable {
+        val builder = StringBuilder()
+
         // Set HTTP proxy
         val httpProxyHost = TeamCityProperties.getProperty(HTTP_PROXY_HOST)
         val httpProxyPort = TeamCityProperties.getInteger(HTTP_PROXY_PORT, 80)
         if (httpProxyHost.isNotBlank()) {
             this.withProxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpProxyHost, httpProxyPort)))
+            builder.append("$httpProxyHost:$httpProxyPort")
         }
 
         // Set HTTPS proxy
@@ -1020,6 +1023,8 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         val httpsProxyPort = TeamCityProperties.getInteger(HTTPS_PROXY_PORT, 443)
         if (httpsProxyHost.isNotBlank()) {
             this.withProxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpsProxyHost, httpsProxyPort)))
+            builder.setLength(0)
+            builder.append("$httpsProxyHost:$httpsProxyPort")
         }
 
         // Set proxy authentication
@@ -1028,6 +1033,11 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         if (httpProxyUser.isNotBlank()) {
             val authenticator = CredentialsAuthenticator(httpProxyUser, httpProxyPassword)
             this.withProxyAuthenticator(authenticator)
+            builder.insert(0, "$httpProxyUser@")
+        }
+
+        if (builder.isNotEmpty()) {
+            LOG.debug("Using proxy server $builder for connection")
         }
 
         return this

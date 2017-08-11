@@ -42,8 +42,12 @@ import kotlinx.coroutines.experimental.*
 import org.apache.commons.codec.binary.Base64
 import java.net.*
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.Lock
+import java.util.concurrent.locks.ReentrantLock
 import java.util.regex.Pattern
 import kotlin.collections.HashMap
+import kotlin.concurrent.withLock
 
 /**
  * Provides azure arm management capabilities.
@@ -68,6 +72,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     private var mySubscriptionId: String? = null
     private var myServerId: String? = null
     private var myProfileId: String? = null
+    private val deploymentLocks = ConcurrentHashMap<String, Lock>()
 
     init {
         val env = when (environment) {
@@ -568,69 +573,76 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     }
 
     private fun deleteDeploymentAsync(groupId: String, deploymentId: String) = async(CommonPool) {
-        try {
-            val subscription = myAzure.withSubscription(mySubscriptionId)
-            val deployment = try {
-                subscription.deployments().getByResourceGroupAsync(groupId, deploymentId).awaitOne()
-            } catch (e: Exception) {
-                LOG.debug("Failed to get deployment $deploymentId in group $groupId", e)
-                return@async
-            }
+        deploymentLocks.getOrPut("$groupId/$deploymentId", { -> ReentrantLock() }).withLock {
+            try {
+                val subscription = myAzure.withSubscription(mySubscriptionId)
+                val deployment = try {
+                    subscription.deployments().getByResourceGroupAsync(groupId, deploymentId).awaitOne()
+                } catch (e: Exception) {
+                    LOG.debug("Deployment $deploymentId in group $groupId was not found", e)
+                    return@async
+                }
 
-            if (deployment.provisioningState() == "Canceled") {
-                LOG.debug("Deployment $deploymentId in group $groupId was canceled")
-                return@async
-            }
+                LOG.debug("Deleting deployment $deploymentId in group $groupId")
 
-            // We need to cancel running deployments
-            if (deployment.provisioningState() == "Running") {
-                LOG.debug("Canceling running deployment $deploymentId")
-                deployment.cancelAsync().await()
-                do {
-                    deployment.refreshAsync().awaitOne()
-                } while (deployment.provisioningState() != "Canceled")
-            }
+                if (deployment.provisioningState() == "Canceled") {
+                    LOG.debug("Deployment $deploymentId in group $groupId was canceled")
+                }
 
-            val operations = deployment.deploymentOperations().listAsync().awaitList()
-            subscription.deployments().deleteByResourceGroupAsync(groupId, deploymentId).await()
-            LOG.debug("Deleted deployment $deploymentId in group $groupId")
+                // We need to cancel running deployments
+                if (deployment.provisioningState() == "Running") {
+                    LOG.debug("Canceling running deployment $deploymentId")
+                    deployment.cancelAsync().await()
+                    do {
+                        deployment.refreshAsync().awaitOne()
+                    } while (deployment.provisioningState() != "Canceled")
+                }
 
-            if (operations.isNotEmpty()) {
-                operations.sortedByDescending { it.timestamp() }.forEach {
-                    runBlocking {
-                        it.targetResource()?.let {
-                            val resourceId = it.id()
-                            val resources = linkedSetOf<String>(resourceId)
-                            if (resourceId.contains("Microsoft.Compute/virtualMachines")) {
-                                val virtualMachine = subscription.virtualMachines().getByIdAsync(resourceId).awaitOne()
-                                virtualMachine.osDiskId()?.let {
-                                    if (it.contains("Microsoft.Compute/disks")) {
-                                        resources.add(virtualMachine.osDiskId())
+                val operations = deployment.deploymentOperations().listAsync().awaitList()
+                if (operations.isNotEmpty()) {
+                    operations.sortedByDescending { it.timestamp() }.forEach {
+                        runBlocking {
+                            it.targetResource()?.let {
+                                val resourceId = it.id()
+                                val resources = linkedSetOf<String>(resourceId)
+                                if (resourceId.contains("Microsoft.Compute/virtualMachines")) {
+                                    val virtualMachine = subscription.virtualMachines().getByIdAsync(resourceId).awaitOne()
+                                    virtualMachine.osDiskId()?.let {
+                                        if (it.contains("Microsoft.Compute/disks")) {
+                                            resources.add(virtualMachine.osDiskId())
+                                        }
                                     }
                                 }
-                            }
 
-                            resources.forEach {
-                                try {
-                                    LOG.debug("Deleting resource $it")
-                                    subscription.genericResources().deleteByIdAsync(it).await()
-                                } catch (e: Exception) {
-                                    LOG.warnAndDebugDetails("Failed to delete resource $it in $deploymentId in group $groupId", e)
+                                resources.forEach {
+                                    try {
+                                        LOG.debug("Deleting resource $it")
+                                        subscription.genericResources().deleteByIdAsync(it).await()
+                                    } catch (e: com.microsoft.azure.CloudException) {
+                                        val details = AzureUtils.getExceptionDetails(e)
+                                        val message = "Failed to delete resource $it in $deploymentId in group $groupId: $details"
+                                        LOG.warnAndDebugDetails(message, e)
+                                    } catch (e: Exception) {
+                                        LOG.warnAndDebugDetails("Failed to delete resource $it in $deploymentId in group $groupId", e)
+                                    }
                                 }
                             }
                         }
                     }
                 }
+
+                subscription.deployments().deleteByResourceGroupAsync(groupId, deploymentId).await()
+                LOG.debug("Deleted deployment $deploymentId in group $groupId")
+            } catch (e: com.microsoft.azure.CloudException) {
+                val details = AzureUtils.getExceptionDetails(e)
+                val message = "Failed to delete deployment $deploymentId in resource group $groupId: $details"
+                LOG.debug(message, e)
+                throw CloudException(message, e)
+            } catch (e: Throwable) {
+                val message = "Failed to delete deployment $deploymentId in resource group $groupId: ${e.message}"
+                LOG.debug(message, e)
+                throw CloudException(message, e)
             }
-        } catch (e: com.microsoft.azure.CloudException) {
-            val details = AzureUtils.getExceptionDetails(e)
-            val message = "Failed to delete deployment $deploymentId in resource group $groupId: $details"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
-        } catch (e: Throwable) {
-            val message = "Failed to delete deployment $deploymentId in resource group $groupId: ${e.message}"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
         }
     }
 

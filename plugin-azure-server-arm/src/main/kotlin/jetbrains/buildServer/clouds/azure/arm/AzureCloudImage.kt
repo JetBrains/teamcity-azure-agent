@@ -22,6 +22,10 @@ import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.QuotaException
 import jetbrains.buildServer.clouds.azure.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.clouds.azure.arm.types.AzureHandler
+import jetbrains.buildServer.clouds.azure.arm.types.AzureImageHandler
+import jetbrains.buildServer.clouds.azure.arm.types.AzureTemplateHandler
+import jetbrains.buildServer.clouds.azure.arm.types.AzureVhdHandler
 import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
@@ -37,7 +41,10 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                                   private val myApiConnector: AzureApiConnector)
     : AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails>(myImageDetails.sourceId, myImageDetails.sourceId) {
 
-    private val METADATA_CONTENT_MD5 = "contentMD5"
+    private val myImageHandlers = mapOf(
+            AzureCloudImageType.Vhd to AzureVhdHandler(myApiConnector),
+            AzureCloudImageType.Image to AzureImageHandler(myApiConnector),
+            AzureCloudImageType.Template to AzureTemplateHandler())
 
     override fun getImageDetails(): AzureCloudImageDetails = myImageDetails
 
@@ -73,15 +80,9 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val data = AzureUtils.setVmNameForTag(userData, name)
 
         async(CommonPool) {
-            if (imageDetails.type == AzureCloudImageType.Vhd) {
-                val imageUrl = imageDetails.imageUrl!!
-                val region = imageDetails.region!!
-                val metadata = myApiConnector.getVhdMetadataAsync(imageUrl, region).await() ?: emptyMap()
-                instance.properties[AzureConstants.TAG_IMAGE_HASH] = metadata[METADATA_CONTENT_MD5] ?: ""
-            } else {
-                instance.properties[AzureConstants.TAG_IMAGE_HASH] = getImageIdHash(imageDetails)
-            }
+            val hash = handler.getImageHashAsync(imageDetails).await()
 
+            instance.properties[AzureConstants.TAG_IMAGE_HASH] = hash
             instance.properties[AzureConstants.TAG_PROFILE] = userData.profileId
             instance.properties[AzureConstants.TAG_SOURCE] = imageDetails.sourceId
 
@@ -170,15 +171,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     }
 
     private fun isSameImageInstance(it: AzureCloudInstance) = async(CommonPool) {
-        val metadata = (if (myImageDetails.type == AzureCloudImageType.Vhd) {
-            val imageUrl = imageDetails.imageUrl!!
-            val region = imageDetails.region!!
-            myApiConnector.getVhdMetadataAsync(imageUrl, region).await()
-        } else {
-            mapOf(METADATA_CONTENT_MD5 to getImageIdHash(imageDetails))
-        }) ?: return@async false
-
-        metadata[METADATA_CONTENT_MD5] == it.properties[AzureConstants.TAG_IMAGE_HASH]
+        val hash = handler.getImageHashAsync(imageDetails).await()
+        hash == it.properties[AzureConstants.TAG_IMAGE_HASH]
     }
 
     override fun restartInstance(instance: AzureCloudInstance) {
@@ -227,6 +221,9 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
     override fun getAgentPoolId(): Int? = myImageDetails.agentPoolId
 
+    val handler: AzureHandler
+        get() = myImageHandlers[imageDetails.type]!!
+
     private fun getInstanceName(): String {
         val keys = instances.map { it.instanceId.toLowerCase() }
         val sourceName = myImageDetails.sourceId.toLowerCase()
@@ -236,8 +233,6 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
         return sourceName + i
     }
-
-    private fun getImageIdHash(imageDetails: AzureCloudImageDetails) = Integer.toHexString(imageDetails.imageId!!.hashCode())
 
     /**
      * Returns active instances.

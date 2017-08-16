@@ -152,7 +152,7 @@
                     <span class="error option-error" data-bind="text: errorResources"></span>
                 </td>
             </tr>
-            <tr data-bind="css: {hidden: image().imageType() != 'Vhd'}">
+            <tr data-bind="if: image().imageType() == 'Vhd'">
                 <th class="noBorder"><label for="${cons.imageUrl}">Source Image: <l:star/></label></th>
                 <td>
                     <input type="text" name="${cons.imageUrl}" class="longField ignoreModified"
@@ -171,7 +171,7 @@
                     <span class="error option-error" data-bind="validationMessage: image().imageUrl"></span>
                 </td>
             </tr>
-            <tr data-bind="css: {hidden: image().imageType() != 'Image'}">
+            <tr data-bind="if: image().imageType() == 'Image'">
                 <th class="noBorder"><label for="${cons.imageId}">Source Image: <l:star/></label></th>
                 <td>
                     <div data-bind="if: sourceImages().length > 0">
@@ -191,7 +191,7 @@
                     </div>
                 </td>
             </tr>
-            <tr data-bind="css: {hidden: osType()}">
+            <tr data-bind="if: !osType() && image().imageType() != 'Template'">
                 <th class="noBorder"><label for="${cons.osType}">OS Type: <l:star/></label></th>
                 <td>
                     <select name="${cons.osType}" class="longField ignoreModified"
@@ -230,19 +230,24 @@
                     <span class="error option-error" data-bind="validationMessage: image().vmNamePrefix"></span>
                 </td>
             </tr>
-            <tr>
+            <tr data-bind="if: image().imageType() != 'Template'">
                 <th><label for="${cons.vmSize}">Virtual Machine Size: <l:star/></label></th>
                 <td>
                     <select name="${cons.vmSize}" class="longField ignoreModified"
                             data-bind="options: vmSizes, optionsText: function (item) {
                                 return item.replace(/_/g, ' ');
-                            }, value: image().vmSize"></select>
+                            }, value: image().vmSize, css: {hidden: vmSizes().length == 0}"></select>
+                    <div class="longField inline-block" data-bind="css: {hidden: vmSizes().length > 0}">
+                        <span class="error option-error">
+                            No machine sizes found in <span data-bind="text: regionName"></span> region
+                        </span>
+                    </div>
                     <!-- ko if: loadingResources -->
                     <i class="icon-refresh icon-spin"></i>
                     <!-- /ko -->
                 </td>
             </tr>
-            <tr>
+            <tr data-bind="if: image().imageType() != 'Template'">
                 <th><label for="${cons.networkId}">Virtual Network: <l:star/></label></th>
                 <td>
                     <select name="${cons.networkId}" class="longField ignoreModified"
@@ -259,7 +264,7 @@
                     <!-- /ko -->
                 </td>
             </tr>
-            <tr>
+            <tr data-bind="if: image().imageType() != 'Template'">
                 <th class="noBorder"><label for="${cons.subnetId}">Sub Network: <l:star/></label></th>
                 <td>
                     <select name="${cons.subnetId}" class="longField ignoreModified"
@@ -274,14 +279,14 @@
                     <!-- /ko -->
                 </td>
             </tr>
-            <tr>
+            <tr data-bind="if: image().imageType() != 'Template'">
                 <th class="noBorder"></th>
                 <td>
                     <input type="checkbox" name="${cons.vmPublicIp}" data-bind="checked: image().vmPublicIp"/>
                     <label for="${cons.vmPublicIp}">Create public IP address</label>
                 </td>
             </tr>
-            <tr>
+            <tr data-bind="if: image().imageType() != 'Template'">
                 <th><label for="${cons.vmUsername}">Provision Username: <l:star/></label></th>
                 <td>
                     <input type="text" id="${cons.vmUsername}" class="longField ignoreModified"
@@ -289,7 +294,7 @@
                     <span class="error option-error" data-bind="validationMessage: image().vmUsername"></span>
                 </td>
             </tr>
-            <tr>
+            <tr data-bind="if: image().imageType() != 'Template'">
                 <th class="noBorder"><label for="${cons.vmPassword}">Provision Password: <l:star/></label></th>
                 <td>
                     <input type="password" id="${cons.vmPassword}" class="longField ignoreModified"
@@ -298,6 +303,25 @@
                             href="https://msdn.microsoft.com/en-us/library/azure/jj943764.aspx#Anchor_1"
                             target="_blank">password policies</a></span>
                     <span class="error option-error" data-bind="validationMessage: image().vmPassword"></span>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Template'">
+                <th class="noBorder"><label for="${cons.template}">ARM Template: <l:star/></label></th>
+                <td>
+                    <textarea name="${cons.template}" class="longField ignoreModified"
+                              rows="12" cols="49"
+                              data-bind="textInput: image().template"></textarea>
+                    <a href="#" title="Set default template" data-bind="click: setDefaultTemplate">
+                        <i class="icon-file-alt"></i>
+                    </a>
+                    <span class="smallNote">Specify the ARM template.
+                        <bs:help
+                                urlPrefix="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authoring-templates"
+                                file=""/>
+                        In it you must have "vmName" parameter and<br/>
+                        virtual machine with name set to "[parameters('vmName')]".
+                    </span>
+                    <span class="error option-error" data-bind="validationMessage: image().template"></span>
                 </td>
             </tr>
             <tr class="advancedSetting">
@@ -337,17 +361,18 @@
                 <tr>
                     <td class="nowrap" data-bind="text: vmNamePrefix"></td>
                     <td class="nowrap">
-                        <!-- ko if: $data.osType -->
                         <span class="osIcon osIconSmall"
-                              data-bind="attr: {title: osType},
-                                      style: {backgroundImage: $parent.getOsImage(osType)}"/>
+                              data-bind="attr: {title: $data.osType || null},
+                                      style: {backgroundImage: $parent.getOsImage($data.osType)}"/>
                         </span>
-                        <!-- /ko -->
                         <!-- ko if: imageType === 'Vhd' -->
                         <span data-bind="text: imageUrl.slice(-80), attr: {title: imageUrl}"></span>
                         <!-- /ko -->
                         <!-- ko if: imageType === 'Image' -->
                         <span data-bind="text: $parent.getFileName(imageId)"></span>
+                        <!-- /ko -->
+                        <!-- ko if: imageType === 'Template' -->
+                        <span>Custom Template</span>
                         <!-- /ko -->
                     </td>
                     <td class="center" data-bind="text: maxInstances"></td>

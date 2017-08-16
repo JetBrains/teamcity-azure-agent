@@ -53,11 +53,23 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   };
   var imageTypes = {
     image: 'Image',
-    vhd: 'Vhd'
+    vhd: 'Vhd',
+    template: 'Template'
   };
 
   self.deployTarget = ko.observable();
   self.imageType = ko.observable();
+
+  var requiredForNonTemplate = {
+    validation: {
+      validator: function (value, imageType) {
+        return imageType === imageTypes.template || value;
+      },
+      message: requiredField,
+      params: self.imageType
+    }
+  };
+
   self.image = ko.validatedObservable({
     deployTarget: self.deployTarget.extend({required: true}),
     region: ko.observable().extend({required: true}),
@@ -89,11 +101,55 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
         params: self.imageType
       }
     }),
-    networkId: ko.observable().extend({required: true}),
-    subnetId: ko.observable().extend({required: true}),
-    osType: ko.observable().extend({required: true}),
+    template: ko.observable().extend({
+      validation: {
+        validator: function (value, imageType) {
+          return imageType !== imageTypes.template || value;
+        },
+        message: requiredField,
+        params: self.imageType
+      }
+    }).extend({
+      validation: {
+        validator: function (value) {
+          if (!value) return true;
+          var root;
+          try {
+            root = JSON.parse(value);
+          } catch (error) {
+            console.log("Unable to parse template: " + error);
+            return false;
+          }
+
+          debugger
+
+          if (!root) {
+            console.log("Invalid template object");
+            return false;
+          }
+
+          if (!root.parameters || !root.parameters.vmName) {
+            console.log("No 'vmName' parameter defined");
+            return false;
+          }
+
+          if (!root.resources || !ko.utils.arrayFirst(root.resources, function (resource) {
+              return resource.name === "[parameters('vmName')]";
+            })) {
+            console.log("No virtual machine resource with name set to vmName parameter");
+            return false;
+          }
+
+          return true;
+        },
+        message: "Invalid template value"
+      }
+    }),
+    networkId: ko.observable().extend(requiredForNonTemplate),
+    subnetId: ko.observable().extend(requiredForNonTemplate),
+    osType: ko.observable().extend(requiredForNonTemplate),
     maxInstances: ko.observable(1).extend({required: true, min: 1}),
-    vmSize: ko.observable().extend({required: true}),
+    vmSize: ko.observable().extend(requiredForNonTemplate),
     vmNamePrefix: ko.observable('').trimmed().extend({required: true, maxLength: maxLength}).extend({
       validation: {
         validator: function (value) {
@@ -108,8 +164,10 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
       }
     }),
     vmPublicIp: ko.observable(false),
-    vmUsername: ko.observable('').trimmed().extend({required: true, minLength: 3, maxLength: maxLength}),
-    vmPassword: ko.observable('').trimmed().extend({required: true, minLength: 8}),
+    vmUsername: ko.observable('').trimmed().extend(requiredForNonTemplate)
+      .extend({minLength: 3, maxLength: maxLength}),
+    vmPassword: ko.observable('').trimmed().extend(requiredForNonTemplate)
+      .extend({minLength: 8}),
     reuseVm: ko.observable(false),
     agentPoolId: ko.observable().extend({required: true}),
     profileId: ko.observable()
@@ -145,7 +203,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
   self.imageTypes = ko.observableArray([
     {id: imageTypes.image, text: "Image"},
-    {id: imageTypes.vhd, text: "VHD"}
+    {id: imageTypes.vhd, text: "VHD"},
+    {id: imageTypes.template, text: "Template"}
   ]);
 
   // Hidden fields for serialized values
@@ -300,8 +359,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
     // Pre-fill collections while loading resources
     var imageId = image.imageId;
-    if (imageId && !ko.utils.arrayFirst(self.sourceImages(), function(item) {
-      return item.id === image.imageId;
+    if (imageId && !ko.utils.arrayFirst(self.sourceImages(), function (item) {
+        return item.id === image.imageId;
       })) {
       var id = imageId;
       self.sourceImages([{id: id, text: self.getFileName(id), osType: image.osType}]);
@@ -335,6 +394,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     model.vmPublicIp(image.vmPublicIp);
     model.vmUsername(image.vmUsername);
     model.reuseVm(image.reuseVm);
+    model.template(image.template);
     model.agentPoolId(image.agent_pool_id);
     model.profileId(image.profileId);
 
@@ -371,6 +431,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
       vmSize: model.vmSize(),
       vmUsername: model.vmUsername(),
       reuseVm: model.reuseVm(),
+      template: model.template(),
       agentPoolId: model.agentPoolId(),
       profileId: model.profileId()
     };
@@ -414,7 +475,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   };
 
   self.getOsImage = function (osType) {
-    return "url('" + self.osTypeImage[osType] + "')";
+    var image = self.osTypeImage[osType] || "/img/buildTypeTemplate.png";
+    return "url('" + image + "')";
   };
 
   self.loadSubscriptions = function () {
@@ -491,6 +553,84 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     }
 
     return "";
+  };
+
+  self.setDefaultTemplate = function () {
+    self.image().template('{\n' +
+      '  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",\n' +
+      '  "contentVersion": "1.0.0.0",\n' +
+      '  "parameters": {\n' +
+      '    "vmName": {\n' +
+      '      "type": "string",\n' +
+      '      "metadata": {\n' +
+      '        "description": "This is the Virtual Machine name."\n' +
+      '      }\n' +
+      '    }\n' +
+      '  },\n' +
+      '  "variables": {\n' +
+      '    "location": "[resourceGroup().location]",\n' +
+      '    "nicName": "[concat(parameters(\'vmName\'), \'-net\')]",\n' +
+      '    "subnetRef": "..."\n' +
+      '  },\n' +
+      '  "resources": [\n' +
+      '    {\n' +
+      '      "apiVersion": "2016-09-01",\n' +
+      '      "type": "Microsoft.Network/networkInterfaces",\n' +
+      '      "name": "[variables(\'nicName\')]",\n' +
+      '      "location": "[variables(\'location\')]",\n' +
+      '      "properties": {\n' +
+      '        "ipConfigurations": [\n' +
+      '          {\n' +
+      '            "name": "[concat(parameters(\'vmName\'), \'-config\')]",\n' +
+      '            "properties": {\n' +
+      '              "privateIPAllocationMethod": "Dynamic",\n' +
+      '              "subnet": {\n' +
+      '                "id": "[variables(\'subnetRef\')]"\n' +
+      '              }\n' +
+      '            }\n' +
+      '          }\n' +
+      '        ]\n' +
+      '      }\n' +
+      '    },\n' +
+      '    {\n' +
+      '      "apiVersion": "2016-04-30-preview",\n' +
+      '      "type": "Microsoft.Compute/virtualMachines",\n' +
+      '      "name": "[parameters(\'vmName\')]",\n' +
+      '      "location": "[variables(\'location\')]",\n' +
+      '      "dependsOn": [\n' +
+      '        "[concat(\'Microsoft.Network/networkInterfaces/\', variables(\'nicName\'))]"\n' +
+      '      ],\n' +
+      '      "properties": {\n' +
+      '        "hardwareProfile": {\n' +
+      '          "vmSize": "Standard_A2"\n' +
+      '        },\n' +
+      '        "osProfile": {\n' +
+      '          "computerName": "[parameters(\'vmName\')]",\n' +
+      '          "adminUsername": "...",\n' +
+      '          "adminPassword": "..."\n' +
+      '        },\n' +
+      '        "storageProfile": {\n' +
+      '          "osDisk": {\n' +
+      '            "name": "[concat(parameters(\'vmName\'), \'-os\')]",\n' +
+      '            "osType": "...",\n' +
+      '            "caching": "ReadWrite",\n' +
+      '            "createOption": "FromImage"\n' +
+      '          },\n' +
+      '          "imageReference": {\n' +
+      '            "id": "..."\n' +
+      '          }\n' +
+      '        },\n' +
+      '        "networkProfile": {\n' +
+      '          "networkInterfaces": [\n' +
+      '            {\n' +
+      '              "id": "[resourceId(\'Microsoft.Network/networkInterfaces\', variables(\'nicName\'))]"\n' +
+      '            }\n' +
+      '          ]\n' +
+      '        }\n' +
+      '      }\n' +
+      '    }\n' +
+      '  ]\n' +
+      '}\n');
   };
 
   function saveImages() {

@@ -19,8 +19,10 @@ package jetbrains.buildServer.clouds.azure.arm.utils
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ArrayNode
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intellij.openapi.util.io.StreamUtil
-import jetbrains.buildServer.util.StringUtil
+import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import java.io.IOException
 
 /**
@@ -39,11 +41,29 @@ object AzureUtils {
         }
     }
 
-    fun serializeObject(data: Any): String {
-        return try {
-            mapper.writeValueAsString(data)
-        } catch (e: JsonProcessingException) {
-            StringUtil.EMPTY
+    fun checkTemplate(template: String) {
+        val root = try {
+            val reader = mapper.reader()
+            reader.readTree(template) as ObjectNode
+        } catch (e: Exception) {
+            throw CheckedCloudException("Invalid JSON template", e)
+        }
+
+        try {
+            root["parameters"]["vmName"] as ObjectNode
+        } catch (e: Exception) {
+            throw CheckedCloudException("No 'vmName' parameter", e)
+        }
+
+        try {
+            val resources = root["resources"] as ArrayNode
+            resources.filterIsInstance<ObjectNode>()
+                    .first {
+                        it["type"].asText() == "Microsoft.Compute/virtualMachines" &&
+                                it["name"].asText() == "[parameters('vmName')]"
+                    }
+        } catch (e: Exception) {
+            throw CheckedCloudException("No virtual machine resource with name set to 'vmName' parameter", e)
         }
     }
 

@@ -30,12 +30,10 @@ import com.microsoft.azure.storage.blob.CloudBlobContainer
 import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.azure.arm.*
-import jetbrains.buildServer.clouds.azure.arm.connector.models.JsonValue
 import jetbrains.buildServer.clouds.azure.arm.utils.*
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase
 import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
-import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.experimental.*
@@ -226,7 +224,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         if (details.vmPublicIp && instance.ipAddress == null) {
             val pipName = name + PUBLIC_IP_SUFFIX
             promises += async(CommonPool, CoroutineStart.LAZY) {
-                val ip = getPublicIpAsync(name, pipName).await()
+                val ip = getPublicIpAsync(groupId, pipName).await()
                 LOG.debug("Received public ip $ip for virtual machine $name")
 
                 if (!ip.isNullOrBlank()) {
@@ -271,47 +269,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
 
     @Suppress("UselessCallOnNotNull")
     override fun checkImage(image: AzureCloudImage) = runBlocking {
-        val exceptions = ArrayList<Throwable>()
-        val details = image.imageDetails
-        if (details.sourceId.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid source id"))
-        }
-        if (details.networkId.isNullOrEmpty() || details.subnetId.isEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid network settings"))
-        }
-        if (details.osType.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid OS Type value"))
-        }
-        if (details.type == AzureCloudImageType.Vhd) {
-            val imageUrl = details.imageUrl
-            if (imageUrl == null || imageUrl.isNullOrEmpty()) {
-                exceptions.add(CheckedCloudException("Image URL is empty"))
-            } else {
-                try {
-                    val region = details.region!!
-                    getVhdOsTypeAsync(imageUrl, region).await()
-                } catch (e: Throwable) {
-                    LOG.debug("Failed to get os type for vhd " + imageUrl, e)
-                    exceptions.add(e)
-                }
-            }
-        } else {
-            val imageId = details.imageId
-            if (imageId == null || imageId.isNullOrEmpty()) {
-                exceptions.add(CheckedCloudException("Image ID is empty"))
-            } else {
-                try {
-                    myAzure.withSubscription(mySubscriptionId)
-                            .virtualMachineCustomImages()
-                            .getByIdAsync(imageId)
-                            .awaitOne()
-                } catch (e: Throwable) {
-                    LOG.debug("Failed to get image ID " + imageId, e)
-                    exceptions.add(e)
-                }
-            }
-        }
-
+        val exceptions = image.handler.checkImageAsync(image).await()
         exceptions.map { TypedCloudErrorInfo.fromException(it) }
                 .toTypedArray()
     }
@@ -336,6 +294,26 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                     })
         } catch (e: Throwable) {
             val message = "Failed to get list of resource groups: ${e.message}"
+            LOG.debug(message, e)
+            throw CloudException(message, e)
+        }
+    }
+
+    /**
+     * Gets an image name.
+     * @return image name.
+     */
+    override fun getImageNameAsync(imageId: String) = async(CommonPool, CoroutineStart.LAZY) {
+        try {
+            val image = myAzure.withSubscription(mySubscriptionId)
+                    .virtualMachineCustomImages()
+                    .getByIdAsync(imageId)
+                    .awaitOne()
+            LOG.debug("Received image $imageId")
+
+            image.name()
+        } catch (e: Throwable) {
+            val message = "Failed to get image $imageId: ${e.message}"
             LOG.debug(message, e)
             throw CloudException(message, e)
         }
@@ -406,55 +384,14 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
             throw CloudException(message, e)
         }
 
-        val details = instance.image.imageDetails
-
-        val templateValue = AzureUtils.getResourceAsString("/templates/vm-template.json")
-        val builder = ArmTemplateBuilder(templateValue)
-
         instance.properties[AzureConstants.TAG_SERVER] = myServerId!!
-        builder.setTags(instance.properties)
 
-        if (details.vmPublicIp) {
-            builder.setPublicIp()
-        }
+        val handler = instance.image.handler
+        val builder = handler.prepareBuilderAsync(instance).await()
+                .setCustomData(customData)
+                .setTags(instance.properties)
 
-        val params = linkedMapOf<String, JsonValue>()
-        if (details.type == AzureCloudImageType.Vhd) {
-            builder.addParameter(AzureConstants.IMAGE_URL, "string", "This is the name of the generalized VHD image")
-            params.put(AzureConstants.IMAGE_URL, JsonValue(details.imageUrl!!))
-
-            builder.setVhdImage()
-
-            deleteVmBlobsAsync(instance).await()
-        } else {
-            builder.addParameter(AzureConstants.IMAGE_ID, "string", "This is the identifier of custom image")
-            params.put(AzureConstants.IMAGE_ID, JsonValue(details.imageId!!))
-
-            builder.setCustomImage()
-        }
-
-        params.put("vmName", JsonValue(name))
-        params.put("networkId", JsonValue(details.networkId))
-        params.put("subnetName", JsonValue(details.subnetId))
-        params.put("adminUserName", JsonValue(details.username))
-        params.put("adminPassword", JsonValue(details.password!!))
-        params.put(AzureConstants.OS_TYPE, JsonValue(details.osType))
-        params.put("vmSize", JsonValue(details.vmSize))
-        params.put("customData", JsonValue(customData))
-
-        val deploymentParameters = "Deployment parameters:" +
-                params.entries.joinToString("\n") { (key, value) ->
-                    val parameter = if (key == "adminPassword") "*****" else value.value
-                    " - '$key' = '$parameter'"
-                }
-
-        LOG.debug(deploymentParameters)
-
-        val template = builder.toString()
-        LOG.debug("Deployment template: \n" + template)
-
-        val parameters = AzureUtils.serializeObject(params)
-
+        val details = instance.image.imageDetails
         val groupId = when (details.target) {
             AzureCloudDeployTarget.NewGroup -> {
                 createResourceGroupAsync(name, details.region!!).await()
@@ -462,6 +399,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
             }
             AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
         }
+
+        builder.logDetails()
+        val template = builder.toString()
+        val parameters = builder.serializeParameters()
 
         createDeploymentAsync(groupId, name, template, parameters).await()
     }
@@ -517,17 +458,31 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
      */
     override fun deleteVmAsync(instance: AzureCloudInstance) = async(CommonPool) {
         val details = instance.image.imageDetails
+        val name = instance.name
+        val groupId = getResourceGroup(details, name)
+
+        val virtualMachine = getVirtualMachineAsync(groupId, name).await()
+
         when (details.target) {
-            AzureCloudDeployTarget.NewGroup -> deleteResourceGroupAsync(instance.name).await()
-            AzureCloudDeployTarget.SpecificGroup -> deleteDeploymentAsync("multiple", instance.name).await()
+            AzureCloudDeployTarget.NewGroup -> deleteResourceGroupAsync(name).await()
+            AzureCloudDeployTarget.SpecificGroup -> deleteDeploymentAsync("multiple", name).await()
         }
 
-        if (details.type == AzureCloudImageType.Vhd) {
-            deleteVmBlobsAsync(instance).await()
+        // Remove OS disk
+        if (!virtualMachine.isManagedDiskEnabled) {
+            val osDisk = try {
+                URI(virtualMachine.osUnmanagedDiskVhdUri())
+            } catch (e: URISyntaxException) {
+                null
+            }
+
+            osDisk?.let {
+                deleteBlobsAsync(osDisk, details.region!!).await()
+            }
         }
     }
 
-    private fun deleteVmBlobsAsync(instance: AzureCloudInstance) = async(CommonPool) {
+    override fun deleteVmBlobsAsync(instance: AzureCloudInstance) = async(CommonPool) {
         val name = instance.name
         val details = instance.image.imageDetails
         val url = details.imageUrl
@@ -542,12 +497,16 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         }
 
         val region = details.region!!
+        deleteBlobsAsync(storageBlobs, region).await()
+    }
+
+    private suspend fun deleteBlobsAsync(storageBlobs: URI, region: String) = async(CommonPool) {
         val blobs = getBlobsAsync(storageBlobs, region).await()
         for (blob in blobs) {
             try {
                 blob.deleteIfExists()
             } catch (e: Exception) {
-                val message = "Failed to delete blob ${blob.uri} for instance $name: ${e.message}"
+                val message = "Failed to delete blob ${blob.uri}: ${e.message}"
                 LOG.warnAndDebugDetails(message, e)
             }
         }
@@ -607,10 +566,8 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                                 val resources = linkedSetOf<String>(resourceId)
                                 if (resourceId.contains("Microsoft.Compute/virtualMachines")) {
                                     val virtualMachine = subscription.virtualMachines().getByIdAsync(resourceId).awaitOne()
-                                    virtualMachine.osDiskId()?.let {
-                                        if (it.contains("Microsoft.Compute/disks")) {
-                                            resources.add(virtualMachine.osDiskId())
-                                        }
+                                    if (virtualMachine.isManagedDiskEnabled) {
+                                        resources.add(virtualMachine.osDiskId())
                                     }
                                 }
 

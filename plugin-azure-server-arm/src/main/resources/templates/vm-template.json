@@ -47,12 +47,6 @@
       "metadata": {
         "description": "This is the size of your VM"
       }
-    },
-    "customData": {
-      "type": "string",
-      "metadata": {
-        "description": "This is the custom data passed to VM"
-      }
     }
   },
   "variables": {

@@ -42,6 +42,8 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     fun getResourceGroupsAsync(): Deferred<Map<String, String>>
 
+    fun getImageNameAsync(imageId: String): Deferred<String>
+
     fun getImagesAsync(region: String): Deferred<Map<String, List<String>>>
 
     fun getVmSizesAsync(region: String): Deferred<List<String>>
@@ -51,4 +53,6 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
     fun getVhdOsTypeAsync(imageUrl: String, region: String): Deferred<String?>
 
     fun getVhdMetadataAsync(imageUrl: String, region: String): Deferred<Map<String, String>?>
+
+    fun deleteVmBlobsAsync(instance: AzureCloudInstance): Deferred<*>
 }

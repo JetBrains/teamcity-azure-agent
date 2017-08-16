@@ -1,15 +1,22 @@
 package jetbrains.buildServer.clouds.azure.arm.utils
 
+import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import com.intellij.openapi.diagnostic.Logger
+import jetbrains.buildServer.clouds.azure.arm.connector.models.JsonValue
+import jetbrains.buildServer.util.StringUtil
 
 /**
  * Allows to customize ARM template.
  */
 class ArmTemplateBuilder(template: String) {
+
+    private val LOG = Logger.getInstance(ArmTemplateBuilder::class.java.name)
     private val mapper = ObjectMapper()
     private val root: ObjectNode
+    private val parameters = linkedMapOf<String, JsonValue>()
 
     init {
         val reader = mapper.reader()
@@ -32,7 +39,8 @@ class ArmTemplateBuilder(template: String) {
         val resources = root["resources"] as ArrayNode
         val machine = resources.filterIsInstance<ObjectNode>()
                 .first { it["name"].asText() == "[parameters('vmName')]" }
-        machine.putObject("tags").apply {
+        val element = (machine["tags"] as? ObjectNode) ?: machine.putObject("tags")
+        element.apply {
             for ((key, value) in tags) {
                 this.put(key, value)
             }
@@ -107,5 +115,43 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
+    fun setCustomData(customData: String): ArmTemplateBuilder {
+        (root["resources"] as ArrayNode).apply {
+            this.filterIsInstance<ObjectNode>()
+                    .first { it["name"].asText() == "[parameters('vmName')]" }
+                    .apply {
+                        val properties = (this["properties"] as? ObjectNode) ?: this.putObject("properties")
+                        val osProfile = (properties["osProfile"] as? ObjectNode) ?: properties.putObject("osProfile")
+                        osProfile.put("customData", customData)
+                    }
+        }
+        return this
+    }
+
+    fun setParameterValue(name: String, value: String): ArmTemplateBuilder {
+        parameters[name] = JsonValue(value)
+        return this
+    }
+
+    fun serializeParameters(): String {
+        return try {
+            mapper.writeValueAsString(parameters)
+        } catch (e: JsonProcessingException) {
+            StringUtil.EMPTY
+        }
+    }
+
     override fun toString(): String = mapper.writeValueAsString(root)
+
+    fun logDetails() {
+        if (!LOG.isDebugEnabled) return
+
+        LOG.debug("Deployment template: \n" + toString())
+        val deploymentParameters = "Deployment parameters:" +
+                parameters.entries.joinToString("\n") { (key, value) ->
+                    val parameter = if (key == "adminPassword") "*****" else value.value
+                    " - '$key' = '$parameter'"
+                }
+        LOG.debug(deploymentParameters)
+    }
 }

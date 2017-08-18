@@ -465,7 +465,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
 
         when (details.target) {
             AzureCloudDeployTarget.NewGroup -> deleteResourceGroupAsync(name).await()
-            AzureCloudDeployTarget.SpecificGroup -> deleteDeploymentAsync("multiple", name).await()
+            AzureCloudDeployTarget.SpecificGroup -> deleteDeploymentAsync(groupId, name).await()
         }
 
         // Remove OS disk

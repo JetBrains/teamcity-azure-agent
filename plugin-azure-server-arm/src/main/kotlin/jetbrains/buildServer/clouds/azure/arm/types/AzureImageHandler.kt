@@ -30,9 +30,6 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
         if (details.networkId.isNullOrEmpty() || details.subnetId.isEmpty()) {
             exceptions.add(CheckedCloudException("Invalid network settings"))
         }
-        if (details.networkId.isNullOrEmpty() || details.subnetId.isEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid network settings"))
-        }
         if (details.osType.isNullOrEmpty()) {
             exceptions.add(CheckedCloudException("Invalid OS Type value"))
         }

@@ -52,7 +52,8 @@
   "variables": {
     "location": "[resourceGroup().location]",
     "nicName": "[concat(parameters('vmName'), '-net')]",
-    "subnetRef": "[concat(parameters('networkId'), '/subnets/', parameters('subnetName'))]"
+    "subnetRef": "[concat(parameters('networkId'), '/subnets/', parameters('subnetName'))]",
+    "osDiskName": "[concat(parameters('vmName'), '-os')]"
   },
   "resources": [
     {
@@ -80,7 +81,7 @@
       "name": "[parameters('vmName')]",
       "location": "[variables('location')]",
       "dependsOn": [
-        "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+        "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]"
       ],
       "properties": {
         "hardwareProfile": {
@@ -94,7 +95,7 @@
         },
         "storageProfile": {
           "osDisk": {
-            "name": "[concat(parameters('vmName'), '-os')]",
+            "name": "[variables('osDiskName')]",
             "osType": "[parameters('osType')]",
             "caching": "ReadWrite",
             "createOption": "FromImage"

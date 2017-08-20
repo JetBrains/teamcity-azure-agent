@@ -53,8 +53,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   };
   var imageTypes = {
     image: 'Image',
-    vhd: 'Vhd',
-    template: 'Template'
+    template: 'Template',
+    vhd: 'Vhd'
   };
 
   self.deployTarget = ko.observable();
@@ -120,8 +120,6 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
             console.log("Unable to parse template: " + error);
             return false;
           }
-
-          debugger
 
           if (!root) {
             console.log("Invalid template object");
@@ -203,8 +201,8 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
   self.imageTypes = ko.observableArray([
     {id: imageTypes.image, text: "Image"},
-    {id: imageTypes.vhd, text: "VHD"},
-    {id: imageTypes.template, text: "Template"}
+    {id: imageTypes.template, text: "Template"},
+    {id: imageTypes.vhd, text: "VHD"}
   ]);
 
   // Hidden fields for serialized values
@@ -360,10 +358,9 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
     // Pre-fill collections while loading resources
     var imageId = image.imageId;
     if (imageId && !ko.utils.arrayFirst(self.sourceImages(), function (item) {
-        return item.id === image.imageId;
+        return item.id === imageId;
       })) {
-      var id = imageId;
-      self.sourceImages([{id: id, text: self.getFileName(id), osType: image.osType}]);
+      self.sourceImages([{id: imageId, text: self.getFileName(imageId), osType: image.osType}]);
     }
 
     var vmSize = image.vmSize;
@@ -455,9 +452,18 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   };
 
   self.deleteImage = function (image) {
-    var imageName = image.imageType === imageTypes.image
-      ? 'source image ' + self.getFileName(image.imageId)
-      : 'VHD ' + image.imageUrl;
+    var imageName = "";
+    switch (image.imageType) {
+      case imageTypes.image:
+        imageName = 'source image ' + self.getFileName(image.imageId);
+        break;
+      case imageTypes.template:
+        imageName = 'template';
+        break;
+      case imageTypes.vhd:
+        imageName = 'VHD ' + image.imageUrl;
+        break;
+    }
     var message = "Do you really want to delete agent image based on " + imageName + "?";
     var remove = confirm(message);
     if (!remove) {

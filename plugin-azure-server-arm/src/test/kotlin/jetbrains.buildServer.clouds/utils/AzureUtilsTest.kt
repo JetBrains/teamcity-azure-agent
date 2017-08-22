@@ -14,15 +14,25 @@ class AzureUtilsTest {
     "message": "message"
   }
 }"""
-        val errorMessage = AzureUtils.getAzureErrorMessage(json)
+        val errorMessage = AzureUtils.deserializeAzureError(json)
 
         Assert.assertEquals(errorMessage, "message (code)")
     }
 
     fun testCloudErrorDeserializationFailure() {
         val json = "mymessage"
-        val errorMessage = AzureUtils.getAzureErrorMessage(json)
+        val errorMessage = AzureUtils.deserializeAzureError(json)
 
         Assert.assertEquals(errorMessage, json)
+    }
+
+    fun testAuthErrorDeserialization() {
+        val json = """{
+	"error_description": "description\r\nTimestamp: 2017-08-22 08:08:01Z",
+	"error": "invalid_request"
+}"""
+        val errorMessage = AzureUtils.deserializeAuthError(json)
+
+        Assert.assertEquals(errorMessage, "description")
     }
 }

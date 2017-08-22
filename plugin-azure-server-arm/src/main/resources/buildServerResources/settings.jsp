@@ -90,14 +90,13 @@
                    css: {invisible: !$parent.isValidClientData()}">
                     <i data-bind="css: {'icon-spin': $parent.loadingSubscriptions}" class="icon-refresh"></i>
                 </a>
+                <span class="error option-error" data-bind="validationMessage: subscriptionId"></span>
                 <input type="hidden" class="longField"
                        value="${propertiesBean.properties[cons.subscriptionId]}"
                        data-bind="initializeValue: subscriptionId"/>
                 <input type="hidden" class="longField"
                        value="${propertiesBean.properties['location']}"
                        data-bind="initializeValue: region"/>
-                <span class="error option-error" data-bind="text: $parent.errorSubscriptions,
-                    css: {hidden: $parent.loadingSubscriptions}"></span>
             </td>
         </tr>
     </table>

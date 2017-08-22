@@ -887,7 +887,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
 
             subscriptions
         } catch (e: Throwable) {
-            val message = "Failed to get list of subscriptions: " + e.message
+            val message = "Failed to get list of subscriptions: " + AzureUtils.getAuthenticationErrorMessage(e)
             LOG.debug(message, e)
             throw CloudException(message, e)
         }

@@ -20,7 +20,6 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   self.loadingRegions = ko.observable(false);
   self.loadingResources = ko.observable(false);
   self.loadingOsType = ko.observable(false);
-  self.errorSubscriptions = ko.observable("");
   self.errorRegions = ko.observable("");
   self.errorResources = ko.observable("");
 
@@ -495,16 +494,16 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {
-        self.errorSubscriptions(errors);
+        self.credentials().subscriptionId.setError(errors);
         return;
       } else {
-        self.errorSubscriptions("");
+        self.credentials().subscriptionId.clearError();
       }
 
       var subscriptions = getSubscriptions($response);
       self.subscriptions(subscriptions);
     }, function (error) {
-      self.errorSubscriptions("Failed to load subscriptions: " + error.message);
+      self.credentials().subscriptionId.setError("Failed to load subscriptions: " + error.message);
       console.log(error);
     }).always(function () {
       self.loadingSubscriptions(false);

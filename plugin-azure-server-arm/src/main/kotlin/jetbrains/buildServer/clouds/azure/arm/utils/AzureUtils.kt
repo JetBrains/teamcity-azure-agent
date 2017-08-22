@@ -22,13 +22,17 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intellij.openapi.util.io.StreamUtil
+import com.microsoft.aad.adal4j.AuthenticationException
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
+import jetbrains.buildServer.util.ExceptionUtil
+import jetbrains.buildServer.util.StringUtil
 import java.io.IOException
 
 /**
  * Utilities.
  */
 object AzureUtils {
+    private val INVALID_TENANT = Regex("AADSTS90002: No service namespace named '([\\w-]+)' was found in the data store\\.")
     private val mapper = ObjectMapper()
 
     fun getResourceAsString(name: String): String {
@@ -70,15 +74,36 @@ object AzureUtils {
     fun getExceptionDetails(e: com.microsoft.azure.CloudException): String {
         e.body()?.let {
             return it.message() + " " + it.details().joinToString("\n", transform = {
-                AzureUtils.getAzureErrorMessage(it.message()) + " (${it.code()})"
+                AzureUtils.deserializeAzureError(it.message()) + " (${it.code()})"
             })
         }
         return e.message ?: ""
     }
 
-    internal fun getAzureErrorMessage(json: String) = try {
+    internal fun deserializeAzureError(json: String) = try {
         mapper.readValue<CloudErrorDetails>(json, CloudErrorDetails::class.java)?.error?.let {
             "${it.message} (${it.code})"
+        } ?: json
+    } catch (e: JsonProcessingException) {
+        json
+    }
+
+    fun getAuthenticationErrorMessage(e: Throwable): String {
+        val authException = ExceptionUtil.getCause(e, AuthenticationException::class.java)
+        return if (authException != null) {
+            deserializeAuthError(authException.message ?: "")
+        } else {
+            e.message ?: ""
+        }
+    }
+
+    internal fun deserializeAuthError(json: String) = try {
+        mapper.readValue<CloudAuthError>(json, CloudAuthError::class.java)?.error_description?.let {
+            val error = StringUtil.splitByLines(it).firstOrNull() ?: it
+            INVALID_TENANT.matchEntire(error)?.let {
+                val (id) = it.destructured
+                "Application with identifier '$id' was not found in specified tenant or environment."
+            } ?: error
         } ?: json
     } catch (e: JsonProcessingException) {
         json
@@ -91,3 +116,7 @@ private data class CloudErrorDetails(val error: CloudError? = null)
 @JsonIgnoreProperties(ignoreUnknown = true)
 private data class CloudError(val code: String? = null,
                               val message: String? = null)
+
+@JsonIgnoreProperties(ignoreUnknown = true)
+private data class CloudAuthError(val error: String? = null,
+                                  val error_description: String? = null)

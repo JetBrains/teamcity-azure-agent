@@ -11,7 +11,7 @@
 <jsp:useBean id="basePath" class="java.lang.String" scope="request"/>
 
 <h2 class="noBorder section-header">Cloud Access Information</h2>
-<c:set var="azureLink">https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/</c:set>
+<c:set var="azureLink">https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-create-service-principal-portal</c:set>
 
 <script type="text/javascript">
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}settings.css'/>");
@@ -41,33 +41,33 @@
                        value="${propertiesBean.properties[cons.tenantId]}"
                        data-bind="initializeValue: tenantId, textInput: tenantId"/>
                 <span class="smallNote">Azure AD domain or tenant ID <a
-                        href="${azureLink}#get-client-id-and-tenant-id"
+                        href="${azureLink}#get-tenant-id"
                         target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <span class="error option-error" data-bind="validationMessage: tenantId"></span>
             </td>
         </tr>
         <tr>
-            <th class="noBorder"><label for="prop:${cons.clientId}">Client ID: <l:star/></label></th>
+            <th class="noBorder"><label for="prop:${cons.clientId}">Application ID: <l:star/></label></th>
             <td>
                 <input type="text" name="prop:${cons.clientId}" class="longField ignoreModified"
                        value="${propertiesBean.properties[cons.clientId]}"
                        data-bind="initializeValue: clientId, textInput: clientId"/>
-                <span class="smallNote">Azure AD application client ID <a
-                        href="${azureLink}#get-client-id-and-tenant-id"
+                <span class="smallNote">Azure AD application ID <a
+                        href="${azureLink}#get-application-id-and-authentication-key"
                         target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <span class="error option-error" data-bind="validationMessage: clientId"></span>
             </td>
         </tr>
         <tr>
-            <th class="noBorder"><label for="${cons.clientSecret}">Client Secret: <l:star/></label></th>
+            <th class="noBorder"><label for="${cons.clientSecret}">Application Key: <l:star/></label></th>
             <td>
                 <input type="password" name="${cons.clientSecret}" class="longField ignoreModified"
                        data-bind="textInput: clientSecret"/>
                 <input type="hidden" name="prop:secure:${cons.clientSecret}"
                        value="${propertiesBean.properties[cons.clientSecret]}"
                        data-bind="initializeValue: clientSecret, value: clientSecret"/>
-                <span class="smallNote">Azure AD application client secret <a
-                        href="${azureLink}#create-an-authentication-key"
+                <span class="smallNote">Azure AD application key <a
+                        href="${azureLink}#get-application-id-and-authentication-key"
                         target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <span class="error option-error" data-bind="validationMessage: clientSecret"></span>
             </td>
@@ -78,9 +78,11 @@
                 <select name="prop:${cons.subscriptionId}" class="longField ignoreModified"
                         data-bind="options: $parent.subscriptions, optionsText: 'text', optionsValue: 'id',
                         value: subscriptionId, css: {hidden: $parent.subscriptions().length == 0}"></select>
-                <div class="longField inline-block hidden" data-bind="css: {hidden: $parent.subscriptions().length > 0}">
+                <div class="longField inline-block hidden"
+                     data-bind="css: {hidden: $parent.subscriptions().length > 0}">
                     <span class="error option-error">
-                        No subscriptions, please grant Contributor role for your application
+                        No subscriptions, please <a href="${azureLink}#assign-application-to-role" target="_blank">grant
+                        Contributor role</a> for your application
                     </span>
                 </div>
                 <a href="#" title="Reload subscriptions"

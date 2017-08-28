@@ -46,6 +46,15 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             AzureCloudImageType.Image to AzureImageHandler(myApiConnector),
             AzureCloudImageType.Template to AzureTemplateHandler())
 
+    private val myActiveStatuses = setOf(
+            InstanceStatus.SCHEDULED_TO_START,
+            InstanceStatus.STARTING,
+            InstanceStatus.RUNNING,
+            InstanceStatus.RESTARTING,
+            InstanceStatus.SCHEDULED_TO_STOP,
+            InstanceStatus.STOPPING
+    )
+
     override fun getImageDetails(): AzureCloudImageDetails = myImageDetails
 
     override fun createInstanceFromReal(realInstance: AbstractInstance): AzureCloudInstance {
@@ -240,7 +249,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      * @return instances.
      */
     private val activeInstances: List<AzureCloudInstance>
-        get() = instances.filter { instance -> instance.status.isStartingOrStarted }
+        get() = instances.filter { instance -> myActiveStatuses.contains(instance.status) }
 
     /**
      * Returns stopped instances.

@@ -52,7 +52,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             InstanceStatus.RUNNING,
             InstanceStatus.RESTARTING,
             InstanceStatus.SCHEDULED_TO_STOP,
-            InstanceStatus.STOPPING
+            InstanceStatus.STOPPING,
+            InstanceStatus.ERROR
     )
 
     override fun getImageDetails(): AzureCloudImageDetails = myImageDetails

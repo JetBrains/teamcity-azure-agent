@@ -71,7 +71,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             throw QuotaException("Unable to start more instances. Limit has reached")
         }
 
-        val instance = tryToStartStoppedInstanceAsync().await() ?: createInstance(userData)
+        val instance = tryToStartStoppedInstanceAsync(userData).await() ?: createInstance(userData)
         instance.apply {
             setStartDate(Date())
         }
@@ -92,9 +92,10 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         async(CommonPool) {
             val hash = handler.getImageHashAsync(imageDetails).await()
 
-            instance.properties[AzureConstants.TAG_IMAGE_HASH] = hash
             instance.properties[AzureConstants.TAG_PROFILE] = userData.profileId
             instance.properties[AzureConstants.TAG_SOURCE] = imageDetails.sourceId
+            instance.properties[AzureConstants.TAG_DATA_HASH] = getDataHash(userData)
+            instance.properties[AzureConstants.TAG_IMAGE_HASH] = hash
 
             try {
                 LOG.info("Creating new virtual machine ${instance.name}")
@@ -128,7 +129,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      *
      * @return instance if it found.
      */
-    private fun tryToStartStoppedInstanceAsync() = async(CommonPool) {
+    private fun tryToStartStoppedInstanceAsync(userData: CloudInstanceUserData) = async(CommonPool) {
         val instances = stoppedInstances
         if (instances.isNotEmpty()) {
             val validInstances = if (myImageDetails.behaviour.isDeleteAfterStop) {
@@ -136,11 +137,16 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 emptyList()
             } else {
                 instances.filter {
-                    isSameImageInstance(it).await().apply {
-                        if (!this) {
-                            LOG.info("Will remove virtual machine ${it.name} due to cloud image retention policy")
-                        }
+                    if (!isSameImageInstance(it).await()) {
+                        LOG.info("Will remove virtual machine ${it.name} due to changes in image source")
+                        return@filter false
                     }
+                    val data = AzureUtils.setVmNameForTag(userData, it.name)
+                    if (it.properties[AzureConstants.TAG_DATA_HASH] != getDataHash(data)) {
+                        LOG.info("Will remove virtual machine ${it.name} due to changes in cloud profile")
+                        return@filter false
+                    }
+                    return@filter true
                 }
             }
 
@@ -184,6 +190,9 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val hash = handler.getImageHashAsync(imageDetails).await()
         hash == it.properties[AzureConstants.TAG_IMAGE_HASH]
     }
+
+    private fun getDataHash(userData: CloudInstanceUserData) =
+            Integer.toHexString(userData.toString().hashCode())
 
     override fun restartInstance(instance: AzureCloudInstance) {
         instance.status = InstanceStatus.RESTARTING

@@ -103,7 +103,6 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
             try {
                 val result = fetchInstancesAsync(image).await()
                 LOG.debug("Received list of image ${image.name} instances")
-                image.updateErrors()
                 @Suppress("UNCHECKED_CAST")
                 imageMap.put(image, result as Map<String, R>)
             } catch (e: Throwable) {

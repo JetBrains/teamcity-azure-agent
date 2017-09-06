@@ -237,7 +237,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
 
     private fun getVirtualMachineAsync(groupId: String, name: String) = async(CommonPool, CoroutineStart.LAZY) {
         try {
-            val machine = myAzure.withSubscription(mySubscriptionId)
+            val machine: VirtualMachine? = myAzure.withSubscription(mySubscriptionId)
                     .virtualMachines()
                     .getByResourceGroupAsync(groupId, name)
                     .awaitOne()
@@ -468,15 +468,14 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         }
 
         // Remove OS disk
-        if (!virtualMachine.isManagedDiskEnabled) {
-            val osDisk = try {
-                URI(virtualMachine.osUnmanagedDiskVhdUri())
-            } catch (e: URISyntaxException) {
-                null
-            }
-
-            osDisk?.let {
-                deleteBlobsAsync(osDisk, details.region!!).await()
+        virtualMachine?.let {
+            if (!it.isManagedDiskEnabled) {
+                try {
+                    val osDisk = URI(it.osUnmanagedDiskVhdUri())
+                    deleteBlobsAsync(osDisk, details.region!!).await()
+                } catch (e: Throwable) {
+                    LOG.infoAndDebugDetails("Failed to delete disk ${it.osUnmanagedDiskVhdUri()} for instance $name", e)
+                }
             }
         }
     }

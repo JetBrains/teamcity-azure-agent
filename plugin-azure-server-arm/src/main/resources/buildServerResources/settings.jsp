@@ -426,7 +426,10 @@
     ).then(function () {
         var dialog = document.getElementById("arm-setting");
         ko.validation.init({insertMessages: false});
-        ko.applyBindings(new ArmImagesViewModel($j, ko, "<c:url value='${basePath}'/>", BS.ArmImageDialog), dialog);
+        ko.applyBindings(new ArmImagesViewModel($j, ko, BS.ArmImageDialog, {
+            baseUrl: "<c:url value='${basePath}'/>",
+            projectId: "${projectId}"
+        }), dialog);
     });
 </script>
 <table class="runnerFormTable">

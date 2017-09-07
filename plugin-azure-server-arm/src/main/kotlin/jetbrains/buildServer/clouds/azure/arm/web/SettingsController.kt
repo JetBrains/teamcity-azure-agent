@@ -69,17 +69,18 @@ class SettingsController(server: SBuildServer,
                 return null
             }
 
-            return doGet()
+            return doGet(request)
         } catch (e: Throwable) {
             LOG.infoAndDebugDetails("Failed to handle request: " + e.message, e)
             throw e
         }
     }
 
-    private fun doGet(): ModelAndView {
+    private fun doGet(request: HttpServletRequest): ModelAndView {
         val mv = ModelAndView(myJspPath)
         mv.model.put("basePath", myHtmlPath)
         mv.model.put("resPath", myPluginDescriptor.pluginResourcesPath)
+        mv.model.put("projectId", request.getParameter("projectId"))
         return mv
     }
 

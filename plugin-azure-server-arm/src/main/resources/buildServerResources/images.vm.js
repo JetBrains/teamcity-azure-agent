@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-function ArmImagesViewModel($, ko, baseUrl, dialog) {
+function ArmImagesViewModel($, ko, dialog, config) {
   var self = this;
 
   self.loadingSubscriptions = ko.observable(false);
@@ -651,7 +651,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
 
   function getBasePath() {
     var credentials = self.credentials();
-    return baseUrl +
+    return config.baseUrl +
       "?prop%3Aenvironment=" + encodeURIComponent(credentials.environment()) +
       "&prop%3AtenantId=" + encodeURIComponent(credentials.tenantId()) +
       "&prop%3AclientId=" + encodeURIComponent(credentials.clientId()) +
@@ -792,7 +792,7 @@ function ArmImagesViewModel($, ko, baseUrl, dialog) {
   }
 
   (function loadAgentPools() {
-    var url = baseUrl + "?resource=agentPools";
+    var url = config.baseUrl + "?resource=agentPools&projectId=" + encodeURIComponent(config.projectId);
 
     $.post(url).then(function (response) {
       var $response = $j(response);

@@ -32,6 +32,7 @@ import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.runBlocking
+import java.lang.StringBuilder
 import java.util.*
 
 /**
@@ -94,7 +95,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
             instance.properties[AzureConstants.TAG_PROFILE] = userData.profileId
             instance.properties[AzureConstants.TAG_SOURCE] = imageDetails.sourceId
-            instance.properties[AzureConstants.TAG_DATA_HASH] = getDataHash(userData)
+            instance.properties[AzureConstants.TAG_DATA_HASH] = getDataHash(data)
             instance.properties[AzureConstants.TAG_IMAGE_HASH] = hash
 
             try {
@@ -191,8 +192,14 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         hash == it.properties[AzureConstants.TAG_IMAGE_HASH]
     }
 
-    private fun getDataHash(userData: CloudInstanceUserData) =
-            Integer.toHexString(userData.toString().hashCode())
+    private fun getDataHash(userData: CloudInstanceUserData): String {
+        val dataHash = StringBuilder(userData.agentName)
+                .append(userData.idleTimeout)
+                .append(userData.profileId)
+                .append(userData.serverAddress)
+                .hashCode()
+        return Integer.toHexString(dataHash)
+    }
 
     override fun restartInstance(instance: AzureCloudInstance) {
         instance.status = InstanceStatus.RESTARTING

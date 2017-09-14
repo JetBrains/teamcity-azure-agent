@@ -197,6 +197,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 .append(userData.idleTimeout)
                 .append(userData.profileId)
                 .append(userData.serverAddress)
+                .toString()
                 .hashCode()
         return Integer.toHexString(dataHash)
     }

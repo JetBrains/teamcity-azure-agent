@@ -1,4 +1,4 @@
-# TeamCity Azure Cloud Plugins
+# TeamCity Azure Cloud Plugins  [![official JetBrains project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
 
 Enable TeamCity cloud integration with Microsoft Azure and allows virtual machines usage to scale the pool of build agents.
 

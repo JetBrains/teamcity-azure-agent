@@ -48,6 +48,8 @@ To create a **managed image** follow the instructions for capturing [generalized
 
 To create a **VHD image** follow the instructions for capturing for [Linux](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/) and [Windows](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-windows-capture-image/) virtual machines. As a result, you will receive a VHD image in your storage account whose URL can be used to create build agents.
 
+Use **ARM template** for fully customizable build agent deployments. To make and set unique ids for created resources reference `[parameters('vmName')]` parameter in your template, which will be filled by generated name on build agent start.
+
 ## Classic Plugin
 
 This plugin supports both Windows and Linux virtual machines and can operate in the following ways.

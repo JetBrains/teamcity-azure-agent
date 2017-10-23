@@ -219,7 +219,7 @@
                 <td>
                     <input type="checkbox" name="${cons.reuseVm}" data-bind="checked: image().reuseVm"/>
                     <label for="${cons.reuseVm}">Reuse allocated virtual machines</label>
-                    <span class="smallNote">Allows to reuse terminated virtual machines after shutdown</span>
+                    <span class="smallNote">Allows reusing terminated virtual machines after shutdown</span>
                 </td>
             </tr>
             <tr>

@@ -227,7 +227,7 @@
                 <td>
                     <input type="text" name="${cons.vmNamePrefix}" class="longField ignoreModified"
                            data-bind="textInput: image().vmNamePrefix"/>
-                    <span class="smallNote">Unique name prefix to create resource groups</span>
+                    <span class="smallNote">Unique name prefix to create resources</span>
                     <span class="error option-error" data-bind="validationMessage: image().vmNamePrefix"></span>
                 </td>
             </tr>

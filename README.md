@@ -1,6 +1,6 @@
 # TeamCity Azure Cloud Plugins  [![official JetBrains project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
 
-Enable TeamCity cloud integration with Microsoft Azure and allows virtual machines usage to scale the pool of build agents.
+Enables TeamCity cloud integration with Microsoft Azure and allows virtual machines usage to scale the pool of build agents.
 
 ## Table Of Contents
 
@@ -21,7 +21,7 @@ You can select an approriate plugin according to the [Microsoft deployment guide
 You can download the last successful plugin build and install it as an [additional TeamCity plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins).
 
 ### [Resource Manager](#resource-manager-plugin)
-[Blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/) about resource manager plugin.
+[Blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/) about the resource manager plugin.
 
 | TeamCity | Status | Download |
 |----------|--------|----------|
@@ -42,13 +42,13 @@ The plugin supports generalized virtual machine images to start TeamCity build a
 
 ### Virtual Machine Image Preparation
 
-The plugin supports cloud agents creation from managed images and VHD images. Before you can start using integration, you need to create a new Virtual Machine instance via [Azure portal](https://portal.azure.com). The TeamCity Build Agent [must be installed](https://confluence.jetbrains.com/display/TCDL/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-PreparingavirtualmachinewithaninstalledTeamCityagent) and set to start automatically. Also, you need to manually point the agent to the existing TeamCity server with the Azure plugin installed to let the build agent download the plugins. Then you should [remove temporary files](https://confluence.jetbrains.com/display/TCDL/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-Capturinganimagefromavirtualmachine) and perform capture using the following guidelines.
+The plugin supports cloud agents creation from managed images and VHD images. Before you can start using integration, you need to create a new Virtual Machine instance via [Azure portal](https://portal.azure.com). The TeamCity Build Agent [must be installed](https://confluence.jetbrains.com/display/TCDL/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-PreparingavirtualmachinewithaninstalledTeamCityagent) and set to start automatically. Also, you need to manually point the agent to an existing TeamCity server with the Azure plugin installed to let the build agent download the plugins. Then you should [remove temporary files](https://confluence.jetbrains.com/display/TCDL/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-Capturinganimagefromavirtualmachine) and perform capture using the following guidelines.
 
-To create a **managed image** follow the instructions for capturing [generalized Windows](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/capture-image-resource) and [deprovisioned Linux](https://docs.microsoft.com/en-us/azure/virtual-machines/linux/capture-image) virtual machines. As result you will get a custom managed image.
+To create a **managed image**, follow the instructions for capturing [generalized Windows](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/capture-image-resource) and [deprovisioned Linux](https://docs.microsoft.com/en-us/azure/virtual-machines/linux/capture-image) virtual machines. As a result, you will get a custom managed image.
 
-To create a **VHD image** follow the instructions for capturing for [Linux](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/) and [Windows](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-windows-capture-image/) virtual machines. As a result, you will receive a VHD image in your storage account whose URL can be used to create build agents.
+To create a **VHD image**, follow the instructions for capturing [Linux](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/) and [Windows](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-windows-capture-image/) virtual machines. As a result, you will receive a VHD image in your storage account whose URL can be used to create build agents.
 
-Use **ARM template** for fully customizable build agent deployments. To make and set unique ids for created resources reference `[parameters('vmName')]` parameter in your template, which will be filled by generated name on build agent start.
+Use **ARM template** for fully customizable build agent deployments. To make and set unique ids for created resources, reference the `[parameters('vmName')]` parameter in your template, which will be filled by the generated name on the build agent start.
 
 ## Classic Plugin
 
@@ -59,22 +59,22 @@ This plugin supports both Windows and Linux virtual machines and can operate in 
 When TeamCity realizes that it needs more agents, it starts a new instance from the image and deletes it
 after it becomes unnecessary (when a defined timeout elapsed). Depending on the image details, the behaviour would vary:
 
-* **Deprovisioned image** - in this case TeamCity will bypass the server URL directly into the created image, so you can use the same image with several TeamCity servers. To create an image, please follow gudelines for [Linux](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-classic-capture-image/) and [Windows](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-windows-classic-capture-image/) virtual machines. You also need to provide a username/password to let Azure create a new user on the newly created VM. The credentials must match the Azure credentials requirements: the username should contain at least 5 symbols and the password should match the [passwords policy](http://msdn.microsoft.com/en-us/library/ms161959.aspx).
-* **Specialized image** in this case the user does not prepare an image before capturing. This type of image requires the `serverUrl`
+* **Deprovisioned image**: in this case TeamCity will bypass the server URL directly into the created image, so you can use the same image with several TeamCity servers. To create an image, please follow gudelines for [Linux](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-classic-capture-image/) and [Windows](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-windows-classic-capture-image/) virtual machines. You also need to provide a username/password to let Azure create a new user on the newly created VM. The credentials must match the Azure credentials requirements: the username should contain at least 5 symbols and the password should match the [passwords policy](http://msdn.microsoft.com/en-us/library/ms161959.aspx).
+* **Specialized image**:in this case the user does not prepare an image before capturing. This type of image requires the `serverUrl`
   property in the `buildAgent.properties` to point to the TeamCity server. If the server address changes, the image becomes invalid and you need to create a new one.
 
 #### Start/Stop
 
-It works with the currently existing Virtual Machine instances. TeamCity starts the instance before the build and stops after a build or idle timeout (depending on the profile settings). The machine state is saved. When the TeamCity server url changes, you need to change the `serverUrl` parameter in the `buildAgent.properties` to point to the new server.
+It works with the currently existing Virtual Machine instances. TeamCity starts the instance before a build and stops after the build or idle timeout (depending on the profile settings). The machine state is saved. When the TeamCity server url changes, you need to change the `serverUrl` parameter in the `buildAgent.properties` to point to the new server.
 
 ### Virtual Machines Preparation
 
-Before you can start using integration, you need to create a new classic Virtual Machine instance. The Teamcity Build Agent must be installed and set to start automatically. Also, you need to manually point the agent to the existing TeamCity server with the Azure plugin installed to let the build agent download the plugins.
+Before you can start using integration, you need to create a new classic Virtual Machine instance. The Teamcity Build Agent must be installed and set to start automatically. Also, you need to manually point the agent to an existing TeamCity server with the Azure plugin installed to let the build agent download the plugins.
 
 To use the _Fresh Clone_ behaviour, you need to create an image from this instance (depending on whether you checked
-"I have run the Windows Azure Linux Agent on the virtual machine"/" I have run Sysprep on the virtual machine" checkbox) the image will be Generalized (checked) or Specialized (unchecked) and behaviour would slightly differ).
+"I have run the Windows Azure Linux Agent on the virtual machine"/" I have run Sysprep on the virtual machine" checkbox, the image will be Generalized (checked) or Specialized (unchecked) and behaviour will slightly differ).
 
-To use _Start/Stop_ behaviour, you just need to stop the Virtual Machine Instance before configuring it in TeamCity.
+To use the _Start/Stop_ behaviour, you just need to stop the Virtual Machine Instance before configuring it in TeamCity.
 
 ## License
 

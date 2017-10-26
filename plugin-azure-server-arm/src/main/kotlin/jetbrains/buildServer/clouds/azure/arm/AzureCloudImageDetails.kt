@@ -40,21 +40,21 @@ class AzureCloudImageDetails(
         @SerializedName(AzureConstants.IMAGE_ID)
         val imageId: String?,
         @SerializedName(AzureConstants.OS_TYPE)
-        val osType: String,
+        val osType: String?,
         @SerializedName(AzureConstants.NETWORK_ID)
-        val networkId: String,
+        val networkId: String?,
         @SerializedName(AzureConstants.SUBNET_ID)
-        val subnetId: String,
+        val subnetId: String?,
         @SerializedName(AzureConstants.VM_NAME_PREFIX)
         val vmNamePrefix: String? = null,
         @SerializedName(AzureConstants.VM_SIZE)
-        val vmSize: String,
+        val vmSize: String?,
         @SerializedName(AzureConstants.VM_PUBLIC_IP)
-        val vmPublicIp: Boolean,
+        val vmPublicIp: Boolean?,
         @SerializedName(AzureConstants.MAX_INSTANCES_COUNT)
         private val myMaxInstances: Int,
         @SerializedName(AzureConstants.VM_USERNAME)
-        val username: String,
+        val username: String?,
         @SerializedName(AzureConstants.TEMPLATE)
         val template: String?,
         @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)

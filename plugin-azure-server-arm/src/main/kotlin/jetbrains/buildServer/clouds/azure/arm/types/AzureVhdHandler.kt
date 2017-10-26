@@ -12,8 +12,8 @@ import java.util.*
 
 class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
     private val LOG = Logger.getInstance(AzureVhdHandler::class.java.name)
-
     private val METADATA_CONTENT_MD5 = "contentMD5"
+
     @Suppress("UselessCallOnNotNull")
     override fun checkImageAsync(image: AzureCloudImage) = async(CommonPool) {
         val exceptions = ArrayList<Throwable>()
@@ -25,7 +25,7 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
         if (details.region.isNullOrEmpty()) {
             exceptions.add(CheckedCloudException("Invalid region"))
         }
-        if (details.networkId.isNullOrEmpty() || details.subnetId.isEmpty()) {
+        if (details.networkId.isNullOrEmpty() || details.subnetId.isNullOrEmpty()) {
             exceptions.add(CheckedCloudException("Invalid network settings"))
         }
         if (details.osType.isNullOrEmpty()) {
@@ -53,7 +53,7 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
         val template = AzureUtils.getResourceAsString("/templates/vm-template.json")
         val builder = ArmTemplateBuilder(template)
 
-        if (details.vmPublicIp) {
+        if (details.vmPublicIp == true) {
             builder.setPublicIp()
         }
 
@@ -63,12 +63,12 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
                 .addParameter(AzureConstants.IMAGE_URL, "string", "This is the name of the generalized VHD image")
                 .setParameterValue(AzureConstants.IMAGE_URL, details.imageUrl!!)
                 .setVhdImage()
-                .setParameterValue("networkId", details.networkId)
-                .setParameterValue("subnetName", details.subnetId)
-                .setParameterValue("adminUserName", details.username)
+                .setParameterValue("networkId", details.networkId!!)
+                .setParameterValue("subnetName", details.subnetId!!)
+                .setParameterValue("adminUserName", details.username!!)
                 .setParameterValue("adminPassword", details.password!!)
-                .setParameterValue(AzureConstants.OS_TYPE, details.osType)
-                .setParameterValue("vmSize", details.vmSize)
+                .setParameterValue(AzureConstants.OS_TYPE, details.osType!!)
+                .setParameterValue("vmSize", details.vmSize!!)
     }
 
     override fun getImageHashAsync(details: AzureCloudImageDetails) = async(CommonPool) {

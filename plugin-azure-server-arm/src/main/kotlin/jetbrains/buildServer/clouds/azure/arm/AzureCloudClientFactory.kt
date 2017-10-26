@@ -69,7 +69,38 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
     }
 
     override fun parseImageData(params: CloudClientParameters): Collection<AzureCloudImageDetails> {
-        return AzureUtils.parseImageData(AzureCloudImageDetails::class.java, params)
+        if (!params.getParameter(CloudImageParameters.SOURCE_IMAGES_JSON).isNullOrEmpty()) {
+            return AzureUtils.parseImageData(AzureCloudImageDetails::class.java, params)
+        }
+
+        return params.cloudImages.map {
+            AzureCloudImageDetails(
+                    it.id,
+                    it.getParameter(AzureConstants.DEPLOY_TARGET)?.let {
+                        AzureCloudDeployTarget.valueOf(it)
+                    },
+                    it.getParameter(AzureConstants.REGION),
+                    it.getParameter(AzureConstants.GROUP_ID),
+                    it.getParameter(AzureConstants.IMAGE_TYPE)?.let {
+                        AzureCloudImageType.valueOf(it)
+                    },
+                    it.getParameter(AzureConstants.IMAGE_URL),
+                    it.getParameter(AzureConstants.IMAGE_ID),
+                    it.getParameter(AzureConstants.OS_TYPE),
+                    it.getParameter(AzureConstants.NETWORK_ID),
+                    it.getParameter(AzureConstants.SUBNET_ID),
+                    it.getParameter(AzureConstants.VM_NAME_PREFIX),
+                    it.getParameter(AzureConstants.VM_SIZE),
+                    (it.getParameter(AzureConstants.VM_PUBLIC_IP) ?: "").toBoolean(),
+                    (it.getParameter(AzureConstants.MAX_INSTANCES_COUNT) ?: "1").toInt(),
+                    it.getParameter(AzureConstants.VM_USERNAME),
+                    it.getParameter(AzureConstants.TEMPLATE),
+                    it.agentPoolId,
+                    it.getParameter(AzureConstants.PROFILE_ID),
+                    (it.getParameter(AzureConstants.VM_PUBLIC_IP) ?: "").toBoolean())
+        }.apply {
+            AzureUtils.setPasswords(AzureCloudImageDetails::class.java, params, this)
+        }
     }
 
     override fun checkClientParams(params: CloudClientParameters): Array<TypedCloudErrorInfo>? {

@@ -34,11 +34,12 @@ import java.util.*;
  * Provides utils for azure services.
  */
 public final class AzureUtils {
+    private static final Gson myGson = new Gson();
     private static final Type stringStringMapType = new TypeToken<Map<String, String>>() {
     }.getType();
 
     public static <T extends CloudImageDetails> Collection<T> parseImageData(Class<T> clazz, final CloudClientParameters params) {
-        Gson gson = new Gson();
+
         final String imageData = StringUtil.notEmpty(
                 params.getParameter(CloudImageParameters.SOURCE_IMAGES_JSON),
                 StringUtil.emptyIfNull(params.getParameter("images_data")));
@@ -47,10 +48,16 @@ public final class AzureUtils {
         }
 
         final ListParameterizedType listType = new ListParameterizedType(clazz);
-        final List<T> images = gson.fromJson(imageData, listType);
+        final List<T> images = myGson.fromJson(imageData, listType);
+        setPasswords(clazz, params, images);
+
+        return new ArrayList<>(images);
+    }
+
+    public static <T extends CloudImageDetails> void setPasswords(Class<T> clazz, CloudClientParameters params, List<T> images) {
         if (CloudImagePasswordDetails.class.isAssignableFrom(clazz)) {
             final String passwordData = params.getParameter("secure:passwords_data");
-            final Map<String, String> data = gson.fromJson(passwordData, stringStringMapType);
+            final Map<String, String> data = myGson.fromJson(passwordData, stringStringMapType);
             if (data != null) {
                 for (T image : images) {
                     final CloudImagePasswordDetails userImage = (CloudImagePasswordDetails) image;
@@ -60,8 +67,6 @@ public final class AzureUtils {
                 }
             }
         }
-
-        return new ArrayList<>(images);
     }
 
     private static class ListParameterizedType implements ParameterizedType {

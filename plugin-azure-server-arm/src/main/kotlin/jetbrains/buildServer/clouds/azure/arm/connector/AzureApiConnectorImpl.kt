@@ -220,7 +220,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
             }
         }
 
-        if (details.vmPublicIp && instance.ipAddress == null) {
+        if (details.vmPublicIp == true && instance.ipAddress == null) {
             val pipName = name + PUBLIC_IP_SUFFIX
             promises += async(CommonPool, CoroutineStart.LAZY) {
                 val ip = getPublicIpAsync(groupId, pipName).await()

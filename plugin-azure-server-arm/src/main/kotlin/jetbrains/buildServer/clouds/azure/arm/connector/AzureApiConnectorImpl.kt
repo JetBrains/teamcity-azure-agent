@@ -562,7 +562,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                             it.targetResource()?.let {
                                 val resourceId = it.id()
                                 val resources = linkedSetOf<String>(resourceId)
-                                if (resourceId.contains("Microsoft.Compute/virtualMachines")) {
+                                if (it.resourceType() == "Microsoft.Compute/virtualMachines") {
                                     subscription.virtualMachines().getByIdAsync(resourceId).awaitOne()?.let {
                                         if (it.isManagedDiskEnabled) {
                                             resources.add(it.osDiskId())

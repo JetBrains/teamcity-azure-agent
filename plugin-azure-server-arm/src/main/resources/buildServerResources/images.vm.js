@@ -145,7 +145,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     networkId: ko.observable().extend(requiredForNonTemplate),
     subnetId: ko.observable().extend(requiredForNonTemplate),
     osType: ko.observable().extend(requiredForNonTemplate),
-    maxInstances: ko.observable(1).extend({required: true, min: 1}),
+    maxInstances: ko.observable(1).extend({required: true, min: 0}),
     vmSize: ko.observable().extend(requiredForNonTemplate),
     vmNamePrefix: ko.observable('').trimmed().extend({required: true, maxLength: maxLength}).extend({
       validation: {

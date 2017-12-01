@@ -40,17 +40,17 @@ public class FileUtilsImpl implements FileUtils {
     public String readFile(@NotNull final File file) {
         final File parentDir = file.getParentFile();
         if (!parentDir.exists() || !parentDir.isDirectory()) {
-            LOG.info("Parent directory not found at " + parentDir);
+            LOG.debug("Parent directory not exists " + parentDir);
             return null; // no waagent dir
         }
 
         if (!parentDir.canExecute() && SystemInfo.isUnix) {
-            LOG.info("Reading file content " + file + " with sudo");
+            LOG.debug("Reading file content " + file + " with sudo");
             return readFileWithSudo(file);
         }
 
         if (!file.exists()) {
-            LOG.info("File " + file + " not found");
+            LOG.debug("File " + file + " not found");
             return StringUtil.EMPTY;
         }
 

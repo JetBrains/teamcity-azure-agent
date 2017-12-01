@@ -22,6 +22,7 @@ import jetbrains.buildServer.agent.AgentLifeCycleAdapter
 import jetbrains.buildServer.agent.AgentLifeCycleListener
 import jetbrains.buildServer.agent.BuildAgent
 import jetbrains.buildServer.util.EventDispatcher
+import kotlinx.coroutines.experimental.launch
 
 /**
  * Updates agent properties.
@@ -36,20 +37,26 @@ class AzurePropertiesReader(events: EventDispatcher<AgentLifeCycleListener>,
 
         events.addListener(object : AgentLifeCycleAdapter() {
             override fun afterAgentConfigurationLoaded(agent: BuildAgent) {
-                // Try to get machine details from Instance Metadata Service
-                myMetadataReader.process()
-
-                // Then override them by custom data if available
-                when {
-                    SystemInfo.isUnix -> myUnixCustomDataReader.process()
-                    SystemInfo.isWindows -> myWindowsCustomDataReader.process()
-                    else -> {
-                        LOG.warn("Azure integration is disabled: unsupported OS family ${SystemInfo.OS_ARCH}(${SystemInfo.OS_VERSION})")
-                        return
-                    }
-                }
+                fetchConfiguration()
             }
         })
+    }
+
+    private fun fetchConfiguration() {
+        launch {
+            // Try to get machine details from Instance Metadata Service
+            myMetadataReader.process()
+
+            // Then override them by custom data if available
+            when {
+                SystemInfo.isUnix -> myUnixCustomDataReader.process()
+                SystemInfo.isWindows -> myWindowsCustomDataReader.process()
+                else -> {
+                    LOG.warn("Azure integration is disabled: unsupported OS family ${SystemInfo.OS_ARCH}(${SystemInfo.OS_VERSION})")
+                    return@launch
+                }
+            }
+        }
     }
 
     companion object {

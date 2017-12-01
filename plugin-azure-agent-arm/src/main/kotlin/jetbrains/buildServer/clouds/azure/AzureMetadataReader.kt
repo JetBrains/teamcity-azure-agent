@@ -73,7 +73,7 @@ class AzureMetadataReader(private val configuration: BuildAgentConfigurationEx) 
     }
 
     private fun createHttpClient(): CloseableHttpClient {
-        val requestConfig = RequestConfig.custom().setSocketTimeout(60000).setConnectTimeout(60000).build()
+        val requestConfig = RequestConfig.custom().setSocketTimeout(TIMEOUT).setConnectTimeout(TIMEOUT).build()
         return HttpClients.custom().useSystemProperties().setDefaultRequestConfig(requestConfig).build()
     }
 
@@ -108,15 +108,14 @@ class AzureMetadataReader(private val configuration: BuildAgentConfigurationEx) 
     companion object {
         private val LOG = Logger.getInstance(AzureMetadataReader::class.java.name)
         private val METADATA_URL = "http://169.254.169.254/metadata/instance?api-version=2017-04-02"
+        private val TIMEOUT = 10000
         private val GSON = Gson()
 
-        fun deserializeMetadata(json: String): Metadata? {
-            return try {
-                GSON.fromJson<Metadata>(json, Metadata::class.java)
-            } catch (e: Exception) {
-                LOG.debug("Failed to deserialize JSON data ${e.message}", e)
-                null
-            }
+        fun deserializeMetadata(json: String) = try {
+            GSON.fromJson<Metadata>(json, Metadata::class.java)
+        } catch (e: Exception) {
+            LOG.debug("Failed to deserialize JSON data ${e.message}", e)
+            null
         }
     }
 }

@@ -43,18 +43,16 @@ class AzurePropertiesReader(events: EventDispatcher<AgentLifeCycleListener>,
     }
 
     private fun fetchConfiguration() {
-        launch {
-            // Try to get machine details from Instance Metadata Service
-            myMetadataReader.process()
+        // Try to get machine details from Instance Metadata Service
+        myMetadataReader.process()
 
-            // Then override them by custom data if available
-            when {
-                SystemInfo.isUnix -> myUnixCustomDataReader.process()
-                SystemInfo.isWindows -> myWindowsCustomDataReader.process()
-                else -> {
-                    LOG.warn("Azure integration is disabled: unsupported OS family ${SystemInfo.OS_ARCH}(${SystemInfo.OS_VERSION})")
-                    return@launch
-                }
+        // Then override them by custom data if available
+        when {
+            SystemInfo.isUnix -> myUnixCustomDataReader.process()
+            SystemInfo.isWindows -> myWindowsCustomDataReader.process()
+            else -> {
+                LOG.warn("Azure integration is disabled: unsupported OS family ${SystemInfo.OS_ARCH}(${SystemInfo.OS_VERSION})")
+                return
             }
         }
     }

@@ -1,15 +1,9 @@
 plugins {
-    id "org.jetbrains.kotlin.jvm" version "1.1.4-3"
+    id "org.jetbrains.kotlin.jvm" version "1.2.0"
     id 'com.github.rodm.teamcity-server' version "1.0"
 }
 
 ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.1.2'
-
-repositories {
-    mavenCentral()
-    jcenter()
-    maven { url "https://dl.bintray.com/kotlin/kotlin-eap-1.1/" }
-}
 
 teamcity {
     version = teamcityVersion
@@ -28,7 +22,7 @@ dependencies {
     server project(':plugin-azure-server-base')
     provided project(':plugin-azure-server-base')
 
-    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-stdlib"
     compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version"
     compile "com.microsoft.azure:azure:$azureSdkVersion"
     compile 'com.microsoft.azure:azure-storage:4.0.0'

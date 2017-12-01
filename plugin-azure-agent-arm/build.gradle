@@ -1,5 +1,5 @@
 plugins {
-    id "org.jetbrains.kotlin.jvm" version "1.1.4-3"
+    id "org.jetbrains.kotlin.jvm" version "1.2.0"
     id 'com.github.rodm.teamcity-agent' version "1.0"
 }
 
@@ -17,10 +17,13 @@ teamcity {
     }
 }
 
+kotlin { experimental { coroutines 'enable' } }
+
 dependencies {
     compile project(':plugin-azure-common')
     compile project(':plugin-azure-agent-base')
-    compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    compile "org.jetbrains.kotlin:kotlin-stdlib"
+    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version"
     compile 'com.google.code.gson:gson:2.5'
     compile 'org.apache.httpcomponents:httpclient:4.3.4'
     provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"

@@ -22,7 +22,6 @@ import jetbrains.buildServer.agent.AgentLifeCycleAdapter
 import jetbrains.buildServer.agent.AgentLifeCycleListener
 import jetbrains.buildServer.agent.BuildAgent
 import jetbrains.buildServer.util.EventDispatcher
-import kotlinx.coroutines.experimental.launch
 
 /**
  * Updates agent properties.

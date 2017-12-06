@@ -30,7 +30,7 @@ public interface FileUtils {
      * @param file is a file.
      * @return contents.
      */
-    String readFile(@NotNull File file);
+    String readFile(@NotNull File file) throws Exception;
 
     /**
      * Gets a file creation date.

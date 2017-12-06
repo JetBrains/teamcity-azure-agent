@@ -57,7 +57,7 @@ public class WindowsConfigReader extends AgentConfigReader {
         final FilesWatcher watcher = new FilesWatcher(new FilesWatcher.WatchedFilesProvider() {
             @NotNull
             @Override
-            public File[] getWatchedFiles() throws IOException {
+            public File[] getWatchedFiles() {
                 return new File[]{configDir};
             }
         });

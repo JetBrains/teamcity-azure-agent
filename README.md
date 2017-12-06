@@ -13,8 +13,8 @@ Enables TeamCity cloud integration with Microsoft Azure and allows virtual machi
 
 ## Overview
 
-This repository contains plugins for Classic and Resource Manager deployment models.
-You can select an approriate plugin according to the [Microsoft deployment guidelines](https://azure.microsoft.com/en-us/documentation/articles/azure-classic-rm/).
+This repository contains plugins for Classic (obsolete) and Resource Manager deployment models.
+You can select an appropriate plugin according to the [Microsoft deployment guidelines](https://azure.microsoft.com/en-us/documentation/articles/azure-classic-rm/).
 
 ## Installation
 
@@ -26,15 +26,13 @@ You can download the last successful plugin build and install it as an [addition
 | TeamCity | Status | Download |
 |----------|--------|----------|
 | 10.x+ | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_BuildResourceManager&branch_TeamcityAzurePlugin=%3Cdefault%3E&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_BuildResourceManager),branch:(name:master)/statusIcon.svg" alt=""/></a> | [Download](https://plugins.jetbrains.com/plugin/9260-azure-resource-manager-cloud-support) |
-| 9.1.4+ | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_BuildResourceManager&branch_TeamcityAzurePlugin=9.1.x&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_BuildResourceManager),branch:(name:9.1.x)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_BuildResourceManager/.lastSuccessful/cloud-azure-arm.zip?branch=9.1.x&guest=1) |
 
-### [Classic](#classic-plugin) 
+### [Classic](#classic-plugin) (obsolete)
 [Blog post](https://blog.jetbrains.com/teamcity/2014/11/introducing-teamcity-azure-plugin-run-builds-in-the-cloud/) about classic plugin.
 
 | TeamCity | Status | Download |
 |----------|--------|----------|
 | 10.x+ | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_Build&branch_TeamcityAzurePlugin=%3Cdefault%3E&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_Build),branch:(name:master)/statusIcon.svg" alt=""/></a> | [Download](https://plugins.jetbrains.com/plugin/9080-azure-classic-cloud-support) |
-| 9.1.4+ | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_Build&branch_TeamcityAzurePlugin=9.1.x&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_Build),branch:(name:9.1.x)/statusIcon.svg" alt=""/></a> | [Download](https://teamcity.jetbrains.com/repository/download/TeamcityAzurePlugin_Build/.lastSuccessful/azure-cloud.zip?branch=9.1.x&guest=1) |
 
 ## Resource Manager Plugin
 
@@ -50,7 +48,7 @@ To create a **VHD image**, follow the instructions for capturing [Linux](https:/
 
 Use **ARM template** for fully customizable build agent deployments. To make and set unique ids for created resources, reference the `[parameters('vmName')]` parameter in your template, which will be filled by the generated name on the build agent start.
 
-## Classic Plugin
+## Classic Plugin (obsolete)
 
 This plugin supports both Windows and Linux virtual machines and can operate in the following ways.
 
@@ -76,10 +74,26 @@ To use the _Fresh Clone_ behaviour, you need to create an image from this instan
 
 To use the _Start/Stop_ behaviour, you just need to stop the Virtual Machine Instance before configuring it in TeamCity.
 
+## Common problems
+
+### TeamCity starts virtual machine but agent is not connected
+
+To retrieve configuration details about TeamCity server build agent needs to read the following files:
+
+* `%SYSTEMDRIVE%\AzureData\CustomData.bin` on Windows
+* `/var/lib/waagent/ovf-env.xml` in Linux
+
+Please check that user under which TeamCity build agent is running has read access permissions to the mentioned files.
+
+### Problems investigation
+
+To investigate the problems it worth look at the `teamcity-agent.log` agent log file and `teamcity-clouds.log` server log file.
+You could file an issue in the [TeamCity tracker](#feedback) and privately attach these file for investigation by TeamCity team. 
+
 ## License
 
 Apache 2.0
 
 ## Feedback
 
-Please feel free to post an issue in the [TeamCity issue tracker](https://youtrack.jetbrains.com/issues/TW).
+Please feel free to send a PR or file an issue in the [TeamCity issue tracker](https://youtrack.jetbrains.com/newIssue?project=TW&clearDraft=true&summary=Azure+Cloud%3A&c=Assignee+Dmitry.Tretyakov&c=Subsystem+plugins%3A+other&c=tag+Azure+Resource+Manager).

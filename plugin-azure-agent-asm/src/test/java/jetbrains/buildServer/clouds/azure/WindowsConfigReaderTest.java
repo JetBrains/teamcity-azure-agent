@@ -36,7 +36,7 @@ import java.util.Collections;
 public class WindowsConfigReaderTest {
 
     @Test
-    public void testProcessWindowsConfig() throws IOException {
+    public void testProcessWindowsConfig() throws Exception {
         final Mockery m = new Mockery() {{
             setImposteriser(ClassImposteriser.INSTANCE);
         }};
@@ -74,7 +74,7 @@ public class WindowsConfigReaderTest {
     }
 
     @Test
-    public void testProcessWindowsConfigWithoutEndpoints() throws IOException {
+    public void testProcessWindowsConfigWithoutEndpoints() throws Exception {
         final Mockery m = new Mockery() {{
             setImposteriser(ClassImposteriser.INSTANCE);
         }};
@@ -107,7 +107,7 @@ public class WindowsConfigReaderTest {
     }
 
     @Test
-    public void testDisableIntegrationWithoutCustomDataFile() throws IOException {
+    public void testDisableIntegrationWithoutCustomDataFile() throws Exception {
         final Mockery m = new Mockery() {{
             setImposteriser(ClassImposteriser.INSTANCE);
         }};
@@ -134,7 +134,7 @@ public class WindowsConfigReaderTest {
     }
 
     @Test
-    public void testDisableIntegrationWithoutPropertiesFile() throws IOException {
+    public void testDisableIntegrationWithoutPropertiesFile() throws Exception {
         final Mockery m = new Mockery() {{
             setImposteriser(ClassImposteriser.INSTANCE);
         }};

@@ -35,7 +35,8 @@ class AzureMetadataReader(private val configuration: BuildAgentConfigurationEx) 
                     addHeader("Metadata", "true")
                 })
             } catch (e: Exception) {
-                LOG.infoAndDebugDetails("Azure instance metadata is not available: Failed to connect to $METADATA_URL: ${e.message}", e)
+                LOG.info("Azure instance metadata is not available: Failed to connect to $METADATA_URL: ${e.message}")
+                LOG.debug(e)
                 return
             }
 

@@ -36,7 +36,7 @@ import java.util.Collections;
  */
 public class UnixConfigReaderTest {
     @Test
-    public void testProcessUnixConfig() throws IOException {
+    public void testProcessUnixConfig() throws Exception {
         final Mockery m = new Mockery() {{
             setImposteriser(ClassImposteriser.INSTANCE);
         }};
@@ -72,7 +72,7 @@ public class UnixConfigReaderTest {
     }
 
     @Test
-    public void testProcessUnixConfig2() throws IOException {
+    public void testProcessUnixConfig2() throws Exception {
         final Mockery m = new Mockery() {{
             setImposteriser(ClassImposteriser.INSTANCE);
         }};
@@ -109,7 +109,7 @@ public class UnixConfigReaderTest {
     }
 
     @Test
-    public void testDisableIntegrationWithoutCustomDataFile() throws IOException {
+    public void testDisableIntegrationWithoutCustomDataFile() throws Exception {
         final Mockery m = new Mockery() {{
             setImposteriser(ClassImposteriser.INSTANCE);
         }};
@@ -136,7 +136,7 @@ public class UnixConfigReaderTest {
     }
 
     @Test
-    public void testDisableIntegrationWithoutPropertiesFile() throws IOException {
+    public void testDisableIntegrationWithoutPropertiesFile() throws Exception {
         final Mockery m = new Mockery() {{
             setImposteriser(ClassImposteriser.INSTANCE);
         }};

@@ -37,32 +37,17 @@ public class FileUtilsImpl implements FileUtils {
     private static final String UNIX_SHELL_PATH = "/bin/sh";
 
     @Override
-    public String readFile(@NotNull final File file) {
+    public String readFile(@NotNull final File file) throws Exception {
         final File parentDir = file.getParentFile();
-        if (!parentDir.exists() || !parentDir.isDirectory()) {
-            LOG.debug("Parent directory not exists " + parentDir);
-            return null; // no waagent dir
-        }
-
-        if (!parentDir.canExecute() && SystemInfo.isUnix) {
-            LOG.debug("Reading file content " + file + " with sudo");
+        if (SystemInfo.isUnix && parentDir.exists() && parentDir.isDirectory() && !parentDir.canExecute()) {
+            LOG.info("Reading file content " + file + " with sudo");
             return readFileWithSudo(file);
         }
 
-        if (!file.exists()) {
-            LOG.debug("File " + file + " not found");
-            return StringUtil.EMPTY;
-        }
-
-        try {
-            return FileUtil.readText(file);
-        } catch (IOException e) {
-            LOG.infoAndDebugDetails("Failed to read file " + file, e);
-            return StringUtil.EMPTY;
-        }
+        return FileUtil.readText(file);
     }
 
-    private String readFileWithSudo(@NotNull final File file) {
+    private String readFileWithSudo(@NotNull final File file) throws IOException {
         final GeneralCommandLine commandLine = new GeneralCommandLine();
         commandLine.setExePath(UNIX_SHELL_PATH);
         commandLine.addParameter("-c");
@@ -70,8 +55,7 @@ public class FileUtilsImpl implements FileUtils {
 
         final ExecResult execResult = SimpleCommandLineProcessRunner.runCommand(commandLine, new byte[0]);
         if (execResult.getExitCode() != 0) {
-            final String stderr = execResult.getStderr();
-            LOG.info(stderr);
+            throw new IOException("Failed to read file: " + execResult.getStderr());
         }
 
         return StringUtil.trim(execResult.getStdout());

@@ -18,15 +18,12 @@ package jetbrains.buildServer.clouds.azure;
 
 import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx;
-import jetbrains.buildServer.clouds.CloudInstanceUserData;
 import jetbrains.buildServer.util.StringUtil;
 import org.jdom.Attribute;
 import org.jdom.Element;
 import org.jdom.JDOMException;
 import org.jdom.xpath.XPath;
 import org.jetbrains.annotations.NotNull;
-
-import java.util.Map;
 
 /**
  * Configuration reader.
@@ -36,6 +33,7 @@ public abstract class AgentConfigReader {
     private static final Logger LOG = Logger.getInstance(AzurePropertiesReader.class.getName());
 
     protected static final String FAILED_TO_READ_AZURE_PROPERTIES_FILE = "Failed to read azure properties file %s";
+    protected static final String FAILED_TO_PROCESS_AZURE_PROPERTIES_FILE = "Failed to process azure properties file %s";
     private final BuildAgentConfigurationEx myAgentConfiguration;
 
     public AgentConfigReader(@NotNull final BuildAgentConfigurationEx agentConfiguration) {

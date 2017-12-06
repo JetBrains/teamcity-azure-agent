@@ -12,7 +12,6 @@ import org.jdom.xpath.XPath;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,34 +21,30 @@ public class UnixCustomDataReader extends AzureCustomDataReader {
     private static final String UNIX_CONFIG_DIR = "/var/lib/waagent/";
     private static final String UNIX_CUSTOM_DATA_FILE = UNIX_CONFIG_DIR + "ovf-env.xml";
     private static final String WINDOWSAZURE_NAMESPACE = "http://schemas.microsoft.com/windowsazure";
-    private final FileUtils myFileUtils;
 
-    public UnixCustomDataReader(@NotNull BuildAgentConfigurationEx agentConfiguration,
-                                @NotNull IdleShutdown idleShutdown,
+    public UnixCustomDataReader(@NotNull final BuildAgentConfigurationEx agentConfiguration,
+                                @NotNull final IdleShutdown idleShutdown,
                                 @NotNull final FileUtils fileUtils) {
-        super(agentConfiguration, idleShutdown);
-        myFileUtils = fileUtils;
+        super(agentConfiguration, idleShutdown, fileUtils);
     }
 
     @Override
-    void process() {
-        // Check custom data existence
-        final File customDataFile = new File(UNIX_CUSTOM_DATA_FILE);
-        final String customData = myFileUtils.readFile(customDataFile);
-        if (StringUtil.isEmpty(customData)) {
-            LOG.info(String.format(CUSTOM_DATA_FILE_IS_EMPTY, customDataFile));
-        } else {
-            // Process custom data
-            try {
-                final Element documentElement = FileUtil.parseDocument(new ByteArrayInputStream(customData.getBytes()), false);
-                if (documentElement == null) {
-                    LOG.warn(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFile));
-                } else {
-                    readCustomData(documentElement);
-                }
-            } catch (Exception e) {
-                LOG.warnAndDebugDetails(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFile), e);
+    protected String getCustomDataFileName() {
+        return UNIX_CUSTOM_DATA_FILE;
+    }
+
+    @Override
+    protected void parseCustomData(String customData) {
+        // Process custom data
+        try {
+            final Element documentElement = FileUtil.parseDocument(new ByteArrayInputStream(customData.getBytes()), false);
+            if (documentElement == null) {
+                LOG.warn(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, getCustomDataFileName()));
+            } else {
+                readCustomData(documentElement);
             }
+        } catch (Exception e) {
+            LOG.warnAndDebugDetails(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, getCustomDataFileName()), e);
         }
     }
 

@@ -25,6 +25,7 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 
 /**
  * Reads configuration settings on Unix.
@@ -46,7 +47,20 @@ public class UnixConfigReader extends AgentConfigReader {
     public void process() {
         // Check properties file existence
         final File propertiesFile = new File(UNIX_PROP_FILE);
-        final String xmlData = myFileUtils.readFile(propertiesFile);
+        final String xmlData;
+
+        try {
+            xmlData = myFileUtils.readFile(propertiesFile);
+        } catch (FileNotFoundException e) {
+            String message = AzureUtils.getFileNotFoundMessage(e);
+            LOG.info(String.format(FAILED_TO_READ_AZURE_PROPERTIES_FILE + ": %s", propertiesFile, message));
+            LOG.debug(e);
+            return;
+        } catch (Exception e) {
+            LOG.infoAndDebugDetails(String.format(FAILED_TO_READ_AZURE_PROPERTIES_FILE, propertiesFile), e);
+            return;
+        }
+
         if (StringUtil.isEmpty(xmlData)) {
             LOG.info(String.format("Azure properties file %s is empty", propertiesFile));
             return;
@@ -56,13 +70,13 @@ public class UnixConfigReader extends AgentConfigReader {
         try {
             final Element documentElement = FileUtil.parseDocument(new ByteArrayInputStream(xmlData.getBytes()), false);
             if (documentElement == null) {
-                LOG.warn(String.format("Unable to read azure properties file %s", propertiesFile));
+                LOG.warn(String.format(FAILED_TO_PROCESS_AZURE_PROPERTIES_FILE, propertiesFile));
                 return;
             }
 
             setInstanceParameters(documentElement);
         } catch (Exception e) {
-            LOG.warnAndDebugDetails(String.format(FAILED_TO_READ_AZURE_PROPERTIES_FILE, propertiesFile), e);
+            LOG.warnAndDebugDetails(String.format(FAILED_TO_PROCESS_AZURE_PROPERTIES_FILE, propertiesFile), e);
             LOG.info("File contents: " + xmlData);
         }
     }

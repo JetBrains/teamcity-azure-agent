@@ -87,7 +87,7 @@ Please check that user under which TeamCity build agent is running has read acce
 
 ### Problems investigation
 
-To investigate the problems it worth look at the `teamcity-agent.log` agent log file and `teamcity-clouds.log` server log file.
+To investigate the problems it worth look at the `teamcity-agent.log` [agent log file](https://confluence.jetbrains.com/display/TCDL/Viewing+Build+Agent+Logs) and `teamcity-clouds.log` [server log file](https://confluence.jetbrains.com/display/TCDL/TeamCity+Server+Logs).
 You could file an issue in the [TeamCity tracker](#feedback) and privately attach these file for investigation by TeamCity team. 
 
 ## License

@@ -117,13 +117,26 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
     if (myStatus.get() == status) {
       return;
     }
+
     LOG.info(String.format("Changing %s(%x) status from %s to %s ", getName(), hashCode(), myStatus, status));
     myStatus.set(status);
-    myStatusUpdateTime.set(new Date());
+
+    final Date currentDate = new Date();
+    myStatusUpdateTime.set(currentDate);
+
+    if (status == InstanceStatus.RUNNING) {
+      setStartDate(currentDate);
+    }
   }
 
   @NotNull
   public Date getStartedTime() {
+    InstanceStatus status = getStatus();
+
+    if (status.isStartingOrStarted() && status != InstanceStatus.RUNNING) {
+      return new Date();
+    }
+
     return myStartDate.get();
   }
 

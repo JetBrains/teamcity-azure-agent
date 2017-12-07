@@ -173,6 +173,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                     try {
                         LOG.info("Starting stopped virtual machine ${it.name}")
                         myApiConnector.startVmAsync(it).await()
+                        instance.status = InstanceStatus.RUNNING
                     } catch (e: Throwable) {
                         LOG.warnAndDebugDetails(e.message, e)
                         it.status = InstanceStatus.ERROR
@@ -209,6 +210,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             try {
                 LOG.info("Restarting virtual machine ${instance.name}")
                 myApiConnector.restartVmAsync(instance).await()
+                instance.status = InstanceStatus.RUNNING
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 instance.status = InstanceStatus.ERROR

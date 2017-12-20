@@ -249,7 +249,7 @@
                 </td>
             </tr>
             <tr data-bind="if: image().imageType() == 'Image'">
-                <th class="noBorder"><label for="${cons.storageAccountType}">Storage Type: <l:star/></label></th>
+                <th class="noBorder"><label for="${cons.storageAccountType}">Disk Type: <l:star/></label></th>
                 <td>
                     <select name="${cons.storageAccountType}" class="longField ignoreModified"
                             data-bind="options: storageAccountTypes, optionsText: 'text', optionsValue: 'id',

@@ -2,10 +2,10 @@
 <teamcity-plugin xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:shemas-jetbrains-com:teamcity-plugin-v1-xml">
   <info>
     <name>cloud-azure-arm</name>
-    <display-name>Azure Support: Resource Manager integration</display-name>
+    <display-name>Azure Resource Manager Cloud Support</display-name>
     <version>@Version@</version>
-    <description>Support for build agents running on Azure Cloud</description>
-    <download-url>https://github.com/Jetbrains/teamcity-azure-plugin</download-url>
+    <description>Allows to use virtual machines in Microsoft Azure cloud to scale the pool of TeamCity build agents.</description>
+    <download-url>https://github.com/JetBrains/teamcity-azure-plugin</download-url>
     <vendor>
       <name>JetBrains, s.r.o.</name>
       <url>http://www.jetbrains.com/</url>

@@ -12,7 +12,7 @@ import java.util.*
 
 class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
     private val LOG = Logger.getInstance(AzureVhdHandler::class.java.name)
-    private val METADATA_CONTENT_MD5 = "contentMD5"
+    private val METADATA_ETAG = "etag"
 
     @Suppress("UselessCallOnNotNull")
     override fun checkImageAsync(image: AzureCloudImage) = async(CommonPool) {
@@ -75,6 +75,6 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
         val imageUrl = details.imageUrl!!
         val region = details.region!!
         val metadata = connector.getVhdMetadataAsync(imageUrl, region).await() ?: emptyMap()
-        metadata[METADATA_CONTENT_MD5] ?: ""
+        metadata[METADATA_ETAG] ?: ""
     }
 }

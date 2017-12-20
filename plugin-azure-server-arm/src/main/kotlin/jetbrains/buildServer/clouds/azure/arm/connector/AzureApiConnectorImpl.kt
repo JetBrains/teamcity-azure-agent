@@ -58,7 +58,6 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     private val PUBLIC_IP_SUFFIX = "-pip"
     private val PROVISIONING_STATE = "ProvisioningState/"
     private val POWER_STATE = "PowerState/"
-    private val NOT_FOUND_ERROR = "Invalid status code 404"
     private val HTTP_PROXY_HOST = "http.proxyHost"
     private val HTTP_PROXY_PORT = "http.proxyPort"
     private val HTTPS_PROXY_HOST = "https.proxyHost"
@@ -199,23 +198,25 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     private fun getInstanceDataAsync(instance: AzureInstance, details: AzureCloudImageDetails) = async(CommonPool) {
         val name = instance.name
         val groupId = getResourceGroup(details, name)
-        val promises = arrayListOf<Deferred<Unit>>()
+        val promises = arrayListOf<Deferred<Any?>>()
+
         promises += async(CommonPool, CoroutineStart.LAZY) {
-            val machine = getVirtualMachineAsync(groupId, name).await() ?: throw CloudException(NOT_FOUND_ERROR)
-            LOG.debug("Received virtual machine $name info")
+            getVirtualMachineAsync(groupId, name).await()?.let {
+                LOG.debug("Received virtual machine $name info")
 
-            for (status in machine.instanceView().statuses()) {
-                val code = status.code()
-                if (code.startsWith(PROVISIONING_STATE)) {
-                    instance.setProvisioningState(code.substring(PROVISIONING_STATE.length))
-                    val dateTime = status.time()
-                    if (dateTime != null) {
-                        instance.setStartDate(dateTime.toDate())
+                for (status in it.instanceView().statuses()) {
+                    val code = status.code()
+                    if (code.startsWith(PROVISIONING_STATE)) {
+                        instance.setProvisioningState(code.substring(PROVISIONING_STATE.length))
+                        val dateTime = status.time()
+                        if (dateTime != null) {
+                            instance.setStartDate(dateTime.toDate())
+                        }
                     }
-                }
 
-                if (code.startsWith(POWER_STATE)) {
-                    instance.setPowerState(code.substring(POWER_STATE.length))
+                    if (code.startsWith(POWER_STATE)) {
+                        instance.setPowerState(code.substring(POWER_STATE.length))
+                    }
                 }
             }
         }

@@ -147,6 +147,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     osType: ko.observable().extend(requiredForNonTemplate),
     maxInstances: ko.observable(1).extend({required: true, min: 0}),
     vmSize: ko.observable().extend(requiredForNonTemplate),
+    storageAccountType: ko.observable(),
     vmNamePrefix: ko.observable('').trimmed().extend({required: true, maxLength: maxLength}).extend({
       validation: {
         validator: function (value) {
@@ -191,6 +192,10 @@ function ArmImagesViewModel($, ko, dialog, config) {
     {id: "AZURE_CHINA", text: "Azure China"},
     {id: "AZURE_GERMANY", text: "Azure Germany"},
     {id: "AZURE_US_GOVERNMENT", text: "Azure US Government"}
+  ]);
+  self.storageAccountTypes = ko.observableArray([
+    {id: "Standard_LRS", text: "HDD"},
+    {id: "Premium_LRS", text: "SSD"}
   ]);
 
   self.deployTargets = ko.observableArray([
@@ -303,6 +308,17 @@ function ArmImagesViewModel($, ko, dialog, config) {
     self.image().vmNamePrefix(vmName);
   });
 
+  self.image().vmSize.subscribe(function (value) {
+    if (!value) return;
+
+    var storageTypes = [{id: "Standard_LRS", text: "HDD"}];
+    if (/(DS|GS|LS|FS)/i.test(value)) {
+      storageTypes.push({id: "Premium_LRS", text: "SSD"});
+    }
+
+    self.storageAccountTypes(storageTypes);
+  });
+
   self.image().networkId.subscribe(function (networkId) {
     var subNetworks = self.nets[networkId] || [];
     self.subNetworks(subNetworks);
@@ -315,6 +331,11 @@ function ArmImagesViewModel($, ko, dialog, config) {
     images.forEach(function (image) {
       if (image["source-id"]) {
         image.vmNamePrefix = image["source-id"];
+      } else {
+        saveValue = true;
+      }
+      if (image.agent_pool_id) {
+        image.agentPoolId = image.agent_pool_id;
       } else {
         saveValue = true;
       }
@@ -390,8 +411,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.vmPublicIp(image.vmPublicIp);
     model.vmUsername(image.vmUsername);
     model.reuseVm(image.reuseVm);
+    model.storageAccountType(image.storageAccountType);
     model.template(image.template);
-    model.agentPoolId(image.agent_pool_id);
+    model.agentPoolId(image.agentPoolId);
     model.profileId(image.profileId);
 
     var key = image.vmNamePrefix;
@@ -427,6 +449,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       vmSize: model.vmSize(),
       vmUsername: model.vmUsername(),
       reuseVm: model.reuseVm(),
+      storageAccountType: model.storageAccountType(),
       template: model.template(),
       agentPoolId: model.agentPoolId(),
       profileId: model.profileId()

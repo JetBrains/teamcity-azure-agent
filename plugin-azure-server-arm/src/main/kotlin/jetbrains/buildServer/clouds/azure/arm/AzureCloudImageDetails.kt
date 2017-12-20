@@ -55,6 +55,8 @@ class AzureCloudImageDetails(
         private val myMaxInstances: Int,
         @SerializedName(AzureConstants.VM_USERNAME)
         val username: String?,
+        @SerializedName(AzureConstants.STORAGE_ACCOUNT_TYPE)
+        val storageAccountType: String?,
         @SerializedName(AzureConstants.TEMPLATE)
         val template: String?,
         @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)

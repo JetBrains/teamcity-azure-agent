@@ -85,6 +85,9 @@ class AzureConstants {
     val reuseVm: String
         get() = REUSE_VM
 
+    val storageAccountType: String
+        get() = STORAGE_ACCOUNT_TYPE
+
     val template: String
         get() = TEMPLATE
 
@@ -116,6 +119,7 @@ class AzureConstants {
         const val VM_USERNAME = "vmUsername"
         const val VM_PASSWORD = "vmPassword"
         const val REUSE_VM = "reuseVm"
+        const val STORAGE_ACCOUNT_TYPE = "storageAccountType"
         const val TEMPLATE = "template"
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"

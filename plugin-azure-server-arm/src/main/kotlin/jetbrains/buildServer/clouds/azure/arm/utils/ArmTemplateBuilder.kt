@@ -115,6 +115,23 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
+    fun setStorageAccountType(storageAccountType: String?): ArmTemplateBuilder {
+        if (!storageAccountType.isNullOrEmpty()) {
+            (root["resources"] as ArrayNode).apply {
+                this.filterIsInstance<ObjectNode>()
+                        .first { it["name"].asText() == "[parameters('vmName')]" }
+                        .apply {
+                            (this["properties"]["storageProfile"]["osDisk"] as ObjectNode).apply {
+                                this.putPOJO("managedDisk", object : Any() {
+                                    val storageAccountType = storageAccountType
+                                })
+                            }
+                        }
+            }
+        }
+        return this
+    }
+
     fun setCustomData(customData: String): ArmTemplateBuilder {
         (root["resources"] as ArrayNode).apply {
             this.filterIsInstance<ObjectNode>()

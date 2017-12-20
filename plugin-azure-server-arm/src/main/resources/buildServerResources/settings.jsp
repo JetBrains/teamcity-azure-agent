@@ -118,7 +118,7 @@
                 <td>
                     <select name="${cons.region}" class="longField ignoreModified"
                             data-bind="options: regions, optionsText: 'text', optionsValue: 'id',
-                            optionsCaption: 'Select', value: image().region, enable: regions().length > 0"></select>
+                            optionsCaption: '<Select>', value: image().region, enable: regions().length > 0"></select>
                     <a href="#" title="Reload regions" data-bind="click: loadRegions.bind($data, ['regions'])">
                         <i data-bind="css: {'icon-spin': loadingRegions}" class="icon-refresh"></i>
                     </a>
@@ -246,6 +246,14 @@
                     <!-- ko if: loadingResources -->
                     <i class="icon-refresh icon-spin"></i>
                     <!-- /ko -->
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Image'">
+                <th class="noBorder"><label for="${cons.storageAccountType}">Storage Type: <l:star/></label></th>
+                <td>
+                    <select name="${cons.storageAccountType}" class="longField ignoreModified"
+                            data-bind="options: storageAccountTypes, optionsText: 'text', optionsValue: 'id',
+                            optionsCaption: '<Not specified>', value: image().storageAccountType"></select>
                 </td>
             </tr>
             <tr data-bind="if: image().imageType() != 'Template'">

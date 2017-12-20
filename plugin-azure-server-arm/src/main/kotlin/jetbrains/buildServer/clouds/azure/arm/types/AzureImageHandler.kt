@@ -67,6 +67,7 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
                 .setParameterValue("adminUserName", details.username!!)
                 .setParameterValue("adminPassword", details.password!!)
                 .setParameterValue(AzureConstants.OS_TYPE, details.osType!!)
+                .setStorageAccountType(details.storageAccountType)
                 .setParameterValue("vmSize", details.vmSize!!)
     }
 

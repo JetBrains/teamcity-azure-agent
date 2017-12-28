@@ -1,5 +1,4 @@
 plugins {
-    id "org.jetbrains.kotlin.jvm" version "1.2.0"
     id 'com.github.rodm.teamcity-server' version "1.0"
 }
 
@@ -38,3 +37,8 @@ dependencies {
 
 serverPlugin.version = null
 serverPlugin.baseName = 'cloud-azure-arm'
+
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}

@@ -1,3 +1,7 @@
+plugins {
+    id "org.jetbrains.kotlin.jvm" version "1.2.10"
+}
+
 ext {
     def correctVersion = project.hasProperty('versionNumber') && property('versionNumber') ==~ /\d+\.\d+\.\d+.*/
     versionNumber = correctVersion ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
@@ -14,10 +18,7 @@ allprojects {
 }
 
 subprojects {
-    apply plugin: 'java'
-
-    sourceCompatibility = 1.7
-    targetCompatibility = 1.7
+    apply plugin: 'kotlin'
 
     test.useTestNG()
     jar.version = null

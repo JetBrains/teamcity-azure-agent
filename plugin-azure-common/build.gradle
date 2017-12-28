@@ -2,13 +2,15 @@ plugins{
     id 'com.github.rodm.teamcity-common' version "1.0"
 }
 
-sourceCompatibility = 1.6
-targetCompatibility = 1.6
-
 teamcity {
     version = teamcityVersion
 }
 
 dependencies {
     provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
+}
+
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_6
+    targetCompatibility = JavaVersion.VERSION_1_6
 }

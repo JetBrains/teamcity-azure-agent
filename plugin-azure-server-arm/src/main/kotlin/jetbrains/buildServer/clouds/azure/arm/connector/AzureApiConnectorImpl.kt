@@ -43,7 +43,6 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.Lock
 import java.util.concurrent.locks.ReentrantLock
-import java.util.regex.Pattern
 import kotlin.collections.HashMap
 import kotlin.concurrent.withLock
 
@@ -54,7 +53,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
     private val LOG = Logger.getInstance(AzureApiConnectorImpl::class.java.name)
-    private val RESOURCE_GROUP_PATTERN = Pattern.compile("resourceGroups/(.+)/providers/")
+    private val RESOURCE_GROUP_PATTERN = Regex("resourceGroups/([^/]+)/providers/")
     private val PUBLIC_IP_SUFFIX = "-pip"
     private val PROVISIONING_STATE = "ProvisioningState/"
     private val POWER_STATE = "PowerState/"
@@ -98,9 +97,10 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>) = runBlocking {
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
 
+        val machines = getVirtualMachinesAsync().await()
         images.forEach { image ->
             try {
-                val result = fetchInstancesAsync(image).await()
+                val result = findInstancesAsync(image, machines).await()
                 LOG.debug("Received list of image ${image.name} instances")
                 @Suppress("UNCHECKED_CAST")
                 imageMap.put(image, result as Map<String, R>)
@@ -113,48 +113,42 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         imageMap
     }
 
-    private fun fetchInstancesAsync(image: AzureCloudImage) = async(CommonPool) {
+    private fun findInstancesAsync(image: AzureCloudImage, machines: List<VirtualMachine>) = async(CommonPool) {
         val instances = hashMapOf<String, AzureInstance>()
         val details = image.imageDetails
 
-        val machines: List<VirtualMachine>
-        try {
-            machines = getVirtualMachinesAsync().await()
-        } catch (e: Throwable) {
-            val message = "Failed to get list of instances for cloud image ${image.name}: ${e.message}"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
-        }
-
         for (virtualMachine in machines) {
             val name = virtualMachine.name()
-            if (!name.startsWith(details.sourceId, true)) {
-                LOG.debug("Ignore vm with name " + name)
-                continue
-            }
-
             val tags = virtualMachine.tags()
-            if (tags == null) {
-                LOG.debug("Ignore vm without tags")
-                continue
-            }
 
-            val serverId = tags[AzureConstants.TAG_SERVER]
-            if (!serverId.equals(myServerId, true)) {
-                LOG.debug("Ignore vm with invalid server tag " + serverId)
-                continue
-            }
+            if (details.target == AzureCloudDeployTarget.Instance) {
+                if (virtualMachine.id() != details.instanceId!!) {
+                    LOG.debug("Ignore vm with invalid id " + virtualMachine.id())
+                    continue
+                }
+            } else {
+                if (!name.startsWith(details.sourceId, true)) {
+                    LOG.debug("Ignore vm with name " + name)
+                    continue
+                }
 
-            val profileId = tags[AzureConstants.TAG_PROFILE]
-            if (!profileId.equals(myProfileId, true)) {
-                LOG.debug("Ignore vm with invalid profile tag " + profileId)
-                continue
-            }
+                val serverId = tags[AzureConstants.TAG_SERVER]
+                if (!serverId.equals(myServerId, true)) {
+                    LOG.debug("Ignore vm with invalid server tag " + serverId)
+                    continue
+                }
 
-            val sourceName = tags[AzureConstants.TAG_SOURCE]
-            if (!sourceName.equals(details.sourceId, true)) {
-                LOG.debug("Ignore vm with invalid source tag " + sourceName)
-                continue
+                val profileId = tags[AzureConstants.TAG_PROFILE]
+                if (!profileId.equals(myProfileId, true)) {
+                    LOG.debug("Ignore vm with invalid profile tag " + profileId)
+                    continue
+                }
+
+                val sourceName = tags[AzureConstants.TAG_SOURCE]
+                if (!sourceName.equals(details.sourceId, true)) {
+                    LOG.debug("Ignore vm with invalid source tag " + sourceName)
+                    continue
+                }
             }
 
             val instance = AzureInstance(name)
@@ -172,9 +166,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
             }
         }
 
-        val errors = exceptions.map { TypedCloudErrorInfo.fromException(it) }
-                .toTypedArray()
-
+        val errors = exceptions.map { TypedCloudErrorInfo.fromException(it) }.toTypedArray()
         image.updateErrors(*errors)
 
         instances
@@ -269,16 +261,19 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
 
     @Suppress("UselessCallOnNotNull")
     override fun checkImage(image: AzureCloudImage) = runBlocking {
-        val exceptions = image.handler.checkImageAsync(image).await()
-        exceptions.map { TypedCloudErrorInfo.fromException(it) }
-                .toTypedArray()
+        image.handler?.let {
+            return@runBlocking it.checkImageAsync(image).await()
+                    .map { TypedCloudErrorInfo.fromException(it) }
+                    .toTypedArray()
+        }
+        return@runBlocking emptyArray<TypedCloudErrorInfo>()
     }
 
     override fun checkInstance(instance: AzureCloudInstance): Array<TypedCloudErrorInfo> = emptyArray()
 
     /**
      * Gets a list of resource groups.
-     * @return list of images.
+     * @return list of resource groups.
      */
     override fun getResourceGroupsAsync() = async(CommonPool, CoroutineStart.LAZY) {
         try {
@@ -294,6 +289,32 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                     })
         } catch (e: Throwable) {
             val message = "Failed to get list of resource groups: ${e.message}"
+            LOG.debug(message, e)
+            throw CloudException(message, e)
+        }
+    }
+
+    /**
+     * Gets a list of vm instances.
+     * @return list of instances.
+     */
+    override fun getInstancesAsync() = async(CommonPool, CoroutineStart.LAZY) {
+        try {
+            val list = myAzure.withSubscription(mySubscriptionId)
+                    .virtualMachines()
+                    .listAsync()
+                    .awaitList()
+            LOG.debug("Received list of vm instances")
+
+            list.map {
+                it.id() to "${it.resourceGroupName()}/${it.name()}".toLowerCase()
+            }.sortedBy {
+                it.second
+            }.associateTo(LinkedHashMap<String, String>(), {
+                it.first to it.second
+            })
+        } catch (e: Throwable) {
+            val message = "Failed to get list of instances: ${e.message}"
             LOG.debug(message, e)
             throw CloudException(message, e)
         }
@@ -387,7 +408,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         instance.properties[AzureConstants.TAG_SERVER] = myServerId!!
 
         val handler = instance.image.handler
-        val builder = handler.prepareBuilderAsync(instance).await()
+        val builder = handler!!.prepareBuilderAsync(instance).await()
                 .setCustomData(customData)
                 .setTags(instance.properties)
 
@@ -398,6 +419,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                 name
             }
             AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
+            else -> throw CloudException("Creating virtual machine $name is prohibited")
         }
 
         builder.logDetails()
@@ -466,6 +488,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         when (details.target) {
             AzureCloudDeployTarget.NewGroup -> deleteResourceGroupAsync(name).await()
             AzureCloudDeployTarget.SpecificGroup -> deleteDeploymentAsync(groupId, name).await()
+            AzureCloudDeployTarget.Instance -> throw CloudException("Deleting virtual machine $name is prohibited")
         }
 
         // Remove OS disk
@@ -531,7 +554,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     }
 
     private fun deleteDeploymentAsync(groupId: String, deploymentId: String) = async(CommonPool) {
-        deploymentLocks.getOrPut("$groupId/$deploymentId", { -> ReentrantLock() }).withLock {
+        deploymentLocks.getOrPut("$groupId/$deploymentId", { ReentrantLock() }).withLock {
             try {
                 val subscription = myAzure.withSubscription(mySubscriptionId)
                 val deployment = try {
@@ -821,14 +844,15 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
             throw CloudException(message)
         }
 
-        val groupMatcher = RESOURCE_GROUP_PATTERN.matcher(account.id())
-        if (!groupMatcher.find()) {
+        val result = RESOURCE_GROUP_PATTERN.find(account.id())
+        if (result == null) {
             val message = "Invalid storage account identifier " + account.id()
             LOG.debug(message)
             throw CloudException(message)
         }
 
-        val keys = getStorageAccountKeysAsync(groupMatcher.group(1), storage).await()
+        val (groupId) = result.destructured
+        val keys = getStorageAccountKeysAsync(groupId, storage).await()
         try {
             CloudStorageAccount(StorageCredentialsAccountAndKey(storage, keys[0].value()))
         } catch (e: URISyntaxException) {
@@ -1016,6 +1040,13 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         return when (details.target) {
             AzureCloudDeployTarget.NewGroup -> instanceName
             AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
+            AzureCloudDeployTarget.Instance -> {
+                RESOURCE_GROUP_PATTERN.find(details.instanceId!!)?.let {
+                    val (groupId) = it.destructured
+                    return groupId
+                }
+                throw CloudException("Invalid instance ID ${details.instanceId}")
+            }
         }
     }
 }

@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm
 
 import com.intellij.openapi.diagnostic.Logger
+import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.QuotaException
@@ -72,7 +73,11 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             throw QuotaException("Unable to start more instances. Limit has reached")
         }
 
-        val instance = tryToStartStoppedInstanceAsync(userData).await() ?: createInstance(userData)
+        val instance = if (myImageDetails.deployTarget == AzureCloudDeployTarget.Instance) {
+            startStoppedInstance()
+        } else {
+            tryToStartStoppedInstanceAsync(userData).await() ?: createInstance(userData)
+        }
         instance.apply {
             setStartDate(Date())
         }
@@ -91,7 +96,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val data = AzureUtils.setVmNameForTag(userData, name)
 
         async(CommonPool) {
-            val hash = handler.getImageHashAsync(imageDetails).await()
+            val hash = handler!!.getImageHashAsync(imageDetails).await()
 
             instance.properties[AzureConstants.TAG_PROFILE] = userData.profileId
             instance.properties[AzureConstants.TAG_SOURCE] = imageDetails.sourceId
@@ -188,9 +193,38 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         null
     }
 
-    private fun isSameImageInstance(it: AzureCloudInstance) = async(CommonPool) {
-        val hash = handler.getImageHashAsync(imageDetails).await()
-        hash == it.properties[AzureConstants.TAG_IMAGE_HASH]
+    /**
+     * Starts stopped instance.
+     *
+     * @return instance.
+     */
+    private fun startStoppedInstance(): AzureCloudInstance {
+        val instance = stoppedInstances.singleOrNull()
+                ?: throw CloudException("Instance ${imageDetails.vmNamePrefix} was not found")
+
+        instance.status = InstanceStatus.SCHEDULED_TO_START
+
+        async(CommonPool) {
+            try {
+                LOG.info("Starting virtual machine ${instance.name}")
+                myApiConnector.startVmAsync(instance).await()
+                instance.status = InstanceStatus.RUNNING
+            } catch (e: Throwable) {
+                LOG.warnAndDebugDetails(e.message, e)
+                instance.status = InstanceStatus.ERROR
+                instance.updateErrors(TypedCloudErrorInfo.fromException(e))
+            }
+        }
+
+        return instance
+    }
+
+    private fun isSameImageInstance(instance: AzureCloudInstance) = async(CommonPool) {
+        handler?.let {
+            val hash = it.getImageHashAsync(imageDetails).await()
+            return@async hash == instance.properties[AzureConstants.TAG_IMAGE_HASH]
+        }
+        return@async true
     }
 
     private fun getDataHash(userData: CloudInstanceUserData): String {
@@ -250,8 +284,12 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
     override fun getAgentPoolId(): Int? = myImageDetails.agentPoolId
 
-    val handler: AzureHandler
-        get() = myImageHandlers[imageDetails.type]!!
+    val handler: AzureHandler?
+        get() = if (imageDetails.deployTarget == AzureCloudDeployTarget.Instance) {
+            null
+        } else {
+            myImageHandlers[imageDetails.type]
+        }
 
     private fun getInstanceName(): String {
         val keys = instances.map { it.instanceId.toLowerCase() }

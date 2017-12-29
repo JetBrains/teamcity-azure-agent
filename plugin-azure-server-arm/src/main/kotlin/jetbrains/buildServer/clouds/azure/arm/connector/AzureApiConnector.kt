@@ -42,6 +42,8 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     fun getResourceGroupsAsync(): Deferred<Map<String, String>>
 
+    fun getInstancesAsync(): Deferred<Map<String, String>>
+
     fun getImageNameAsync(imageId: String): Deferred<String>
 
     fun getImagesAsync(region: String): Deferred<Map<String, List<String>>>

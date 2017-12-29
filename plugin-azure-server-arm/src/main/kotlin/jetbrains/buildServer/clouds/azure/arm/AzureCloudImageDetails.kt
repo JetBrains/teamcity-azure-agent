@@ -39,6 +39,8 @@ class AzureCloudImageDetails(
         val imageUrl: String?,
         @SerializedName(AzureConstants.IMAGE_ID)
         val imageId: String?,
+        @SerializedName(AzureConstants.INSTANCE_ID)
+        val instanceId: String?,
         @SerializedName(AzureConstants.OS_TYPE)
         val osType: String?,
         @SerializedName(AzureConstants.NETWORK_ID)
@@ -78,8 +80,13 @@ class AzureCloudImageDetails(
 
     override fun getSourceId(): String = mySourceId ?: vmNamePrefix ?: ""
 
-    override fun getBehaviour(): CloneBehaviour =
+    override fun getBehaviour(): CloneBehaviour {
+        return if (target == AzureCloudDeployTarget.Instance) {
+            CloneBehaviour.START_STOP
+        } else {
             if (myReuseVm) CloneBehaviour.ON_DEMAND_CLONE else CloneBehaviour.FRESH_CLONE
+        }
+    }
 
     val target
         get(): AzureCloudDeployTarget = deployTarget ?: AzureCloudDeployTarget.NewGroup

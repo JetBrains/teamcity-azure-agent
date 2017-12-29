@@ -50,6 +50,7 @@ class SettingsController(server: SBuildServer,
     init {
         manager.registerController(myHtmlPath, this)
         HANDLERS.put("resourceGroups", ResourceGroupsHandler())
+        HANDLERS.put("instances", InstancesHandler())
         HANDLERS.put("images", ImagesHandler())
         HANDLERS.put("vmSizes", VmSizesHandler())
         HANDLERS.put("osType", OsTypeHandler())

@@ -44,11 +44,11 @@ function ArmImagesViewModel($, ko, dialog, config) {
   });
 
   // Image details
-  var requiredField = 'This field is required.';
   var maxLength = 12;
   var deployTargets = {
     newGroup: 'NewGroup',
-    specificGroup: 'SpecificGroup'
+    specificGroup: 'SpecificGroup',
+    instance: 'Instance'
   };
   var imageTypes = {
     image: 'Image',
@@ -60,53 +60,62 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.imageType = ko.observable();
 
   var requiredForNonTemplate = {
-    validation: {
-      validator: function (value, imageType) {
-        return imageType === imageTypes.template || value;
-      },
-      message: requiredField,
-      params: self.imageType
+    required: {
+      onlyIf: function() {
+        return self.imageType() !== imageTypes.template &&
+          self.deployTarget() !== deployTargets.instance
+      }
+    }
+  };
+
+  var requiredForDeployment = {
+    required: {
+      onlyIf: function() {
+        return self.deployTarget() !== deployTargets.instance
+      }
     }
   };
 
   self.image = ko.validatedObservable({
-    deployTarget: self.deployTarget.extend({required: true}),
-    region: ko.observable().extend({required: true}),
+    deployTarget: self.deployTarget.extend(requiredForDeployment),
+    region: ko.observable().extend(requiredForDeployment),
     groupId: ko.observable().extend({
-      validation: {
-        validator: function (value, deployTarget) {
-          return deployTarget !== deployTargets.specificGroup || value;
-        },
-        message: requiredField,
-        params: self.deployTarget
+      required: {
+        onlyIf: function() {
+          return self.deployTarget() === deployTargets.specificGroup
+        }
       }
     }),
-    imageType: self.imageType.extend({required: true}),
+    imageType: self.imageType.extend(requiredForDeployment),
     imageUrl: ko.observable('').trimmed().extend({rateLimit: 500}).extend({
-      validation: {
-        validator: function (value, imageType) {
-          return imageType !== imageTypes.vhd || value;
-        },
-        message: requiredField,
-        params: self.imageType
+      required: {
+        onlyIf: function () {
+          return self.deployTarget() !== deployTargets.instance &&
+            self.imageType() === imageTypes.vhd;
+        }
       }
     }),
     imageId: ko.observable().extend({
-      validation: {
-        validator: function (value, imageType) {
-          return imageType !== imageTypes.image || value;
-        },
-        message: requiredField,
-        params: self.imageType
+      required: {
+        onlyIf: function () {
+          return self.deployTarget() !== deployTargets.instance &&
+            self.imageType() === imageTypes.image;
+        }
+      }
+    }),
+    instanceId: ko.observable().extend({
+      required: {
+        onlyIf: function () {
+          return self.deployTarget() === deployTargets.instance;
+        }
       }
     }),
     template: ko.observable().extend({
-      validation: {
-        validator: function (value, imageType) {
-          return imageType !== imageTypes.template || value;
-        },
-        message: requiredField,
-        params: self.imageType
+      required: {
+        onlyIf: function () {
+          return self.deployTarget() !== deployTargets.instance &&
+            self.imageType() === imageTypes.template;
+        }
       }
     }).extend({
       validation: {
@@ -177,6 +186,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.regions = ko.observableArray([]);
   self.regionName = ko.observable("");
   self.sourceImages = ko.observableArray([]);
+  self.instances = ko.observableArray([]);
   self.networks = ko.observableArray([]);
   self.subNetworks = ko.observableArray([]);
   self.vmSizes = ko.observableArray([]);
@@ -200,7 +210,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   self.deployTargets = ko.observableArray([
     {id: deployTargets.newGroup, text: "New resource group"},
-    {id: deployTargets.specificGroup, text: "Specific resource group"}
+    {id: deployTargets.specificGroup, text: "Specific resource group"},
+    {id: deployTargets.instance, text: "Use existing virtual machine"}
   ]);
 
   self.imageTypes = ko.observableArray([
@@ -215,6 +226,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   // Deserialized values
   self.images = ko.observableArray();
+  self.instances = ko.observableArray();
   self.nets = {};
   self.passwords = {};
 
@@ -308,6 +320,16 @@ function ArmImagesViewModel($, ko, dialog, config) {
     self.image().vmNamePrefix(vmName);
   });
 
+  self.image().instanceId.subscribe(function (value) {
+    if (!value) return;
+
+    // Fill vm prefix from instance ID
+    var imageName = self.getFileName(value);
+    var vmName = getVmNamePrefix(imageName);
+    self.image().vmNamePrefix(vmName);
+    self.image().maxInstances(1)
+  });
+
   self.image().vmSize.subscribe(function (value) {
     if (!value) return;
 
@@ -383,6 +405,13 @@ function ArmImagesViewModel($, ko, dialog, config) {
       self.sourceImages([{id: imageId, text: self.getFileName(imageId), osType: image.osType}]);
     }
 
+    var instanceId = image.instanceId;
+    if (instanceId && !ko.utils.arrayFirst(self.instances(), function (item) {
+        return item.id === instanceId;
+      })) {
+      self.instances([{id: instanceId, text: self.getFileName(instanceId)}]);
+    }
+
     var vmSize = image.vmSize;
     if (vmSize && self.vmSizes.indexOf(vmSize) < 0) {
       self.vmSizes([vmSize]);
@@ -402,6 +431,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.imageType(image.imageType || imageTypes.vhd);
     model.imageUrl(image.imageUrl);
     model.imageId(imageId);
+    model.instanceId(instanceId);
     model.osType(image.osType);
     model.networkId(networkId);
     model.subnetId(image.subnetId);
@@ -440,6 +470,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       imageType: model.imageType(),
       imageUrl: model.imageUrl(),
       imageId: model.imageId(),
+      instanceId: model.instanceId(),
       osType: model.osType(),
       networkId: model.networkId(),
       subnetId: model.subnetId(),
@@ -475,17 +506,22 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   self.deleteImage = function (image) {
     var imageName = "";
-    switch (image.imageType) {
-      case imageTypes.image:
-        imageName = 'source image ' + self.getFileName(image.imageId);
-        break;
-      case imageTypes.template:
-        imageName = 'template';
-        break;
-      case imageTypes.vhd:
-        imageName = 'VHD ' + image.imageUrl;
-        break;
+    if (image.deployTarget !== deployTargets.instance) {
+      switch (image.imageType) {
+        case imageTypes.image:
+          imageName = 'source image ' + self.getFileName(image.imageId);
+          break;
+        case imageTypes.template:
+          imageName = 'template';
+          break;
+        case imageTypes.vhd:
+          imageName = 'VHD ' + image.imageUrl;
+          break;
+      }
+    } else {
+      imageName = 'virtual machine ' + self.getFileName(image.instanceId);
     }
+
     var message = "Do you really want to delete agent image based on " + imageName + "?";
     var remove = confirm(message);
     if (!remove) {
@@ -502,8 +538,18 @@ function ArmImagesViewModel($, ko, dialog, config) {
     return false;
   };
 
-  self.getOsImage = function (osType) {
-    var image = self.osTypeImage[osType] || "/img/buildTypeTemplate.png";
+  self.getOsImage = function (data) {
+    if (!data) return "";
+
+    var image;
+    if (ko.unwrap(data.imageType) === imageTypes.template) {
+      image = "/img/buildTypeTemplate.png";
+    } else if (ko.unwrap(data.deployTarget) === deployTargets.instance) {
+      image = "/img/buildType.png"
+    } else {
+      image = self.osTypeImage[ko.unwrap(data.osType)];
+    }
+
     return "url('" + image + "')";
   };
 
@@ -534,7 +580,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
   };
 
   self.loadRegions = function (types) {
-    types = types || ['regions', 'resourceGroups'];
+    types = types || ['regions', 'resourceGroups', 'instances'];
 
     var url = types.reduce(function (prev, element) {
       return prev + "&resource=" + element;
@@ -560,6 +606,11 @@ function ArmImagesViewModel($, ko, dialog, config) {
       if (types.indexOf('resourceGroups') >= 0) {
         var groups = getResourceGroups($response);
         self.resourceGroups(groups);
+      }
+
+      if (types.indexOf('instances') >= 0) {
+        var instances = getInstances($response);
+        self.instances(instances);
       }
     }, function (error) {
       self.errorRegions("Failed to data: " + error.message);
@@ -773,6 +824,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   function getRegions($response) {
     return $response.find("regions:eq(0) region").map(function () {
+      return {id: $(this).attr("id"), text: $(this).text()};
+    }).get();
+  }
+
+  function getInstances($response) {
+    return $response.find("instances:eq(0) instance").map(function () {
       return {id: $(this).attr("id"), text: $(this).text()};
     }).get();
   }

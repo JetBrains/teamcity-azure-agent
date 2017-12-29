@@ -55,6 +55,9 @@ class AzureConstants {
     val imageId: String
         get() = IMAGE_ID
 
+    val instanceId: String
+        get() = INSTANCE_ID
+
     val osType: String
         get() = OS_TYPE
 
@@ -109,6 +112,7 @@ class AzureConstants {
         const val IMAGE_TYPE = "imageType"
         const val IMAGE_URL = "imageUrl"
         const val IMAGE_ID = "imageId"
+        const val INSTANCE_ID = "instanceId"
         const val OS_TYPE = "osType"
         const val NETWORK_ID = "networkId"
         const val SUBNET_ID = "subnetId"

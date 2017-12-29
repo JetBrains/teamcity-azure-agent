@@ -1,4 +1,7 @@
-# TeamCity Azure Cloud Plugins  [![official JetBrains project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+# TeamCity Azure Cloud Plugins
+
+[![official JetBrains project](http://jb.gg/badges/official.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
+<a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_BuildResourceManager&branch_TeamcityAzurePlugin=%3Cdefault%3E&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_BuildResourceManager),branch:(name:master)/statusIcon.svg" alt=""/></a>
 
 Enables TeamCity cloud integration with Microsoft Azure and allows virtual machines usage to scale the pool of build agents.
 
@@ -17,16 +20,11 @@ You can select an appropriate plugin according to the [Microsoft deployment guid
 
 ## Installation
 
-You can download the last successful plugin build and install it as an [additional TeamCity plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins).
-
-### Download
-[Blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/) about the resource manager plugin.
-
-| TeamCity | Status | Download |
-|----------|--------|----------|
-| 10.x+ | <a href="https://teamcity.jetbrains.com/viewType.html?buildTypeId=TeamcityAzurePlugin_BuildResourceManager&branch_TeamcityAzurePlugin=%3Cdefault%3E&guest=1"><img src="https://teamcity.jetbrains.com/app/rest/builds/buildType:(id:TeamcityAzurePlugin_BuildResourceManager),branch:(name:master)/statusIcon.svg" alt=""/></a> | [Download](https://plugins.jetbrains.com/plugin/9260-azure-resource-manager-cloud-support) |
+You can [download](https://plugins.jetbrains.com/plugin/9260-azure-resource-manager-cloud-support) the plugin build and install it as an [additional plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins) for TeamCity 10.x+.
 
 ## Usage
+
+[Blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/) about Azure Resource Manager plugin for TeamCity.
 
 The plugin supports generalized virtual machine images to start TeamCity build agents. You must use the [Azure AD application](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#create-application) and the [authentication key](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#create-an-authentication-key) to enable cloud integration and assign the [_Contributor_ role](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#assign-application-to-role) for it in your subscription on the [new portal](https://portal.azure.com/).
 

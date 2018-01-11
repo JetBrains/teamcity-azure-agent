@@ -351,7 +351,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                     .listAsync()
                     .awaitList()
                     .filter {
-                        it.regionName() == region && it.osDiskImage().osState() == OperatingSystemStateTypes.GENERALIZED
+                        it.regionName().equals(region, ignoreCase = true) && it.osDiskImage().osState() == OperatingSystemStateTypes.GENERALIZED
                     }
             LOG.debug("Received list of images")
 

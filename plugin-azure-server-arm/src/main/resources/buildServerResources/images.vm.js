@@ -334,7 +334,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     if (!value) return;
 
     var storageTypes = [{id: "Standard_LRS", text: "HDD"}];
-    if (!/^(Basic|Standard)_A\d+$/i.test(value)) {
+    if (/^(Basic|Standard)_.+s.*$/i.test(value)) {
       storageTypes.push({id: "Premium_LRS", text: "SSD"});
     }
 

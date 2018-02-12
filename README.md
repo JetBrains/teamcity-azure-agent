@@ -39,7 +39,7 @@ Use **ARM template** for fully customizable build agent deployments. To make and
 
 ### TeamCity starts virtual machine but agent is not connected
 
-To retrieve configuration details about TeamCity server build agent needs to read the following files:
+To retrieve server configuration details TeamCity build agent needs to read the following files:
 
 * `%SYSTEMDRIVE%\AzureData\CustomData.bin` on Windows
 * `/var/lib/waagent/ovf-env.xml` in Linux

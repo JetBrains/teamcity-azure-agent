@@ -6,10 +6,6 @@ teamcity {
     version = teamcityVersion
 }
 
-dependencies {
-    provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
-}
-
 compileKotlin {
     sourceCompatibility = JavaVersion.VERSION_1_6
     targetCompatibility = JavaVersion.VERSION_1_6

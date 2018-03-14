@@ -31,7 +31,7 @@ import com.microsoft.azure.storage.blob.CloudBlob
 import com.microsoft.azure.storage.blob.CloudBlobContainer
 import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
-import jetbrains.buildServer.clouds.azure.AzurePropertiesNames
+import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
@@ -588,8 +588,8 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
 
     private fun addContainerEnvironment(instance: AzureCloudInstance, userData: CloudInstanceUserData, builder: ArmTemplateBuilder) {
         val environment = (userData.customAgentConfigurationParameters.map {
-            AzurePropertiesNames.TEAMCITY_ACI_PREFIX + it.key to it.value
-        } + (AzurePropertiesNames.TEAMCITY_ACI_PREFIX + AzurePropertiesNames.INSTANCE_NAME to instance.name)).toMap()
+            AzureProperties.ENV_VAR_PREFIX + it.key to it.value
+        } + (AzureProperties.ENV_VAR_PREFIX + AzureProperties.INSTANCE_NAME to instance.name)).toMap()
 
         builder.addContainerEnvironment(CONTAINER_RESOURCE_NAME, environment)
     }

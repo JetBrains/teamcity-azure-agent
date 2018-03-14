@@ -16,7 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm
 
-import jetbrains.buildServer.clouds.azure.AzurePropertiesNames
+import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.base.AbstractCloudInstance
 import jetbrains.buildServer.serverSide.AgentDescription
 
@@ -31,7 +31,7 @@ class AzureCloudInstance internal constructor(image: AzureCloudImage, name: Stri
     var properties: MutableMap<String, String> = HashMap()
 
     override fun containsAgent(agent: AgentDescription): Boolean {
-        val agentInstanceName = agent.configurationParameters[AzurePropertiesNames.INSTANCE_NAME]
+        val agentInstanceName = agent.configurationParameters[AzureProperties.INSTANCE_NAME]
         return name.equals(agentInstanceName, ignoreCase = true)
     }
 }

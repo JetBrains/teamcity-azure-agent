@@ -63,7 +63,7 @@ public abstract class AzureCloudClientBase<G extends AbstractCloudInstance<T>, T
   @Nullable
   @Override
   public G findInstanceByAgent(@NotNull final AgentDescription agent) {
-    final String instanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
+    final String instanceName = agent.getConfigurationParameters().get(AzureProperties.INSTANCE_NAME);
     if (instanceName == null) {
       return null;
     }
@@ -80,7 +80,7 @@ public abstract class AzureCloudClientBase<G extends AbstractCloudInstance<T>, T
 
   @Nullable
   public String generateAgentName(@NotNull final AgentDescription agent) {
-    final String instanceName = agent.getConfigurationParameters().get(AzurePropertiesNames.INSTANCE_NAME);
+    final String instanceName = agent.getConfigurationParameters().get(AzureProperties.INSTANCE_NAME);
     LOG.debug("Reported azure instance name: " + instanceName);
     return instanceName;
   }

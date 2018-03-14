@@ -108,9 +108,10 @@ class AzureMetadataReader(private val configuration: BuildAgentConfigurationEx) 
 
     companion object {
         private val LOG = Logger.getInstance(AzureMetadataReader::class.java.name)
-        private val METADATA_URL = "http://169.254.169.254/metadata/instance?api-version=2017-04-02"
-        private val TIMEOUT = 10000
         private val GSON = Gson()
+
+        private const val METADATA_URL = "http://169.254.169.254/metadata/instance?api-version=2017-04-02"
+        private const val TIMEOUT = 10000
 
         fun deserializeMetadata(json: String) = try {
             GSON.fromJson<Metadata>(json, Metadata::class.java)

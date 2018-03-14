@@ -1,6 +1,5 @@
 rootProject.name = 'teamcity-azure-plugin'
 
-include 'plugin-azure-agent-base'
 include 'plugin-azure-agent-arm'
 include 'plugin-azure-common'
 include 'plugin-azure-server-base'

@@ -6,4 +6,8 @@
     <bean class="jetbrains.buildServer.clouds.azure.AzureMetadataReader"/>
     <bean class="jetbrains.buildServer.clouds.azure.AzureEnvironmentReader"/>
     <bean class="jetbrains.buildServer.clouds.azure.AzurePropertiesReader"/>
+    <bean class="jetbrains.buildServer.clouds.azure.IdleShutdownImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.UnixCustomDataReader"/>
+    <bean class="jetbrains.buildServer.clouds.azure.WindowsCustomDataReader"/>
+    <bean class="jetbrains.buildServer.clouds.azure.FileUtilsImpl"/>
 </beans>

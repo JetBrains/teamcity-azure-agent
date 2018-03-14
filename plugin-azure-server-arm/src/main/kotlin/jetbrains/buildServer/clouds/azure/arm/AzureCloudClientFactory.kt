@@ -18,7 +18,7 @@ package jetbrains.buildServer.clouds.azure.arm
 
 import jetbrains.buildServer.clouds.*
 import jetbrains.buildServer.clouds.azure.AzureCloudImagesHolder
-import jetbrains.buildServer.clouds.azure.AzurePropertiesNames
+import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory
@@ -139,7 +139,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
     }
 
     override fun canBeAgentOfType(description: AgentDescription): Boolean {
-        return description.configurationParameters.containsKey(AzurePropertiesNames.INSTANCE_NAME)
+        return description.configurationParameters.containsKey(AzureProperties.INSTANCE_NAME)
     }
 
     companion object {

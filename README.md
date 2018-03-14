@@ -17,6 +17,12 @@ Enables TeamCity cloud integration with Microsoft Azure and allows virtual machi
 
 More details about TeamCity Azure Resource Manager plugin could be found in the following [blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/).
 
+Plugin supports following types of images:
+* Managed images
+* VHD images
+* ARM templates
+* [Docker images](https://hub.docker.com/r/jetbrains/teamcity-agent/)
+
 ## Installation
 
 You can [download](https://plugins.jetbrains.com/plugin/9260-azure-resource-manager-cloud-support) the plugin build and install it as an [additional plugin](https://confluence.jetbrains.com/display/TCDL/Installing+Additional+Plugins) for TeamCity 10.x+.

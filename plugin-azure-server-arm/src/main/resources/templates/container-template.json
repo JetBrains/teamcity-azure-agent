@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "containerName": {
+      "type": "string",
+      "metadata": {
+        "description": "This is the container name."
+      }
+    },
+    "imageId": {
+      "type": "String",
+      "metadata": {
+        "description": "This is the docker image name."
+      }
+    },
+    "osType": {
+      "allowedValues": [
+        "Linux",
+        "Windows"
+      ],
+      "type": "String"
+    },
+    "numberCores": {
+      "type": "String",
+      "metadata": {
+        "description": "This is the number of vCPU cores in container."
+      }
+    },
+    "memory": {
+      "type": "String",
+      "metadata": {
+        "description": "This is the size of container memory in GB."
+      }
+    },
+    "teamcityUrl": {
+      "type": "String",
+      "metadata": {
+        "description": "This is the TeamCity URL."
+      }
+    }
+  },
+  "resources": [
+    {
+      "name": "[parameters('containerName')]",
+      "type": "Microsoft.ContainerInstance/containerGroups",
+      "apiVersion": "2017-08-01-preview",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "osType": "[parameters('osType')]"
+      }
+    }
+  ]
+}

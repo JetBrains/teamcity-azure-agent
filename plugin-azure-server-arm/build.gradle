@@ -2,7 +2,7 @@ plugins {
     id 'com.github.rodm.teamcity-server' version "1.0"
 }
 
-ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.1.2'
+ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.6.0'
 
 teamcity {
     version = teamcityVersion
@@ -24,7 +24,7 @@ dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib"
     compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version"
     compile "com.microsoft.azure:azure:$azureSdkVersion"
-    compile 'com.microsoft.azure:azure-storage:4.0.0'
+    compile 'com.microsoft.azure:azure-storage:7.0.0'
     compile 'com.squareup.okio:okio:1.7.0'
     provided "org.jetbrains.teamcity.internal:server:$teamcityVersion"
     provided 'javax.servlet:jstl:1.1.2'

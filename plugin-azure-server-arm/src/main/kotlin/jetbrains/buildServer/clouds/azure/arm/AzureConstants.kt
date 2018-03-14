@@ -94,6 +94,15 @@ class AzureConstants {
     val template: String
         get() = TEMPLATE
 
+    val numberCores: String
+        get() = NUMBER_CORES
+
+    val memory: String
+        get() = MEMORY
+
+    val storageAccount: String
+        get() = STORAGE_ACCOUNT
+
     val imagesData: String
         get() = CloudImageParameters.SOURCE_IMAGES_JSON
 
@@ -125,11 +134,19 @@ class AzureConstants {
         const val REUSE_VM = "reuseVm"
         const val STORAGE_ACCOUNT_TYPE = "storageAccountType"
         const val TEMPLATE = "template"
+        const val NUMBER_CORES = "numberCores"
+        const val MEMORY = "memory"
+        const val STORAGE_ACCOUNT = "storageAccount"
+        const val PROFILE_ID = "profileId"
+
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"
         const val TAG_SOURCE = "teamcity-source"
         const val TAG_DATA_HASH = "teamcity-data-hash"
         const val TAG_IMAGE_HASH = "teamcity-image-hash"
-        const val PROFILE_ID = "profileId"
+
+        const val TEAMCITY_URL = "teamcityUrl"
+
+        val CONTAINER_VOLUMES = listOf("logs", "plugins", "system", "tools")
     }
 }

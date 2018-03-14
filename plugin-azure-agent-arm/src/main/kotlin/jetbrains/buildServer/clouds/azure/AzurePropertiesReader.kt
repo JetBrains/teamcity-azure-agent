@@ -29,7 +29,8 @@ import jetbrains.buildServer.util.EventDispatcher
 class AzurePropertiesReader(events: EventDispatcher<AgentLifeCycleListener>,
                             private val myUnixCustomDataReader: UnixCustomDataReader,
                             private val myWindowsCustomDataReader: WindowsCustomDataReader,
-                            private val myMetadataReader: AzureMetadataReader) {
+                            private val myMetadataReader: AzureMetadataReader,
+                            private val myEnvironmentReader: AzureEnvironmentReader) {
 
     init {
         LOG.info("Azure plugin initializing...")
@@ -44,6 +45,11 @@ class AzurePropertiesReader(events: EventDispatcher<AgentLifeCycleListener>,
     private fun fetchConfiguration() {
         // Try to get machine details from Instance Metadata Service
         myMetadataReader.process()
+
+        // Try to use environment variables
+        if (myEnvironmentReader.process()) {
+            return
+        }
 
         // Then override them by custom data if available
         when {

@@ -193,7 +193,15 @@
                     </div>
                 </td>
             </tr>
-            <tr data-bind="if: !osType() && image().imageType() != 'Template'">
+            <tr data-bind="if: image().imageType() == 'Container'">
+                <th class="noBorder"><label for="${cons.imageId}">Docker Image: <l:star/></label></th>
+                <td>
+                    <input type="text" name="${cons.imageId}" class="longField ignoreModified"
+                           data-bind="textInput: image().imageId"/>
+                    <span class="error option-error" data-bind="validationMessage: image().imageId"></span>
+                </td>
+            </tr>
+            <tr data-bind="if: !osType() && image().imageType() != 'Template' || image().imageType() != 'Container'">
                 <th class="noBorder"><label for="${cons.osType}">OS Type: <l:star/></label></th>
                 <td>
                     <select name="${cons.osType}" class="longField ignoreModified"
@@ -224,7 +232,7 @@
                     </div>
                 </td>
             </tr>
-            <tr>
+            <tr data-bind="if: image().imageType() != 'Container'">
                 <th class="noBorder"></th>
                 <td>
                     <input type="checkbox" name="${cons.reuseVm}" data-bind="checked: image().reuseVm"/>
@@ -232,7 +240,7 @@
                     <span class="smallNote">Allows reusing terminated virtual machines after shutdown</span>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() != 'Template'">
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th><label for="${cons.vmSize}">Virtual Machine Size: <l:star/></label></th>
                 <td>
                     <select name="${cons.vmSize}" class="longField ignoreModified"
@@ -249,7 +257,7 @@
                     <!-- /ko -->
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() == 'Image'">
+            <tr data-bind="if: image().imageType() == 'Image' && image().imageType() != 'Container'">
                 <th class="noBorder"><label for="${cons.storageAccountType}">Disk Type: <l:star/></label></th>
                 <td>
                     <select name="${cons.storageAccountType}" class="longField ignoreModified"
@@ -257,7 +265,27 @@
                             optionsCaption: '<Not specified>', value: image().storageAccountType"></select>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() != 'Template'">
+            <tr data-bind="if: image().imageType() == 'Container'">
+                <th><label for="${cons.numberCores}">Number of Cores: <l:star/></label></th>
+                <td>
+                    <div>
+                        <input type="text" name="${cons.numberCores}" class="longField ignoreModified"
+                               data-bind="textInput: image().numberCores"/>
+                        <span class="error option-error" data-bind="validationMessage: image().numberCores"></span>
+                    </div>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Container'">
+                <th class="noBorder"><label for="${cons.memory}">Memory (GB): <l:star/></label></th>
+                <td>
+                    <div>
+                        <input type="text" name="${cons.memory}" class="longField ignoreModified"
+                               data-bind="textInput: image().memory"/>
+                        <span class="error option-error" data-bind="validationMessage: image().memory"></span>
+                    </div>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th><label for="${cons.networkId}">Virtual Network: <l:star/></label></th>
                 <td>
                     <select name="${cons.networkId}" class="longField ignoreModified"
@@ -274,7 +302,7 @@
                     <!-- /ko -->
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() != 'Template'">
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th class="noBorder"><label for="${cons.subnetId}">Sub Network: <l:star/></label></th>
                 <td>
                     <select name="${cons.subnetId}" class="longField ignoreModified"
@@ -289,14 +317,14 @@
                     <!-- /ko -->
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() != 'Template'">
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th class="noBorder"></th>
                 <td>
                     <input type="checkbox" name="${cons.vmPublicIp}" data-bind="checked: image().vmPublicIp"/>
                     <label for="${cons.vmPublicIp}">Create public IP address</label>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() != 'Template'">
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th><label for="${cons.vmUsername}">Provision Username: <l:star/></label></th>
                 <td>
                     <input type="text" id="${cons.vmUsername}" class="longField ignoreModified"
@@ -304,7 +332,7 @@
                     <span class="error option-error" data-bind="validationMessage: image().vmUsername"></span>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() != 'Template'">
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th class="noBorder"><label for="${cons.vmPassword}">Provision Password: <l:star/></label></th>
                 <td>
                     <input type="password" id="${cons.vmPassword}" class="longField ignoreModified"
@@ -332,6 +360,26 @@
                         virtual machine with name set to "[parameters('vmName')]".
                     </span>
                     <span class="error option-error" data-bind="validationMessage: image().template"></span>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Container' && image().osType() == 'Linux'">
+                <th class="noBorder"><label for="${cons.storageAccount}">Storage account: </label></th>
+                <td>
+                    <select name="${cons.storageAccount}" class="longField ignoreModified"
+                            data-bind="options: storageAccounts, value: image().storageAccount,
+                            optionsCaption: '<Not specified>', css: {hidden: storageAccounts().length == 0}"></select>
+                    <div class="longField inline-block" data-bind="css: {hidden: storageAccounts().length > 0}">
+                        <span class="error option-error">
+                            No storage accounts found in <span data-bind="text: regionName"></span> region
+                        </span>
+                    </div>
+                    <!-- ko if: loadingResources -->
+                    <i class="icon-refresh icon-spin"></i>
+                    <!-- /ko -->
+                    <span class="smallNote">
+                        Storage account to persist container volumes in Azure Files.<br>
+                        It prevents build agent upgrade on each start.
+                    </span>
                 </td>
             </tr>
             <!-- /ko -->
@@ -398,6 +446,9 @@
                             <!-- /ko -->
                             <!-- ko if: imageType === 'Image' -->
                             <span data-bind="text: $parent.getFileName(imageId)"></span>
+                            <!-- /ko -->
+                            <!-- ko if: imageType === 'Container' -->
+                            <span data-bind="text: imageId"></span>
                             <!-- /ko -->
                             <!-- ko if: imageType === 'Template' -->
                             <span>Custom Template</span>

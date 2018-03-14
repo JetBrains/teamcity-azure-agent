@@ -11,8 +11,6 @@ import kotlinx.coroutines.experimental.async
 import java.util.*
 
 class AzureTemplateHandler : AzureHandler {
-    private val LOG = Logger.getInstance(AzureTemplateHandler::class.java.name)
-
     @Suppress("UselessCallOnNotNull")
     override fun checkImageAsync(image: AzureCloudImage) = async(CommonPool) {
         val exceptions = ArrayList<Throwable>()
@@ -47,4 +45,8 @@ class AzureTemplateHandler : AzureHandler {
 
     override fun getImageHashAsync(details: AzureCloudImageDetails) =
             CompletableDeferred(Integer.toHexString(details.template!!.hashCode())!!)
+
+    companion object {
+        private val LOG = Logger.getInstance(AzureTemplateHandler::class.java.name)
+    }
 }

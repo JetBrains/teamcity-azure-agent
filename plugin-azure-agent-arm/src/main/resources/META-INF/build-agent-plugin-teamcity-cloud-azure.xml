@@ -4,5 +4,6 @@
 
 <beans default-autowire="constructor">
     <bean class="jetbrains.buildServer.clouds.azure.AzureMetadataReader"/>
+    <bean class="jetbrains.buildServer.clouds.azure.AzureEnvironmentReader"/>
     <bean class="jetbrains.buildServer.clouds.azure.AzurePropertiesReader"/>
 </beans>

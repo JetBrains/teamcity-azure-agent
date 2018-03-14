@@ -23,10 +23,7 @@ import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.QuotaException
 import jetbrains.buildServer.clouds.azure.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import jetbrains.buildServer.clouds.azure.arm.types.AzureHandler
-import jetbrains.buildServer.clouds.azure.arm.types.AzureImageHandler
-import jetbrains.buildServer.clouds.azure.arm.types.AzureTemplateHandler
-import jetbrains.buildServer.clouds.azure.arm.types.AzureVhdHandler
+import jetbrains.buildServer.clouds.azure.arm.types.*
 import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
@@ -46,7 +43,9 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     private val myImageHandlers = mapOf(
             AzureCloudImageType.Vhd to AzureVhdHandler(myApiConnector),
             AzureCloudImageType.Image to AzureImageHandler(myApiConnector),
-            AzureCloudImageType.Template to AzureTemplateHandler())
+            AzureCloudImageType.Template to AzureTemplateHandler(),
+            AzureCloudImageType.Container to AzureContainerHandler()
+    )
 
     private val myActiveStatuses = setOf(
             InstanceStatus.SCHEDULED_TO_START,
@@ -105,7 +104,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
             try {
                 LOG.info("Creating new virtual machine ${instance.name}")
-                myApiConnector.createVmAsync(instance, data).await()
+                myApiConnector.createInstanceAsync(instance, data).await()
                 instance.status = InstanceStatus.RUNNING
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
@@ -115,7 +114,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
                 LOG.info("Removing allocated resources for virtual machine ${instance.name}")
                 try {
-                    myApiConnector.deleteVmAsync(instance).await()
+                    myApiConnector.deleteInstanceAsync(instance).await()
                     LOG.info("Allocated resources for virtual machine ${instance.name} have been removed")
                     removeInstance(instance.instanceId)
                 } catch (e: Throwable) {
@@ -165,7 +164,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 invalidInstances.forEach {
                     try {
                         LOG.info("Removing virtual machine ${it.name}")
-                        myApiConnector.deleteVmAsync(it).await()
+                        myApiConnector.deleteInstanceAsync(it).await()
                         removeInstance(it.instanceId)
                     } catch (e: Throwable) {
                         LOG.warnAndDebugDetails(e.message, e)
@@ -177,7 +176,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 instance?.let {
                     try {
                         LOG.info("Starting stopped virtual machine ${it.name}")
-                        myApiConnector.startVmAsync(it).await()
+                        myApiConnector.startInstanceAsync(it).await()
                         instance.status = InstanceStatus.RUNNING
                     } catch (e: Throwable) {
                         LOG.warnAndDebugDetails(e.message, e)
@@ -207,7 +206,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         async(CommonPool) {
             try {
                 LOG.info("Starting virtual machine ${instance.name}")
-                myApiConnector.startVmAsync(instance).await()
+                myApiConnector.startInstanceAsync(instance).await()
                 instance.status = InstanceStatus.RUNNING
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
@@ -243,7 +242,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         async(CommonPool) {
             try {
                 LOG.info("Restarting virtual machine ${instance.name}")
-                myApiConnector.restartVmAsync(instance).await()
+                myApiConnector.restartInstanceAsync(instance).await()
                 instance.status = InstanceStatus.RUNNING
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
@@ -261,15 +260,15 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 val sameVhdImage = isSameImageInstance(instance).await()
                 if (myImageDetails.behaviour.isDeleteAfterStop) {
                     LOG.info("Removing virtual machine ${instance.name} due to cloud image settings")
-                    myApiConnector.deleteVmAsync(instance).await()
+                    myApiConnector.deleteInstanceAsync(instance).await()
                     removeInstance(instance.instanceId)
                 } else if (!sameVhdImage) {
                     LOG.info("Removing virtual machine ${instance.name} due to cloud image retention policy")
-                    myApiConnector.deleteVmAsync(instance).await()
+                    myApiConnector.deleteInstanceAsync(instance).await()
                     removeInstance(instance.instanceId)
                 } else {
                     LOG.info("Stopping virtual machine ${instance.name}")
-                    myApiConnector.stopVmAsync(instance).await()
+                    myApiConnector.stopInstanceAsync(instance).await()
                     instance.status = InstanceStatus.STOPPED
                 }
 

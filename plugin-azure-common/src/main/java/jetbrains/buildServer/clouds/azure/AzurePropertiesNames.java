@@ -23,5 +23,5 @@ package jetbrains.buildServer.clouds.azure;
  */
 public interface AzurePropertiesNames {
   String INSTANCE_NAME = "azure.instance.name";
-  String ENDPOINT_NAME = "TC Agent";
+  String TEAMCITY_ACI_PREFIX = "TC_ACI_PROVIDED_";
 }

@@ -43,21 +43,22 @@ class SettingsController(server: SBuildServer,
                          manager: WebControllerManager,
                          agentPoolManager: AgentPoolManager) : BaseController(server) {
 
-    private val HANDLERS = TreeMap<String, ResourceHandler>(String.CASE_INSENSITIVE_ORDER)
+    private val myHandlers = TreeMap<String, ResourceHandler>(String.CASE_INSENSITIVE_ORDER)
     private val myJspPath: String = myPluginDescriptor.getPluginResourcesPath("settings.jsp")
     private val myHtmlPath: String = myPluginDescriptor.getPluginResourcesPath("settings.html")
 
     init {
         manager.registerController(myHtmlPath, this)
-        HANDLERS.put("resourceGroups", ResourceGroupsHandler())
-        HANDLERS.put("instances", InstancesHandler())
-        HANDLERS.put("images", ImagesHandler())
-        HANDLERS.put("vmSizes", VmSizesHandler())
-        HANDLERS.put("osType", OsTypeHandler())
-        HANDLERS.put("subscriptions", SubscriptionsHandler())
-        HANDLERS.put("networks", NetworksHandler())
-        HANDLERS.put("regions", RegionsHandler())
-        HANDLERS.put("agentPools", AgentPoolHandler(agentPoolManager))
+        myHandlers["resourceGroups"] = ResourceGroupsHandler()
+        myHandlers["instances"] = InstancesHandler()
+        myHandlers["images"] = ImagesHandler()
+        myHandlers["vmSizes"] = VmSizesHandler()
+        myHandlers["osType"] = OsTypeHandler()
+        myHandlers["subscriptions"] = SubscriptionsHandler()
+        myHandlers["networks"] = NetworksHandler()
+        myHandlers["regions"] = RegionsHandler()
+        myHandlers["agentPools"] = AgentPoolHandler(agentPoolManager)
+        myHandlers["storageAccounts"] = StorageAccountsHandler()
     }
 
     @Throws(Exception::class)
@@ -79,9 +80,9 @@ class SettingsController(server: SBuildServer,
 
     private fun doGet(request: HttpServletRequest): ModelAndView {
         val mv = ModelAndView(myJspPath)
-        mv.model.put("basePath", myHtmlPath)
-        mv.model.put("resPath", myPluginDescriptor.pluginResourcesPath)
-        mv.model.put("projectId", request.getParameter("projectId"))
+        mv.model["basePath"] = myHtmlPath
+        mv.model["resPath"] = myPluginDescriptor.pluginResourcesPath
+        mv.model["projectId"] = request.getParameter("projectId")
         return mv
     }
 
@@ -94,7 +95,7 @@ class SettingsController(server: SBuildServer,
 
         resources.filterNotNull()
                 .forEach { resource ->
-                    HANDLERS[resource]?.let {
+                    myHandlers[resource]?.let {
                         promises += resource to it.handle(request)
                     }
                 }

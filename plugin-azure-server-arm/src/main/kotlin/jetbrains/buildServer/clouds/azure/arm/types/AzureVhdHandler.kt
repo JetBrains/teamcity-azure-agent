@@ -11,9 +11,6 @@ import kotlinx.coroutines.experimental.async
 import java.util.*
 
 class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
-    private val LOG = Logger.getInstance(AzureVhdHandler::class.java.name)
-    private val METADATA_ETAG = "etag"
-
     @Suppress("UselessCallOnNotNull")
     override fun checkImageAsync(image: AzureCloudImage) = async(CommonPool) {
         val exceptions = ArrayList<Throwable>()
@@ -76,5 +73,10 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
         val region = details.region!!
         val metadata = connector.getVhdMetadataAsync(imageUrl, region).await() ?: emptyMap()
         metadata[METADATA_ETAG] ?: ""
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(AzureVhdHandler::class.java.name)
+        private const val METADATA_ETAG = "etag"
     }
 }

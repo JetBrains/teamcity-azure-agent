@@ -26,15 +26,15 @@ import kotlinx.coroutines.experimental.Deferred
  * Azure ARM API connector.
  */
 interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInstance> {
-    fun createVmAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData): Deferred<*>
+    fun createInstanceAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData): Deferred<*>
 
-    fun deleteVmAsync(instance: AzureCloudInstance): Deferred<*>
+    fun deleteInstanceAsync(instance: AzureCloudInstance): Deferred<*>
 
-    fun restartVmAsync(instance: AzureCloudInstance): Deferred<*>
+    fun restartInstanceAsync(instance: AzureCloudInstance): Deferred<*>
 
-    fun startVmAsync(instance: AzureCloudInstance): Deferred<*>
+    fun startInstanceAsync(instance: AzureCloudInstance): Deferred<*>
 
-    fun stopVmAsync(instance: AzureCloudInstance): Deferred<*>
+    fun stopInstanceAsync(instance: AzureCloudInstance): Deferred<*>
 
     fun getSubscriptionsAsync(): Deferred<Map<String, String>>
 
@@ -49,6 +49,8 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
     fun getImagesAsync(region: String): Deferred<Map<String, List<String>>>
 
     fun getVmSizesAsync(region: String): Deferred<List<String>>
+
+    fun getStorageAccountsAsync(region: String): Deferred<List<String>>
 
     fun getNetworksAsync(region: String): Deferred<Map<String, List<String>>>
 

@@ -51,22 +51,18 @@ function ArmImagesViewModel($, ko, dialog, config) {
     instance: 'Instance'
   };
   var imageTypes = {
+    container: 'Container',
     image: 'Image',
     template: 'Template',
     vhd: 'Vhd'
   };
+  var osTypes = {
+    linux: 'Linux',
+    windows: 'Windows'
+  };
 
   self.deployTarget = ko.observable();
   self.imageType = ko.observable();
-
-  var requiredForNonTemplate = {
-    required: {
-      onlyIf: function() {
-        return self.imageType() !== imageTypes.template &&
-          self.deployTarget() !== deployTargets.instance
-      }
-    }
-  };
 
   var requiredForDeployment = {
     required: {
@@ -90,8 +86,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     imageUrl: ko.observable('').trimmed().extend({rateLimit: 500}).extend({
       required: {
         onlyIf: function () {
-          return self.deployTarget() !== deployTargets.instance &&
-            self.imageType() === imageTypes.vhd;
+          return self.deployTarget() !== deployTargets.instance && self.imageType() === imageTypes.vhd;
         }
       }
     }),
@@ -99,7 +94,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       required: {
         onlyIf: function () {
           return self.deployTarget() !== deployTargets.instance &&
-            self.imageType() === imageTypes.image;
+            (self.imageType() === imageTypes.image || self.imageType() === imageTypes.container);
         }
       }
     }),
@@ -151,13 +146,59 @@ function ArmImagesViewModel($, ko, dialog, config) {
         message: "Invalid template value"
       }
     }),
-    networkId: ko.observable().extend(requiredForNonTemplate),
-    subnetId: ko.observable().extend(requiredForNonTemplate),
-    osType: ko.observable().extend(requiredForNonTemplate),
+    networkId: ko.observable().extend({
+      required: {
+        onlyIf: function() {
+          return self.deployTarget() !== deployTargets.instance &&
+            self.imageType() !== imageTypes.template &&
+            self.imageType() !== imageTypes.container
+        }
+      }
+    }),
+    subnetId: ko.observable().extend({
+      required: {
+        onlyIf: function() {
+          return self.deployTarget() !== deployTargets.instance &&
+            self.imageType() !== imageTypes.template &&
+            self.imageType() !== imageTypes.container
+        }
+      }
+    }),
+    osType: ko.observable().extend({
+      required: {
+        onlyIf: function() {
+          return self.imageType() !== imageTypes.template &&
+            self.deployTarget() !== deployTargets.instance
+        }
+      }
+    }),
     maxInstances: ko.observable(1).extend({required: true, min: 0}),
-    vmSize: ko.observable().extend(requiredForNonTemplate),
+    vmSize: ko.observable().extend({
+      required: {
+        onlyIf: function() {
+          return self.deployTarget() !== deployTargets.instance &&
+            self.imageType() !== imageTypes.template &&
+            self.imageType() !== imageTypes.container
+        }
+      }
+    }),
+    numberCores: ko.observable(1).extend({min: 0}).extend({
+      required: {
+        onlyIf: function() {
+          return self.imageType() === imageTypes.container
+        }
+      }
+    }),
+    memory: ko.observable(1).extend({min: 0}).extend({
+      required: {
+        onlyIf: function() {
+          return self.imageType() === imageTypes.container
+        }
+      }
+    }),
+    storageAccount: ko.observable(),
     storageAccountType: ko.observable(),
-    vmNamePrefix: ko.observable('').trimmed().extend({required: true, maxLength: maxLength}).extend({
+    vmNamePrefix: ko.observable('').trimmed().extend({required: true}).extend({
       validation: {
         validator: function (value) {
           return self.originalImage && self.originalImage.vmNamePrefix === value || !self.passwords[value];
@@ -169,11 +210,34 @@ function ArmImagesViewModel($, ko, dialog, config) {
         message: 'Name can contain alphanumeric characters, underscore and hyphen',
         params: /^[a-z][a-z0-9_-]*$/i
       }
+    }).extend({
+      validation: {
+        validator: function (value) {
+          return !value || self.imageType() === imageTypes.container || value.length < maxLength;
+        },
+        message: 'Please enter no more than ' + maxLength + ' characters.'
+      }
     }),
     vmPublicIp: ko.observable(false),
-    vmUsername: ko.observable('').trimmed().extend(requiredForNonTemplate)
+    vmUsername: ko.observable('').trimmed().extend({
+      required: {
+        onlyIf: function() {
+          return self.deployTarget() !== deployTargets.instance &&
+            self.imageType() !== imageTypes.template &&
+            self.imageType() !== imageTypes.container
+        }
+      }
+    })
       .extend({minLength: 3, maxLength: maxLength}),
-    vmPassword: ko.observable('').trimmed().extend(requiredForNonTemplate)
+    vmPassword: ko.observable('').trimmed().extend({
+      required: {
+        onlyIf: function() {
+          return self.deployTarget() !== deployTargets.instance &&
+            self.imageType() !== imageTypes.template &&
+            self.imageType() !== imageTypes.container
+        }
+      }
+    })
       .extend({minLength: 8}),
     reuseVm: ko.observable(false),
     agentPoolId: ko.observable().extend({required: true}),
@@ -190,8 +254,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.networks = ko.observableArray([]);
   self.subNetworks = ko.observableArray([]);
   self.vmSizes = ko.observableArray([]);
+  self.storageAccounts = ko.observableArray([]);
   self.agentPools = ko.observableArray([]);
-  self.osTypes = ko.observableArray(["Linux", "Windows"]);
+  self.osTypes = ko.observableArray([osTypes.linux, osTypes.windows]);
   self.osType = ko.observable();
   self.osTypeImage = {
     "Linux": "/img/os/lin-small-bw.png",
@@ -215,6 +280,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
   ]);
 
   self.imageTypes = ko.observableArray([
+    {id: imageTypes.container, text: "Container (preview)"},
     {id: imageTypes.image, text: "Image"},
     {id: imageTypes.template, text: "Template"},
     {id: imageTypes.vhd, text: "VHD"}
@@ -302,22 +368,33 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.image().imageId.subscribe(function (value) {
     if (!value) return;
 
-    var image = ko.utils.arrayFirst(self.sourceImages(), function (item) {
-      return item.id === value;
-    });
+    if (self.image().imageType() === imageTypes.container) {
+      var groupName = getGroupName(value);
+      self.image().vmNamePrefix(groupName);
 
-    if (image) {
-      var osType = image.osType;
-      self.osType(osType);
-      self.image().osType(osType);
+      if (!self.image().osType()) {
+        if (value.indexOf("nanoserver") > 0 || value.indexOf("windowsservercore") > 0) {
+          self.image().osType(osTypes.windows);
+        }
+      }
+    } else {
+      var image = ko.utils.arrayFirst(self.sourceImages(), function (item) {
+        return item.id === value;
+      });
+
+      if (image) {
+        var osType = image.osType;
+        self.osType(osType);
+        self.image().osType(osType);
+      }
+
+      if (self.image().vmNamePrefix()) return;
+
+      // Fill vm prefix from image ID
+      var imageName = self.getFileName(value);
+      var vmName = getVmNamePrefix(imageName);
+      self.image().vmNamePrefix(vmName);
     }
-
-    if (self.image().vmNamePrefix()) return;
-
-    // Fill vm prefix from image ID
-    var imageName = self.getFileName(value);
-    var vmName = getVmNamePrefix(imageName);
-    self.image().vmNamePrefix(vmName);
   });
 
   self.image().instanceId.subscribe(function (value) {
@@ -425,6 +502,11 @@ function ArmImagesViewModel($, ko, dialog, config) {
       self.subNetworks(subNetworks);
     }
 
+    var storageAccount = image.storageAccount;
+    if (storageAccount && self.storageAccounts.indexOf(storageAccount) < 0) {
+      self.storageAccounts([storageAccount]);
+    }
+
     model.deployTarget(image.deployTarget || deployTargets.newGroup);
     model.groupId(image.groupId);
     model.region(image.region);
@@ -436,11 +518,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.networkId(networkId);
     model.subnetId(image.subnetId);
     model.vmSize(vmSize);
+    model.numberCores(image.numberCores);
+    model.memory(image.memory);
     model.maxInstances(image.maxInstances);
     model.vmNamePrefix(image.vmNamePrefix);
     model.vmPublicIp(image.vmPublicIp);
     model.vmUsername(image.vmUsername);
     model.reuseVm(image.reuseVm);
+    model.storageAccount(storageAccount);
     model.storageAccountType(image.storageAccountType);
     model.template(image.template);
     model.agentPoolId(image.agentPoolId);
@@ -478,8 +563,11 @@ function ArmImagesViewModel($, ko, dialog, config) {
       vmNamePrefix: model.vmNamePrefix(),
       vmPublicIp: model.vmPublicIp(),
       vmSize: model.vmSize(),
+      numberCores: model.numberCores(),
+      memory: model.memory(),
       vmUsername: model.vmUsername(),
       reuseVm: model.reuseVm(),
+      storageAccount: model.storageAccount(),
       storageAccountType: model.storageAccountType(),
       template: model.template(),
       agentPoolId: model.agentPoolId(),
@@ -741,6 +829,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       "&resource=vmSizes" +
       "&resource=networks" +
       "&resource=images" +
+      "&resource=storageAccounts" +
       "&region=" + region;
 
     self.loadingResources(true);
@@ -760,6 +849,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
       var vmSizes = getVmSizes($response);
       self.vmSizes(vmSizes);
+
+      var storageAccounts = getStorageAccounts($response);
+      self.storageAccounts(storageAccounts);
 
       var networks = getNetworks($response);
       self.networks(networks);
@@ -846,6 +938,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }).get();
   }
 
+  function getStorageAccounts($response) {
+    return $response.find("storageAccounts:eq(0) storageAccount").map(function () {
+      return $(this).text();
+    }).get();
+  }
+
   function getNetworks($response) {
     self.nets = {};
 
@@ -869,6 +967,13 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   function cleanupVmName(name) {
     return name.replace(/^([^a-z])*|([^\w])*$/g, '');
+  }
+
+  function getGroupName(name) {
+    return name.toLowerCase()
+      .replace(/[^a-z0-9]/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/(^-|-$)/g, '');
   }
 
   (function loadAgentPools() {

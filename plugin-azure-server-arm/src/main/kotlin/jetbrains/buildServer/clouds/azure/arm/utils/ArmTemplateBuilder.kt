@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intellij.openapi.diagnostic.Logger
+import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.connector.models.JsonValue
 import jetbrains.buildServer.util.StringUtil
 
@@ -13,9 +14,8 @@ import jetbrains.buildServer.util.StringUtil
  */
 class ArmTemplateBuilder(template: String) {
 
-    private val LOG = Logger.getInstance(ArmTemplateBuilder::class.java.name)
     private val mapper = ObjectMapper()
-    private val root: ObjectNode
+    private var root: ObjectNode
     private val parameters = linkedMapOf<String, JsonValue>()
 
     init {
@@ -25,7 +25,7 @@ class ArmTemplateBuilder(template: String) {
 
     @Suppress("unused")
     fun addParameter(name: String, type: String, description: String): ArmTemplateBuilder {
-        val parameters = root["parameters"] as ObjectNode
+        val parameters = (root["parameters"] as? ObjectNode) ?: root.putObject("parameters")
         parameters.putPOJO(name, object : Any() {
             val type = type
             val metadata = object : Any() {
@@ -35,11 +35,11 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
-    fun setTags(tags: Map<String, String>): ArmTemplateBuilder {
+    fun setTags(resourceName: String, tags: Map<String, String>): ArmTemplateBuilder {
         val resources = root["resources"] as ArrayNode
-        val machine = resources.filterIsInstance<ObjectNode>()
-                .first { it["name"].asText() == "[parameters('vmName')]" }
-        val element = (machine["tags"] as? ObjectNode) ?: machine.putObject("tags")
+        val resource = resources.filterIsInstance<ObjectNode>()
+                .first { it["name"].asText() == resourceName }
+        val element = (resource["tags"] as? ObjectNode) ?: resource.putObject("tags")
         element.apply {
             for ((key, value) in tags) {
                 this.put(key, value)
@@ -48,7 +48,7 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
-    @Suppress("unused")
+    @Suppress("unused", "MayBeConstant")
     fun setPublicIp(): ArmTemplateBuilder {
         (root["variables"] as ObjectNode).apply {
             this.put("pipName", "[concat(parameters('vmName'), '-pip')]")
@@ -80,7 +80,7 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
-    @Suppress("unused")
+    @Suppress("unused", "MayBeConstant")
     fun setVhdImage(): ArmTemplateBuilder {
         (root["resources"] as ArrayNode).apply {
             this.filterIsInstance<ObjectNode>()
@@ -99,7 +99,7 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
-    @Suppress("unused")
+    @Suppress("unused", "MayBeConstant")
     fun setCustomImage(): ArmTemplateBuilder {
         (root["resources"] as ArrayNode).apply {
             this.filterIsInstance<ObjectNode>()
@@ -115,6 +115,7 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
+    @Suppress("unused")
     fun setStorageAccountType(storageAccountType: String?): ArmTemplateBuilder {
         if (!storageAccountType.isNullOrEmpty()) {
             (root["resources"] as ArrayNode).apply {
@@ -150,12 +151,131 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
+    @Suppress("unused", "MayBeConstant")
+    fun addContainer(name: String): ArmTemplateBuilder {
+        val resources = root["resources"] as ArrayNode
+        val groups = resources.filterIsInstance<ObjectNode>().first { it["type"].asText() == "Microsoft.ContainerInstance/containerGroups" }
+        val properties = (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
+        val containers = (properties["containers"] as? ArrayNode) ?: properties.putArray("containers")
+
+        containers.addPOJO(object {
+            val name = name
+            val properties = object {
+                val image = "[parameters('imageId')]"
+                val environmentVariables = listOf(
+                        object {
+                            val name = "SERVER_URL"
+                            val value = "[parameters('teamcityUrl')]"
+                        },
+                        object {
+                            val name = "AGENT_NAME"
+                            val value = name
+                        }
+                )
+                val resources = object {
+                    val requests = object {
+                        val cpu = "[parameters('numberCores')]"
+                        val memoryInGb = "[parameters('memory')]"
+                    }
+                }
+            }
+        })
+
+        reloadTemplate()
+
+        return this
+    }
+
+    @Suppress("unused", "MayBeConstant")
+    fun addContainerVolumes(resourceName: String, name: String): ArmTemplateBuilder {
+        val resources = root["resources"] as ArrayNode
+        val groups = resources.filterIsInstance<ObjectNode>().first { it["name"].asText() == resourceName }
+        val properties = (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
+        val containers = (properties["containers"] as? ArrayNode) ?: properties.putArray("containers")
+
+        (containers.firstOrNull() as? ObjectNode)?.let {
+            val props = (it["properties"] as? ObjectNode) ?: it.putObject("properties")
+            val volumeMounts = (props["volumeMounts"] as? ArrayNode) ?: props.putArray("volumeMounts")
+            volumeMounts.addPOJO(object {
+                val name = name
+                val mountPath = "/var/lib/waagent/"
+                val readOnly = true
+            })
+            volumeMounts.addPOJO(object {
+                val name = "$name-plugins"
+                val mountPath = "/opt/buildagent/plugins/"
+            })
+            volumeMounts.addPOJO(object {
+                val name = "$name-logs"
+                val mountPath = "/opt/buildagent/logs/"
+            })
+            volumeMounts.addPOJO(object {
+                val name = "$name-system"
+                val mountPath = "/opt/buildagent/system/.teamcity-agent/"
+            })
+            volumeMounts.addPOJO(object {
+                val name = "$name-tools"
+                val mountPath = "/opt/buildagent/tools/"
+            })
+        }
+
+        val volumes = (properties["volumes"] as? ArrayNode) ?: properties.putArray("volumes")
+        volumes.addPOJO(object {
+            val name = name
+            val azureFile = object {
+                val shareName = name
+                val storageAccountName = "[parameters('storageAccountName')]"
+                val storageAccountKey = "[parameters('storageAccountKey')]"
+            }
+        })
+
+        for (volume in AzureConstants.CONTAINER_VOLUMES) {
+            volumes.addPOJO(object {
+                val name = "$name-$volume"
+                val azureFile = object {
+                    val shareName = "$name-$volume"
+                    val storageAccountName = "[parameters('storageAccountName')]"
+                    val storageAccountKey = "[parameters('storageAccountKey')]"
+                }
+            })
+        }
+
+        return this.addParameter("storageAccountName", "String", "")
+                .addParameter("storageAccountKey", "SecureString", "")
+    }
+
+    @Suppress("unused")
+    fun addContainerEnvironment(resourceName: String, environment: Map<String, String>): ArmTemplateBuilder {
+        val resources = root["resources"] as ArrayNode
+        val groups = resources.filterIsInstance<ObjectNode>().first { it["name"].asText() == resourceName }
+        val properties = (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
+        val containers = (properties["containers"] as? ArrayNode) ?: properties.putArray("containers")
+
+        (containers.firstOrNull() as? ObjectNode)?.let {
+            val props = (it["properties"] as? ObjectNode) ?: it.putObject("properties")
+            val envVars = (props["environmentVariables"] as? ArrayNode) ?: props.putArray("environmentVariables")
+            environment.forEach {
+                envVars.addPOJO(object {
+                    val name = it.key
+                    val value = it.value
+                })
+            }
+        }
+
+        return this
+    }
+
     fun serializeParameters(): String {
         return try {
             mapper.writeValueAsString(parameters)
         } catch (e: JsonProcessingException) {
             StringUtil.EMPTY
         }
+    }
+
+    private fun reloadTemplate() {
+        val reader = mapper.reader()
+        root = reader.readTree(mapper.writeValueAsString(root)) as ObjectNode
     }
 
     override fun toString(): String = mapper.writeValueAsString(root)
@@ -170,5 +290,9 @@ class ArmTemplateBuilder(template: String) {
                     " - '$key' = '$parameter'"
                 }
         LOG.debug(deploymentParameters)
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(ArmTemplateBuilder::class.java.name)
     }
 }

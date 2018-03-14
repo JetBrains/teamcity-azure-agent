@@ -61,6 +61,12 @@ class AzureCloudImageDetails(
         val storageAccountType: String?,
         @SerializedName(AzureConstants.TEMPLATE)
         val template: String?,
+        @SerializedName(AzureConstants.NUMBER_CORES)
+        val numberCores: String?,
+        @SerializedName(AzureConstants.MEMORY)
+        val memory: String?,
+        @SerializedName(AzureConstants.STORAGE_ACCOUNT)
+        val storageAccount: String?,
         @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)
         val agentPoolId: Int?,
         @SerializedName(AzureConstants.PROFILE_ID)

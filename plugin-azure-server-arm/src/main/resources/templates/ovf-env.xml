@@ -1,0 +1,9 @@
+<ns0:Environment xmlns:ns0="http://schemas.dmtf.org/ovf/environment/1"
+                 xmlns:ns1="http://schemas.microsoft.com/windowsazure"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <ns1:ProvisioningSection>
+        <ns1:LinuxProvisioningConfigurationSet>
+            <ns1:CustomData>%1$s</ns1:CustomData>
+        </ns1:LinuxProvisioningConfigurationSet>
+    </ns1:ProvisioningSection>
+</ns0:Environment>

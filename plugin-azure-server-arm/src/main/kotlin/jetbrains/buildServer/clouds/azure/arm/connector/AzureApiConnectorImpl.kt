@@ -22,6 +22,8 @@ import com.microsoft.azure.credentials.ApplicationTokenCredentials
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
 import com.microsoft.azure.management.compute.VirtualMachine
+import com.microsoft.azure.management.containerinstance.ContainerGroup
+import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.DeploymentMode
 import com.microsoft.azure.storage.CloudStorageAccount
 import com.microsoft.azure.storage.StorageCredentialsAccountAndKey
@@ -29,22 +31,28 @@ import com.microsoft.azure.storage.blob.CloudBlob
 import com.microsoft.azure.storage.blob.CloudBlobContainer
 import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
+import jetbrains.buildServer.clouds.azure.AzurePropertiesNames
 import jetbrains.buildServer.clouds.azure.arm.*
-import jetbrains.buildServer.clouds.azure.arm.utils.*
+import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
+import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
+import jetbrains.buildServer.clouds.azure.arm.utils.awaitList
+import jetbrains.buildServer.clouds.azure.arm.utils.awaitOne
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase
 import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.experimental.*
+import kotlinx.coroutines.experimental.sync.Mutex
+import kotlinx.coroutines.experimental.sync.withLock
 import org.apache.commons.codec.binary.Base64
-import java.net.*
+import java.net.InetSocketAddress
+import java.net.Proxy
+import java.net.URI
+import java.net.URISyntaxException
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.locks.Lock
-import java.util.concurrent.locks.ReentrantLock
 import kotlin.collections.HashMap
-import kotlin.concurrent.withLock
 
 /**
  * Provides azure arm management capabilities.
@@ -52,23 +60,11 @@ import kotlin.concurrent.withLock
 class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, environment: String?)
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
-    private val LOG = Logger.getInstance(AzureApiConnectorImpl::class.java.name)
-    private val RESOURCE_GROUP_PATTERN = Regex("resourceGroups/([^/]+)/providers/")
-    private val PUBLIC_IP_SUFFIX = "-pip"
-    private val PROVISIONING_STATE = "ProvisioningState/"
-    private val POWER_STATE = "PowerState/"
-    private val HTTP_PROXY_HOST = "http.proxyHost"
-    private val HTTP_PROXY_PORT = "http.proxyPort"
-    private val HTTPS_PROXY_HOST = "https.proxyHost"
-    private val HTTPS_PROXY_PORT = "https.proxyPort"
-    private val HTTP_PROXY_USER = "http.proxyUser"
-    private val HTTP_PROXY_PASSWORD = "http.proxyPassword"
-
     private val myAzure: Azure.Authenticated
     private var mySubscriptionId: String? = null
     private var myServerId: String? = null
     private var myProfileId: String? = null
-    private val deploymentLocks = ConcurrentHashMap<String, Lock>()
+    private val deploymentLocks = ConcurrentHashMap<String, Mutex>()
 
     init {
         val env = when (environment) {
@@ -97,13 +93,28 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>) = runBlocking {
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
 
-        val machines = getVirtualMachinesAsync().await()
+        val machines = if (images.any { it.imageDetails.type != AzureCloudImageType.Container }) {
+            getVirtualMachinesAsync().await()
+        } else {
+            emptyList()
+        }
+
+        val containers = if (images.any { it.imageDetails.type == AzureCloudImageType.Container }) {
+            getContainerGroupsAsync().await()
+        } else {
+            emptyList()
+        }
+
         images.forEach { image ->
             try {
-                val result = findInstancesAsync(image, machines).await()
+                val result = if (image.imageDetails.type != AzureCloudImageType.Container) {
+                    findVmInstancesAsync(image, machines).await()
+                } else {
+                    findContainerInstancesAsync(image, containers).await()
+                }
                 LOG.debug("Received list of image ${image.name} instances")
                 @Suppress("UNCHECKED_CAST")
-                imageMap.put(image, result as Map<String, R>)
+                imageMap[image] = result as Map<String, R>
             } catch (e: Throwable) {
                 LOG.warn("Failed to receive list of image ${image.name} instances: ${e.message}", e)
                 image.updateErrors(TypedCloudErrorInfo.fromException(e))
@@ -113,7 +124,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         imageMap
     }
 
-    private fun findInstancesAsync(image: AzureCloudImage, machines: List<VirtualMachine>) = async(CommonPool) {
+    private fun findVmInstancesAsync(image: AzureCloudImage, machines: List<VirtualMachine>) = async(CommonPool) {
         val instances = hashMapOf<String, AzureInstance>()
         val details = image.imageDetails
 
@@ -128,32 +139,32 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                 }
             } else {
                 if (!name.startsWith(details.sourceId, true)) {
-                    LOG.debug("Ignore vm with name " + name)
+                    LOG.debug("Ignore vm with name $name")
                     continue
                 }
 
                 val serverId = tags[AzureConstants.TAG_SERVER]
                 if (!serverId.equals(myServerId, true)) {
-                    LOG.debug("Ignore vm with invalid server tag " + serverId)
+                    LOG.debug("Ignore vm with invalid server tag $serverId")
                     continue
                 }
 
                 val profileId = tags[AzureConstants.TAG_PROFILE]
                 if (!profileId.equals(myProfileId, true)) {
-                    LOG.debug("Ignore vm with invalid profile tag " + profileId)
+                    LOG.debug("Ignore vm with invalid profile tag $profileId")
                     continue
                 }
 
                 val sourceName = tags[AzureConstants.TAG_SOURCE]
                 if (!sourceName.equals(details.sourceId, true)) {
-                    LOG.debug("Ignore vm with invalid source tag " + sourceName)
+                    LOG.debug("Ignore vm with invalid source tag $sourceName")
                     continue
                 }
             }
 
             val instance = AzureInstance(name)
             instance.properties = tags
-            instances.put(name, instance)
+            instances[name] = instance
         }
 
         val exceptions = arrayListOf<Throwable>()
@@ -172,6 +183,54 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         instances
     }
 
+    private fun findContainerInstancesAsync(image: AzureCloudImage, containers: List<ContainerGroup>) = async(CommonPool) {
+        val instances = hashMapOf<String, AzureInstance>()
+        val details = image.imageDetails
+
+        for (container in containers) {
+            val name = container.name()
+            val tags = container.tags()
+
+            if (!name.startsWith(details.sourceId, true)) {
+                LOG.debug("Ignore container with name $name")
+                continue
+            }
+
+            val serverId = tags[AzureConstants.TAG_SERVER]
+            if (!serverId.equals(myServerId, true)) {
+                LOG.debug("Ignore container with invalid server tag $serverId")
+                continue
+            }
+
+            val profileId = tags[AzureConstants.TAG_PROFILE]
+            if (!profileId.equals(myProfileId, true)) {
+                LOG.debug("Ignore container with invalid profile tag $profileId")
+                continue
+            }
+
+            val sourceName = tags[AzureConstants.TAG_SOURCE]
+            if (!sourceName.equals(details.sourceId, true)) {
+                LOG.debug("Ignore container with invalid source tag $sourceName")
+                continue
+            }
+
+            val instance = AzureInstance(name)
+            instance.properties = tags
+            container.containers()[name]?.let {
+                it.instanceView()?.currentState()?.let {
+                    instance.setPowerState(it.state())
+                    it.startTime()?.let {
+                        instance.setStartDate(it.toDate())
+                    }
+                }
+            }
+
+            instances[name] = instance
+        }
+
+        instances
+    }
+
     private fun getVirtualMachinesAsync() = async(CommonPool, CoroutineStart.LAZY) {
         try {
             val list = myAzure.withSubscription(mySubscriptionId)
@@ -182,6 +241,21 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
             list
         } catch (t: Throwable) {
             val message = "Failed to get list of virtual machines: " + t.message
+            LOG.debug(message, t)
+            throw CloudException(message, t)
+        }
+    }
+
+    private fun getContainerGroupsAsync() = async(CommonPool, CoroutineStart.LAZY) {
+        try {
+            val list = myAzure.withSubscription(mySubscriptionId)
+                    .containerGroups()
+                    .listAsync()
+                    .awaitList()
+            LOG.debug("Received list of container groups")
+            list
+        } catch (t: Throwable) {
+            val message = "Failed to get list of container groups: " + t.message
             LOG.debug(message, t)
             throw CloudException(message, t)
         }
@@ -378,11 +452,32 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                     .sizes()
                     .listByRegionAsync(region)
                     .awaitList()
-            LOG.debug("Received list of vm sizes in region " + region)
+            LOG.debug("Received list of vm sizes in region $region")
             val comparator = AlphaNumericStringComparator()
             vmSizes.map { it.name() }.sortedWith(comparator)
         } catch (e: Throwable) {
             val message = "Failed to get list of vm sizes in region $region: ${e.message}"
+            LOG.debug(message, e)
+            throw CloudException(message, e)
+        }
+    }
+
+    /**
+     * Gets a list of storage accounts.
+     * @return list of sizes.
+     */
+    override fun getStorageAccountsAsync(region: String) = async(CommonPool, CoroutineStart.LAZY) {
+        try {
+            val storageAccounts = myAzure.withSubscription(mySubscriptionId)
+                    .storageAccounts()
+                    .listAsync()
+                    .awaitList()
+                    .filter { region.equals(it.regionName(), true) }
+            LOG.debug("Received list of storage accounts in region $region")
+            val comparator = AlphaNumericStringComparator()
+            storageAccounts.map { it.name() }.sortedWith(comparator)
+        } catch (e: Throwable) {
+            val message = "Failed to get list of storage accounts in region $region: ${e.message}"
             LOG.debug(message, e)
             throw CloudException(message, e)
         }
@@ -394,23 +489,24 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
      * @param userData is a custom data.
      * @return promise.
      */
-    override fun createVmAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData) = async(CommonPool) {
-        val name = instance.name
-        val customData: String
-        try {
-            customData = Base64.encodeBase64String(userData.serialize().toByteArray(charset("UTF-8")))
-        } catch (e: Exception) {
-            val message = "Failed to encode custom data for instance $name: ${e.message}"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
-        }
-
+    override fun createInstanceAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData): Deferred<Unit> {
         instance.properties[AzureConstants.TAG_SERVER] = myServerId!!
+        return if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+            createContainerAsync(instance, userData)
+        } else {
+            createVmAsync(instance, userData)
+        }
+    }
+
+
+    private fun createVmAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData) = async(CommonPool) {
+        val name = instance.name
+        val customData = encodeCustomData(userData, name)
 
         val handler = instance.image.handler
         val builder = handler!!.prepareBuilderAsync(instance).await()
                 .setCustomData(customData)
-                .setTags(instance.properties)
+                .setTags(VM_RESOURCE_NAME, instance.properties)
 
         val details = instance.image.imageDetails
         val groupId = when (details.target) {
@@ -427,6 +523,85 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         val parameters = builder.serializeParameters()
 
         createDeploymentAsync(groupId, name, template, parameters).await()
+    }
+
+    private fun createContainerAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData) = async(CommonPool) {
+        val name = instance.name
+
+        val handler = instance.image.handler
+        val builder = handler!!.prepareBuilderAsync(instance).await()
+
+        val details = instance.image.imageDetails
+        val groupId = when (details.target) {
+            AzureCloudDeployTarget.NewGroup -> {
+                createResourceGroupAsync(details.sourceId, details.region!!).await()
+                details.sourceId
+            }
+            AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
+            else -> throw CloudException("Creating container $name is prohibited")
+        }
+
+        if ("Linux" == details.osType && details.storageAccount != null) {
+            addContainerCustomDataAsync(instance, userData, builder).await()
+        } else {
+            addContainerEnvironment(instance, userData, builder)
+        }
+
+        builder.setParameterValue(AzureConstants.TEAMCITY_URL, userData.serverAddress)
+                .setTags(CONTAINER_RESOURCE_NAME, instance.properties)
+                .logDetails()
+
+        val template = builder.toString()
+        val parameters = builder.serializeParameters()
+
+        createDeploymentAsync(groupId, name, template, parameters).await()
+    }
+
+    private fun addContainerCustomDataAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData, builder: ArmTemplateBuilder) = async(CommonPool) {
+        val name = instance.name
+        val imageDetails = instance.image.imageDetails
+
+        val customData = encodeCustomData(userData, name)
+        val fileContent = AzureUtils.getResourceAsString("/templates/ovf-env.xml")
+                .format(customData)
+                .toByteArray(Charsets.UTF_8)
+
+        // Set storage account credentials
+        val account = getStorageAccountAsync(imageDetails.storageAccount!!, imageDetails.region!!).await()
+        val credentials = account.credentials as StorageCredentialsAccountAndKey
+
+        val fileClient = account.createCloudFileClient()
+        val fileShare = fileClient.getShareReference(name)
+        fileShare.createIfNotExists()
+
+        val customDataFile = fileShare.rootDirectoryReference.getFileReference("ovf-env.xml")
+        customDataFile.uploadFromByteArray(fileContent, 0, fileContent.size)
+
+        AzureConstants.CONTAINER_VOLUMES.forEach {
+            fileClient.getShareReference("$name-$it").createIfNotExists()
+        }
+
+        builder.addContainerVolumes(CONTAINER_RESOURCE_NAME, name)
+                .setParameterValue("storageAccountName", credentials.accountName)
+                .setParameterValue("storageAccountKey", credentials.exportBase64EncodedKey())
+    }
+
+    private fun addContainerEnvironment(instance: AzureCloudInstance, userData: CloudInstanceUserData, builder: ArmTemplateBuilder) {
+        val environment = (userData.customAgentConfigurationParameters.map {
+            AzurePropertiesNames.TEAMCITY_ACI_PREFIX + it.key to it.value
+        } + (AzurePropertiesNames.TEAMCITY_ACI_PREFIX + AzurePropertiesNames.INSTANCE_NAME to instance.name)).toMap()
+
+        builder.addContainerEnvironment(CONTAINER_RESOURCE_NAME, environment)
+    }
+
+    private fun encodeCustomData(userData: CloudInstanceUserData, name: String): String {
+        return try {
+            Base64.encodeBase64String(userData.serialize().toByteArray(Charsets.UTF_8))
+        } catch (e: Exception) {
+            val message = "Failed to encode custom data for instance $name: ${e.message}"
+            LOG.debug(message, e)
+            throw CloudException(message, e)
+        }
     }
 
     private fun createResourceGroupAsync(groupId: String, region: String) = async(CommonPool) {
@@ -449,26 +624,28 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     }
 
     private fun createDeploymentAsync(groupId: String, deploymentId: String, template: String, params: String) = async(CommonPool) {
-        try {
-            myAzure.withSubscription(mySubscriptionId).deployments().define(deploymentId)
-                    .withExistingResourceGroup(groupId)
-                    .withTemplate(template)
-                    .withParameters(params)
-                    .withMode(DeploymentMode.INCREMENTAL)
-                    .createAsync()
-                    .awaitOne()
-            LOG.debug("Created deployment in group $groupId")
-        } catch (e: com.microsoft.azure.CloudException) {
-            val details = AzureUtils.getExceptionDetails(e)
-            val message = "Failed to create deployment $deploymentId in resource group $groupId: $details"
-            LOG.debug(message, e)
-            if (!message.endsWith("Canceled")) {
+        deploymentLocks.getOrPut("$groupId/$deploymentId", { Mutex() }).withLock {
+            try {
+                myAzure.withSubscription(mySubscriptionId).deployments().define(deploymentId)
+                        .withExistingResourceGroup(groupId)
+                        .withTemplate(template)
+                        .withParameters(params)
+                        .withMode(DeploymentMode.INCREMENTAL)
+                        .createAsync()
+                        .awaitOne()
+                LOG.debug("Created deployment in group $groupId")
+            } catch (e: com.microsoft.azure.CloudException) {
+                val details = AzureUtils.getExceptionDetails(e)
+                val message = "Failed to create deployment $deploymentId in resource group $groupId: $details"
+                LOG.debug(message, e)
+                if (!message.endsWith("Canceled")) {
+                    throw CloudException(message, e)
+                }
+            } catch (e: Throwable) {
+                val message = "Failed to create deployment $deploymentId in resource group $groupId: ${e.message}"
+                LOG.debug(message, e)
                 throw CloudException(message, e)
             }
-        } catch (e: Throwable) {
-            val message = "Failed to create deployment $deploymentId in resource group $groupId: ${e.message}"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
         }
     }
 
@@ -478,7 +655,14 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override fun deleteVmAsync(instance: AzureCloudInstance) = async(CommonPool) {
+    override fun deleteInstanceAsync(instance: AzureCloudInstance) =
+            if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+                deleteContainerAsync(instance)
+            } else {
+                deleteVmAsync(instance)
+            }
+
+    private fun deleteVmAsync(instance: AzureCloudInstance) = async(CommonPool) {
         val details = instance.image.imageDetails
         val name = instance.name
         val groupId = getResourceGroup(details, name)
@@ -504,6 +688,18 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         }
     }
 
+    private fun deleteContainerAsync(instance: AzureCloudInstance) = async(CommonPool) {
+        val details = instance.image.imageDetails
+        val name = instance.name
+        val groupId = getResourceGroup(details, details.sourceId)
+
+        when (details.target) {
+            AzureCloudDeployTarget.NewGroup -> deleteResourceGroupAsync(name).await()
+            AzureCloudDeployTarget.SpecificGroup -> deleteDeploymentAsync(groupId, name).await()
+            AzureCloudDeployTarget.Instance -> throw CloudException("Deleting container instance is not supported")
+        }
+    }
+
     override fun deleteVmBlobsAsync(instance: AzureCloudInstance) = async(CommonPool) {
         val name = instance.name
         val details = instance.image.imageDetails
@@ -511,7 +707,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         val storageBlobs: URI
         try {
             val imageUrl = URI(url)
-            storageBlobs = URI(imageUrl.scheme, imageUrl.host, "/vhds/" + name, null)
+            storageBlobs = URI(imageUrl.scheme, imageUrl.host, "/vhds/$name", null)
         } catch (e: URISyntaxException) {
             val message = "Failed to parse VHD image URL $url for instance $name: ${e.message}"
             LOG.debug(message, e)
@@ -554,7 +750,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     }
 
     private fun deleteDeploymentAsync(groupId: String, deploymentId: String) = async(CommonPool) {
-        deploymentLocks.getOrPut("$groupId/$deploymentId", { ReentrantLock() }).withLock {
+        deploymentLocks.getOrPut("$groupId/$deploymentId", { Mutex() }).withLock {
             try {
                 val subscription = myAzure.withSubscription(mySubscriptionId)
                 val deployment = try {
@@ -579,37 +775,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                     } while (deployment.provisioningState() != "Canceled")
                 }
 
-                val operations = deployment.deploymentOperations().listAsync().awaitList()
-                if (operations.isNotEmpty()) {
-                    operations.sortedByDescending { it.timestamp() }.forEach {
-                        runBlocking {
-                            it.targetResource()?.let {
-                                val resourceId = it.id()
-                                val resources = linkedSetOf<String>(resourceId)
-                                if (it.resourceType() == "Microsoft.Compute/virtualMachines") {
-                                    subscription.virtualMachines().getByIdAsync(resourceId).awaitOne()?.let {
-                                        if (it.isManagedDiskEnabled) {
-                                            resources.add(it.osDiskId())
-                                        }
-                                    }
-                                }
-
-                                resources.forEach {
-                                    try {
-                                        LOG.debug("Deleting resource $it")
-                                        subscription.genericResources().deleteByIdAsync(it).await()
-                                    } catch (e: com.microsoft.azure.CloudException) {
-                                        val details = AzureUtils.getExceptionDetails(e)
-                                        val message = "Failed to delete resource $it in $deploymentId in group $groupId: $details"
-                                        LOG.warnAndDebugDetails(message, e)
-                                    } catch (e: Exception) {
-                                        LOG.warnAndDebugDetails("Failed to delete resource $it in $deploymentId in group $groupId", e)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                deleteDeploymentResourcesAsync(subscription, deployment).await()
 
                 subscription.deployments().deleteByResourceGroupAsync(groupId, deploymentId).await()
                 LOG.debug("Deleted deployment $deploymentId in group $groupId")
@@ -626,13 +792,57 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         }
     }
 
+    private suspend fun deleteDeploymentResourcesAsync(subscription: Azure, deployment: Deployment) = async(CommonPool) {
+        val operations = deployment.deploymentOperations().listAsync().awaitList()
+        if (!operations.isNotEmpty()) {
+            return@async
+        }
+
+        operations.sortedByDescending { it.timestamp() }.map {
+            async(CommonPool, start = CoroutineStart.LAZY) {
+                it.targetResource()?.let {
+                    val resourceId = it.id()
+                    val resources = linkedSetOf<String>(resourceId)
+                    if (it.resourceType() == "Microsoft.Compute/virtualMachines") {
+                        subscription.virtualMachines().getByIdAsync(resourceId).awaitOne()?.let {
+                            if (it.isManagedDiskEnabled) {
+                                resources.add(it.osDiskId())
+                            }
+                        }
+                    }
+
+                    resources.forEach {
+                        try {
+                            LOG.debug("Deleting resource $it")
+                            subscription.genericResources().deleteByIdAsync(it).await()
+                        } catch (e: com.microsoft.azure.CloudException) {
+                            val details = AzureUtils.getExceptionDetails(e)
+                            val message = "Failed to delete resource $it in ${deployment.name()} in group ${deployment.resourceGroupName()}: $details"
+                            LOG.warnAndDebugDetails(message, e)
+                        } catch (e: Exception) {
+                            LOG.warnAndDebugDetails("Failed to delete resource $it in ${deployment.name()} in group ${deployment.resourceGroupName()}", e)
+                        }
+                    }
+                }
+            }
+        }.forEach { it.await() }
+    }
+
     /**
      * Restarts an instance.
      *
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override fun restartVmAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+    override fun restartInstanceAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+            throw CloudException("Restarting container instances is not supported")
+        } else {
+            restartVmAsync(instance).await()
+        }
+    }
+
+    private fun restartVmAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
 
@@ -656,7 +866,21 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         }
     }
 
-    override fun startVmAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+    /**
+     * Starts an instance.
+     *
+     * @param instance is a cloud instance.
+     * @return promise.
+     */
+    override fun startInstanceAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+            throw CloudException("Starting container instances is not supported")
+        } else {
+            startVmAsync(instance).await()
+        }
+    }
+
+    private fun startVmAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
 
@@ -680,7 +904,21 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         }
     }
 
-    override fun stopVmAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+    /**
+     * Stops an instance.
+     *
+     * @param instance is a cloud instance.
+     * @return promise.
+     */
+    override fun stopInstanceAsync(instance: AzureCloudInstance) =
+            if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+                deleteContainerAsync(instance)
+            } else {
+                stopVmAsync(instance)
+            }
+
+
+    private fun stopVmAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
 
@@ -760,7 +998,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
         }
 
         if (blobs.size > 1) {
-            LOG.debug("Found more than one blobs for url " + imageUrl)
+            LOG.debug("Found more than one blobs for url $imageUrl")
             return@async null
         }
 
@@ -883,7 +1121,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                     .storageAccounts()
                     .getByResourceGroupAsync(groupName, storageName)
                     .awaitOne()
-            LOG.debug("Received keys for storage account " + storageName)
+            LOG.debug("Received keys for storage account $storageName")
             account.keys
         } catch (e: Throwable) {
             val message = "Failed to get storage account $storageName key: ${e.message}"
@@ -906,7 +1144,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
             Collections.sort(list) { o1, o2 -> o1.displayName().compareTo(o2.displayName()) }
 
             for (subscription in list) {
-                subscriptions.put(subscription.subscriptionId(), subscription.displayName())
+                subscriptions[subscription.subscriptionId()] = subscription.displayName()
             }
 
             subscriptions
@@ -925,13 +1163,13 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     override fun getRegionsAsync() = async(CommonPool, CoroutineStart.LAZY) {
         try {
             val list = myAzure.subscriptions().getByIdAsync(mySubscriptionId).awaitOne().listLocations()
-            LOG.debug("Received list of regions in subscription " + mySubscriptionId)
+            LOG.debug("Received list of regions in subscription $mySubscriptionId")
 
             val regions = LinkedHashMap<String, String>()
-            Collections.sort(list) { o1, o2 -> o1.displayName().compareTo(o2.displayName()) }
+            list.sortWith(Comparator { o1, o2 -> o1.displayName().compareTo(o2.displayName()) })
 
             for (region in list) {
-                regions.put(region.name(), region.displayName())
+                regions[region.name()] = region.displayName()
             }
 
             regions
@@ -959,7 +1197,7 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                 if (!network.regionName().equals(region, ignoreCase = true)) continue
 
                 val subNetworks = ArrayList(network.subnets().keys)
-                networks.put(network.id(), subNetworks)
+                networks[network.id()] = subNetworks
             }
 
             networks
@@ -1048,5 +1286,22 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
                 throw CloudException("Invalid instance ID ${details.instanceId}")
             }
         }
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(AzureApiConnectorImpl::class.java.name)
+        private val RESOURCE_GROUP_PATTERN = Regex("resourceGroups/([^/]+)/providers/")
+        private const val PUBLIC_IP_SUFFIX = "-pip"
+        private const val PROVISIONING_STATE = "ProvisioningState/"
+        private const val POWER_STATE = "PowerState/"
+        private const val HTTP_PROXY_HOST = "http.proxyHost"
+        private const val HTTP_PROXY_PORT = "http.proxyPort"
+        private const val HTTPS_PROXY_HOST = "https.proxyHost"
+        private const val HTTPS_PROXY_PORT = "https.proxyPort"
+        private const val HTTP_PROXY_USER = "http.proxyUser"
+        private const val HTTP_PROXY_PASSWORD = "http.proxyPassword"
+
+        private const val CONTAINER_RESOURCE_NAME = "[parameters('containerName')]"
+        private const val VM_RESOURCE_NAME = "[parameters('vmName')]"
     }
 }

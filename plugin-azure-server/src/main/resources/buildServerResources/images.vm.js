@@ -402,8 +402,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
     // Fill vm prefix from instance ID
     var imageName = self.getFileName(value);
-    var vmName = getVmNamePrefix(imageName);
-    self.image().vmNamePrefix(vmName);
+    self.image().vmNamePrefix(imageName);
     self.image().maxInstances(1)
   });
 

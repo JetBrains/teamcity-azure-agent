@@ -19,6 +19,7 @@ package jetbrains.buildServer.clouds.azure.arm.connector
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.AzureEnvironment
 import com.microsoft.azure.credentials.ApplicationTokenCredentials
+import com.microsoft.azure.credentials.MSICredentials
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
 import com.microsoft.azure.management.compute.VirtualMachine
@@ -57,7 +58,7 @@ import kotlin.collections.HashMap
 /**
  * Provides azure arm management capabilities.
  */
-class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, environment: String?)
+class AzureApiConnectorImpl(params: Map<String, String>)
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
     private val myAzure: Azure.Authenticated
@@ -67,6 +68,11 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
     private val deploymentLocks = ConcurrentHashMap<String, Mutex>()
 
     init {
+        params[AzureConstants.SUBSCRIPTION_ID]?.let {
+            mySubscriptionId = it
+        }
+
+        val environment = params[AzureConstants.ENVIRONMENT]
         val env = when (environment) {
             "AZURE_CHINA" -> AzureEnvironment.AZURE_CHINA
             "AZURE_GERMANY" -> AzureEnvironment.AZURE_GERMANY
@@ -74,10 +80,17 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
             else -> AzureEnvironment.AZURE
         }
 
-        val credentials = ApplicationTokenCredentials(clientId, tenantId, secret, env)
-        myAzure = Azure.configure()
-                .configureProxy()
-                .authenticate(credentials)
+        val credentialsType = params[AzureConstants.CREDENTIALS_TYPE]
+        val credentials = if (credentialsType == AzureConstants.CREDENTIALS_MSI) {
+            MSICredentials(env)
+        } else {
+            val tenantId = params[AzureConstants.TENANT_ID]
+            val clientId = params[AzureConstants.CLIENT_ID]
+            val clientSecret = params[AzureConstants.CLIENT_SECRET]
+            ApplicationTokenCredentials(clientId, tenantId, clientSecret, env)
+        }
+
+        myAzure = Azure.configure().configureProxy().authenticate(credentials)
     }
 
     override fun test() {
@@ -1224,15 +1237,6 @@ class AzureApiConnectorImpl(tenantId: String, clientId: String, secret: String, 
      */
     fun setProfileId(profileId: String?) {
         myProfileId = profileId
-    }
-
-    /**
-     * Sets subscription identifier for ARM clients.
-     *
-     * @param subscriptionId is a an identifier.
-     */
-    fun setSubscriptionId(subscriptionId: String) {
-        mySubscriptionId = subscriptionId
     }
 
     /**

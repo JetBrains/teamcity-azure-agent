@@ -24,17 +24,48 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.errorResources = ko.observable("");
 
   // Credentials
+  var credentialsTypes = {
+    msi: 'msi',
+    service: 'servcie'
+  };
+  self.credentialsType = ko.observable();
   self.credentials = ko.validatedObservable({
     environment: ko.observable().extend({required: true}),
-    tenantId: ko.observable('').trimmed().extend({required: true}),
-    clientId: ko.observable('').trimmed().extend({required: true}),
-    clientSecret: ko.observable('').trimmed().extend({required: true}),
-    subscriptionId: ko.observable().extend({required: true}),
+    type: self.credentialsType,
+    tenantId: ko.observable('').trimmed().extend({
+      required: {
+        onlyIf: function () {
+          return self.credentialsType !== credentialsTypes.msi
+        }
+      }
+    }),
+    clientId: ko.observable('').trimmed().extend({
+      required: {
+        onlyIf: function () {
+          return self.credentialsType !== credentialsTypes.msi
+        }
+      }
+    }),
+    clientSecret: ko.observable('').trimmed().extend({
+      required: {
+        onlyIf: function () {
+          return self.credentialsType !== credentialsTypes.msi
+        }
+      }
+    }),
+    subscriptionId: ko.observable().extend({
+      required: {
+        onlyIf: function () {
+          return self.credentialsType !== credentialsTypes.msi
+        }
+      }
+    }),
     region: ko.observable()
   });
 
   self.isValidClientData = ko.pureComputed(function () {
-    return self.credentials().tenantId.isValid() &&
+    return self.credentials().type() === credentialsTypes.msi ||
+      self.credentials().tenantId.isValid() &&
       self.credentials().clientId.isValid() &&
       self.credentials().clientSecret.isValid();
   });
@@ -66,7 +97,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   var requiredForDeployment = {
     required: {
-      onlyIf: function() {
+      onlyIf: function () {
         return self.deployTarget() !== deployTargets.instance
       }
     }
@@ -77,7 +108,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     region: ko.observable().extend(requiredForDeployment),
     groupId: ko.observable().extend({
       required: {
-        onlyIf: function() {
+        onlyIf: function () {
           return self.deployTarget() === deployTargets.specificGroup
         }
       }
@@ -148,7 +179,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }),
     networkId: ko.observable().extend({
       required: {
-        onlyIf: function() {
+        onlyIf: function () {
           return self.deployTarget() !== deployTargets.instance &&
             self.imageType() !== imageTypes.template &&
             self.imageType() !== imageTypes.container
@@ -157,7 +188,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }),
     subnetId: ko.observable().extend({
       required: {
-        onlyIf: function() {
+        onlyIf: function () {
           return self.deployTarget() !== deployTargets.instance &&
             self.imageType() !== imageTypes.template &&
             self.imageType() !== imageTypes.container
@@ -166,7 +197,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }),
     osType: ko.observable().extend({
       required: {
-        onlyIf: function() {
+        onlyIf: function () {
           return self.imageType() !== imageTypes.template &&
             self.deployTarget() !== deployTargets.instance
         }
@@ -175,7 +206,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     maxInstances: ko.observable(1).extend({required: true, min: 0}),
     vmSize: ko.observable().extend({
       required: {
-        onlyIf: function() {
+        onlyIf: function () {
           return self.deployTarget() !== deployTargets.instance &&
             self.imageType() !== imageTypes.template &&
             self.imageType() !== imageTypes.container
@@ -184,14 +215,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }),
     numberCores: ko.observable(1).extend({min: 0}).extend({
       required: {
-        onlyIf: function() {
+        onlyIf: function () {
           return self.imageType() === imageTypes.container
         }
       }
     }),
     memory: ko.observable(1).extend({min: 0}).extend({
       required: {
-        onlyIf: function() {
+        onlyIf: function () {
           return self.imageType() === imageTypes.container
         }
       }
@@ -223,7 +254,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     vmPublicIp: ko.observable(false),
     vmUsername: ko.observable('').trimmed().extend({
       required: {
-        onlyIf: function() {
+        onlyIf: function () {
           return self.deployTarget() !== deployTargets.instance &&
             self.imageType() !== imageTypes.template &&
             self.imageType() !== imageTypes.container
@@ -233,7 +264,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       .extend({minLength: 3, maxLength: maxLength}),
     vmPassword: ko.observable('').trimmed().extend({
       required: {
-        onlyIf: function() {
+        onlyIf: function () {
           return self.deployTarget() !== deployTargets.instance &&
             self.imageType() !== imageTypes.template &&
             self.imageType() !== imageTypes.container
@@ -297,6 +328,10 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.instances = ko.observableArray();
   self.nets = {};
   self.passwords = {};
+
+  self.credentialsType.subscribe(function () {
+    self.loadSubscriptions();
+  });
 
   self.credentials().environment.subscribe(function () {
     self.loadSubscriptions();
@@ -648,7 +683,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     self.loadingSubscriptions(true);
 
     var url = getBasePath() + "&resource=subscriptions";
-    $.post(url).then(function (response) {
+    $.post(url, getCredentials()).then(function (response) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {
@@ -677,7 +712,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
     self.loadingRegions(true);
 
-    $.post(url).then(function (response) {
+    $.post(url, getCredentials()).then(function (response) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {
@@ -813,13 +848,27 @@ function ArmImagesViewModel($, ko, dialog, config) {
   }
 
   function getBasePath() {
-    var credentials = self.credentials();
     return config.baseUrl +
-      "?prop%3Aenvironment=" + encodeURIComponent(credentials.environment()) +
-      "&prop%3AtenantId=" + encodeURIComponent(credentials.tenantId()) +
-      "&prop%3AclientId=" + encodeURIComponent(credentials.clientId()) +
-      "&prop%3Asecure%3AclientSecret=" + encodeURIComponent(credentials.clientSecret()) +
-      "&prop%3AsubscriptionId=" + encodeURIComponent(credentials.subscriptionId());
+      "?prop%3Aenvironment=" + encodeURIComponent(self.credentials().environment());
+  }
+
+  function getCredentials() {
+    var credentials = self.credentials();
+    var type = credentials.type();
+    if (type === credentialsTypes.msi) {
+      return {
+        "prop:credentialsType": type,
+        "prop:subscriptionId": credentials.subscriptionId()
+      };
+    } else {
+      return {
+        "prop:credentialsType": type,
+        "prop:subscriptionId": credentials.subscriptionId(),
+        "prop:tenantId": credentials.tenantId(),
+        "prop:clientId": credentials.clientId(),
+        "prop:secure:clientSecret": credentials.clientSecret()
+      };
+    }
   }
 
   function loadResourcesByRegion() {
@@ -835,7 +884,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
     self.loadingResources(true);
 
-    $.post(url).then(function (response) {
+    $.post(url, getCredentials()).then(function (response) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {
@@ -873,7 +922,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
     self.loadingOsType(true);
 
-    $.post(url).then(function (response) {
+    $.post(url, getCredentials()).then(function (response) {
       var $response = $j(response);
       var errors = getErrors($response);
       if (errors) {

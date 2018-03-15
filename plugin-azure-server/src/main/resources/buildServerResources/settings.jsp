@@ -10,9 +10,6 @@
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.arm.AzureConstants"/>
 <jsp:useBean id="basePath" class="java.lang.String" scope="request"/>
 
-<h2 class="noBorder section-header">Cloud Access Information</h2>
-<c:set var="azureLink">https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-create-service-principal-portal</c:set>
-
 <script type="text/javascript">
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}settings.css'/>");
 </script>
@@ -20,6 +17,7 @@
 <div id="arm-setting">
 
     <table class="runnerFormTable" data-bind="with: credentials()">
+        <l:settingsGroup title="Cloud Configuration">
         <tr>
             <th><label for="${cons.environment}">Environment: <l:star/></label></th>
             <td>
@@ -34,23 +32,48 @@
                        data-bind="initializeValue: environment"/>
             </td>
         </tr>
+        </l:settingsGroup>
+        <l:settingsGroup title="Security Credentials">
+        <c:set var="credentialsValue" value="${propertiesBean.properties[cons.credentialsType]}"/>
+        <c:set var="credentialsType" value="${empty credentialsValue ? cons.credentialsService : credentialsValue}"/>
+        <c:set var="azureLink">https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-create-service-principal-portal</c:set>
         <tr>
-            <th><label for="${cons.tenantId}">Tenant ID: <l:star/></label></th>
+            <th><label for="${cons.credentialsType}">Credentials type: <l:star/></label></th>
+            <td>
+                <input type="radio" value="${cons.credentialsMsi}" data-bind="checked: type"/>
+                <label for="${cons.credentialsMsi}">
+                    Managed Service Identity <bs:help urlPrefix="https://docs.microsoft.com/en-us/azure/active-directory/managed-service-identity/overview" file=""/>
+                </label>
+                <span class="smallNote">Use credentials associated with virtual machine</span>
+                <br/>
+                <input type="radio" value="${cons.credentialsService}" data-bind="checked: type"/>
+                <label for="${cons.credentialsService}">
+                    Service Principal <bs:help urlPrefix="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-create-service-principal-portal" file=""/>
+                </label>
+                <span class="smallNote">Use credentials from Azure Active Directory application</span>
+                <br/>
+                <a href="https://portal.azure.com" target="_blank">Open Azure Portal</a>
+                <input type="hidden" name="prop:${cons.credentialsType}" value="<c:out value="${credentialsType}"/>"
+                       data-bind="initializeValue: type, value: type"/>
+            </td>
+        </tr>
+        <tr data-bind="if: type() === '${cons.credentialsService}'">
+            <th><label for="${cons.tenantId}">Directory ID: <l:star/></label></th>
             <td>
                 <input type="text" name="prop:${cons.tenantId}" class="longField ignoreModified"
                        value="${propertiesBean.properties[cons.tenantId]}"
                        data-bind="initializeValue: tenantId, textInput: tenantId"/>
-                <span class="smallNote">Azure AD domain or tenant ID <a
+                <span class="smallNote">Azure Active Directory ID or tenant ID <a
                         href="${azureLink}#get-tenant-id"
                         target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <span class="error option-error" data-bind="validationMessage: tenantId"></span>
             </td>
         </tr>
-        <tr>
+        <tr data-bind="if: type() === '${cons.credentialsService}'">
             <th class="noBorder"><label for="prop:${cons.clientId}">Application ID: <l:star/></label></th>
             <td>
                 <input type="text" name="prop:${cons.clientId}" class="longField ignoreModified"
-                       value="${propertiesBean.properties[cons.clientId]}"
+                       value="<c:out value="${propertiesBean.properties[cons.clientId]}"/>"
                        data-bind="initializeValue: clientId, textInput: clientId"/>
                 <span class="smallNote">Azure AD application ID <a
                         href="${azureLink}#get-application-id-and-authentication-key"
@@ -58,13 +81,13 @@
                 <span class="error option-error" data-bind="validationMessage: clientId"></span>
             </td>
         </tr>
-        <tr>
+        <tr data-bind="if: type() === '${cons.credentialsService}'">
             <th class="noBorder"><label for="${cons.clientSecret}">Application Key: <l:star/></label></th>
             <td>
-                <input type="password" name="${cons.clientSecret}" class="longField ignoreModified"
+                <input type="password" class="longField ignoreModified"
                        data-bind="textInput: clientSecret"/>
-                <input type="hidden" name="prop:secure:${cons.clientSecret}"
-                       value="${propertiesBean.properties[cons.clientSecret]}"
+                <input type="hidden" name="prop:${cons.clientSecret}"
+                       value="<c:out value="${propertiesBean.properties[cons.clientSecret]}"/>"
                        data-bind="initializeValue: clientSecret, value: clientSecret"/>
                 <span class="smallNote">Azure AD application key <a
                         href="${azureLink}#get-application-id-and-authentication-key"
@@ -72,6 +95,7 @@
                 <span class="error option-error" data-bind="validationMessage: clientSecret"></span>
             </td>
         </tr>
+        </l:settingsGroup>
         <tr>
             <th><label for="${cons.subscriptionId}">Subscription: <l:star/></label></th>
             <td>

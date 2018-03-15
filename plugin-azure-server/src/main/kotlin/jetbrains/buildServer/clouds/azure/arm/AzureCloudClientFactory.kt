@@ -47,14 +47,13 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
     override fun createNewClient(state: CloudState,
                                  params: CloudClientParameters,
                                  errors: Array<TypedCloudErrorInfo>): AzureCloudClient {
-        val tenantId = getParameter(params, AzureConstants.TENANT_ID)
-        val clientId = getParameter(params, AzureConstants.CLIENT_ID)
-        val clientSecret = getParameter(params, AzureConstants.CLIENT_SECRET)
-        val subscriptionId = getParameter(params, AzureConstants.SUBSCRIPTION_ID)
-        val environment = params.getParameter(AzureConstants.ENVIRONMENT)
 
-        val apiConnector = AzureApiConnectorImpl(tenantId, clientId, clientSecret, environment)
-        apiConnector.setSubscriptionId(subscriptionId)
+
+        val parameters = params.listParameterNames().map {
+            it to params.getParameter(it)!!
+        }.toMap()
+
+        val apiConnector = AzureApiConnectorImpl(parameters)
         apiConnector.setServerId(mySettings.serverUUID)
         apiConnector.setProfileId(state.profileId)
 
@@ -62,10 +61,6 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         azureCloudClient.updateErrors(*errors)
 
         return azureCloudClient
-    }
-
-    private fun getParameter(params: CloudClientParameters, parameter: String): String {
-        return params.getParameter(parameter) ?: throw RuntimeException(parameter + " must not be empty")
     }
 
     override fun parseImageData(params: CloudClientParameters): Collection<AzureCloudImageDetails> {
@@ -125,7 +120,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
     }
 
     override fun getInitialParameterValues(): Map<String, String> {
-        return emptyMap()
+        return mapOf(AzureConstants.CREDENTIALS_TYPE to AzureConstants.CREDENTIALS_MSI)
     }
 
     override fun getPropertiesProcessor(): PropertiesProcessor {

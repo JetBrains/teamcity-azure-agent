@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm
 
+import jetbrains.buildServer.agent.Constants
 import jetbrains.buildServer.clouds.CloudImageParameters
 
 /**
@@ -24,6 +25,15 @@ import jetbrains.buildServer.clouds.CloudImageParameters
 class AzureConstants {
     val environment: String
         get() = ENVIRONMENT
+
+    val credentialsType: String
+        get() = CREDENTIALS_TYPE
+
+    val credentialsMsi: String
+        get() = CREDENTIALS_MSI
+
+    val credentialsService: String
+        get() = CREDENTIALS_SERVICE
 
     val tenantId: String
         get() = TENANT_ID
@@ -111,9 +121,12 @@ class AzureConstants {
 
     companion object {
         const val ENVIRONMENT = "environment"
+        const val CREDENTIALS_TYPE = "credentialsType"
+        const val CREDENTIALS_MSI = "msi"
+        const val CREDENTIALS_SERVICE = "service"
         const val TENANT_ID = "tenantId"
         const val CLIENT_ID = "clientId"
-        const val CLIENT_SECRET = "clientSecret"
+        const val CLIENT_SECRET = Constants.SECURE_PROPERTY_PREFIX + "clientSecret"
         const val SUBSCRIPTION_ID = "subscriptionId"
         const val DEPLOY_TARGET = "deployTarget"
         const val REGION = "region"

@@ -16,14 +16,12 @@
 
 package jetbrains.buildServer.clouds.azure.arm.web
 
-import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl
 import jetbrains.buildServer.clouds.azure.utils.PluginPropertiesUtil
 import jetbrains.buildServer.controllers.BasePropertiesBean
 import kotlinx.coroutines.experimental.Deferred
 import org.jdom.Content
-
 import javax.servlet.http.HttpServletRequest
 
 /**
@@ -34,15 +32,7 @@ internal abstract class AzureResourceHandler : ResourceHandler {
         val propsBean = BasePropertiesBean(null)
         PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true)
 
-        val props = propsBean.properties
-        val tenantId = props[AzureConstants.TENANT_ID]!!
-        val clientId = props[AzureConstants.CLIENT_ID]!!
-        val clientSecret = props["secure:" + AzureConstants.CLIENT_SECRET]!!
-        val subscriptionId = props[AzureConstants.SUBSCRIPTION_ID]!!
-        val environment = props[AzureConstants.ENVIRONMENT]
-
-        val apiConnector = AzureApiConnectorImpl(tenantId, clientId, clientSecret, environment)
-        apiConnector.setSubscriptionId(subscriptionId)
+        val apiConnector = AzureApiConnectorImpl(propsBean.properties)
 
         return handle(apiConnector, request)
     }

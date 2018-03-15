@@ -199,7 +199,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      */
     private fun startStoppedInstance(): AzureCloudInstance {
         val instance = stoppedInstances.singleOrNull()
-                ?: throw CloudException("Instance ${imageDetails.vmNamePrefix} was not found")
+                ?: throw CloudException("Instance ${imageDetails.vmNamePrefix ?: imageDetails.sourceId} was not found")
 
         instance.status = InstanceStatus.SCHEDULED_TO_START
 

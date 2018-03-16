@@ -231,7 +231,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       validation: {
         validator: function (value) {
           return !value || value.length < maxLength ||
-            self.deployTarget === deployTargets.instance ||
+            self.deployTarget() === deployTargets.instance ||
             self.imageType() === imageTypes.container;
         },
         message: 'Please enter no more than ' + maxLength + ' characters.'

@@ -43,6 +43,7 @@ import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
+import jetbrains.buildServer.version.ServerVersionHolder
 import kotlinx.coroutines.experimental.*
 import kotlinx.coroutines.experimental.sync.Mutex
 import kotlinx.coroutines.experimental.sync.withLock
@@ -90,7 +91,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             ApplicationTokenCredentials(clientId, tenantId, clientSecret, env)
         }
 
-        myAzure = Azure.configure().configureProxy().authenticate(credentials)
+        myAzure = Azure.configure()
+                .configureProxy()
+                .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}")
+                .authenticate(credentials)
     }
 
     override fun test() {

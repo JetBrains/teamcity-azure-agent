@@ -26,44 +26,30 @@ function ArmImagesViewModel($, ko, dialog, config) {
   // Credentials
   var credentialsTypes = {
     msi: 'msi',
-    service: 'servcie'
+    service: 'service'
   };
+
   self.credentialsType = ko.observable();
+  var requiredForServiceCredentials = {
+    required: {
+      onlyIf: function () {
+        return self.credentialsType() === credentialsTypes.service
+      }
+    }
+  };
+
   self.credentials = ko.validatedObservable({
     environment: ko.observable().extend({required: true}),
     type: self.credentialsType,
-    tenantId: ko.observable('').trimmed().extend({
-      required: {
-        onlyIf: function () {
-          return self.credentialsType !== credentialsTypes.msi
-        }
-      }
-    }),
-    clientId: ko.observable('').trimmed().extend({
-      required: {
-        onlyIf: function () {
-          return self.credentialsType !== credentialsTypes.msi
-        }
-      }
-    }),
-    clientSecret: ko.observable('').trimmed().extend({
-      required: {
-        onlyIf: function () {
-          return self.credentialsType !== credentialsTypes.msi
-        }
-      }
-    }),
-    subscriptionId: ko.observable().extend({
-      required: {
-        onlyIf: function () {
-          return self.credentialsType !== credentialsTypes.msi
-        }
-      }
-    }),
+    tenantId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
+    clientId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
+    clientSecret: ko.observable('').trimmed().extend(requiredForServiceCredentials),
+    subscriptionId: ko.observable().extend({required: true}),
     region: ko.observable()
   });
 
   self.isValidClientData = ko.pureComputed(function () {
+    if (!self.credentials().type()) return false;
     return self.credentials().type() === credentialsTypes.msi ||
       self.credentials().tenantId.isValid() &&
       self.credentials().clientId.isValid() &&

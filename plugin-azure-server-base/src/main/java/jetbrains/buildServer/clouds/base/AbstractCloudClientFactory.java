@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
 public abstract class AbstractCloudClientFactory<D extends CloudImageDetails, C extends AbstractCloudClient>
   implements CloudClientFactory {
 
-  private static final String AZURE_POLLING_INTERVAL = "teamcity.azure.cloud.pollingInterval";
+  private static final String AZURE_POLLING_INTERVAL_MS = "teamcity.azure.cloud.pollingIntervalMs";
 
   public AbstractCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar) {
     cloudRegistrar.registerCloudFactory(this);
@@ -48,7 +48,7 @@ public abstract class AbstractCloudClientFactory<D extends CloudImageDetails, C 
       }
       final Collection<D> imageDetailsList = parseImageData(params);
       final C newClient = createNewClient(state, imageDetailsList, params);
-      final long pollingInterval = TeamCityProperties.getLong(AZURE_POLLING_INTERVAL, 60 * 1000);
+      final long pollingInterval = TeamCityProperties.getLong(AZURE_POLLING_INTERVAL_MS, 60 * 1000);
       newClient.populateImagesData(imageDetailsList, pollingInterval, pollingInterval);
       return newClient;
     } catch (Exception ex) {

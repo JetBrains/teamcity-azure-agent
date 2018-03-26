@@ -52,6 +52,13 @@ To retrieve server configuration details TeamCity build agent needs to read the 
 
 Please check that user under which TeamCity build agent is running has read access permissions to the mentioned files.
 
+### TeamCity starts virtual machine instance but agent is Unauthorized
+
+To resolve it please add the following line in the [buildagent.properties](https://confluence.jetbrains.com/display/TCDL/Build+Agent+Configuration) file:
+```
+azure.instance.name=<agent_name>
+```
+
 ### Problems investigation
 
 To investigate the problems it worth look at the `teamcity-agent.log` [agent log file](https://confluence.jetbrains.com/display/TCDL/Viewing+Build+Agent+Logs) and `teamcity-clouds.log` [server log file](https://confluence.jetbrains.com/display/TCDL/TeamCity+Server+Logs).

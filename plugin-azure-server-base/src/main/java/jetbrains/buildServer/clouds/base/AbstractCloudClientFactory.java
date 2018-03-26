@@ -21,6 +21,7 @@ import java.util.Collection;
 import jetbrains.buildServer.clouds.*;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
+import jetbrains.buildServer.serverSide.TeamCityProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,8 +31,9 @@ import org.jetbrains.annotations.Nullable;
  *         Time: 1:51 PM
  */
 public abstract class AbstractCloudClientFactory<D extends CloudImageDetails, C extends AbstractCloudClient>
-
   implements CloudClientFactory {
+
+  private static final String AZURE_POLLING_INTERVAL = "teamcity.azure.cloud.pollingInterval";
 
   public AbstractCloudClientFactory(@NotNull final CloudRegistrar cloudRegistrar) {
     cloudRegistrar.registerCloudFactory(this);
@@ -46,7 +48,8 @@ public abstract class AbstractCloudClientFactory<D extends CloudImageDetails, C 
       }
       final Collection<D> imageDetailsList = parseImageData(params);
       final C newClient = createNewClient(state, imageDetailsList, params);
-      newClient.populateImagesData(imageDetailsList);
+      final long pollingInterval = TeamCityProperties.getLong(AZURE_POLLING_INTERVAL, 60 * 1000);
+      newClient.populateImagesData(imageDetailsList, pollingInterval, pollingInterval);
       return newClient;
     } catch (Exception ex) {
       return createNewClient(state, params, new TypedCloudErrorInfo[]{TypedCloudErrorInfo.fromException(ex)});
@@ -63,6 +66,5 @@ public abstract class AbstractCloudClientFactory<D extends CloudImageDetails, C 
 
   @Nullable
   protected abstract TypedCloudErrorInfo[] checkClientParams(@NotNull final CloudClientParameters params);
-
 
 }

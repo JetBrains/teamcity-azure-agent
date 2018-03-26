@@ -28,7 +28,7 @@
                         href="https://azure.microsoft.com/en-us/overview/datacenters/"
                         target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <input type="hidden" class="longField"
-                       value="${propertiesBean.properties[cons.environment]}"
+                       value="<c:out value="${propertiesBean.properties[cons.environment]}"/>"
                        data-bind="initializeValue: environment"/>
             </td>
         </tr>
@@ -61,9 +61,9 @@
             <th><label for="${cons.tenantId}">Directory ID: <l:star/></label></th>
             <td>
                 <input type="text" name="prop:${cons.tenantId}" class="longField ignoreModified"
-                       value="${propertiesBean.properties[cons.tenantId]}"
+                       value="<c:out value="${propertiesBean.properties[cons.tenantId]}"/>"
                        data-bind="initializeValue: tenantId, textInput: tenantId"/>
-                <span class="smallNote">Azure Active Directory ID or tenant ID <a
+                <span class="smallNote">Azure Active Directory ID or Tenant ID <a
                         href="${azureLink}#get-tenant-id"
                         target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <span class="error option-error" data-bind="validationMessage: tenantId"></span>
@@ -90,8 +90,8 @@
                        value="<c:out value="${propertiesBean.properties[cons.clientSecret]}"/>"
                        data-bind="initializeValue: clientSecret, value: clientSecret"/>
                 <span class="smallNote">Azure AD application key <a
-                        href="${azureLink}#get-application-id-and-authentication-key"
-                        target="_blank"><bs:helpIcon iconTitle=""/></a></span>
+                      href="${azureLink}#get-application-id-and-authentication-key"
+                      target="_blank"><bs:helpIcon iconTitle=""/></a></span>
                 <span class="error option-error" data-bind="validationMessage: clientSecret"></span>
             </td>
         </tr>
@@ -116,10 +116,10 @@
                 </a>
                 <span class="error option-error" data-bind="validationMessage: subscriptionId"></span>
                 <input type="hidden" class="longField"
-                       value="${propertiesBean.properties[cons.subscriptionId]}"
+                       value="<c:out value="${propertiesBean.properties[cons.subscriptionId]}"/>"
                        data-bind="initializeValue: subscriptionId"/>
                 <input type="hidden" class="longField"
-                       value="${propertiesBean.properties['location']}"
+                       value="<c:out value="${propertiesBean.properties['location']}"/>"
                        data-bind="initializeValue: region"/>
             </td>
         </tr>

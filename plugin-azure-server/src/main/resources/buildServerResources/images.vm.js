@@ -63,8 +63,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
   // Image details
   var maxLength = 12;
   var deployTargets = {
-    newGroup: 'NewGroup',
     specificGroup: 'SpecificGroup',
+    newGroup: 'NewGroup',
     instance: 'Instance'
   };
   var imageTypes = {
@@ -293,8 +293,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
   ]);
 
   self.deployTargets = ko.observableArray([
-    {id: deployTargets.newGroup, text: "New resource group"},
     {id: deployTargets.specificGroup, text: "Specific resource group"},
+    {id: deployTargets.newGroup, text: "New resource group"},
     {id: deployTargets.instance, text: "Use existing virtual machine"}
   ]);
 
@@ -489,7 +489,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
     var model = self.image();
     var image = data || {
-      deployTarget: deployTargets.newGroup,
+      deployTarget: deployTargets.specificGroup,
       imageType: imageTypes.image,
       maxInstances: 1,
       vmPublicIp: false,

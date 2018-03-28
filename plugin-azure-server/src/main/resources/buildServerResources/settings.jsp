@@ -507,7 +507,7 @@
         <a class="btn" href="#" disabled="disabled"
            data-bind="click: showDialog.bind($data, null),
            attr: {disabled: (!isValidCredentials() || loadingSubscriptions() || loadingRegions()) ? 'disabled' : null}">
-            <span class="addNew">Add image</span>
+            <span class="addNew">Add Image</span>
         </a>
     </div>
 

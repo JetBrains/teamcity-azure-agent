@@ -401,7 +401,7 @@
                     <i class="icon-refresh icon-spin"></i>
                     <!-- /ko -->
                     <span class="smallNote">
-                        Storage account to persist container volumes in Azure Files.<br>
+                        Storage account used to persist container volumes in Azure Files.<br>
                         It prevents build agent upgrade on each start.
                     </span>
                 </td>

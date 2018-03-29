@@ -107,9 +107,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         return emptyArray()
     }
 
-    override fun getCloudCode(): String {
-        return "arm"
-    }
+    override fun getCloudCode() = AzureConstants.CLOUD_CODE
 
     override fun getDisplayName(): String {
         return "Azure Resource Manager"

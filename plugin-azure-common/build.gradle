@@ -6,6 +6,12 @@ teamcity {
     version = teamcityVersion
 }
 
+dependencies {
+    compile 'com.google.code.gson:gson:2.5'
+    compile "org.jetbrains.kotlin:kotlin-stdlib"
+    compile "org.apache.httpcomponents:httpclient:4.3.4"
+}
+
 compileKotlin {
     sourceCompatibility = JavaVersion.VERSION_1_6
     targetCompatibility = JavaVersion.VERSION_1_6

@@ -25,7 +25,8 @@ class AzureMetadataReaderTest {
             }
         })
 
-        AzureMetadataReader(agentConfiguration).updateConfiguration(json)
+        val metadata = AzureMetadata.deserializeMetadata(json)
+        AzureMetadataReader(agentConfiguration).updateConfiguration(metadata)
 
         m.assertIsSatisfied()
     }

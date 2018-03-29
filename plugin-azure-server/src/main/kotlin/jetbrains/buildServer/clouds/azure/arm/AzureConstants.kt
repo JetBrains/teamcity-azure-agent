@@ -120,6 +120,8 @@ class AzureConstants {
         get() = CloudImageParameters.AGENT_POOL_ID_FIELD
 
     companion object {
+        const val CLOUD_CODE = "arm"
+        
         const val ENVIRONMENT = "environment"
         const val CREDENTIALS_TYPE = "credentialsType"
         const val CREDENTIALS_MSI = "msi"

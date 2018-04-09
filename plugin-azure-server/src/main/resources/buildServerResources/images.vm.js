@@ -230,7 +230,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }).extend({
       validation: {
         validator: function (value) {
-          return !value || value.length < maxLength ||
+          return !value || value.length <= maxLength ||
             self.deployTarget() === deployTargets.instance ||
             self.imageType() === imageTypes.container;
         },
@@ -373,6 +373,10 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }
 
     loadResourcesByRegion();
+
+    if (self.imageType() === imageTypes.vhd) {
+      loadOsType();
+    }
   });
 
   self.image().imageUrl.subscribe(function (url) {
@@ -900,7 +904,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
     });
   }
 
-  function loadOsType(imageUrl) {
+  function loadOsType(newUrl) {
+    var imageUrl = newUrl || self.image().imageUrl();
+    if (!imageUrl) {
+      return;
+    }
+
     var url = getBasePath() +
       "&resource=osType" +
       "&imageUrl=" + encodeURIComponent(imageUrl) +
@@ -998,7 +1007,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     if (!name) return "";
     var vhdSuffix = name.indexOf("-osDisk.");
     if (vhdSuffix > 0) name = name.substring(0, vhdSuffix);
-    return cleanupVmName(cleanupVmName(name).substr(0, maxLength));
+    return cleanupVmName(cleanupVmName(name).slice(-maxLength));
   }
 
   function cleanupVmName(name) {

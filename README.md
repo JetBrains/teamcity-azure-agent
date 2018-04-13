@@ -29,17 +29,7 @@ You can [download](https://plugins.jetbrains.com/plugin/9260-azure-resource-mana
 
 ## Usage
 
-The plugin supports generalized virtual machine images to start TeamCity build agents. You must use the [Azure AD application](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#create-application) and the [authentication key](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#create-an-authentication-key) to enable cloud integration and assign the [_Contributor_ role](https://azure.microsoft.com/en-us/documentation/articles/resource-group-create-service-principal-portal/#assign-application-to-role) for it in your subscription on the [new portal](https://portal.azure.com/).
-
-### Virtual Machine Image Preparation
-
-The plugin supports cloud agents creation from managed images and VHD images. Before you can start using integration, you need to create a new Virtual Machine instance via [Azure portal](https://portal.azure.com). The TeamCity Build Agent [must be installed](https://confluence.jetbrains.com/display/TCDL/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-PreparingavirtualmachinewithaninstalledTeamCityagent) and set to start automatically. Also, you need to manually point the agent to an existing TeamCity server with the Azure plugin installed to let the build agent download the plugins. Then you should [remove temporary files](https://confluence.jetbrains.com/display/TCDL/TeamCity+Integration+with+Cloud+Solutions#TeamCityIntegrationwithCloudSolutions-Capturinganimagefromavirtualmachine) and perform capture using the following guidelines.
-
-To create a **managed image**, follow the instructions for capturing [generalized Windows](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/capture-image-resource) and [deprovisioned Linux](https://docs.microsoft.com/en-us/azure/virtual-machines/linux/capture-image) virtual machines. As a result, you will get a custom managed image.
-
-To create a **VHD image**, follow the instructions for capturing [Linux](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-linux-capture-image/) and [Windows](https://azure.microsoft.com/en-us/documentation/articles/virtual-machines-windows-capture-image/) virtual machines. As a result, you will receive a VHD image in your storage account whose URL can be used to create build agents.
-
-Use **ARM template** for fully customizable build agent deployments. To make and set unique ids for created resources, reference the `[parameters('vmName')]` parameter in your template, which will be filled by the generated name on the build agent start.
+To configure Azure Resource Manager cloud profile please refer to the [wiki pages](https://github.com/JetBrains/teamcity-azure-agent/wiki).
 
 ## Common problems
 

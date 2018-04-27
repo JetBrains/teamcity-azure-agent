@@ -2,7 +2,7 @@ plugins {
     id 'com.github.rodm.teamcity-server' version "1.0"
 }
 
-ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.6.0'
+ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.9.0'
 
 teamcity {
     version = teamcityVersion

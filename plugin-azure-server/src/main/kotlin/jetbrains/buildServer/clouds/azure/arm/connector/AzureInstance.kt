@@ -102,6 +102,7 @@ class AzureInstance internal constructor(private val myName: String) : AbstractI
             PROVISIONING_STATES["Deleting"] = InstanceStatus.SCHEDULED_TO_STOP
             PROVISIONING_STATES["Failed"] = InstanceStatus.ERROR
             PROVISIONING_STATES["Canceled"] = InstanceStatus.ERROR
+            PROVISIONING_STATES["Investigation"] = InstanceStatus.ERROR_CANNOT_STOP
 
             POWER_STATES["Starting"] = InstanceStatus.STARTING
             POWER_STATES["Running"] = InstanceStatus.RUNNING

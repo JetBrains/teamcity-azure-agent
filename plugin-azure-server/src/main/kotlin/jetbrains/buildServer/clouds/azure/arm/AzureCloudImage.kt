@@ -27,6 +27,7 @@ import jetbrains.buildServer.clouds.azure.arm.types.*
 import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.experimental.CommonPool
 import kotlinx.coroutines.experimental.async
 import kotlinx.coroutines.experimental.runBlocking
@@ -112,14 +113,18 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 instance.status = InstanceStatus.ERROR
                 instance.updateErrors(TypedCloudErrorInfo.fromException(e))
 
-                LOG.info("Removing allocated resources for virtual machine ${instance.name}")
-                try {
-                    myApiConnector.deleteInstanceAsync(instance).await()
-                    LOG.info("Allocated resources for virtual machine ${instance.name} have been removed")
-                    removeInstance(instance.instanceId)
-                } catch (e: Throwable) {
-                    val message = "Failed to delete allocated resources for virtual machine ${instance.name}: ${e.message}"
-                    LOG.warnAndDebugDetails(message, e)
+                if (TeamCityProperties.getBooleanOrTrue(AzureConstants.PROP_DEPLOYMENT_DELETE_FAILED)) {
+                    LOG.info("Removing allocated resources for virtual machine ${instance.name}")
+                    try {
+                        myApiConnector.deleteInstanceAsync(instance).await()
+                        LOG.info("Allocated resources for virtual machine ${instance.name} have been removed")
+                        removeInstance(instance.instanceId)
+                    } catch (e: Throwable) {
+                        val message = "Failed to delete allocated resources for virtual machine ${instance.name}: ${e.message}"
+                        LOG.warnAndDebugDetails(message, e)
+                    }
+                } else {
+                    LOG.info("Allocated resources for virtual machine ${instance.name} would not be deleted. Cleanup them manually.")
                 }
             }
         }
@@ -253,6 +258,11 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     }
 
     override fun terminateInstance(instance: AzureCloudInstance) {
+        if (instance.properties.containsKey(AzureConstants.TAG_INVESTIGATION)) {
+            LOG.info("Could not stop virtual machine ${instance.name} under investigation. To do that remove ${AzureConstants.TAG_INVESTIGATION} tag from it.")
+            return
+        }
+
         instance.status = InstanceStatus.SCHEDULED_TO_STOP
 
         async(CommonPool) {

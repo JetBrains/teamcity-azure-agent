@@ -301,6 +301,11 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                         instance.setPowerState(code.substring(POWER_STATE.length))
                     }
                 }
+
+                if (it.tags().containsKey(AzureConstants.TAG_INVESTIGATION)) {
+                    LOG.info("Virtual machine $name is marked by ${AzureConstants.TAG_INVESTIGATION} tag")
+                    instance.setProvisioningState("Investigation")
+                }
             }
         }
 

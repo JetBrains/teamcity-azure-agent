@@ -159,9 +159,12 @@ class AzureConstants {
         const val TAG_SOURCE = "teamcity-source"
         const val TAG_DATA_HASH = "teamcity-data-hash"
         const val TAG_IMAGE_HASH = "teamcity-image-hash"
+        const val TAG_INVESTIGATION = "teamcity-investigation"
 
         const val TEAMCITY_URL = "teamcityUrl"
 
         val CONTAINER_VOLUMES = listOf("logs", "plugins", "system", "tools")
+
+        const val PROP_DEPLOYMENT_DELETE_FAILED = "teamcity.arm.deployment.removeFailed"
     }
 }

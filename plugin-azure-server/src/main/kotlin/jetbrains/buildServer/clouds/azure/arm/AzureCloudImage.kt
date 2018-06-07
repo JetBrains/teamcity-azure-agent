@@ -66,6 +66,20 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         }
     }
 
+    override fun detectNewInstances(realInstances: MutableMap<String, out AbstractInstance>?) {
+        super.detectNewInstances(realInstances)
+        if (realInstances == null) {
+            return
+        }
+
+        // Update properties
+        instances.forEach {instance ->
+            realInstances[instance.instanceId]?.let {
+                instance.properties = it.properties
+            }
+        }
+    }
+
     override fun canStartNewInstance(): Boolean = activeInstances.size < myImageDetails.maxInstances
 
     override fun startNewInstance(userData: CloudInstanceUserData): AzureCloudInstance = runBlocking {
@@ -324,7 +338,10 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      * @return instances.
      */
     private val stoppedInstances: List<AzureCloudInstance>
-        get() = instances.filter { instance -> instance.status == InstanceStatus.STOPPED }
+        get() = instances.filter { instance ->
+            instance.status == InstanceStatus.STOPPED &&
+            !instance.properties.containsKey(AzureConstants.TAG_INVESTIGATION)
+        }
 
     companion object {
         private val LOG = Logger.getInstance(AzureCloudImage::class.java.name)

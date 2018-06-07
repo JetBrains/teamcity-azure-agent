@@ -303,7 +303,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 }
 
                 if (it.tags().containsKey(AzureConstants.TAG_INVESTIGATION)) {
-                    LOG.info("Virtual machine $name is marked by ${AzureConstants.TAG_INVESTIGATION} tag")
+                    LOG.debug("Virtual machine $name is marked by ${AzureConstants.TAG_INVESTIGATION} tag")
                     instance.setProvisioningState("Investigation")
                 }
             }

@@ -8,7 +8,6 @@ import java.io.File
 import java.io.FileNotFoundException
 
 abstract class AzureCustomDataReader(private val myAgentConfiguration: BuildAgentConfigurationEx,
-                                     private val myIdleShutdown: IdleShutdown,
                                      private val myFileUtils: FileUtils) {
 
     protected abstract val customDataFileName: String
@@ -53,11 +52,6 @@ abstract class AzureCustomDataReader(private val myAgentConfiguration: BuildAgen
             LOG.info("Set azure instance name $agentName")
             myAgentConfiguration.name = agentName
             myAgentConfiguration.addConfigurationParameter(AzureProperties.INSTANCE_NAME, agentName)
-        }
-
-        data.idleTimeout?.let {
-            LOG.info("Set idle timeout to $it")
-            myIdleShutdown.setIdleTime(it)
         }
 
         data.customAgentConfigurationParameters.forEach { (key, value) ->

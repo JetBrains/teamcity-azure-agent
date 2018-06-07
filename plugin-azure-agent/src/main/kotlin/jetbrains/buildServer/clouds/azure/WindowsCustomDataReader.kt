@@ -4,9 +4,8 @@ import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx
 
 class WindowsCustomDataReader(agentConfiguration: BuildAgentConfigurationEx,
-                              idleShutdown: IdleShutdown,
                               fileUtils: FileUtils)
-    : AzureCustomDataReader(agentConfiguration, idleShutdown, fileUtils) {
+    : AzureCustomDataReader(agentConfiguration, fileUtils) {
 
     override val customDataFileName: String
         get() = WINDOWS_CUSTOM_DATA_FILE

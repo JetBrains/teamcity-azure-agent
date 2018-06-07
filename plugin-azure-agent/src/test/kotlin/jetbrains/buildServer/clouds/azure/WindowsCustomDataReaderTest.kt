@@ -38,7 +38,6 @@ class WindowsCustomDataReaderTest {
 
         val fileUtils = m.mock(FileUtils::class.java)
         val agentConfiguration = m.mock(BuildAgentConfigurationEx::class.java)
-        val idleShutdown = m.mock(IdleShutdown::class.java)
         val drive = System.getenv("SystemDrive")
 
         m.checking(object : Expectations() {
@@ -49,12 +48,10 @@ class WindowsCustomDataReaderTest {
 
                 one(fileUtils).readFile(File("$drive\\AzureData\\CustomData.bin"))
                 will(Expectations.returnValue(FileUtil.readText(File("src/test/resources/CustomData.bin"))))
-
-                one(idleShutdown).setIdleTime(2400000L)
             }
         })
 
-        WindowsCustomDataReader(agentConfiguration, idleShutdown, fileUtils).process()
+        WindowsCustomDataReader(agentConfiguration, fileUtils).process()
 
         m.assertIsSatisfied()
     }
@@ -63,7 +60,6 @@ class WindowsCustomDataReaderTest {
         val m = Mockery()
         val fileUtils = m.mock(FileUtils::class.java)
         val agentConfiguration = m.mock(BuildAgentConfigurationEx::class.java)
-        val idleShutdown = m.mock(IdleShutdown::class.java)
         val drive = System.getenv("SystemDrive")
 
         m.checking(object : Expectations() {
@@ -73,7 +69,7 @@ class WindowsCustomDataReaderTest {
             }
         })
 
-        WindowsCustomDataReader(agentConfiguration, idleShutdown, fileUtils).process()
+        WindowsCustomDataReader(agentConfiguration, fileUtils).process()
 
         m.assertIsSatisfied()
     }
@@ -82,7 +78,6 @@ class WindowsCustomDataReaderTest {
         val m = Mockery()
         val fileUtils = m.mock(FileUtils::class.java)
         val agentConfiguration = m.mock(BuildAgentConfigurationEx::class.java)
-        val idleShutdown = m.mock(IdleShutdown::class.java)
         val drive = System.getenv("SystemDrive")
 
         m.checking(object : Expectations() {
@@ -92,7 +87,7 @@ class WindowsCustomDataReaderTest {
             }
         })
 
-        WindowsCustomDataReader(agentConfiguration, idleShutdown, fileUtils).process()
+        WindowsCustomDataReader(agentConfiguration, fileUtils).process()
 
         m.assertIsSatisfied()
     }

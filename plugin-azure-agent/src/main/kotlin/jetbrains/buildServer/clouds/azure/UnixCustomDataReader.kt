@@ -12,9 +12,8 @@ import org.jdom.xpath.XPath
 import java.io.ByteArrayInputStream
 
 class UnixCustomDataReader(agentConfiguration: BuildAgentConfigurationEx,
-                           idleShutdown: IdleShutdown,
                            fileUtils: FileUtils)
-    : AzureCustomDataReader(agentConfiguration, idleShutdown, fileUtils) {
+    : AzureCustomDataReader(agentConfiguration, fileUtils) {
 
     override val customDataFileName = UNIX_CUSTOM_DATA_FILE
 

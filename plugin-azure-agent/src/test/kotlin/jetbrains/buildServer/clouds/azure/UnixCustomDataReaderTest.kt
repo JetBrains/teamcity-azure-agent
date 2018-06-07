@@ -36,7 +36,6 @@ class UnixCustomDataReaderTest {
         val m = Mockery()
         val fileUtils = m.mock(FileUtils::class.java)
         val agentConfiguration = m.mock(BuildAgentConfigurationEx::class.java)
-        val idleShutdown = m.mock(IdleShutdown::class.java)
 
         m.checking(object : Expectations() {
             init {
@@ -46,12 +45,10 @@ class UnixCustomDataReaderTest {
 
                 one(fileUtils).readFile(File("/var/lib/waagent/ovf-env.xml"))
                 will(Expectations.returnValue(FileUtil.readText(File("src/test/resources/ovf-env.xml"))))
-
-                one(idleShutdown).setIdleTime(2400000L)
             }
         })
 
-        UnixCustomDataReader(agentConfiguration, idleShutdown, fileUtils).process()
+        UnixCustomDataReader(agentConfiguration, fileUtils).process()
 
         m.assertIsSatisfied()
     }
@@ -60,7 +57,6 @@ class UnixCustomDataReaderTest {
         val m =  Mockery()
         val fileUtils = m.mock(FileUtils::class.java)
         val agentConfiguration = m.mock(BuildAgentConfigurationEx::class.java)
-        val idleShutdown = m.mock(IdleShutdown::class.java)
 
         m.checking(object : Expectations() {
             init {
@@ -72,12 +68,10 @@ class UnixCustomDataReaderTest {
 
                 one(fileUtils).readFile(File("/var/lib/waagent/ovf-env.xml"))
                 will(Expectations.returnValue(FileUtil.readText(File("src/test/resources/ovf-env2.xml"))))
-
-                one(idleShutdown).setIdleTime(2400000L)
             }
         })
 
-        UnixCustomDataReader(agentConfiguration, idleShutdown, fileUtils).process()
+        UnixCustomDataReader(agentConfiguration, fileUtils).process()
 
         m.assertIsSatisfied()
     }

@@ -27,8 +27,7 @@ class AzureContainerHandler : AzureHandler {
             exceptions.add(CheckedCloudException("Invalid OS Type value"))
         }
 
-        val imageId = details.imageId
-        if (imageId == null || imageId.isNullOrEmpty()) {
+        if (details.imageId.isNullOrEmpty()) {
             exceptions.add(CheckedCloudException("Docker image is empty"))
         }
 
@@ -41,7 +40,7 @@ class AzureContainerHandler : AzureHandler {
         val builder = ArmTemplateBuilder(template)
 
         builder.setParameterValue("containerName", instance.name)
-                .setParameterValue(AzureConstants.IMAGE_ID, details.imageId!!)
+                .setParameterValue(AzureConstants.IMAGE_ID, details.imageId!!.trim())
                 .setParameterValue(AzureConstants.OS_TYPE, details.osType!!)
                 .setParameterValue(AzureConstants.NUMBER_CORES, details.numberCores!!)
                 .setParameterValue(AzureConstants.MEMORY, details.memory!!)

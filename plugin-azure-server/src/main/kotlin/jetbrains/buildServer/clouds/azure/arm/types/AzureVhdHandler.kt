@@ -58,7 +58,7 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
 
         builder.setParameterValue("vmName", instance.name)
                 .addParameter(AzureConstants.IMAGE_URL, "string", "This is the name of the generalized VHD image")
-                .setParameterValue(AzureConstants.IMAGE_URL, details.imageUrl!!)
+                .setParameterValue(AzureConstants.IMAGE_URL, details.imageUrl!!.trim())
                 .setVhdImage()
                 .setParameterValue("networkId", details.networkId!!)
                 .setParameterValue("subnetName", details.subnetId!!)

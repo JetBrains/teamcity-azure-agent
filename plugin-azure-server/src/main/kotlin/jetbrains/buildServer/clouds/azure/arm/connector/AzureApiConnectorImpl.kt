@@ -32,6 +32,7 @@ import com.microsoft.azure.storage.blob.CloudBlob
 import com.microsoft.azure.storage.blob.CloudBlobContainer
 import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
+import jetbrains.buildServer.clouds.azure.AzureCompress
 import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
@@ -609,11 +610,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     }
 
     private fun addContainerEnvironment(instance: AzureCloudInstance, userData: CloudInstanceUserData, builder: ArmTemplateBuilder) {
-        val environment = (userData.customAgentConfigurationParameters.map {
-            AzureProperties.ENV_VAR_PREFIX + it.key to it.value
-        } + (AzureProperties.ENV_VAR_PREFIX + AzureProperties.INSTANCE_NAME to instance.name)).toMap()
-
-        builder.addContainerEnvironment(CONTAINER_RESOURCE_NAME, environment)
+        val environment = userData.customAgentConfigurationParameters.toMutableMap()
+        environment[AzureProperties.INSTANCE_NAME] = instance.name
+        val data = AzureCompress.encode(environment)
+        builder.addContainerEnvironment(CONTAINER_RESOURCE_NAME, mapOf(AzureProperties.INSTANCE_ENV_VAR to data))
     }
 
     private fun encodeCustomData(userData: CloudInstanceUserData, name: String): String {

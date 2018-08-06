@@ -8,17 +8,16 @@ import jetbrains.buildServer.agent.BuildAgentConfigurationEx
  */
 class AzureEnvironmentReader(private val configuration: BuildAgentConfigurationEx) {
     fun process(): Boolean {
-        val parameters = System.getenv().filter {
-            it.key.startsWith(AzureProperties.ENV_VAR_PREFIX)
-        }.toMap()
-
-        parameters.forEach { (parameter, value) ->
-            val key = parameter.removePrefix(AzureProperties.ENV_VAR_PREFIX)
-            configuration.addConfigurationParameter(key, value)
-            LOG.info("Added configuration parameter: {$key, $value}")
+        System.getenv(AzureProperties.INSTANCE_ENV_VAR)?.let {
+            AzureCompress.decode(it).forEach { key, value ->
+                configuration.addConfigurationParameter(key, value)
+                LOG.info("Added configuration parameter: {$key, $value}")
+            }
+            configuration.addEnvironmentVariable(AzureProperties.INSTANCE_ENV_VAR, "")
+            return true
         }
 
-        return parameters.isNotEmpty()
+        return false
     }
 
     companion object {

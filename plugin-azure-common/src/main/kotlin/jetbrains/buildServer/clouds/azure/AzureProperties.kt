@@ -23,5 +23,5 @@ package jetbrains.buildServer.clouds.azure
  */
 object AzureProperties {
     const val INSTANCE_NAME = "azure.instance.name"
-    const val ENV_VAR_PREFIX = "TC_AZURE_"
+    const val INSTANCE_ENV_VAR = "TEAMCITY_AZURE"
 }

@@ -247,7 +247,6 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
     private fun getDataHash(userData: CloudInstanceUserData): String {
         val dataHash = StringBuilder(userData.agentName)
-                .append(userData.idleTimeout)
                 .append(userData.profileId)
                 .append(userData.serverAddress)
                 .toString()

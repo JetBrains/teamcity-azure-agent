@@ -15,7 +15,7 @@ Enables TeamCity cloud integration with Microsoft Azure and allows virtual machi
 
 ## Overview
 
-More details about TeamCity Azure Resource Manager plugin could be found in the following [blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/).
+More details about TeamCity Azure Resource Manager plugin can be found in the following [blog post](https://blog.jetbrains.com/teamcity/2016/04/teamcity-azure-resource-manager/).
 
 Plugin supports following types of images:
 * Managed images
@@ -29,13 +29,13 @@ You can [download](https://plugins.jetbrains.com/plugin/9260-azure-resource-mana
 
 ## Usage
 
-To configure Azure Resource Manager cloud profile please refer to the [wiki pages](https://github.com/JetBrains/teamcity-azure-agent/wiki).
+To configure Azure Resource Manager cloud profile, refer to the [wiki pages](https://github.com/JetBrains/teamcity-azure-agent/wiki).
 
 ## Common problems
 
 ### TeamCity starts virtual machine but agent is not connected
 
-To retrieve server configuration details TeamCity build agent needs to read the following files:
+To retrieve server configuration details, the TeamCity build agent needs to read the following files:
 
 * `%SYSTEMDRIVE%\AzureData\CustomData.bin` on Windows
 * `/var/lib/waagent/ovf-env.xml` in Linux

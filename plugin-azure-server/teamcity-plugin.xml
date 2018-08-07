@@ -4,7 +4,7 @@
     <name>cloud-azure-arm</name>
     <display-name>Azure Resource Manager Cloud Support</display-name>
     <version>@Version@</version>
-    <description>Allows to use virtual machines in Microsoft Azure cloud to scale the pool of TeamCity build agents.</description>
+    <description>Allows using virtual machines in Microsoft Azure cloud to scale the pool of TeamCity build agents.</description>
     <download-url>https://github.com/JetBrains/teamcity-azure-plugin</download-url>
     <vendor>
       <name>JetBrains, s.r.o.</name>

@@ -464,8 +464,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
       } else {
         saveValue = true;
       }
-      image.reuseVm = JSON.parse(image.reuseVm);
-      image.vmPublicIp = JSON.parse(image.vmPublicIp);
+      image.reuseVm = JSON.parse(image.reuseVm || "false");
+      image.vmPublicIp = JSON.parse(image.vmPublicIp || "false");
       image.deployTarget = image.deployTarget || deployTargets.newGroup;
       if (image.deployTarget === deployTargets.newGroup) {
         image.region = image.region || self.credentials().region();
@@ -494,10 +494,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
     var model = self.image();
     var image = data || {
       deployTarget: deployTargets.specificGroup,
-      imageType: imageTypes.image,
+      groupId: self.getResourceGroup(),
+      imageType: imageTypes.container,
+      imageId: "jetbrains/teamcity-agent",
+      vmNamePrefix: "teamcity-agent",
+      osType: osTypes.linux,
       maxInstances: 1,
-      vmPublicIp: false,
-      reuseVm: true
+      numberCores: 2,
+      memory: 2
     };
 
     // Pre-fill collections while loading resources
@@ -534,8 +538,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }
 
     model.deployTarget(image.deployTarget || deployTargets.newGroup);
-    model.groupId(image.groupId);
     model.region(image.region);
+    model.groupId(image.groupId);
     model.imageType(image.imageType || imageTypes.vhd);
     model.imageUrl(image.imageUrl);
     model.imageId(imageId);
@@ -732,6 +736,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }).always(function () {
       self.loadingRegions(false);
     });
+  };
+
+  self.getResourceGroup = function() {
+    var resourceGroups = self.resourceGroups();
+    if (resourceGroups.length !== 1) return null;
+    return resourceGroups[0].text;
   };
 
   self.getFileName = function (url) {

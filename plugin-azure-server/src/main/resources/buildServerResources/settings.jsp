@@ -24,9 +24,9 @@
                 <select name="prop:${cons.environment}" class="longField ignoreModified"
                         data-bind="options: $parent.environments, optionsText: 'text', optionsValue: 'id',
                         value: environment"></select>
-                <span class="smallNote">Azure data center environment <a
-                        href="https://azure.microsoft.com/en-us/overview/datacenters/"
-                        target="_blank"><bs:helpIcon iconTitle=""/></a></span>
+                <span class="smallNote">Azure data center environment <bs:help
+                        urlPrefix="https://azure.microsoft.com/en-us/global-infrastructure/geographies/" file=""/>
+                </span>
                 <input type="hidden" class="longField"
                        value="<c:out value="${propertiesBean.properties[cons.environment]}"/>"
                        data-bind="initializeValue: environment"/>
@@ -37,6 +37,7 @@
         <c:set var="credentialsValue" value="${propertiesBean.properties[cons.credentialsType]}"/>
         <c:set var="credentialsType" value="${empty credentialsValue ? cons.credentialsService : credentialsValue}"/>
         <c:set var="azureLink">https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-create-service-principal-portal</c:set>
+        <c:set var="wikiLink">https://github.com/JetBrains/teamcity-azure-agent/wiki</c:set>
         <tr>
             <th><label for="${cons.credentialsType}">Credentials type: <l:star/></label></th>
             <td>
@@ -45,10 +46,9 @@
                     Managed Service Identity <bs:help urlPrefix="https://docs.microsoft.com/en-us/azure/active-directory/managed-service-identity/overview" file=""/>
                 </label>
                 <span class="smallNote">Use credentials associated with virtual machine</span>
-                <br/>
                 <input type="radio" value="${cons.credentialsService}" data-bind="checked: type"/>
                 <label for="${cons.credentialsService}">
-                    Service Principal <bs:help urlPrefix="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-create-service-principal-portal" file=""/>
+                    Service Principal <bs:help urlPrefix="${azureLink}" file=""/>
                 </label>
                 <span class="smallNote">Use credentials from Azure Active Directory application</span>
                 <br/>
@@ -63,9 +63,8 @@
                 <input type="text" name="prop:${cons.tenantId}" class="longField ignoreModified"
                        value="<c:out value="${propertiesBean.properties[cons.tenantId]}"/>"
                        data-bind="initializeValue: tenantId, textInput: tenantId"/>
-                <span class="smallNote">Azure Active Directory ID or Tenant ID <a
-                        href="${azureLink}#get-tenant-id"
-                        target="_blank"><bs:helpIcon iconTitle=""/></a></span>
+                <span class="smallNote">Azure Active Directory ID or Tenant ID <bs:help
+                        urlPrefix="${azureLink}#get-tenant-id" file=""/></span>
                 <span class="error option-error" data-bind="validationMessage: tenantId"></span>
             </td>
         </tr>
@@ -75,9 +74,8 @@
                 <input type="text" name="prop:${cons.clientId}" class="longField ignoreModified"
                        value="<c:out value="${propertiesBean.properties[cons.clientId]}"/>"
                        data-bind="initializeValue: clientId, textInput: clientId"/>
-                <span class="smallNote">Azure AD application ID <a
-                        href="${azureLink}#get-application-id-and-authentication-key"
-                        target="_blank"><bs:helpIcon iconTitle=""/></a></span>
+                <span class="smallNote">Azure AD application ID <bs:help
+                        urlPrefix="${azureLink}#get-application-id-and-authentication-key" file=""/></span>
                 <span class="error option-error" data-bind="validationMessage: clientId"></span>
             </td>
         </tr>
@@ -89,9 +87,8 @@
                 <input type="hidden" name="prop:${cons.clientSecret}"
                        value="<c:out value="${propertiesBean.properties[cons.clientSecret]}"/>"
                        data-bind="initializeValue: clientSecret, value: clientSecret"/>
-                <span class="smallNote">Azure AD application key <a
-                      href="${azureLink}#get-application-id-and-authentication-key"
-                      target="_blank"><bs:helpIcon iconTitle=""/></a></span>
+                <span class="smallNote">Azure AD application key <bs:help
+                        urlPrefix="${azureLink}#get-application-id-and-authentication-key" file=""/></span>
                 <span class="error option-error" data-bind="validationMessage: clientSecret"></span>
             </td>
         </tr>
@@ -134,6 +131,7 @@
                     <select name="${cons.deployTarget}" class="longField ignoreModified"
                             data-bind="options: deployTargets, optionsText: 'text', optionsValue: 'id',
                             value: image().deployTarget"></select>
+                    <bs:help urlPrefix="${wikiLink}#deployment-types" file=""/>
                     <span class="error option-error" data-bind="validationMessage: image().deployTarget"></span>
                 </td>
             </tr>
@@ -174,6 +172,7 @@
                     <select name="${cons.imageType}" class="longField ignoreModified"
                             data-bind="options: imageTypes, optionsText: 'text', optionsValue: 'id',
                             value: image().imageType"></select>
+                    <bs:help urlPrefix="${wikiLink}#image-types" file=""/>
                     <span class="error option-error" data-bind="validationMessage: image().imageType"></span>
                     <span class="error option-error" data-bind="text: errorResources"></span>
                 </td>
@@ -509,6 +508,9 @@
            attr: {disabled: (!isValidCredentials() || loadingSubscriptions() || loadingRegions()) ? 'disabled' : null}">
             <span class="addNew">Add Image</span>
         </a>
+        <span data-bind="css: {invisible: !loadingRegions()}">
+            <i class="icon-spin icon-refresh"></i> Loading regions...
+        </span>
     </div>
 
 </div>

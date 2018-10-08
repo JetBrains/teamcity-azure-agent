@@ -12,6 +12,10 @@ ext {
 group = projectIds.group
 version = projectIds.version
 
+repositories {
+    mavenCentral()
+}
+
 allprojects {
     group = projectIds.group
     version = projectIds.version

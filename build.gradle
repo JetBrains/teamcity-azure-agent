@@ -1,12 +1,12 @@
 plugins {
-    id "org.jetbrains.kotlin.jvm" version "1.2.30"
+    id "org.jetbrains.kotlin.jvm" version "1.2.71"
 }
 
 ext {
     def correctVersion = project.hasProperty('versionNumber') && property('versionNumber') ==~ /\d+\.\d+\.\d+.*/
     versionNumber = correctVersion ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
     projectIds = ['group': 'teamcity-azure-plugin', 'version': versionNumber]
-    teamcityVersion = findProperty('teamcityVersion') ?: '10.0'
+    teamcityVersion = findProperty('teamcityVersion') ?: '2017.1'
 }
 
 group = projectIds.group
@@ -25,5 +25,5 @@ subprojects {
 }
 
 task wrapper(type: Wrapper) {
-    gradleVersion = '4.2.1'
+    gradleVersion = '4.9'
 }

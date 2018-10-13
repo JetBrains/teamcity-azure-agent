@@ -17,8 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.coroutineScope
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
@@ -26,9 +25,9 @@ import javax.servlet.http.HttpServletRequest
  * Handles networks request.
  */
 internal class NetworksHandler : AzureResourceHandler() {
-    override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
+    override suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest) = coroutineScope {
         val region = request.getParameter("region")
-        val networks = connector.getNetworksAsync(region).await()
+        val networks = connector.getNetworks(region)
         val networksElement = Element("networks")
 
         for ((name, subnets) in networks) {

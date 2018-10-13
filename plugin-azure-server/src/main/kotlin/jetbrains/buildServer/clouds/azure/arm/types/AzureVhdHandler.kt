@@ -6,13 +6,12 @@ import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.coroutineScope
 import java.util.*
 
 class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
     @Suppress("UselessCallOnNotNull")
-    override fun checkImageAsync(image: AzureCloudImage) = async(CommonPool) {
+    override suspend fun checkImage(image: AzureCloudImage) = coroutineScope {
         val exceptions = ArrayList<Throwable>()
 
         val details = image.imageDetails
@@ -35,9 +34,9 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
         } else {
             try {
                 val region = details.region!!
-                connector.getVhdOsTypeAsync(imageUrl, region).await()
+                connector.getVhdOsType(imageUrl, region)
             } catch (e: Throwable) {
-                LOG.infoAndDebugDetails("Failed to get os type for vhd " + imageUrl, e)
+                LOG.infoAndDebugDetails("Failed to get os type for vhd $imageUrl", e)
                 exceptions.add(e)
             }
         }
@@ -45,7 +44,7 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
         exceptions
     }
 
-    override fun prepareBuilderAsync(instance: AzureCloudInstance) = async(CommonPool) {
+    override suspend fun prepareBuilder(instance: AzureCloudInstance) = coroutineScope {
         val details = instance.image.imageDetails
         val template = AzureUtils.getResourceAsString("/templates/vm-template.json")
         val builder = ArmTemplateBuilder(template)
@@ -54,7 +53,7 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
             builder.setPublicIp()
         }
 
-        connector.deleteVmBlobsAsync(instance).await()
+        connector.deleteVmBlobs(instance)
 
         builder.setParameterValue("vmName", instance.name)
                 .addParameter(AzureConstants.IMAGE_URL, "string", "This is the name of the generalized VHD image")
@@ -68,10 +67,10 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
                 .setParameterValue("vmSize", details.vmSize!!)
     }
 
-    override fun getImageHashAsync(details: AzureCloudImageDetails) = async(CommonPool) {
+    override suspend fun getImageHash(details: AzureCloudImageDetails) = coroutineScope {
         val imageUrl = details.imageUrl!!
         val region = details.region!!
-        val metadata = connector.getVhdMetadataAsync(imageUrl, region).await() ?: emptyMap()
+        val metadata = connector.getVhdMetadata(imageUrl, region) ?: emptyMap()
         metadata[METADATA_ETAG] ?: ""
     }
 

@@ -17,8 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.coroutineScope
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
@@ -26,10 +25,10 @@ import javax.servlet.http.HttpServletRequest
  * Handles storage blob request.
  */
 internal class OsTypeHandler : AzureResourceHandler() {
-    override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
+    override suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest) = coroutineScope {
         val imageUrl = request.getParameter("imageUrl")
         val region = request.getParameter("region")
-        val osType = connector.getVhdOsTypeAsync(imageUrl, region).await()
+        val osType = connector.getVhdOsType(imageUrl, region)
 
         Element("osType").apply {
             text = osType

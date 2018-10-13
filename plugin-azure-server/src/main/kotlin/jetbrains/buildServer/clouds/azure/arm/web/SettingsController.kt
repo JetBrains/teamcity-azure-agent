@@ -24,9 +24,9 @@ import jetbrains.buildServer.serverSide.SBuildServer
 import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 import jetbrains.buildServer.web.openapi.WebControllerManager
-import kotlinx.coroutines.experimental.Deferred
+import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.awaitAll
 import kotlinx.coroutines.experimental.runBlocking
-import org.jdom.Content
 import org.jdom.Element
 import org.springframework.web.servlet.ModelAndView
 import java.io.IOException
@@ -91,25 +91,20 @@ class SettingsController(server: SBuildServer,
         val xmlResponse = XmlResponseUtil.newXmlResponse()
         val errors = ActionErrors()
         val resources = request.getParameterValues("resource")
-        val promises = hashMapOf<String, Deferred<Content>>()
+        val context = request.startAsync(request, response)
 
-        resources.filterNotNull()
-                .forEach { resource ->
-                    myHandlers[resource]?.let {
-                        promises += resource to it.handle(request)
+        resources.filterNotNull().map { resource ->
+            myHandlers[resource]?.let { handler ->
+                return@map async {
+                    try {
+                        xmlResponse.addContent(handler.handle(request))
+                    } catch (e: Throwable) {
+                        LOG.infoAndDebugDetails("Failed to process $resource request", e)
+                        errors.addError(resource, e.message)
                     }
                 }
-
-        val context = request.startAsync(request, response)
-        promises.values.forEach{ it -> it.start() }
-        promises.keys.forEach { resource ->
-            try {
-                xmlResponse.addContent(promises[resource]?.await())
-            } catch (e: Throwable) {
-                LOG.debug(e)
-                errors.addError(resource, e.message)
             }
-        }
+        }.filterNotNull().awaitAll()
 
         if (errors.hasErrors()) {
             errors.serialize(xmlResponse)

@@ -17,8 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.coroutineScope
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
@@ -26,9 +25,9 @@ import javax.servlet.http.HttpServletRequest
  * Handles images request.
  */
 internal class ImagesHandler : AzureResourceHandler() {
-    override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
+    override suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest) = coroutineScope {
         val region = request.getParameter("region")
-        val images = connector.getImagesAsync(region).await()
+        val images = connector.getImages(region)
 
         val imagesElement = Element("images")
         for ((id, props) in images) {

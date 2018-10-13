@@ -20,7 +20,7 @@ import rx.Completable
 import rx.Observable
 import kotlin.coroutines.experimental.suspendCoroutine
 
-suspend fun Completable.awaitOne(): Unit {
+suspend fun Completable.awaitOne() {
     return suspendCoroutine { cont ->
         subscribe({
             cont.resume(Unit)

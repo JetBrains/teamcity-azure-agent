@@ -17,8 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.coroutineScope
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
@@ -26,8 +25,8 @@ import javax.servlet.http.HttpServletRequest
  * Handles instances request.
  */
 internal class InstancesHandler : AzureResourceHandler() {
-    override fun handle(connector: AzureApiConnector, request: HttpServletRequest) = async(CommonPool) {
-        val instances = connector.getInstancesAsync().await()
+    override suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest) = coroutineScope {
+        val instances = connector.getInstances()
 
         val instancesElement = Element("instances")
         for ((id, description) in instances) {

@@ -19,8 +19,7 @@ package jetbrains.buildServer.clouds.azure.arm.web
 import jetbrains.buildServer.BuildProject
 import jetbrains.buildServer.serverSide.agentPools.AgentPool
 import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.coroutineScope
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 import java.lang.reflect.Method
@@ -30,7 +29,7 @@ import java.lang.reflect.Method
  * Handles agent pools request.
  */
 internal class AgentPoolHandler(private val agentPoolManager: AgentPoolManager) : ResourceHandler {
-    override fun handle(request: HttpServletRequest) = async(CommonPool) {
+    override suspend fun handle(request: HttpServletRequest) = coroutineScope {
         val projectId: String? = request.getParameter("projectId")
         val agentPoolsElement = Element("agentPools")
 

@@ -20,43 +20,42 @@ import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector
-import kotlinx.coroutines.experimental.Deferred
 
 /**
  * Azure ARM API connector.
  */
 interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInstance> {
-    fun createInstanceAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData): Deferred<*>
+    suspend fun createInstance(instance: AzureCloudInstance, userData: CloudInstanceUserData)
 
-    fun deleteInstanceAsync(instance: AzureCloudInstance): Deferred<*>
+    suspend fun deleteInstance(instance: AzureCloudInstance)
 
-    fun restartInstanceAsync(instance: AzureCloudInstance): Deferred<*>
+    suspend fun restartInstance(instance: AzureCloudInstance)
 
-    fun startInstanceAsync(instance: AzureCloudInstance): Deferred<*>
+    suspend fun startInstance(instance: AzureCloudInstance)
 
-    fun stopInstanceAsync(instance: AzureCloudInstance): Deferred<*>
+    suspend fun stopInstance(instance: AzureCloudInstance)
 
-    fun getSubscriptionsAsync(): Deferred<Map<String, String>>
+    suspend fun getSubscriptions(): Map<String, String>
 
-    fun getRegionsAsync(): Deferred<Map<String, String>>
+    suspend fun getRegions(): Map<String, String>
 
-    fun getResourceGroupsAsync(): Deferred<Map<String, String>>
+    suspend fun getResourceGroups(): Map<String, String>
 
-    fun getInstancesAsync(): Deferred<Map<String, String>>
+    suspend fun getInstances(): Map<String, String>
 
-    fun getImageNameAsync(imageId: String): Deferred<String>
+    suspend fun getImageName(imageId: String): String
 
-    fun getImagesAsync(region: String): Deferred<Map<String, List<String>>>
+    suspend fun getImages(region: String): Map<String, List<String>>
 
-    fun getVmSizesAsync(region: String): Deferred<List<String>>
+    suspend fun getVmSizes(region: String): List<String>
 
-    fun getStorageAccountsAsync(region: String): Deferred<List<String>>
+    suspend fun getStorageAccounts(region: String): List<String>
 
-    fun getNetworksAsync(region: String): Deferred<Map<String, List<String>>>
+    suspend fun getNetworks(region: String): Map<String, List<String>>
 
-    fun getVhdOsTypeAsync(imageUrl: String, region: String): Deferred<String?>
+    suspend fun getVhdOsType(imageUrl: String, region: String): String?
 
-    fun getVhdMetadataAsync(imageUrl: String, region: String): Deferred<Map<String, String>?>
+    suspend fun getVhdMetadata(imageUrl: String, region: String): Map<String, String>?
 
-    fun deleteVmBlobsAsync(instance: AzureCloudInstance): Deferred<*>
+    suspend fun deleteVmBlobs(instance: AzureCloudInstance)
 }

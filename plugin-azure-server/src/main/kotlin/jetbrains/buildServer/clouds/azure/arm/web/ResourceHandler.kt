@@ -16,14 +16,12 @@
 
 package jetbrains.buildServer.clouds.azure.arm.web
 
-import kotlinx.coroutines.experimental.Deferred
 import org.jdom.Content
-
 import javax.servlet.http.HttpServletRequest
 
 /**
  * Request handler.
  */
 internal interface ResourceHandler {
-    fun handle(request: HttpServletRequest): Deferred<Content>
+    suspend fun handle(request: HttpServletRequest): Content
 }

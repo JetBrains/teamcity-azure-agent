@@ -20,7 +20,6 @@ import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl
 import jetbrains.buildServer.clouds.azure.utils.PluginPropertiesUtil
 import jetbrains.buildServer.controllers.BasePropertiesBean
-import kotlinx.coroutines.experimental.Deferred
 import org.jdom.Content
 import javax.servlet.http.HttpServletRequest
 
@@ -28,7 +27,7 @@ import javax.servlet.http.HttpServletRequest
  * Azure resource handler.
  */
 internal abstract class AzureResourceHandler : ResourceHandler {
-    override fun handle(request: HttpServletRequest): Deferred<Content> {
+    override suspend fun handle(request: HttpServletRequest): Content {
         val propsBean = BasePropertiesBean(null)
         PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true)
 
@@ -37,5 +36,5 @@ internal abstract class AzureResourceHandler : ResourceHandler {
         return handle(apiConnector, request)
     }
 
-    protected abstract fun handle(connector: AzureApiConnector, request: HttpServletRequest): Deferred<Content>
+    protected abstract suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest): Content
 }

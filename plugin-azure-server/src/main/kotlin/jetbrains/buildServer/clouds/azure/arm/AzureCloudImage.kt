@@ -28,9 +28,7 @@ import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.async
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.experimental.*
 import java.lang.StringBuilder
 import java.util.*
 
@@ -73,7 +71,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         }
 
         // Update properties
-        instances.forEach {instance ->
+        instances.forEach { instance ->
             realInstances[instance.instanceId]?.let {
                 instance.properties = it.properties
             }
@@ -82,7 +80,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
     override fun canStartNewInstance(): Boolean = activeInstances.size < myImageDetails.maxInstances
 
-    override fun startNewInstance(userData: CloudInstanceUserData): AzureCloudInstance = runBlocking {
+    override fun startNewInstance(userData: CloudInstanceUserData) = runBlocking {
         if (!canStartNewInstance()) {
             throw QuotaException("Unable to start more instances. Limit has reached")
         }
@@ -90,7 +88,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val instance = if (myImageDetails.deployTarget == AzureCloudDeployTarget.Instance) {
             startStoppedInstance()
         } else {
-            tryToStartStoppedInstanceAsync(userData).await() ?: createInstance(userData)
+            tryToStartStoppedInstance(userData) ?: createInstance(userData)
         }
         instance.apply {
             setStartDate(Date())
@@ -109,8 +107,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         instance.status = InstanceStatus.SCHEDULED_TO_START
         val data = AzureUtils.setVmNameForTag(userData, name)
 
-        async(CommonPool) {
-            val hash = handler!!.getImageHashAsync(imageDetails).await()
+        GlobalScope.launch {
+            val hash = handler!!.getImageHash(imageDetails)
 
             instance.properties[AzureConstants.TAG_PROFILE] = userData.profileId
             instance.properties[AzureConstants.TAG_SOURCE] = imageDetails.sourceId
@@ -119,7 +117,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
             try {
                 LOG.info("Creating new virtual machine ${instance.name}")
-                myApiConnector.createInstanceAsync(instance, data).await()
+                myApiConnector.createInstance(instance, data)
                 instance.status = InstanceStatus.RUNNING
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
@@ -130,7 +128,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 if (TeamCityProperties.getBooleanOrTrue(AzureConstants.PROP_DEPLOYMENT_DELETE_FAILED)) {
                     LOG.info("Removing allocated resources for virtual machine ${instance.name}")
                     try {
-                        myApiConnector.deleteInstanceAsync(instance).await()
+                        myApiConnector.deleteInstance(instance)
                         LOG.info("Allocated resources for virtual machine ${instance.name} have been removed")
                         removeInstance(instance.instanceId)
                     } catch (e: Throwable) {
@@ -153,7 +151,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      *
      * @return instance if it found.
      */
-    private fun tryToStartStoppedInstanceAsync(userData: CloudInstanceUserData) = async(CommonPool) {
+    private suspend fun tryToStartStoppedInstance(userData: CloudInstanceUserData) = coroutineScope {
         val instances = stoppedInstances
         if (instances.isNotEmpty()) {
             val validInstances = if (myImageDetails.behaviour.isDeleteAfterStop) {
@@ -161,7 +159,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 emptyList()
             } else {
                 instances.filter {
-                    if (!isSameImageInstance(it).await()) {
+                    if (!isSameImageInstance(it)) {
                         LOG.info("Will remove virtual machine ${it.name} due to changes in image source")
                         return@filter false
                     }
@@ -179,11 +177,11 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
             instance?.status = InstanceStatus.SCHEDULED_TO_START
 
-            async(CommonPool) {
+            GlobalScope.launch {
                 invalidInstances.forEach {
                     try {
                         LOG.info("Removing virtual machine ${it.name}")
-                        myApiConnector.deleteInstanceAsync(it).await()
+                        myApiConnector.deleteInstance(it)
                         removeInstance(it.instanceId)
                     } catch (e: Throwable) {
                         LOG.warnAndDebugDetails(e.message, e)
@@ -195,7 +193,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 instance?.let {
                     try {
                         LOG.info("Starting stopped virtual machine ${it.name}")
-                        myApiConnector.startInstanceAsync(it).await()
+                        myApiConnector.startInstance(it)
                         instance.status = InstanceStatus.RUNNING
                     } catch (e: Throwable) {
                         LOG.warnAndDebugDetails(e.message, e)
@@ -205,7 +203,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 }
             }
 
-            return@async instance
+            return@coroutineScope instance
         }
 
         null
@@ -222,10 +220,10 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
         instance.status = InstanceStatus.SCHEDULED_TO_START
 
-        async(CommonPool) {
+        GlobalScope.launch {
             try {
                 LOG.info("Starting virtual machine ${instance.name}")
-                myApiConnector.startInstanceAsync(instance).await()
+                myApiConnector.startInstance(instance)
                 instance.status = InstanceStatus.RUNNING
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
@@ -237,12 +235,12 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         return instance
     }
 
-    private fun isSameImageInstance(instance: AzureCloudInstance) = async(CommonPool) {
+    private suspend fun isSameImageInstance(instance: AzureCloudInstance) = coroutineScope {
         handler?.let {
-            val hash = it.getImageHashAsync(imageDetails).await()
-            return@async hash == instance.properties[AzureConstants.TAG_IMAGE_HASH]
+            val hash = it.getImageHash(imageDetails)
+            return@coroutineScope hash == instance.properties[AzureConstants.TAG_IMAGE_HASH]
         }
-        return@async true
+        true
     }
 
     private fun getDataHash(userData: CloudInstanceUserData): String {
@@ -257,10 +255,10 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     override fun restartInstance(instance: AzureCloudInstance) {
         instance.status = InstanceStatus.RESTARTING
 
-        async(CommonPool) {
+        GlobalScope.launch {
             try {
                 LOG.info("Restarting virtual machine ${instance.name}")
-                myApiConnector.restartInstanceAsync(instance).await()
+                myApiConnector.restartInstance(instance)
                 instance.status = InstanceStatus.RUNNING
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
@@ -278,20 +276,20 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
         instance.status = InstanceStatus.SCHEDULED_TO_STOP
 
-        async(CommonPool) {
+        GlobalScope.launch {
             try {
-                val sameVhdImage = isSameImageInstance(instance).await()
+                val sameVhdImage = isSameImageInstance(instance)
                 if (myImageDetails.behaviour.isDeleteAfterStop) {
                     LOG.info("Removing virtual machine ${instance.name} due to cloud image settings")
-                    myApiConnector.deleteInstanceAsync(instance).await()
+                    myApiConnector.deleteInstance(instance)
                     removeInstance(instance.instanceId)
                 } else if (!sameVhdImage) {
                     LOG.info("Removing virtual machine ${instance.name} due to cloud image retention policy")
-                    myApiConnector.deleteInstanceAsync(instance).await()
+                    myApiConnector.deleteInstance(instance)
                     removeInstance(instance.instanceId)
                 } else {
                     LOG.info("Stopping virtual machine ${instance.name}")
-                    myApiConnector.stopInstanceAsync(instance).await()
+                    myApiConnector.stopInstance(instance)
                     instance.status = InstanceStatus.STOPPED
                 }
 

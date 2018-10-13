@@ -7,14 +7,12 @@ import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.CompletableDeferred
-import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.coroutineScope
 import java.util.*
 
 class AzureContainerHandler : AzureHandler {
     @Suppress("UselessCallOnNotNull")
-    override fun checkImageAsync(image: AzureCloudImage) = async(CommonPool) {
+    override suspend fun checkImage(image: AzureCloudImage) = coroutineScope {
         val exceptions = ArrayList<Throwable>()
         val details = image.imageDetails
         if (details.sourceId.isNullOrEmpty()) {
@@ -34,7 +32,7 @@ class AzureContainerHandler : AzureHandler {
         exceptions
     }
 
-    override fun prepareBuilderAsync(instance: AzureCloudInstance) = async(CommonPool) {
+    override suspend fun prepareBuilder(instance: AzureCloudInstance) = coroutineScope {
         val details = instance.image.imageDetails
         val template = AzureUtils.getResourceAsString("/templates/container-template.json")
         val builder = ArmTemplateBuilder(template)
@@ -47,6 +45,7 @@ class AzureContainerHandler : AzureHandler {
                 .addContainer(instance.name)
     }
 
-    override fun getImageHashAsync(details: AzureCloudImageDetails) =
-            CompletableDeferred(Integer.toHexString(details.imageId!!.hashCode())!!)
+    override suspend fun getImageHash(details: AzureCloudImageDetails) = coroutineScope {
+        Integer.toHexString(details.imageId!!.hashCode())!!
+    }
 }

@@ -53,7 +53,6 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URI
 import java.net.URISyntaxException
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.collections.HashMap
 
@@ -112,13 +111,13 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
 
         val machines = if (images.any { it.imageDetails.type != AzureCloudImageType.Container }) {
-            getVirtualMachinesAsync().await()
+            getVirtualMachines()
         } else {
             emptyList()
         }
 
         val containers = if (images.any { it.imageDetails.type == AzureCloudImageType.Container }) {
-            getContainerGroupsAsync().await()
+            getContainerGroups()
         } else {
             emptyList()
         }
@@ -126,9 +125,9 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         images.forEach { image ->
             try {
                 val result = if (image.imageDetails.type != AzureCloudImageType.Container) {
-                    findVmInstancesAsync(image, machines).await()
+                    findVmInstances(image, machines)
                 } else {
-                    findContainerInstancesAsync(image, containers).await()
+                    findContainerInstances(image, containers)
                 }
                 LOG.debug("Received list of image ${image.name} instances")
                 @Suppress("UNCHECKED_CAST")
@@ -142,7 +141,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         imageMap
     }
 
-    private fun findVmInstancesAsync(image: AzureCloudImage, machines: List<VirtualMachine>) = async(CommonPool) {
+    private suspend fun findVmInstances(image: AzureCloudImage, machines: List<VirtualMachine>) = coroutineScope {
         val instances = hashMapOf<String, AzureInstance>()
         val details = image.imageDetails
 
@@ -188,7 +187,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         val exceptions = arrayListOf<Throwable>()
         instances.values.forEach { instance ->
             try {
-                getInstanceDataAsync(instance, details).await()
+                getInstanceData(instance, details)
             } catch (e: Throwable) {
                 LOG.debug("Failed to receive vm data: " + e.message, e)
                 exceptions.add(e)
@@ -201,7 +200,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         instances
     }
 
-    private fun findContainerInstancesAsync(image: AzureCloudImage, containers: List<ContainerGroup>) = async(CommonPool) {
+    private suspend fun findContainerInstances(image: AzureCloudImage, containers: List<ContainerGroup>) = coroutineScope {
         val instances = hashMapOf<String, AzureInstance>()
         val details = image.imageDetails
 
@@ -235,10 +234,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             val instance = AzureInstance(name)
             instance.properties = tags
             container.containers()[name]?.let {
-                it.instanceView()?.currentState()?.let {
-                    instance.setPowerState(it.state())
-                    it.startTime()?.let {
-                        instance.setStartDate(it.toDate())
+                it.instanceView()?.currentState()?.let { state ->
+                    instance.setPowerState(state.state())
+                    state.startTime()?.let { time ->
+                        instance.setStartDate(time.toDate())
                     }
                 }
             }
@@ -249,12 +248,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         instances
     }
 
-    private fun getVirtualMachinesAsync() = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun getVirtualMachines() = coroutineScope {
         try {
-            val list = myAzure.withSubscription(mySubscriptionId)
-                    .virtualMachines()
-                    .listAsync()
-                    .awaitList()
+            val list = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .virtualMachines()
+                        .listAsync()
+                        .awaitList()
+            }
             LOG.debug("Received list of virtual machines")
             list
         } catch (t: Throwable) {
@@ -264,12 +265,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun getContainerGroupsAsync() = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun getContainerGroups() = coroutineScope {
         try {
-            val list = myAzure.withSubscription(mySubscriptionId)
-                    .containerGroups()
-                    .listAsync()
-                    .awaitList()
+            val list = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .containerGroups()
+                        .listAsync()
+                        .awaitList()
+            }
             LOG.debug("Received list of container groups")
             list
         } catch (t: Throwable) {
@@ -279,13 +282,13 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun getInstanceDataAsync(instance: AzureInstance, details: AzureCloudImageDetails) = async(CommonPool) {
+    private suspend fun getInstanceData(instance: AzureInstance, details: AzureCloudImageDetails) = coroutineScope {
         val name = instance.name
         val groupId = getResourceGroup(details, name)
         val promises = arrayListOf<Deferred<Any?>>()
 
-        promises += async(CommonPool, CoroutineStart.LAZY) {
-            getVirtualMachineAsync(groupId, name).await()?.let {
+        promises += async(start = CoroutineStart.LAZY) {
+            getVirtualMachine(groupId, name)?.let {
                 LOG.debug("Received virtual machine $name info")
 
                 for (status in it.instanceView().statuses()) {
@@ -312,8 +315,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         if (details.vmPublicIp == true && instance.ipAddress == null) {
             val pipName = name + PUBLIC_IP_SUFFIX
-            promises += async(CommonPool, CoroutineStart.LAZY) {
-                val ip = getPublicIpAsync(groupId, pipName).await()
+            promises += async(start = CoroutineStart.LAZY) {
+                val ip = getPublicIp(groupId, pipName)
                 LOG.debug("Received public ip $ip for virtual machine $name")
 
                 if (!ip.isNullOrBlank()) {
@@ -322,16 +325,21 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             }
         }
 
-        promises.forEach { it.await() }
+        promises.awaitAll()
     }
 
-    private fun getVirtualMachineAsync(groupId: String, name: String) = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun getVirtualMachine(groupId: String, name: String) = coroutineScope {
         try {
-            val machine: VirtualMachine? = myAzure.withSubscription(mySubscriptionId)
-                    .virtualMachines()
-                    .getByResourceGroupAsync(groupId, name)
-                    .awaitOne()
-            machine?.refreshInstanceView()
+            val machine = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .virtualMachines()
+                        .getByResourceGroupAsync(groupId, name)
+                        .awaitOne()
+                        ?.apply {
+                            refreshInstanceViewAsync().awaitOne()
+                        }
+            }
+
             LOG.debug("Received virtual machine $name info")
             machine
         } catch (e: Throwable) {
@@ -341,12 +349,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun getPublicIpAsync(groupId: String, name: String) = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun getPublicIp(groupId: String, name: String) = coroutineScope {
         try {
-            val ipAddress = myAzure.withSubscription(mySubscriptionId)
-                    .publicIPAddresses()
-                    .getByResourceGroupAsync(groupId, name)
-                    .awaitOne()
+            val ipAddress = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .publicIPAddresses()
+                        .getByResourceGroupAsync(groupId, name)
+                        .awaitOne()
+            }
             LOG.debug("Received public ip $ipAddress for $name")
             ipAddress.ipAddress()
         } catch (e: Throwable) {
@@ -358,8 +368,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
     @Suppress("UselessCallOnNotNull")
     override fun checkImage(image: AzureCloudImage) = runBlocking {
-        image.handler?.let {
-            return@runBlocking it.checkImageAsync(image).await()
+        image.handler?.let { handler ->
+            return@runBlocking handler.checkImage(image)
                     .map { TypedCloudErrorInfo.fromException(it) }
                     .toTypedArray()
         }
@@ -372,18 +382,22 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * Gets a list of resource groups.
      * @return list of resource groups.
      */
-    override fun getResourceGroupsAsync() = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun getResourceGroups() = coroutineScope {
         try {
-            val list = myAzure.withSubscription(mySubscriptionId)
-                    .resourceGroups()
-                    .listAsync()
-                    .awaitList()
+            val list = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .resourceGroups()
+                        .listAsync()
+                        .awaitList()
+            }
             LOG.debug("Received list of resource groups")
 
-            list.sortedBy { it.name() }
-                    .associateTo(LinkedHashMap<String, String>(), {
-                        it.name() to it.regionName()
-                    })
+            list.asSequence()
+                    .sortedBy { it.name() }
+                    .associateBy(
+                            { it.name() },
+                            { it.regionName() }
+                    )
         } catch (e: Throwable) {
             val message = "Failed to get list of resource groups: ${e.message}"
             LOG.debug(message, e)
@@ -395,21 +409,24 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * Gets a list of vm instances.
      * @return list of instances.
      */
-    override fun getInstancesAsync() = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun getInstances() = coroutineScope {
         try {
-            val list = myAzure.withSubscription(mySubscriptionId)
-                    .virtualMachines()
-                    .listAsync()
-                    .awaitList()
+            val list = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .virtualMachines()
+                        .listAsync()
+                        .awaitList()
+            }
             LOG.debug("Received list of vm instances")
 
-            list.map {
+            list.asSequence().map {
                 it.id() to "${it.resourceGroupName()}/${it.name()}".toLowerCase()
             }.sortedBy {
                 it.second
-            }.associateTo(LinkedHashMap<String, String>(), {
-                it.first to it.second
-            })
+            }.associateBy(
+                    { it.first },
+                    { it.second }
+            )
         } catch (e: Throwable) {
             val message = "Failed to get list of instances: ${e.message}"
             LOG.debug(message, e)
@@ -421,12 +438,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * Gets an image name.
      * @return image name.
      */
-    override fun getImageNameAsync(imageId: String) = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun getImageName(imageId: String): String = coroutineScope {
         try {
-            val image = myAzure.withSubscription(mySubscriptionId)
-                    .virtualMachineCustomImages()
-                    .getByIdAsync(imageId)
-                    .awaitOne()
+            val image = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .virtualMachineCustomImages()
+                        .getByIdAsync(imageId)
+                        .awaitOne()
+            }
             LOG.debug("Received image $imageId")
 
             image.name()
@@ -441,21 +460,26 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * Gets a list of images.
      * @return list of images.
      */
-    override fun getImagesAsync(region: String) = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun getImages(region: String) = coroutineScope {
         try {
-            val list = myAzure.withSubscription(mySubscriptionId)
-                    .virtualMachineCustomImages()
-                    .listAsync()
-                    .awaitList()
-                    .filter {
-                        it.regionName().equals(region, ignoreCase = true) && it.osDiskImage().osState() == OperatingSystemStateTypes.GENERALIZED
-                    }
+            val list = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .virtualMachineCustomImages()
+                        .listAsync()
+                        .awaitList()
+                        .filter {
+                            it.regionName().equals(region, ignoreCase = true) &&
+                            it.osDiskImage().osState() == OperatingSystemStateTypes.GENERALIZED
+                        }
+            }
             LOG.debug("Received list of images")
 
-            list.sortedBy { it.name() }
-                    .associateTo(LinkedHashMap<String, List<String>>(), {
-                        it.id() to listOf(it.name(), it.osDiskImage().osType().toString())
-                    })
+            list.asSequence()
+                    .sortedBy { it.name() }
+                    .associateBy(
+                            { it.id() },
+                            { listOf(it.name(), it.osDiskImage().osType().toString()) }
+                    )
         } catch (e: Throwable) {
             val message = "Failed to get list of images: ${e.message}"
             LOG.debug(message, e)
@@ -468,16 +492,18 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
      * @return list of sizes.
      */
-    override fun getVmSizesAsync(region: String) = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun getVmSizes(region: String) = coroutineScope {
         try {
-            val vmSizes = myAzure.withSubscription(mySubscriptionId)
-                    .virtualMachines()
-                    .sizes()
-                    .listByRegionAsync(region)
-                    .awaitList()
+            val vmSizes = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .virtualMachines()
+                        .sizes()
+                        .listByRegionAsync(region)
+                        .awaitList()
+            }
             LOG.debug("Received list of vm sizes in region $region")
             val comparator = AlphaNumericStringComparator()
-            vmSizes.map { it.name() }.sortedWith(comparator)
+            vmSizes.asSequence().map { it.name() }.sortedWith(comparator).toList()
         } catch (e: Throwable) {
             val message = "Failed to get list of vm sizes in region $region: ${e.message}"
             LOG.debug(message, e)
@@ -489,16 +515,18 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * Gets a list of storage accounts.
      * @return list of sizes.
      */
-    override fun getStorageAccountsAsync(region: String) = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun getStorageAccounts(region: String) = coroutineScope {
         try {
-            val storageAccounts = myAzure.withSubscription(mySubscriptionId)
-                    .storageAccounts()
-                    .listAsync()
-                    .awaitList()
-                    .filter { region.equals(it.regionName(), true) }
+            val storageAccounts = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .storageAccounts()
+                        .listAsync()
+                        .awaitList()
+                        .filter { region.equals(it.regionName(), true) }
+            }
             LOG.debug("Received list of storage accounts in region $region")
             val comparator = AlphaNumericStringComparator()
-            storageAccounts.map { it.name() }.sortedWith(comparator)
+            storageAccounts.asSequence().map { it.name() }.sortedWith(comparator).toList()
         } catch (e: Throwable) {
             val message = "Failed to get list of storage accounts in region $region: ${e.message}"
             LOG.debug(message, e)
@@ -512,29 +540,29 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @param userData is a custom data.
      * @return promise.
      */
-    override fun createInstanceAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData): Deferred<Unit> {
+    override suspend fun createInstance(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         instance.properties[AzureConstants.TAG_SERVER] = myServerId!!
-        return if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
-            createContainerAsync(instance, userData)
+        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+            createContainer(instance, userData)
         } else {
-            createVmAsync(instance, userData)
+            createVm(instance, userData)
         }
     }
 
 
-    private fun createVmAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData) = async(CommonPool) {
+    private suspend fun createVm(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         val name = instance.name
         val customData = encodeCustomData(userData, name)
 
         val handler = instance.image.handler
-        val builder = handler!!.prepareBuilderAsync(instance).await()
+        val builder = handler!!.prepareBuilder(instance)
                 .setCustomData(customData)
                 .setTags(VM_RESOURCE_NAME, instance.properties)
 
         val details = instance.image.imageDetails
         val groupId = when (details.target) {
             AzureCloudDeployTarget.NewGroup -> {
-                createResourceGroupAsync(name, details.region!!).await()
+                createResourceGroup(name, details.region!!)
                 name
             }
             AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
@@ -545,19 +573,19 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         val template = builder.toString()
         val parameters = builder.serializeParameters()
 
-        createDeploymentAsync(groupId, name, template, parameters).await()
+        createDeployment(groupId, name, template, parameters)
     }
 
-    private fun createContainerAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData) = async(CommonPool) {
+    private suspend fun createContainer(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         val name = instance.name
 
         val handler = instance.image.handler
-        val builder = handler!!.prepareBuilderAsync(instance).await()
+        val builder = handler!!.prepareBuilder(instance)
 
         val details = instance.image.imageDetails
         val groupId = when (details.target) {
             AzureCloudDeployTarget.NewGroup -> {
-                createResourceGroupAsync(details.sourceId, details.region!!).await()
+                createResourceGroup(details.sourceId, details.region!!)
                 details.sourceId
             }
             AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
@@ -565,7 +593,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
 
         if ("Linux" == details.osType && details.storageAccount != null) {
-            addContainerCustomDataAsync(instance, userData, builder).await()
+            addContainerCustomData(instance, userData, builder)
         } else {
             addContainerEnvironment(instance, userData, builder)
         }
@@ -577,10 +605,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         val template = builder.toString()
         val parameters = builder.serializeParameters()
 
-        createDeploymentAsync(groupId, name, template, parameters).await()
+        createDeployment(groupId, name, template, parameters)
     }
 
-    private fun addContainerCustomDataAsync(instance: AzureCloudInstance, userData: CloudInstanceUserData, builder: ArmTemplateBuilder) = async(CommonPool) {
+    private suspend fun addContainerCustomData(instance: AzureCloudInstance, userData: CloudInstanceUserData, builder: ArmTemplateBuilder) = coroutineScope {
         val name = instance.name
         val imageDetails = instance.image.imageDetails
 
@@ -590,7 +618,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 .toByteArray(Charsets.UTF_8)
 
         // Set storage account credentials
-        val account = getStorageAccountAsync(imageDetails.storageAccount!!, imageDetails.region!!).await()
+        val account = getStorageAccount(imageDetails.storageAccount!!, imageDetails.region!!)
         val credentials = account.credentials as StorageCredentialsAccountAndKey
 
         val fileClient = account.createCloudFileClient()
@@ -626,12 +654,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun createResourceGroupAsync(groupId: String, region: String) = async(CommonPool) {
+    private suspend fun createResourceGroup(groupId: String, region: String) = coroutineScope {
         try {
-            myAzure.withSubscription(mySubscriptionId).resourceGroups().define(groupId)
-                    .withRegion(region)
-                    .createAsync()
-                    .awaitOne()
+            withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId).resourceGroups().define(groupId)
+                        .withRegion(region)
+                        .createAsync()
+                        .awaitOne()
+            }
             LOG.debug("Created resource group $groupId in region $region")
         } catch (e: com.microsoft.azure.CloudException) {
             val details = AzureUtils.getExceptionDetails(e)
@@ -645,16 +675,18 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun createDeploymentAsync(groupId: String, deploymentId: String, template: String, params: String) = async(CommonPool) {
-        deploymentLocks.getOrPut("$groupId/$deploymentId", { Mutex() }).withLock {
+    private suspend fun createDeployment(groupId: String, deploymentId: String, template: String, params: String) = coroutineScope {
+        deploymentLocks.getOrPut("$groupId/$deploymentId") { Mutex() }.withLock {
             try {
-                myAzure.withSubscription(mySubscriptionId).deployments().define(deploymentId)
-                        .withExistingResourceGroup(groupId)
-                        .withTemplate(template)
-                        .withParameters(params)
-                        .withMode(DeploymentMode.INCREMENTAL)
-                        .createAsync()
-                        .awaitOne()
+                withContext(Dispatchers.IO) {
+                    myAzure.withSubscription(mySubscriptionId).deployments().define(deploymentId)
+                            .withExistingResourceGroup(groupId)
+                            .withTemplate(template)
+                            .withParameters(params)
+                            .withMode(DeploymentMode.INCREMENTAL)
+                            .createAsync()
+                            .awaitOne()
+                }
                 LOG.debug("Created deployment in group $groupId")
             } catch (e: com.microsoft.azure.CloudException) {
                 val details = AzureUtils.getExceptionDetails(e)
@@ -677,23 +709,25 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override fun deleteInstanceAsync(instance: AzureCloudInstance) =
-            if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
-                deleteContainerAsync(instance)
-            } else {
-                deleteVmAsync(instance)
-            }
+    override suspend fun deleteInstance(instance: AzureCloudInstance) = coroutineScope {
+        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+            deleteContainer(instance)
+        } else {
+            deleteVm(instance)
+        }
+        Unit
+    }
 
-    private fun deleteVmAsync(instance: AzureCloudInstance) = async(CommonPool) {
+    private suspend fun deleteVm(instance: AzureCloudInstance) = coroutineScope {
         val details = instance.image.imageDetails
         val name = instance.name
         val groupId = getResourceGroup(details, name)
 
-        val virtualMachine = getVirtualMachineAsync(groupId, name).await()
+        val virtualMachine = getVirtualMachine(groupId, name)
 
         when (details.target) {
-            AzureCloudDeployTarget.NewGroup -> deleteResourceGroupAsync(name).await()
-            AzureCloudDeployTarget.SpecificGroup -> deleteDeploymentAsync(groupId, name).await()
+            AzureCloudDeployTarget.NewGroup -> deleteResourceGroup(name)
+            AzureCloudDeployTarget.SpecificGroup -> deleteDeployment(groupId, name)
             AzureCloudDeployTarget.Instance -> throw CloudException("Deleting virtual machine $name is prohibited")
         }
 
@@ -702,7 +736,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             if (!it.isManagedDiskEnabled) {
                 try {
                     val osDisk = URI(it.osUnmanagedDiskVhdUri())
-                    deleteBlobsAsync(osDisk, details.region!!).await()
+                    deleteBlobs(osDisk, details.region!!)
                 } catch (e: Throwable) {
                     LOG.infoAndDebugDetails("Failed to delete disk ${it.osUnmanagedDiskVhdUri()} for instance $name", e)
                 }
@@ -710,19 +744,19 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun deleteContainerAsync(instance: AzureCloudInstance) = async(CommonPool) {
+    private suspend fun deleteContainer(instance: AzureCloudInstance) = coroutineScope {
         val details = instance.image.imageDetails
         val name = instance.name
         val groupId = getResourceGroup(details, details.sourceId)
 
         when (details.target) {
-            AzureCloudDeployTarget.NewGroup -> deleteResourceGroupAsync(name).await()
-            AzureCloudDeployTarget.SpecificGroup -> deleteDeploymentAsync(groupId, name).await()
+            AzureCloudDeployTarget.NewGroup -> deleteResourceGroup(name)
+            AzureCloudDeployTarget.SpecificGroup -> deleteDeployment(groupId, name)
             AzureCloudDeployTarget.Instance -> throw CloudException("Deleting container instance is not supported")
         }
     }
 
-    override fun deleteVmBlobsAsync(instance: AzureCloudInstance) = async(CommonPool) {
+    override suspend fun deleteVmBlobs(instance: AzureCloudInstance) = coroutineScope {
         val name = instance.name
         val details = instance.image.imageDetails
         val url = details.imageUrl
@@ -737,11 +771,11 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
 
         val region = details.region!!
-        deleteBlobsAsync(storageBlobs, region).await()
+        deleteBlobs(storageBlobs, region)
     }
 
-    private suspend fun deleteBlobsAsync(storageBlobs: URI, region: String) = async(CommonPool) {
-        val blobs = getBlobsAsync(storageBlobs, region).await()
+    private suspend fun deleteBlobs(storageBlobs: URI, region: String) = coroutineScope {
+        val blobs = getBlobs(storageBlobs, region)
         for (blob in blobs) {
             try {
                 blob.deleteIfExists()
@@ -752,12 +786,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun deleteResourceGroupAsync(groupId: String) = async(CommonPool) {
+    private suspend fun deleteResourceGroup(groupId: String) = coroutineScope {
         try {
-            myAzure.withSubscription(mySubscriptionId)
-                    .resourceGroups()
-                    .deleteByNameAsync(groupId)
-                    .awaitOne()
+            withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .resourceGroups()
+                        .deleteByNameAsync(groupId)
+                        .awaitOne()
+            }
             LOG.debug("Resource group $groupId has been successfully deleted")
         } catch (e: com.microsoft.azure.CloudException) {
             val details = AzureUtils.getExceptionDetails(e)
@@ -771,83 +807,89 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun deleteDeploymentAsync(groupId: String, deploymentId: String) = async(CommonPool) {
-        deploymentLocks.getOrPut("$groupId/$deploymentId", { Mutex() }).withLock {
-            try {
-                val subscription = myAzure.withSubscription(mySubscriptionId)
-                val deployment = try {
-                    subscription.deployments().getByResourceGroupAsync(groupId, deploymentId).awaitOne()
-                } catch (e: Exception) {
-                    LOG.debug("Deployment $deploymentId in group $groupId was not found", e)
-                    return@async
+    private suspend fun deleteDeployment(groupId: String, deploymentId: String) = coroutineScope {
+        deploymentLocks.getOrPut("$groupId/$deploymentId") { Mutex() }.withLock {
+            withContext(Dispatchers.IO) {
+                try {
+                    val subscription = myAzure.withSubscription(mySubscriptionId)
+                    val deployment = try {
+                        subscription.deployments().getByResourceGroupAsync(groupId, deploymentId).awaitOne()
+                    } catch (e: Exception) {
+                        LOG.debug("Deployment $deploymentId in group $groupId was not found", e)
+                        return@withContext
+                    }
+
+                    LOG.debug("Deleting deployment $deploymentId in group $groupId")
+
+                    if (deployment.provisioningState() == "Canceled") {
+                        LOG.debug("Deployment $deploymentId in group $groupId was canceled")
+                    }
+
+                    // We need to cancel running deployments
+                    if (deployment.provisioningState() == "Running") {
+                        LOG.debug("Canceling running deployment $deploymentId")
+                        deployment.cancelAsync().await()
+                        do {
+                            deployment.refreshAsync().awaitOne()
+                        } while (deployment.provisioningState() != "Canceled")
+                    }
+
+                    deleteDeploymentResources(subscription, deployment)
+
+                    subscription.deployments().deleteByResourceGroupAsync(groupId, deploymentId).await()
+                    LOG.debug("Deleted deployment $deploymentId in group $groupId")
+                } catch (e: com.microsoft.azure.CloudException) {
+                    val details = AzureUtils.getExceptionDetails(e)
+                    val message = "Failed to delete deployment $deploymentId in resource group $groupId: $details"
+                    LOG.debug(message, e)
+                    throw CloudException(message, e)
+                } catch (e: Throwable) {
+                    val message = "Failed to delete deployment $deploymentId in resource group $groupId: ${e.message}"
+                    LOG.debug(message, e)
+                    throw CloudException(message, e)
                 }
-
-                LOG.debug("Deleting deployment $deploymentId in group $groupId")
-
-                if (deployment.provisioningState() == "Canceled") {
-                    LOG.debug("Deployment $deploymentId in group $groupId was canceled")
-                }
-
-                // We need to cancel running deployments
-                if (deployment.provisioningState() == "Running") {
-                    LOG.debug("Canceling running deployment $deploymentId")
-                    deployment.cancelAsync().await()
-                    do {
-                        deployment.refreshAsync().awaitOne()
-                    } while (deployment.provisioningState() != "Canceled")
-                }
-
-                deleteDeploymentResourcesAsync(subscription, deployment).await()
-
-                subscription.deployments().deleteByResourceGroupAsync(groupId, deploymentId).await()
-                LOG.debug("Deleted deployment $deploymentId in group $groupId")
-            } catch (e: com.microsoft.azure.CloudException) {
-                val details = AzureUtils.getExceptionDetails(e)
-                val message = "Failed to delete deployment $deploymentId in resource group $groupId: $details"
-                LOG.debug(message, e)
-                throw CloudException(message, e)
-            } catch (e: Throwable) {
-                val message = "Failed to delete deployment $deploymentId in resource group $groupId: ${e.message}"
-                LOG.debug(message, e)
-                throw CloudException(message, e)
             }
         }
     }
 
-    private suspend fun deleteDeploymentResourcesAsync(subscription: Azure, deployment: Deployment) = async(CommonPool) {
-        val operations = deployment.deploymentOperations().listAsync().awaitList()
+    private suspend fun deleteDeploymentResources(subscription: Azure, deployment: Deployment) = coroutineScope {
+        val operations = withContext(Dispatchers.IO) {
+            deployment.deploymentOperations()
+                    .listAsync()
+                    .awaitList()
+        }
         if (!operations.isNotEmpty()) {
-            return@async
+            return@coroutineScope
         }
 
-        operations.sortedByDescending { it.timestamp() }.map {
-            async(CommonPool, start = CoroutineStart.LAZY) {
-                it.targetResource()?.let {
-                    val resourceId = it.id()
+        operations.asSequence().sortedByDescending { it.timestamp() }.map {
+            async(Dispatchers.IO) {
+                it.targetResource()?.let { target ->
+                    val resourceId = target.id()
                     val resources = linkedSetOf<String>(resourceId)
-                    if (it.resourceType() == "Microsoft.Compute/virtualMachines") {
-                        subscription.virtualMachines().getByIdAsync(resourceId).awaitOne()?.let {
-                            if (it.isManagedDiskEnabled) {
-                                resources.add(it.osDiskId())
+                    if (target.resourceType() == "Microsoft.Compute/virtualMachines") {
+                        subscription.virtualMachines().getByIdAsync(resourceId).awaitOne()?.let { vm ->
+                            if (vm.isManagedDiskEnabled) {
+                                resources.add(vm.osDiskId())
                             }
                         }
                     }
 
-                    resources.forEach {
+                    resources.forEach { resource ->
                         try {
-                            LOG.debug("Deleting resource $it")
-                            subscription.genericResources().deleteByIdAsync(it).await()
+                            LOG.debug("Deleting resource $resource")
+                            subscription.genericResources().deleteByIdAsync(resource).await()
                         } catch (e: com.microsoft.azure.CloudException) {
                             val details = AzureUtils.getExceptionDetails(e)
-                            val message = "Failed to delete resource $it in ${deployment.name()} in group ${deployment.resourceGroupName()}: $details"
+                            val message = "Failed to delete resource $resource in ${deployment.name()} in group ${deployment.resourceGroupName()}: $details"
                             LOG.warnAndDebugDetails(message, e)
                         } catch (e: Exception) {
-                            LOG.warnAndDebugDetails("Failed to delete resource $it in ${deployment.name()} in group ${deployment.resourceGroupName()}", e)
+                            LOG.warnAndDebugDetails("Failed to delete resource $resource in ${deployment.name()} in group ${deployment.resourceGroupName()}", e)
                         }
                     }
                 }
             }
-        }.forEach { it.await() }
+        }.toList().awaitAll()
     }
 
     /**
@@ -856,25 +898,27 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override fun restartInstanceAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun restartInstance(instance: AzureCloudInstance) = coroutineScope {
         if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
             throw CloudException("Restarting container instances is not supported")
         } else {
-            restartVmAsync(instance).await()
+            restartVm(instance)
         }
     }
 
-    private fun restartVmAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun restartVm(instance: AzureCloudInstance) = coroutineScope {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
 
         try {
-            myAzure.withSubscription(mySubscriptionId)
-                    .virtualMachines()
-                    .getByResourceGroupAsync(groupId, name)
-                    .awaitOne()
-                    .restartAsync()
-                    .awaitOne()
+            withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .virtualMachines()
+                        .getByResourceGroupAsync(groupId, name)
+                        .awaitOne()
+                        .restartAsync()
+                        .awaitOne()
+            }
             LOG.debug("Virtual machine $name has been successfully restarted")
         } catch (e: com.microsoft.azure.CloudException) {
             val details = AzureUtils.getExceptionDetails(e)
@@ -894,25 +938,27 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override fun startInstanceAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun startInstance(instance: AzureCloudInstance) = coroutineScope {
         if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
             throw CloudException("Starting container instances is not supported")
         } else {
-            startVmAsync(instance).await()
+            startVm(instance)
         }
     }
 
-    private fun startVmAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun startVm(instance: AzureCloudInstance) = coroutineScope {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
 
         try {
-            myAzure.withSubscription(mySubscriptionId)
-                    .virtualMachines()
-                    .getByResourceGroupAsync(groupId, name)
-                    .awaitOne()
-                    .startAsync()
-                    .awaitOne()
+            withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .virtualMachines()
+                        .getByResourceGroupAsync(groupId, name)
+                        .awaitOne()
+                        .startAsync()
+                        .awaitOne()
+            }
             LOG.debug("Virtual machine $name has been successfully started")
         } catch (e: com.microsoft.azure.CloudException) {
             val details = AzureUtils.getExceptionDetails(e)
@@ -932,25 +978,27 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override fun stopInstanceAsync(instance: AzureCloudInstance) =
-            if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
-                deleteContainerAsync(instance)
-            } else {
-                stopVmAsync(instance)
-            }
+    override suspend fun stopInstance(instance: AzureCloudInstance) = coroutineScope {
+        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+            deleteContainer(instance)
+        } else {
+            stopVm(instance)
+        }
+    }
 
-
-    private fun stopVmAsync(instance: AzureCloudInstance) = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun stopVm(instance: AzureCloudInstance) = coroutineScope {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
 
         try {
-            myAzure.withSubscription(mySubscriptionId)
-                    .virtualMachines()
-                    .getByResourceGroupAsync(groupId, name)
-                    .awaitOne()
-                    .deallocateAsync()
-                    .awaitOne()
+            withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .virtualMachines()
+                        .getByResourceGroupAsync(groupId, name)
+                        .awaitOne()
+                        .deallocateAsync()
+                        .awaitOne()
+            }
             LOG.debug("Virtual machine $name has been successfully stopped")
         } catch (e: com.microsoft.azure.CloudException) {
             val details = AzureUtils.getExceptionDetails(e)
@@ -969,15 +1017,15 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @param imageUrl is image URL.
      * @return OS type (Linux, Windows).
      */
-    override fun getVhdOsTypeAsync(imageUrl: String, region: String) = async(CommonPool) {
-        val metadata = getVhdMetadataAsync(imageUrl, region).await()
+    override suspend fun getVhdOsType(imageUrl: String, region: String) = coroutineScope {
+        val metadata = getVhdMetadata(imageUrl, region)
         when (metadata) {
             null -> null
             else -> {
                 if ("OSDisk" != metadata["MicrosoftAzureCompute_ImageType"]) {
                     val message = "Found blob $imageUrl with invalid OSDisk metadata"
                     LOG.debug(message)
-                    return@async null
+                    return@coroutineScope null
                 }
 
                 if ("Generalized" != metadata["MicrosoftAzureCompute_OSState"]) {
@@ -995,7 +1043,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @param imageUrl is image URL.
      * @return metadata.
      */
-    override fun getVhdMetadataAsync(imageUrl: String, region: String) = async(CommonPool) {
+    override suspend fun getVhdMetadata(imageUrl: String, region: String) = coroutineScope {
         val uri: URI
         try {
             uri = URI.create(imageUrl)
@@ -1007,7 +1055,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         val blobs: List<CloudBlob>
         try {
-            blobs = getBlobsAsync(uri, region).await()
+            blobs = getBlobs(uri, region)
         } catch (e: Throwable) {
             LOG.debug("Failed to receive blobs for url $imageUrl: ${e.message}")
             throw e
@@ -1021,14 +1069,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         if (blobs.size > 1) {
             LOG.debug("Found more than one blobs for url $imageUrl")
-            return@async null
+            return@coroutineScope null
         }
 
         val blob = blobs[0]
         if (!imageUrl.endsWith(blob.name, true)) {
             val message = "For url $imageUrl found blob with invalid name ${blob.name}"
             LOG.debug(message)
-            return@async null
+            return@coroutineScope null
         }
 
         try {
@@ -1048,7 +1096,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun getBlobsAsync(uri: URI, region: String) = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun getBlobs(uri: URI, region: String) = coroutineScope {
         if (uri.host == null || uri.path == null) {
             throw CloudException("Invalid URL")
         }
@@ -1065,7 +1113,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             throw CloudException("File path must include container name")
         }
 
-        val account = getStorageAccountAsync(storage, region).await()
+        val account = getStorageAccount(storage, region)
         val containerName = filesPrefix.substring(1, slash)
         val container: CloudBlobContainer
 
@@ -1088,9 +1136,9 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun getStorageAccountAsync(storage: String, region: String) = async(CommonPool) {
-        val accounts = getStorageAccountsAsync().await()
-        val account = accounts.firstOrNull({ storage.equals(it.name(), true) })
+    private suspend fun getStorageAccount(storage: String, region: String) = coroutineScope {
+        val accounts = getStorageAccounts()
+        val account = accounts.firstOrNull { storage.equals(it.name(), true) }
 
         if (account == null) {
             val message = "Storage account $storage not found"
@@ -1112,7 +1160,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
 
         val (groupId) = result.destructured
-        val keys = getStorageAccountKeysAsync(groupId, storage).await()
+        val keys = getStorageAccountKeys(groupId, storage)
         try {
             CloudStorageAccount(StorageCredentialsAccountAndKey(storage, keys[0].value()))
         } catch (e: URISyntaxException) {
@@ -1122,12 +1170,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun getStorageAccountsAsync() = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun getStorageAccounts() = coroutineScope {
         try {
-            val accounts = myAzure.withSubscription(mySubscriptionId)
-                    .storageAccounts()
-                    .listAsync()
-                    .awaitList()
+            val accounts = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .storageAccounts()
+                        .listAsync()
+                        .awaitList()
+            }
             LOG.debug("Received list of storage accounts")
             accounts
         } catch (e: Throwable) {
@@ -1137,12 +1187,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
-    private fun getStorageAccountKeysAsync(groupName: String, storageName: String) = async(CommonPool, CoroutineStart.LAZY) {
+    private suspend fun getStorageAccountKeys(groupName: String, storageName: String) = coroutineScope {
         try {
-            val account = myAzure.withSubscription(mySubscriptionId)
-                    .storageAccounts()
-                    .getByResourceGroupAsync(groupName, storageName)
-                    .awaitOne()
+            val account = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .storageAccounts()
+                        .getByResourceGroupAsync(groupName, storageName)
+                        .awaitOne()
+            }
             LOG.debug("Received keys for storage account $storageName")
             account.keys
         } catch (e: Throwable) {
@@ -1157,19 +1209,19 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      *
      * @return subscriptions.
      */
-    override fun getSubscriptionsAsync() = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun getSubscriptions() = coroutineScope {
         try {
-            val list = myAzure.subscriptions().listAsync().awaitList()
+            val list = withContext(Dispatchers.IO) {
+                myAzure.subscriptions().listAsync().awaitList()
+            }
             LOG.debug("Received list of subscriptions")
 
-            val subscriptions = LinkedHashMap<String, String>()
-            Collections.sort(list) { o1, o2 -> o1.displayName().compareTo(o2.displayName()) }
-
-            for (subscription in list) {
-                subscriptions[subscription.subscriptionId()] = subscription.displayName()
-            }
-
-            subscriptions
+            list.asSequence()
+                    .sortedBy { it.displayName() }
+                    .associateBy(
+                            { it.subscriptionId() },
+                            { it.displayName() }
+                    )
         } catch (e: Throwable) {
             val message = "Failed to get list of subscriptions: " + AzureUtils.getAuthenticationErrorMessage(e)
             LOG.debug(message, e)
@@ -1182,19 +1234,22 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      *
      * @return regions.
      */
-    override fun getRegionsAsync() = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun getRegions() = coroutineScope {
         try {
-            val list = myAzure.subscriptions().getByIdAsync(mySubscriptionId).awaitOne().listLocations()
+            val list = withContext(Dispatchers.IO) {
+                myAzure.subscriptions()
+                        .getByIdAsync(mySubscriptionId)
+                        .awaitOne()
+                        .listLocations()
+            }
             LOG.debug("Received list of regions in subscription $mySubscriptionId")
 
-            val regions = LinkedHashMap<String, String>()
-            list.sortWith(Comparator { o1, o2 -> o1.displayName().compareTo(o2.displayName()) })
-
-            for (region in list) {
-                regions[region.name()] = region.displayName()
-            }
-
-            regions
+            list.asSequence()
+                    .sortedBy { it.displayName() }
+                    .associateBy(
+                            { it.name() },
+                            { it.displayName() }
+                    )
         } catch (e: Throwable) {
             val message = "Failed to get list of regions in subscription $mySubscriptionId: ${e.message}"
             LOG.debug(message, e)
@@ -1207,22 +1262,22 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      *
      * @return list of networks.
      */
-    override fun getNetworksAsync(region: String) = async(CommonPool, CoroutineStart.LAZY) {
+    override suspend fun getNetworks(region: String) = coroutineScope {
         try {
-            val list = myAzure.withSubscription(mySubscriptionId)
-                    .networks()
-                    .listAsync()
-                    .awaitList()
-            LOG.debug("Received list of networks")
-            val networks = LinkedHashMap<String, List<String>>()
-            for (network in list) {
-                if (!network.regionName().equals(region, ignoreCase = true)) continue
-
-                val subNetworks = ArrayList(network.subnets().keys)
-                networks[network.id()] = subNetworks
+            val list = withContext(Dispatchers.IO) {
+                myAzure.withSubscription(mySubscriptionId)
+                        .networks()
+                        .listAsync()
+                        .awaitList()
             }
+            LOG.debug("Received list of networks")
 
-            networks
+            list.asSequence().filter {
+                it.regionName().equals(region, ignoreCase = true)
+            }.associateBy(
+                    { it.id() },
+                    { it.subnets().keys.toList() }
+            )
         } catch (e: Throwable) {
             val message = "Failed to get list of networks: " + e.message
             LOG.debug(message, e)
@@ -1274,7 +1329,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         // Set proxy authentication
         val httpProxyUser = TeamCityProperties.getProperty(HTTP_PROXY_USER)
         val httpProxyPassword = TeamCityProperties.getProperty(HTTP_PROXY_PASSWORD)
-        if (httpProxyUser.isNotBlank()) {
+        if (httpProxyUser.isNotBlank() && httpProxyPassword.isNotBlank()) {
             val authenticator = CredentialsAuthenticator(httpProxyUser, httpProxyPassword)
             this.withProxyAuthenticator(authenticator)
             builder.insert(0, "$httpProxyUser@")

@@ -9,14 +9,12 @@ import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
-import kotlinx.coroutines.experimental.CommonPool
-import kotlinx.coroutines.experimental.CompletableDeferred
-import kotlinx.coroutines.experimental.async
+import kotlinx.coroutines.experimental.coroutineScope
 import java.util.*
 
 class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler {
     @Suppress("UselessCallOnNotNull")
-    override fun checkImageAsync(image: AzureCloudImage) = async(CommonPool) {
+    override suspend fun checkImage(image: AzureCloudImage) = coroutineScope {
         val exceptions = ArrayList<Throwable>()
         val details = image.imageDetails
         if (details.sourceId.isNullOrEmpty()) {
@@ -37,9 +35,9 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
             exceptions.add(CheckedCloudException("Image ID is empty"))
         } else {
             try {
-                connector.getImageNameAsync(imageId)
+                connector.getImageName(imageId)
             } catch (e: Throwable) {
-                LOG.infoAndDebugDetails("Failed to get image ID " + imageId, e)
+                LOG.infoAndDebugDetails("Failed to get image ID $imageId", e)
                 exceptions.add(e)
             }
         }
@@ -47,7 +45,7 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
         exceptions
     }
 
-    override fun prepareBuilderAsync(instance: AzureCloudInstance) = async(CommonPool) {
+    override suspend fun prepareBuilder(instance: AzureCloudInstance) = coroutineScope {
         val details = instance.image.imageDetails
         val template = AzureUtils.getResourceAsString("/templates/vm-template.json")
         val builder = ArmTemplateBuilder(template)
@@ -69,8 +67,9 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
                 .setParameterValue("vmSize", details.vmSize!!)
     }
 
-    override fun getImageHashAsync(details: AzureCloudImageDetails) =
-            CompletableDeferred(Integer.toHexString(details.imageId!!.hashCode())!!)
+    override suspend fun getImageHash(details: AzureCloudImageDetails) = coroutineScope {
+        Integer.toHexString(details.imageId!!.hashCode())!!
+    }
 
     companion object {
         private val LOG = Logger.getInstance(AzureImageHandler::class.java.name)

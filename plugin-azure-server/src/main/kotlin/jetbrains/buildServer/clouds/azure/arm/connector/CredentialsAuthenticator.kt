@@ -21,7 +21,7 @@ import okhttp3.*
 /**
  * Credentials request authenticator.
  */
-class CredentialsAuthenticator(username: String, password: String?) : Authenticator {
+class CredentialsAuthenticator(username: String, password: String) : Authenticator {
 
     private val myCredentials: String = Credentials.basic(username, password)
 

@@ -467,10 +467,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                         .virtualMachineCustomImages()
                         .listAsync()
                         .awaitList()
-                        .filter {
-                            it.regionName().equals(region, ignoreCase = true) &&
-                            it.osDiskImage().osState() == OperatingSystemStateTypes.GENERALIZED
-                        }
+                        .asSequence()
+                        .filter { it.regionName().equals(region, ignoreCase = true) }
+                        .filter { it.osDiskImage().osState() == OperatingSystemStateTypes.GENERALIZED }
+                        .toList()
             }
             LOG.debug("Received list of images")
 
@@ -522,7 +522,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                         .storageAccounts()
                         .listAsync()
                         .awaitList()
-                        .filter { region.equals(it.regionName(), true) }
+                        .asSequence()
+                        .filter { region.equals(it.regionName(), ignoreCase = true) }
+                        .filter { !it.skuType().name().name.contains("premium", ignoreCase = true) }
+                        .toList()
             }
             LOG.debug("Received list of storage accounts in region $region")
             val comparator = AlphaNumericStringComparator()
@@ -548,7 +551,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             createVm(instance, userData)
         }
     }
-
 
     private suspend fun createVm(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         val name = instance.name

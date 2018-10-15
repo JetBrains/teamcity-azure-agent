@@ -16,36 +16,48 @@
 
 package jetbrains.buildServer.clouds.azure.arm.utils
 
+import kotlinx.coroutines.experimental.suspendCancellableCoroutine
 import rx.Completable
 import rx.Observable
-import kotlin.coroutines.experimental.suspendCoroutine
 
-suspend fun Completable.awaitOne() {
-    return suspendCoroutine { cont ->
-        subscribe({
+suspend fun Completable.awaitOne(): Unit = suspendCancellableCoroutine { cont ->
+    val subscription = subscribe({
+        if (cont.isActive) {
             cont.resume(Unit)
-        }, { e ->
-            cont.resumeWithException(e!!)
-        })
+        }
+    }, { e ->
+        cont.resumeWithException(e!!)
+    })
+
+    cont.invokeOnCancellation {
+        subscription.unsubscribe()
     }
 }
 
-suspend fun <T> Observable<T>.awaitOne(): T {
-    return suspendCoroutine { cont ->
-        subscribe({ r ->
+suspend fun <T> Observable<T>.awaitOne(): T = suspendCancellableCoroutine { cont ->
+    val subscription = subscribe({ r ->
+        if (cont.isActive) {
             cont.resume(r)
-        }, { e ->
-            cont.resumeWithException(e)
-        })
+        }
+    }, { e ->
+        cont.resumeWithException(e)
+    })
+
+    cont.invokeOnCancellation {
+        subscription.unsubscribe()
     }
 }
 
-suspend fun <T> Observable<T>.awaitList(): List<T> {
-    return suspendCoroutine { cont ->
-        toList().subscribe({ r ->
+suspend fun <T> Observable<T>.awaitList(): List<T> = suspendCancellableCoroutine { cont ->
+    val subscription = toList().subscribe({ r ->
+        if (cont.isActive) {
             cont.resume(r)
-        }, { e ->
-            cont.resumeWithException(e)
-        })
+        }
+    }, { e ->
+        cont.resumeWithException(e)
+    })
+
+    cont.invokeOnCancellation {
+        subscription.unsubscribe()
     }
 }

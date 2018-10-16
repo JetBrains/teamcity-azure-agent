@@ -42,8 +42,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     private val myImageHandlers = mapOf(
             AzureCloudImageType.Vhd to AzureVhdHandler(myApiConnector),
             AzureCloudImageType.Image to AzureImageHandler(myApiConnector),
-            AzureCloudImageType.Template to AzureTemplateHandler(),
-            AzureCloudImageType.Container to AzureContainerHandler()
+            AzureCloudImageType.Template to AzureTemplateHandler(myApiConnector),
+            AzureCloudImageType.Container to AzureContainerHandler(myApiConnector)
     )
 
     private val myActiveStatuses = setOf(

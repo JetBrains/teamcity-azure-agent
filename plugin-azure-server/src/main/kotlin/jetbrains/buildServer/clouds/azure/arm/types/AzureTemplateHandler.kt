@@ -2,23 +2,22 @@ package jetbrains.buildServer.clouds.azure.arm.types
 
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.clouds.azure.arm.*
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import kotlinx.coroutines.experimental.coroutineScope
 import java.util.*
 
-class AzureTemplateHandler : AzureHandler {
+class AzureTemplateHandler(private val connector: AzureApiConnector) : AzureHandler {
     @Suppress("UselessCallOnNotNull")
     override suspend fun checkImage(image: AzureCloudImage) = coroutineScope {
         val exceptions = ArrayList<Throwable>()
         val details = image.imageDetails
-        if (details.sourceId.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid source id"))
-        }
-        if (details.region.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid region"))
-        }
+
+        details.checkSourceId(exceptions)
+        details.checkRegion(exceptions)
+        details.checkResourceGroup(connector, exceptions)
 
         val template = details.template
         if (template == null || template.isNullOrEmpty()) {

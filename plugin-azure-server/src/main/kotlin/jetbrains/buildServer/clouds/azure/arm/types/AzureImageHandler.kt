@@ -1,10 +1,7 @@
 package jetbrains.buildServer.clouds.azure.arm.types
 
 import com.intellij.openapi.diagnostic.Logger
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
-import jetbrains.buildServer.clouds.azure.arm.AzureConstants
+import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
@@ -17,18 +14,12 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
     override suspend fun checkImage(image: AzureCloudImage) = coroutineScope {
         val exceptions = ArrayList<Throwable>()
         val details = image.imageDetails
-        if (details.sourceId.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid source id"))
-        }
-        if (details.region.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid region"))
-        }
-        if (details.networkId.isNullOrEmpty() || details.subnetId.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid network settings"))
-        }
-        if (details.osType.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid OS Type value"))
-        }
+
+        details.checkSourceId(exceptions)
+        details.checkRegion(exceptions)
+        details.checkOsType(exceptions)
+        details.checkNetworkId(exceptions)
+        details.checkResourceGroup(connector, exceptions)
 
         val imageId = details.imageId
         if (imageId == null || imageId.isNullOrEmpty()) {

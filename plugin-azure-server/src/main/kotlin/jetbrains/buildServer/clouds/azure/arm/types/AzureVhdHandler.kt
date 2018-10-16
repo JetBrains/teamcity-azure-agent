@@ -13,20 +13,13 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
     @Suppress("UselessCallOnNotNull")
     override suspend fun checkImage(image: AzureCloudImage) = coroutineScope {
         val exceptions = ArrayList<Throwable>()
-
         val details = image.imageDetails
-        if (details.sourceId.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid source id"))
-        }
-        if (details.region.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid region"))
-        }
-        if (details.networkId.isNullOrEmpty() || details.subnetId.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid network settings"))
-        }
-        if (details.osType.isNullOrEmpty()) {
-            exceptions.add(CheckedCloudException("Invalid OS Type value"))
-        }
+
+        details.checkSourceId(exceptions)
+        details.checkRegion(exceptions)
+        details.checkOsType(exceptions)
+        details.checkNetworkId(exceptions)
+        details.checkResourceGroup(connector, exceptions)
 
         val imageUrl = details.imageUrl
         if (imageUrl == null || imageUrl.isNullOrEmpty()) {

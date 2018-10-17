@@ -20,6 +20,7 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
         details.checkOsType(exceptions)
         details.checkNetworkId(exceptions)
         details.checkResourceGroup(connector, exceptions)
+        details.checkServiceExistence("Microsoft.Compute", connector, exceptions)
 
         val imageId = details.imageId
         if (imageId == null || imageId.isNullOrEmpty()) {

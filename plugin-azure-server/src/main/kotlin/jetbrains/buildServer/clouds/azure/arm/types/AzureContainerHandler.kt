@@ -17,6 +17,7 @@ class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHan
         details.checkOsType(exceptions)
         details.checkImageId(exceptions)
         details.checkResourceGroup(connector, exceptions)
+        details.checkServiceExistence("Microsoft.ContainerInstance", connector, exceptions)
 
         exceptions
     }

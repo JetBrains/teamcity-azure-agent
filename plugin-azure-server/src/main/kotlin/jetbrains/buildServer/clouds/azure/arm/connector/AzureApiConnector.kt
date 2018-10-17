@@ -57,5 +57,7 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     suspend fun getVhdMetadata(imageUrl: String, region: String): Map<String, String>?
 
+    suspend fun getServices(region: String): Map<String, Set<String>>
+
     suspend fun deleteVmBlobs(instance: AzureCloudInstance)
 }

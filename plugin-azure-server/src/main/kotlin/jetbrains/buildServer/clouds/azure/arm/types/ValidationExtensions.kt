@@ -45,3 +45,10 @@ suspend fun AzureCloudImageDetails.checkResourceGroup(connector: AzureApiConnect
         }
     }
 }
+
+suspend fun AzureCloudImageDetails.checkServiceExistence(serviceName: String, connector: AzureApiConnector, errors: MutableList<Throwable>) {
+    val services = connector.getServices(region!!)
+    if (!services.containsKey(serviceName)) {
+        errors.add(CheckedCloudException("$serviceName is not available in $region region"))
+    }
+}

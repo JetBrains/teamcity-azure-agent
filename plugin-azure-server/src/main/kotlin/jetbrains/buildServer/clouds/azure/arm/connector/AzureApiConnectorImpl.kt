@@ -26,6 +26,7 @@ import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.containerinstance.ContainerGroup
 import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.DeploymentMode
+import com.microsoft.azure.management.resources.fluentcore.arm.Region
 import com.microsoft.azure.storage.CloudStorageAccount
 import com.microsoft.azure.storage.StorageCredentialsAccountAndKey
 import com.microsoft.azure.storage.blob.CloudBlob
@@ -67,6 +68,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     private var myServerId: String? = null
     private var myProfileId: String? = null
     private val deploymentLocks = ConcurrentHashMap<String, Mutex>()
+    private val servicesByRegion = ConcurrentHashMap<String, Map<String, Set<String>>>()
 
     init {
         params[AzureConstants.SUBSCRIPTION_ID]?.let {
@@ -1287,6 +1289,39 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
     }
 
+    override suspend fun getServices(region: String): Map<String, Set<String>> = coroutineScope {
+        servicesByRegion.getOrPut(region) {
+            try {
+                val result = ConcurrentHashMap<String, MutableSet<String>>()
+                withContext(Dispatchers.IO) {
+                    val azure = myAzure.withSubscription(mySubscriptionId)
+                    val location = azure.currentSubscription.getLocationByRegion(Region.fromName(region))
+                    SERVICE_TYPES.map { (name, resourceTypes) ->
+                        async {
+                            val provider = azure.providers().getByNameAsync(name).awaitOne()
+                            if (provider.registrationState() != "Registered") return@async result
+                            resourceTypes.forEach { resourceType ->
+                                provider.resourceTypes().firstOrNull { it.resourceType() == resourceType }?.let {
+                                    if (it.locations().contains(location.displayName())) {
+                                        result.getOrPut(name) { hashSetOf() } += resourceType
+                                    }
+                                }
+                            }
+                            result
+                        }
+                    }.awaitAll()
+                }
+                LOG.debug("Received list of services")
+
+                result
+            } catch (e: Throwable) {
+                val message = "Failed to get list of services: " + e.message
+                LOG.debug(message, e)
+                throw CloudException(message, e)
+            }
+        }
+    }
+
     /**
      * Sets a server identifier.
      *
@@ -1373,5 +1408,9 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         private const val CONTAINER_RESOURCE_NAME = "[parameters('containerName')]"
         private const val VM_RESOURCE_NAME = "[parameters('vmName')]"
+        private val SERVICE_TYPES = mapOf(
+                "Microsoft.ContainerInstance" to listOf("containerGroups"),
+                "Microsoft.Compute" to listOf("virtualMachines")
+        )
     }
 }

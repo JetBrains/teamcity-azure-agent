@@ -56,6 +56,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             InstanceStatus.ERROR
     )
 
+    private var azureCpuQuotaExceeded: Set<String>? = null
+
     override fun getImageDetails(): AzureCloudImageDetails = myImageDetails
 
     override fun createInstanceFromReal(realInstance: AbstractInstance): AzureCloudInstance {
@@ -78,7 +80,19 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         }
     }
 
-    override fun canStartNewInstance(): Boolean = activeInstances.size < myImageDetails.maxInstances
+    override fun canStartNewInstance(): Boolean {
+        if (activeInstances.size >= myImageDetails.maxInstances) return false
+        // Check Azure CPU quota state
+        azureCpuQuotaExceeded?.let { instances ->
+            if (instances == getInstanceIds()) {
+                return false
+            } else {
+                azureCpuQuotaExceeded = null
+                LOG.info("Azure CPU quota limit has been reset due to change in the number of active instances for image ${imageDetails.sourceId}.")
+            }
+        }
+        return true
+    }
 
     override fun startNewInstance(userData: CloudInstanceUserData) = runBlocking {
         if (!canStartNewInstance()) {
@@ -121,6 +135,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 instance.status = InstanceStatus.RUNNING
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
+                handleDeploymentError(e)
 
                 instance.status = InstanceStatus.ERROR
                 instance.updateErrors(TypedCloudErrorInfo.fromException(e))
@@ -197,6 +212,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                         instance.status = InstanceStatus.RUNNING
                     } catch (e: Throwable) {
                         LOG.warnAndDebugDetails(e.message, e)
+                        handleDeploymentError(e)
+
                         it.status = InstanceStatus.ERROR
                         it.updateErrors(TypedCloudErrorInfo.fromException(e))
                     }
@@ -227,6 +244,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 instance.status = InstanceStatus.RUNNING
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
+                handleDeploymentError(e)
+
                 instance.status = InstanceStatus.ERROR
                 instance.updateErrors(TypedCloudErrorInfo.fromException(e))
             }
@@ -340,7 +359,17 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             !instance.properties.containsKey(AzureConstants.TAG_INVESTIGATION)
         }
 
+    private fun handleDeploymentError(e: Throwable) {
+        if (AZURE_CPU_QUOTA_EXCEEDED.containsMatchIn(e.message!!)) {
+            azureCpuQuotaExceeded = getInstanceIds()
+            LOG.info("Exceeded Azure CPU quota limit for image ${imageDetails.sourceId}. Would not start new cloud instances until active instances termination.")
+        }
+    }
+
+    private fun getInstanceIds() = activeInstances.asSequence().map { it.instanceId }.toSortedSet()
+
     companion object {
         private val LOG = Logger.getInstance(AzureCloudImage::class.java.name)
+        private val AZURE_CPU_QUOTA_EXCEEDED = Regex("Operation results in exceeding quota limits of Core\\. Maximum allowed: \\d+, Current in use: \\d+, Additional requested: \\d+\\.")
     }
 }

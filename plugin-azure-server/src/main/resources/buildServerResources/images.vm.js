@@ -349,6 +349,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
     self.loadRegions();
   });
 
+  self.image().deployTarget.subscribe(function (deployTarget) {
+    if (deployTarget !== deployTargets.specificGroup) {
+      self.image().groupId(null);
+    }
+  });
+
   self.image().groupId.subscribe(function (groupId) {
     if (!groupId) return;
 

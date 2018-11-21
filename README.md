@@ -48,6 +48,7 @@ To resolve it please add the following line in the [buildagent.properties](https
 ```
 azure.instance.name=<agent_name>
 ```
+where `<agent_name>` should coincide with the vm name of running cloud instance.
 
 ### Problems investigation
 

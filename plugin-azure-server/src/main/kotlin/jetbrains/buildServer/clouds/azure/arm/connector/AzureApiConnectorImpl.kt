@@ -36,10 +36,7 @@ import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.azure.AzureCompress
 import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.arm.*
-import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
-import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
-import jetbrains.buildServer.clouds.azure.arm.utils.awaitList
-import jetbrains.buildServer.clouds.azure.arm.utils.awaitOne
+import jetbrains.buildServer.clouds.azure.arm.utils.*
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase
 import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
@@ -112,13 +109,13 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>) = runBlocking {
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
 
-        val machines = if (images.any { it.imageDetails.type != AzureCloudImageType.Container }) {
+        val machines = if (images.any { it.imageDetails.isVmInstance() }) {
             getVirtualMachines()
         } else {
             emptyList()
         }
 
-        val containers = if (images.any { it.imageDetails.type == AzureCloudImageType.Container }) {
+        val containers = if (images.any { !it.imageDetails.isVmInstance() }) {
             getContainerGroups()
         } else {
             emptyList()
@@ -126,7 +123,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         images.forEach { image ->
             try {
-                val result = if (image.imageDetails.type != AzureCloudImageType.Container) {
+                val result = if (image.imageDetails.isVmInstance()) {
                     findVmInstances(image, machines)
                 } else {
                     findContainerInstances(image, containers)
@@ -547,7 +544,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      */
     override suspend fun createInstance(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         instance.properties[AzureConstants.TAG_SERVER] = myServerId!!
-        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+        if (!instance.image.imageDetails.isVmInstance()) {
             createContainer(instance, userData)
         } else {
             createVm(instance, userData)
@@ -714,7 +711,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @return promise.
      */
     override suspend fun deleteInstance(instance: AzureCloudInstance) = coroutineScope {
-        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+        if (!instance.image.imageDetails.isVmInstance()) {
             deleteContainer(instance)
         } else {
             deleteVm(instance)
@@ -903,7 +900,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @return promise.
      */
     override suspend fun restartInstance(instance: AzureCloudInstance) = coroutineScope {
-        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+        if (!instance.image.imageDetails.isVmInstance()) {
             throw CloudException("Restarting container instances is not supported")
         } else {
             restartVm(instance)
@@ -943,7 +940,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @return promise.
      */
     override suspend fun startInstance(instance: AzureCloudInstance) = coroutineScope {
-        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+        if (!instance.image.imageDetails.isVmInstance()) {
             throw CloudException("Starting container instances is not supported")
         } else {
             startVm(instance)
@@ -983,7 +980,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @return promise.
      */
     override suspend fun stopInstance(instance: AzureCloudInstance) = coroutineScope {
-        if (instance.image.imageDetails.type == AzureCloudImageType.Container) {
+        if (!instance.image.imageDetails.isVmInstance()) {
             deleteContainer(instance)
         } else {
             stopVm(instance)

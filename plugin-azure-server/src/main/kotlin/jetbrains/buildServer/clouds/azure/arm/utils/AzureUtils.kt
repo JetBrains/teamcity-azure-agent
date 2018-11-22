@@ -23,6 +23,9 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intellij.openapi.util.io.StreamUtil
 import com.microsoft.aad.adal4j.AuthenticationException
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageType
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.util.ExceptionUtil
 import jetbrains.buildServer.util.StringUtil
@@ -120,3 +123,7 @@ private data class CloudError(val code: String? = null,
 @JsonIgnoreProperties(ignoreUnknown = true)
 private data class CloudAuthError(val error: String? = null,
                                   val error_description: String? = null)
+
+fun AzureCloudImageDetails.isVmInstance(): Boolean {
+    return deployTarget == AzureCloudDeployTarget.Instance || type != AzureCloudImageType.Container
+}

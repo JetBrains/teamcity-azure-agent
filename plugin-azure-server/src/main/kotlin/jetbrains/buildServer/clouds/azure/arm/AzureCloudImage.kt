@@ -45,6 +45,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             AzureCloudImageType.Template to AzureTemplateHandler(myApiConnector),
             AzureCloudImageType.Container to AzureContainerHandler(myApiConnector)
     )
+    private val myInstanceHandler = AzureInstanceHandler(myApiConnector)
 
     private val myActiveStatuses = setOf(
             InstanceStatus.SCHEDULED_TO_START,
@@ -90,6 +91,9 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 azureCpuQuotaExceeded = null
                 LOG.info("Azure CPU quota limit has been reset due to change in the number of active instances for image ${imageDetails.sourceId}.")
             }
+        }
+        if (imageDetails.deployTarget == AzureCloudDeployTarget.Instance && stoppedInstances.isEmpty()) {
+            return false
         }
         return true
     }
@@ -255,11 +259,14 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     }
 
     private suspend fun isSameImageInstance(instance: AzureCloudInstance) = coroutineScope {
+        if (imageDetails.deployTarget == AzureCloudDeployTarget.Instance) {
+            return@coroutineScope true
+        }
         handler?.let {
             val hash = it.getImageHash(imageDetails)
             return@coroutineScope hash == instance.properties[AzureConstants.TAG_IMAGE_HASH]
         }
-        true
+        false
     }
 
     private fun getDataHash(userData: CloudInstanceUserData): String {
@@ -325,7 +332,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
     val handler: AzureHandler?
         get() = if (imageDetails.deployTarget == AzureCloudDeployTarget.Instance) {
-            null
+            myInstanceHandler
         } else {
             myImageHandlers[imageDetails.type]
         }

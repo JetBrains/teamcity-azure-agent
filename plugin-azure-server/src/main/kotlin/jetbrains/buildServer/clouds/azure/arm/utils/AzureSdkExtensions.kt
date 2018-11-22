@@ -16,9 +16,11 @@
 
 package jetbrains.buildServer.clouds.azure.arm.utils
 
-import kotlinx.coroutines.experimental.suspendCancellableCoroutine
+import kotlinx.coroutines.suspendCancellableCoroutine
 import rx.*
 import java.lang.IllegalStateException
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 suspend fun Completable.awaitOne(): Unit = suspendCancellableCoroutine { cont ->
     lateinit var subscription: Subscription

@@ -46,9 +46,9 @@ import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.version.ServerVersionHolder
-import kotlinx.coroutines.experimental.*
-import kotlinx.coroutines.experimental.sync.Mutex
-import kotlinx.coroutines.experimental.sync.withLock
+import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.apache.commons.codec.binary.Base64
 import java.net.InetSocketAddress
 import java.net.Proxy

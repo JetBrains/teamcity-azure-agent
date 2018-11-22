@@ -4,7 +4,7 @@ import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
-import kotlinx.coroutines.experimental.coroutineScope
+import kotlinx.coroutines.coroutineScope
 import java.util.*
 
 class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHandler {

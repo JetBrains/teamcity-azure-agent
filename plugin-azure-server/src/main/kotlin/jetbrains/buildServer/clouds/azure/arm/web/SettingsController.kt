@@ -24,9 +24,9 @@ import jetbrains.buildServer.serverSide.SBuildServer
 import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 import jetbrains.buildServer.web.openapi.WebControllerManager
-import kotlinx.coroutines.experimental.async
-import kotlinx.coroutines.experimental.awaitAll
-import kotlinx.coroutines.experimental.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.runBlocking
 import org.jdom.Element
 import org.springframework.web.servlet.ModelAndView
 import java.io.IOException

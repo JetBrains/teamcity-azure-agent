@@ -6,7 +6,7 @@ import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
-import kotlinx.coroutines.experimental.coroutineScope
+import kotlinx.coroutines.coroutineScope
 import java.util.*
 
 class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {

@@ -28,7 +28,7 @@ import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
-import kotlinx.coroutines.experimental.*
+import kotlinx.coroutines.*
 import java.lang.StringBuilder
 import java.util.*
 

@@ -19,7 +19,7 @@ package jetbrains.buildServer.clouds.azure.arm.web
 import jetbrains.buildServer.BuildProject
 import jetbrains.buildServer.serverSide.agentPools.AgentPool
 import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
-import kotlinx.coroutines.experimental.coroutineScope
+import kotlinx.coroutines.coroutineScope
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 import java.lang.reflect.Method

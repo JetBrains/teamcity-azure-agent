@@ -641,6 +641,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
         case imageTypes.vhd:
           imageName = 'VHD ' + image.imageUrl;
           break;
+        case imageTypes.container:
+          imageName = 'container ' + image.imageId;
+          break;
       }
     } else {
       imageName = 'virtual machine ' + self.getFileName(image.instanceId);

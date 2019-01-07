@@ -30,16 +30,24 @@ import java.io.IOException
 class FileUtilsImpl : FileUtils {
 
     override fun readFile(file: File): String {
-        val parentDir = file.parentFile
-        if (SystemInfo.isUnix && parentDir.exists() && parentDir.isDirectory && !parentDir.canExecute()) {
-            LOG.info("Reading file content $file with sudo")
-            return readFileWithSudo(file)
-        }
+        return try {
+            FileUtil.readText(file).let { contents ->
+                if (contents.isEmpty() && file.supportsSudo) {
+                    return readFileWithSudo(file)
+                } else contents
+            }
+        } catch (e: Exception) {
+            if (file.supportsSudo) {
+                return readFileWithSudo(file)
+            }
 
-        return FileUtil.readText(file)
+            throw e
+        }
     }
 
     private fun readFileWithSudo(file: File): String {
+        LOG.info("Reading file $file contents with sudo")
+
         val commandLine = GeneralCommandLine()
         commandLine.exePath = UNIX_SHELL_PATH
         commandLine.addParameter("-c")
@@ -60,5 +68,8 @@ class FileUtilsImpl : FileUtils {
     companion object {
         private val LOG = Logger.getInstance(FileUtilsImpl::class.java.name)
         private const val UNIX_SHELL_PATH = "/bin/sh"
+
+        val File.supportsSudo
+            get() = SystemInfo.isUnix && parentFile.isDirectory
     }
 }

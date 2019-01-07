@@ -31,7 +31,7 @@ class FileUtilsImpl : FileUtils {
 
     override fun readFile(file: File): String {
         val parentDir = file.parentFile
-        if (SystemInfo.isUnix && parentDir.exists() && parentDir.isDirectory && !parentDir.canExecute()) {
+        if (SystemInfo.isUnix && parentDir.exists() && parentDir.isDirectory && !parentDir.canExecute() && !file.canRead()) {
             LOG.info("Reading file content $file with sudo")
             return readFileWithSudo(file)
         }

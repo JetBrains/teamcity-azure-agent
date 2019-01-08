@@ -561,7 +561,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 .setTags(VM_RESOURCE_NAME, instance.properties)
 
         val details = instance.image.imageDetails
-        val groupId = getResourceGroup(details, name)
+        val groupId = when (details.target) {
+            AzureCloudDeployTarget.NewGroup -> {
+                createResourceGroup(name, details.region!!)
+                name
+            }
+            AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
+            else -> throw CloudException("Creating virtual machine $name is prohibited")
+        }
 
         builder.logDetails()
         val template = builder.toString()
@@ -577,7 +584,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         val builder = handler!!.prepareBuilder(instance)
 
         val details = instance.image.imageDetails
-        val groupId = getResourceGroup(details, name)
+        val groupId = when (details.target) {
+            AzureCloudDeployTarget.NewGroup -> {
+                createResourceGroup(details.sourceId, details.region!!)
+                details.sourceId
+            }
+            AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
+            else -> throw CloudException("Creating container $name is prohibited")
+        }
 
         if ("Linux" == details.osType && details.storageAccount != null) {
             addContainerCustomData(instance, userData, builder)

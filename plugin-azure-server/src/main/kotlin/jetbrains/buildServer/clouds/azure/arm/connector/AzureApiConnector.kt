@@ -43,6 +43,8 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     suspend fun getInstances(): Map<String, String>
 
+    suspend fun hasInstance(id: String): Boolean
+
     suspend fun getImageName(imageId: String): String
 
     suspend fun getImages(region: String): Map<String, List<String>>

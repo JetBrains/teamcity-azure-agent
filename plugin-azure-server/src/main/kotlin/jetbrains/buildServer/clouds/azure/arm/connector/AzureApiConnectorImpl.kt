@@ -52,7 +52,10 @@ import java.net.Proxy
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.collections.HashMap
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 /**
  * Provides azure arm management capabilities.
@@ -66,6 +69,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     private var myProfileId: String? = null
     private val deploymentLocks = ConcurrentHashMap<String, Mutex>()
     private val servicesByRegion = ConcurrentHashMap<String, Map<String, Set<String>>>()
+    private var virtualMachines: Set<String> = hashSetOf()
+    private val virtualMachinesLock = ReentrantReadWriteLock()
 
     init {
         params[AzureConstants.SUBSCRIPTION_ID]?.let {
@@ -254,6 +259,11 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                         .virtualMachines()
                         .listAsync()
                         .awaitList()
+                        .also { vms ->
+                            virtualMachinesLock.write {
+                                virtualMachines = vms.map { it.id() }.toSet()
+                            }
+                        }
             }
             LOG.debug("Received list of virtual machines")
             list
@@ -288,6 +298,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         promises += async(start = CoroutineStart.LAZY) {
             getVirtualMachine(groupId, name)?.let {
+                it.refreshInstanceViewAsync().awaitOne()
                 LOG.debug("Received virtual machine $name info")
 
                 for (status in it.instanceView().statuses()) {
@@ -334,9 +345,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                         .virtualMachines()
                         .getByResourceGroupAsync(groupId, name)
                         .awaitOne()
-                        ?.apply {
-                            refreshInstanceViewAsync().awaitOne()
-                        }
             }
 
             LOG.debug("Received virtual machine $name info")
@@ -410,12 +418,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      */
     override suspend fun getInstances() = coroutineScope {
         try {
-            val list = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .virtualMachines()
-                        .listAsync()
-                        .awaitList()
-            }
+            val list = getVirtualMachines()
             LOG.debug("Received list of vm instances")
 
             list.asSequence().map {
@@ -430,6 +433,15 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             val message = "Failed to get list of instances: ${e.message}"
             LOG.debug(message, e)
             throw CloudException(message, e)
+        }
+    }
+
+    /**
+     * Checks whether virtual machine exists.
+     */
+    override suspend fun hasInstance(id: String): Boolean {
+        return virtualMachinesLock.read {
+            virtualMachines.contains(id)
         }
     }
 

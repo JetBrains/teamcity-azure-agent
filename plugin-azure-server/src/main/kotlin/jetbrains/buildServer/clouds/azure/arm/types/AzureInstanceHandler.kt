@@ -17,15 +17,15 @@ class AzureInstanceHandler(private val connector: AzureApiConnector) : AzureHand
 
         if (details.instanceId.isNullOrEmpty()) {
             exceptions.add(CheckedCloudException("Invalid instance id"))
-        }
-
-        try {
-            if (!connector.getInstances().containsKey(details.instanceId)) {
-                exceptions.add(CheckedCloudException("Virtual machine ${details.sourceId} is not found"))
+        } else {
+            try {
+                if (!connector.hasInstance(details.instanceId)) {
+                    exceptions.add(CheckedCloudException("Virtual machine ${details.sourceId} is not found"))
+                }
+            } catch (e: Throwable) {
+                LOG.infoAndDebugDetails("Failed to get list of virtual machines", e)
+                exceptions.add(e)
             }
-        } catch (e: Throwable) {
-            LOG.infoAndDebugDetails("Failed to get list of virtual machines", e)
-            exceptions.add(e)
         }
 
         exceptions

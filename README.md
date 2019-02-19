@@ -50,6 +50,10 @@ azure.instance.name=<agent_name>
 ```
 where `<agent_name>` should coincide with the vm name of running cloud instance.
 
+### Container instance-based images are reporting problem "Microsoft.ContainerInstance is not available in xxx region"
+
+You need to [register "Microsoft.ContainerInstance" provider](https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-manager-supported-services) in your subscription.
+
 ### Problems investigation
 
 To investigate the problems it worth look at the `teamcity-agent.log` [agent log file](https://confluence.jetbrains.com/display/TCDL/Viewing+Build+Agent+Logs) and `teamcity-clouds.log` [server log file](https://confluence.jetbrains.com/display/TCDL/TeamCity+Server+Logs).

@@ -95,6 +95,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                     it.getParameter(AzureConstants.NUMBER_CORES),
                     it.getParameter(AzureConstants.MEMORY),
                     it.getParameter(AzureConstants.STORAGE_ACCOUNT),
+                    it.getParameter(AzureConstants.REGISTRY_USERNAME),
                     it.agentPoolId,
                     it.getParameter(AzureConstants.PROFILE_ID),
                     (it.getParameter(AzureConstants.REUSE_VM) ?: "").toBoolean())

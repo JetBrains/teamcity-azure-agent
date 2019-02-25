@@ -113,6 +113,12 @@ class AzureConstants {
     val storageAccount: String
         get() = STORAGE_ACCOUNT
 
+    val registryUsername: String
+        get() = REGISTRY_USERNAME
+
+    val registryPassword: String
+        get() = REGISTRY_PASSWORD
+
     val imagesData: String
         get() = CloudImageParameters.SOURCE_IMAGES_JSON
 
@@ -121,7 +127,7 @@ class AzureConstants {
 
     companion object {
         const val CLOUD_CODE = "arm"
-        
+
         const val ENVIRONMENT = "environment"
         const val CREDENTIALS_TYPE = "credentialsType"
         const val CREDENTIALS_MSI = "msi"
@@ -152,6 +158,8 @@ class AzureConstants {
         const val NUMBER_CORES = "numberCores"
         const val MEMORY = "memory"
         const val STORAGE_ACCOUNT = "storageAccount"
+        const val REGISTRY_USERNAME = "registryUsername"
+        const val REGISTRY_PASSWORD = "registryPassword"
         const val PROFILE_ID = "profileId"
 
         const val TAG_SERVER = "teamcity-server"

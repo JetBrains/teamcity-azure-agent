@@ -67,6 +67,8 @@ class AzureCloudImageDetails(
         val memory: String?,
         @SerializedName(AzureConstants.STORAGE_ACCOUNT)
         val storageAccount: String?,
+        @SerializedName(AzureConstants.REGISTRY_USERNAME)
+        val registryUsername: String?,
         @SerializedName(CloudImageParameters.AGENT_POOL_ID_FIELD)
         val agentPoolId: Int?,
         @SerializedName(AzureConstants.PROFILE_ID)

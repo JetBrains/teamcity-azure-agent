@@ -33,9 +33,26 @@ class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHan
                 .setParameterValue(AzureConstants.NUMBER_CORES, details.numberCores!!)
                 .setParameterValue(AzureConstants.MEMORY, details.memory!!)
                 .addContainer(instance.name)
+                .apply {
+                    if (!details.registryUsername.isNullOrEmpty() && !details.password.isNullOrEmpty()) {
+                        val server = getImageServer(details.imageId)
+                        addContainerCredentials(server, details.registryUsername.trim(), details.password!!.trim())
+                    }
+                }
     }
 
     override suspend fun getImageHash(details: AzureCloudImageDetails) = coroutineScope {
         Integer.toHexString(details.imageId!!.hashCode())!!
+    }
+
+    private fun getImageServer(imageId: String): String {
+        return hostMatcher.find(imageId)?.let {
+            val (server) = it.destructured
+            server
+        } ?: imageId
+    }
+
+    companion object {
+        private val hostMatcher = Regex("^(?:https?:\\/\\/)?([^\\/]+)")
     }
 }

@@ -235,6 +235,26 @@
                     <span class="error option-error" data-bind="validationMessage: image().osType"></span>
                 </td>
             </tr>
+            <tr data-bind="if: image().imageType() == 'Container'" class="advancedSetting">
+                <th class="noBorder"><label for="${cons.registryUsername}">Registry username:</label></th>
+                <td>
+                    <div>
+                        <input type="text" name="${cons.registryUsername}" class="longField ignoreModified"
+                               data-bind="textInput: image().registryUsername"/>
+                        <span class="error option-error" data-bind="validationMessage: image().registryUsername"></span>
+                    </div>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Container'" class="advancedSetting">
+                <th class="noBorder"><label for="${cons.registryPassword}">Registry password:</label></th>
+                <td>
+                    <div>
+                        <input type="password" class="longField ignoreModified"
+                               data-bind="textInput: image().registryPassword"/>
+                        <span class="error option-error" data-bind="validationMessage: image().registryPassword"></span>
+                    </div>
+                </td>
+            </tr>
             <tr>
                 <th><label for="${cons.vmNamePrefix}">Name Prefix: <l:star/></label></th>
                 <td>

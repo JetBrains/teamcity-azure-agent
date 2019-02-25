@@ -213,6 +213,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
         }
       }
     }),
+    registryUsername: ko.observable(),
+    registryPassword: ko.observable(),
     storageAccount: ko.observable(),
     storageAccountType: ko.observable(),
     vmNamePrefix: ko.observable('').trimmed().extend({required: true}).extend({
@@ -402,14 +404,16 @@ function ArmImagesViewModel($, ko, dialog, config) {
     if (!value) return;
 
     if (self.image().imageType() === imageTypes.container) {
-      var groupName = getGroupName(value);
-      self.image().vmNamePrefix(groupName);
-
       if (!self.image().osType()) {
         if (value.indexOf("nanoserver") > 0 || value.indexOf("windowsservercore") > 0) {
           self.image().osType(osTypes.windows);
         }
       }
+
+      if (self.image().vmNamePrefix()) return;
+
+      var groupName = getGroupName(value);
+      self.image().vmNamePrefix(groupName);
     } else {
       var image = ko.utils.arrayFirst(self.sourceImages(), function (item) {
         return item.id === value;
@@ -556,6 +560,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.vmSize(vmSize);
     model.numberCores(image.numberCores);
     model.memory(image.memory);
+    model.registryUsername(image.registryUsername);
     model.maxInstances(image.maxInstances);
     model.vmNamePrefix(image.vmNamePrefix);
     model.vmPublicIp(image.vmPublicIp);
@@ -569,7 +574,11 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
     var key = image.vmNamePrefix;
     var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
-    model.vmPassword(password);
+    if (image.imageType === imageTypes.container) {
+      model.registryPassword(password);
+    } else {
+      model.vmPassword(password);
+    }
 
     self.image.errors.showAllMessages(false);
     dialog.showDialog(!self.originalImage);
@@ -601,6 +610,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       vmSize: model.vmSize(),
       numberCores: model.numberCores(),
       memory: model.memory(),
+      registryUsername: model.registryUsername(),
       vmUsername: model.vmUsername(),
       reuseVm: model.reuseVm(),
       storageAccount: model.storageAccount(),
@@ -621,7 +631,11 @@ function ArmImagesViewModel($, ko, dialog, config) {
     self.images_data(JSON.stringify(self.images()));
 
     var key = image.vmNamePrefix;
-    self.passwords[key] = model.vmPassword();
+    if (image.imageType === imageTypes.container) {
+      self.passwords[key] = model.registryPassword();
+    } else {
+      self.passwords[key] = model.vmPassword();
+    }
     self.passwords_data(JSON.stringify(self.passwords));
 
     dialog.close();

@@ -187,6 +187,24 @@ class ArmTemplateBuilder(template: String) {
     }
 
     @Suppress("unused", "MayBeConstant")
+    fun addContainerCredentials(server: String, username: String, password: String): ArmTemplateBuilder {
+        val resources = root["resources"] as ArrayNode
+        val groups = resources.filterIsInstance<ObjectNode>().first { it["type"].asText() == "Microsoft.ContainerInstance/containerGroups" }
+        val properties = (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
+        val credentials = (properties["imageRegistryCredentials"] as? ArrayNode) ?: properties.putArray("imageRegistryCredentials")
+
+        credentials.addPOJO(object {
+            val server = server
+            val username = username
+            val password = password
+        })
+
+        reloadTemplate()
+
+        return this
+    }
+
+    @Suppress("unused", "MayBeConstant")
     fun addContainerVolumes(resourceName: String, name: String): ArmTemplateBuilder {
         val resources = root["resources"] as ArrayNode
         val groups = resources.filterIsInstance<ObjectNode>().first { it["name"].asText() == resourceName }

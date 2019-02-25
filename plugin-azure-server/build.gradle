@@ -13,8 +13,6 @@ teamcity {
     }
 }
 
-kotlin { experimental { coroutines 'enable' } }
-
 dependencies {
     agent project(path: ':plugin-azure-agent', configuration: 'plugin')
     compile project(':plugin-azure-server-base')

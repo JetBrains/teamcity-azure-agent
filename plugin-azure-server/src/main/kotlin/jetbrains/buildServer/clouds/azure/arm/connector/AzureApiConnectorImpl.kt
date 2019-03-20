@@ -1175,7 +1175,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         val (groupId) = result.destructured
         val keys = getStorageAccountKeys(groupId, storage)
         try {
-            CloudStorageAccount(StorageCredentialsAccountAndKey(storage, keys[0].value()))
+            CloudStorageAccount(StorageCredentialsAccountAndKey(storage, keys[0].value()), true)
         } catch (e: URISyntaxException) {
             val message = "Invalid storage account $storage credentials: ${e.message}"
             LOG.debug(message)

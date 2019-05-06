@@ -876,7 +876,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
 
         operations.asSequence().sortedByDescending { it.timestamp() }.map {
-            async(Dispatchers.IO) {
+            async(Dispatchers.IO, CoroutineStart.LAZY) {
                 it.targetResource()?.let { target ->
                     val resourceId = target.id()
                     val resources = linkedSetOf<String>(resourceId)
@@ -902,7 +902,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                     }
                 }
             }
-        }.toList().awaitAll()
+        }.forEach { it.await() }
     }
 
     /**

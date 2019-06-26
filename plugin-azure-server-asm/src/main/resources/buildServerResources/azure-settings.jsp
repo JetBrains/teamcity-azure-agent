@@ -58,8 +58,8 @@
             <div>
                 <select class="inline-block longField" name="_${cons.sourceName}" id="${cons.sourceName}" data-err-id="${cons.sourceName}"></select>
                 <span id="${cons.osType}">
-                    <bs:osIcon osName="windows" small="true"/>
-                    <bs:osIcon osName="linux" small="true"/>
+                    <bs:osIcon osName="windows" secondary="true"/>
+                    <bs:osIcon osName="linux" secondary="true"/>
                 </span>
             </div>
             <span class="smallNote">Image or Machine. The greyed out options are already added</span>

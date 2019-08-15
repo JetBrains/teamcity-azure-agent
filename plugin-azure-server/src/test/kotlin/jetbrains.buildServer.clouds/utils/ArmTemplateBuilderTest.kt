@@ -101,7 +101,7 @@ class ArmTemplateBuilderTest {
     ]}""").addContainer("aci-1")
 
         Assert.assertEquals(builder.toString(),
-                """{"resources":[{"type":"Microsoft.ContainerInstance/containerGroups","properties":{"containers":[{"name":"aci-1","properties":{"image":"[parameters('imageId')]","environmentVariables":[{"name":"SERVER_URL","value":"[parameters('teamcityUrl')]"},{"name":"AGENT_NAME","value":"aci-1"}],"resources":{"requests":{"cpu":"[parameters('numberCores')]","memoryInGb":"[parameters('memory')]"}}}}]}}]}""")
+                """{"resources":[{"type":"Microsoft.ContainerInstance/containerGroups","properties":{"containers":[{"name":"aci-1","properties":{"image":"[parameters('imageId')]","environmentVariables":[{"name":"SERVER_URL","value":"[parameters('teamcityUrl')]"},{"name":"AGENT_NAME","value":"aci-1"},{"name":"USE_CUSTOM_DNS","value":"[parameters('useCustomDns')]"}],"resources":{"requests":{"cpu":"[parameters('numberCores')]","memoryInGb":"[parameters('memory')]"}}}}]}}]}""")
     }
 
     fun testAddContainerVolumes() {

@@ -125,6 +125,9 @@ class AzureConstants {
     val agentPoolId: String
         get() = CloudImageParameters.AGENT_POOL_ID_FIELD
 
+    val useCustomDns: String
+        get() = USE_CUSTOM_DNS
+
     companion object {
         const val CLOUD_CODE = "arm"
 
@@ -161,6 +164,7 @@ class AzureConstants {
         const val REGISTRY_USERNAME = "registryUsername"
         const val REGISTRY_PASSWORD = "registryPassword"
         const val PROFILE_ID = "profileId"
+        const val USE_CUSTOM_DNS = "useCustomDns"
 
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"

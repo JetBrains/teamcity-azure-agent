@@ -146,6 +146,18 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
+    fun setCustomDns(dns: String?): ArmTemplateBuilder {
+        setParameterValueIfPresent(AzureConstants.USE_CUSTOM_DNS, dns);
+        return this
+    }
+
+    private fun setParameterValueIfPresent(name: String, value: String?): ArmTemplateBuilder {
+        value?.let {
+            setParameterValue(name, it)
+        }
+        return this
+    }
+
     fun setParameterValue(name: String, value: String): ArmTemplateBuilder {
         parameters[name] = JsonValue(value)
         return this
@@ -170,6 +182,10 @@ class ArmTemplateBuilder(template: String) {
                         object {
                             val name = "AGENT_NAME"
                             val value = name
+                        },
+                        object {
+                            val name = "USE_CUSTOM_DNS"
+                            val value = "[parameters('useCustomDns')]"
                         }
                 )
                 val resources = object {

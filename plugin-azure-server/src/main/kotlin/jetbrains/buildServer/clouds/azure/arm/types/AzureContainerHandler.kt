@@ -17,6 +17,7 @@ class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHan
         details.checkOsType(exceptions)
         details.checkImageId(exceptions)
         details.checkResourceGroup(connector, exceptions)
+        details.checkDns(exceptions)
         details.checkServiceExistence("Microsoft.ContainerInstance", connector, exceptions)
 
         exceptions
@@ -32,6 +33,7 @@ class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHan
                 .setParameterValue(AzureConstants.OS_TYPE, details.osType!!)
                 .setParameterValue(AzureConstants.NUMBER_CORES, details.numberCores!!)
                 .setParameterValue(AzureConstants.MEMORY, details.memory!!)
+                .setCustomDns(details.useCustomDns)
                 .addContainer(instance.name)
                 .apply {
                     if (!details.registryUsername.isNullOrEmpty() && !details.password.isNullOrEmpty()) {

@@ -38,6 +38,12 @@
       "metadata": {
         "description": "This is the TeamCity URL."
       }
+    },
+    "useCustomDns": {
+      "type": "string",
+      "metadata": {
+        "description": "This is the IP of custom DNS server."
+      }
     }
   },
   "resources": [

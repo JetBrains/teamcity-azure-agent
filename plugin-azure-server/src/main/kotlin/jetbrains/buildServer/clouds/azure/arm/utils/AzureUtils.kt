@@ -36,6 +36,7 @@ import java.io.IOException
  */
 object AzureUtils {
     private val INVALID_TENANT = Regex("AADSTS90002: No service namespace named '([\\w-]+)' was found in the data store\\.")
+    private val IP_REGEX = Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\$")
     private val mapper = ObjectMapper()
 
     fun getResourceAsString(name: String): String {
@@ -46,6 +47,10 @@ object AzureUtils {
         } catch (e: IOException) {
             ""
         }
+    }
+
+    fun isValidIp(ip: String): Boolean {
+        return IP_REGEX.matches(ip)
     }
 
     fun checkTemplate(template: String) {

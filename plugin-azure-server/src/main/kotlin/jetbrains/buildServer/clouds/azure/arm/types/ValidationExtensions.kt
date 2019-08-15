@@ -3,6 +3,7 @@ package jetbrains.buildServer.clouds.azure.arm.types
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 
 @Suppress("UselessCallOnNotNull")
@@ -33,6 +34,14 @@ fun AzureCloudImageDetails.checkImageId(errors: MutableList<Throwable>) {
 fun AzureCloudImageDetails.checkNetworkId(errors: MutableList<Throwable>) {
     if (networkId.isNullOrEmpty() || subnetId.isNullOrEmpty()) {
         errors.add(CheckedCloudException("Invalid network settings"))
+    }
+}
+
+fun AzureCloudImageDetails.checkDns(errors: MutableList<Throwable>) {
+    useCustomDns?.let {
+        if (!AzureUtils.isValidIp(it)) {
+            errors.add(CheckedCloudException("Invalid custom DNS server ip"))
+        }
     }
 }
 

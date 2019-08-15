@@ -98,7 +98,8 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                     it.getParameter(AzureConstants.REGISTRY_USERNAME),
                     it.agentPoolId,
                     it.getParameter(AzureConstants.PROFILE_ID),
-                    (it.getParameter(AzureConstants.REUSE_VM) ?: "").toBoolean())
+                    (it.getParameter(AzureConstants.REUSE_VM) ?: "").toBoolean(),
+                    it.getParameter(AzureConstants.USE_CUSTOM_DNS))
         }.apply {
             AzureUtils.setPasswords(AzureCloudImageDetails::class.java, params, this)
         }

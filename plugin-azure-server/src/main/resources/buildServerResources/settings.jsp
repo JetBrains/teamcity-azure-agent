@@ -425,6 +425,16 @@
                     </span>
                 </td>
             </tr>
+            <tr data-bind="if: image().imageType() == 'Container' && image().osType() == 'Windows'" class="advancedSetting">
+                <th class="noBorder"><label for="${cons.useCustomDns}">Custom DNS:</label></th>
+                <td>
+                    <div>
+                        <input type="text" name="${cons.useCustomDns}" class="longField ignoreModified"
+                               data-bind="textInput: image().useCustomDns"/>
+                        <span class="error option-error" data-bind="validationMessage: image().useCustomDns"></span>
+                    </div>
+                </td>
+            </tr>
             <!-- /ko -->
             <tr data-bind="if: image().deployTarget() === 'Instance'">
                 <th><label for="${cons.instanceId}">Virtual Machine: <l:star/></label></th>

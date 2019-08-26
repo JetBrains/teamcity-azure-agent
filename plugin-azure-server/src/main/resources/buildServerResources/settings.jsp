@@ -52,7 +52,7 @@
                 </label>
                 <span class="smallNote">Use credentials from Azure Active Directory application</span>
                 <br/>
-                <a href="https://portal.azure.com" target="_blank">Open Azure Portal</a>
+                <a href="https://portal.azure.com" target="_blank" rel="noopener noreferrer">Open Azure Portal</a>
                 <input type="hidden" name="prop:${cons.credentialsType}" value="<c:out value="${credentialsType}"/>"
                        data-bind="initializeValue: type, value: type"/>
             </td>
@@ -102,7 +102,7 @@
                 <div class="longField inline-block hidden"
                      data-bind="css: {hidden: $parent.subscriptions().length > 0}">
                     <span class="error option-error">
-                        No subscriptions, please <a href="${azureLink}#assign-application-to-role" target="_blank">grant
+                        No subscriptions, please <a href="${azureLink}#assign-application-to-role" target="_blank" rel="noopener noreferrer">grant
                         Contributor role</a> for your application
                     </span>
                 </div>
@@ -189,7 +189,8 @@
                     </span>
                     <span class="smallNote">URL of generalized VHD image placed in the <a
                             href="https://azure.microsoft.com/en-us/documentation/articles/resource-group-portal/"
-                            target="_blank">new storage account</a> <bs:help
+                            target="_blank"
+                            rel="noopener noreferrer">new storage account</a> <bs:help
                             file="TeamCity+Integration+with+Cloud+Solutions"
                             anchor="TeamCitySetupforCloudIntegration"/>
                     </span>
@@ -382,7 +383,8 @@
                            data-bind="textInput: image().vmPassword"/>
                     <span class="smallNote">Choose value according to the <a
                             href="https://msdn.microsoft.com/en-us/library/azure/jj943764.aspx#Anchor_1"
-                            target="_blank">password policies</a></span>
+                            target="_blank"
+                            rel="noopener noreferrer">password policies</a></span>
                     <span class="error option-error" data-bind="validationMessage: image().vmPassword"></span>
                 </td>
             </tr>

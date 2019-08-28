@@ -8,6 +8,7 @@ import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.connector.models.JsonValue
 import jetbrains.buildServer.util.StringUtil
+import java.util.*
 
 /**
  * Allows to customize ARM template.
@@ -146,48 +147,38 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
-    fun setCustomDns(dns: String?): ArmTemplateBuilder {
-        setParameterValueIfPresent(AzureConstants.USE_CUSTOM_DNS, dns);
-        return this
-    }
-
-    private fun setParameterValueIfPresent(name: String, value: String?): ArmTemplateBuilder {
-        value?.let {
-            setParameterValue(name, it)
-        }
-        return this
-    }
-
     fun setParameterValue(name: String, value: String): ArmTemplateBuilder {
         parameters[name] = JsonValue(value)
         return this
     }
 
-    @Suppress("unused", "MayBeConstant")
-    fun addContainer(name: String): ArmTemplateBuilder {
-        val resources = root["resources"] as ArrayNode
-        val groups = resources.filterIsInstance<ObjectNode>().first { it["type"].asText() == "Microsoft.ContainerInstance/containerGroups" }
-        val properties = (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
+    @Suppress("unused")
+    fun addContainer(name: String, customEnvironmentVariables: List<Pair<String, String>> = Collections.emptyList()): ArmTemplateBuilder {
+        val properties = getPropertiesOfResource("type", "Microsoft.ContainerInstance/containerGroups")
         val containers = (properties["containers"] as? ArrayNode) ?: properties.putArray("containers")
-
+        val environmentVariables = mutableListOf(
+                object {
+                    val name = "SERVER_URL"
+                    val value = "[parameters('teamcityUrl')]"
+                },
+                object {
+                    val name = "AGENT_NAME"
+                    val value = name
+                }
+        )
+        environmentVariables.addAll(customEnvironmentVariables
+                .filter { it.first != "SERVER_URL" && it.second != "SERVER_URL" }
+                .map {
+                    object {
+                        val name = it.first
+                        val value = it.second
+                    }
+                })
         containers.addPOJO(object {
             val name = name
             val properties = object {
                 val image = "[parameters('imageId')]"
-                val environmentVariables = listOf(
-                        object {
-                            val name = "SERVER_URL"
-                            val value = "[parameters('teamcityUrl')]"
-                        },
-                        object {
-                            val name = "AGENT_NAME"
-                            val value = name
-                        },
-                        object {
-                            val name = "USE_CUSTOM_DNS"
-                            val value = "[parameters('useCustomDns')]"
-                        }
-                )
+                val environmentVariables = environmentVariables.toList()
                 val resources = object {
                     val requests = object {
                         val cpu = "[parameters('numberCores')]"
@@ -204,9 +195,7 @@ class ArmTemplateBuilder(template: String) {
 
     @Suppress("unused", "MayBeConstant")
     fun addContainerCredentials(server: String, username: String, password: String): ArmTemplateBuilder {
-        val resources = root["resources"] as ArrayNode
-        val groups = resources.filterIsInstance<ObjectNode>().first { it["type"].asText() == "Microsoft.ContainerInstance/containerGroups" }
-        val properties = (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
+        val properties = getPropertiesOfResource("type", "Microsoft.ContainerInstance/containerGroups")
         val credentials = (properties["imageRegistryCredentials"] as? ArrayNode) ?: properties.putArray("imageRegistryCredentials")
 
         credentials.addPOJO(object {
@@ -222,10 +211,8 @@ class ArmTemplateBuilder(template: String) {
 
     @Suppress("unused", "MayBeConstant")
     fun addContainerVolumes(resourceName: String, name: String): ArmTemplateBuilder {
-        val resources = root["resources"] as ArrayNode
-        val groups = resources.filterIsInstance<ObjectNode>().first { it["name"].asText() == resourceName }
-        val properties = (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
-        val containers = (properties["containers"] as? ArrayNode) ?: properties.putArray("containers")
+        val properties = getPropertiesOfResource(resourceName)
+        val containers = containersFromProperties(properties)
 
         (containers.firstOrNull() as? ObjectNode)?.let {
             val props = (it["properties"] as? ObjectNode) ?: it.putObject("properties")
@@ -278,11 +265,12 @@ class ArmTemplateBuilder(template: String) {
                 .addParameter("storageAccountKey", "SecureString", "")
     }
 
+    private fun containersFromProperties(properties: ObjectNode) =
+            (properties["containers"] as? ArrayNode) ?: properties.putArray("containers")
+
     @Suppress("unused")
     fun addContainerEnvironment(resourceName: String, environment: Map<String, String>): ArmTemplateBuilder {
-        val resources = root["resources"] as ArrayNode
-        val groups = resources.filterIsInstance<ObjectNode>().first { it["name"].asText() == resourceName }
-        val properties = (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
+        val properties = getPropertiesOfResource(resourceName)
         val containers = (properties["containers"] as? ArrayNode) ?: properties.putArray("containers")
 
         (containers.firstOrNull() as? ObjectNode)?.let {
@@ -305,6 +293,16 @@ class ArmTemplateBuilder(template: String) {
         } catch (e: JsonProcessingException) {
             StringUtil.EMPTY
         }
+    }
+
+    private fun getPropertiesOfResource(resourceName: String): ObjectNode {
+        return getPropertiesOfResource("name", resourceName)
+    }
+
+    private fun getPropertiesOfResource(fieldName: String, fieldValue: String): ObjectNode {
+        val resources = root["resources"] as ArrayNode
+        val groups = resources.filterIsInstance<ObjectNode>().first { it[fieldName].asText() == fieldValue }
+        return (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
     }
 
     private fun reloadTemplate() {

@@ -399,8 +399,8 @@
                     </a>
                     <span class="smallNote">Specify the ARM template.
                         <bs:help
-                                urlPrefix="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authoring-templates"
-                                file=""/>
+                            urlPrefix="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authoring-templates"
+                            file=""/>
                         In it you must have "vmName" parameter and<br/>
                         virtual machine with name set to "[parameters('vmName')]".
                     </span>
@@ -422,18 +422,23 @@
                     <i class="icon-refresh icon-spin"></i>
                     <!-- /ko -->
                     <span class="smallNote">
-                        Specify account to persist container volumes in Azure Files.<br>
-                        It prevents build agent upgrade on each start.
+                        Specify account to persist container volumes in Azure Files. It prevents build agent upgrade on each start
                     </span>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() == 'Container' && image().osType() == 'Windows'" class="advancedSetting">
-                <th class="noBorder"><label for="${cons.useCustomDns}">Custom DNS:</label></th>
+            <tr data-bind="if: image().imageType() == 'Container'" class="advancedSetting">
+                <th class="noBorder"><label for="${cons.customEnvironmentVariables}">Environment Variables:</label></th>
                 <td>
                     <div>
-                        <input type="text" name="${cons.useCustomDns}" class="longField ignoreModified"
-                               data-bind="textInput: image().useCustomDns"/>
-                        <span class="error option-error" data-bind="validationMessage: image().useCustomDns"></span>
+                        <textarea name="${cons.customEnvironmentVariables}" class="longField ignoreModified"
+                               data-bind="textInput: image().customEnvironmentVariables">
+                        </textarea>
+                        <span class="smallNote">Newline separated environment variables in the form of <kbd>KEY=VALUE</kbd> to pass to the running container
+                            <bs:help
+                                urlPrefix="https://docs.microsoft.com/en-us/azure/container-instances/container-instances-environment-variables#azure-portal-example"
+                                file=""/>
+                        </span>
+                        <span class="error option-error" data-bind="validationMessage: image().customEnvironmentVariables"></span>
                     </div>
                 </td>
             </tr>

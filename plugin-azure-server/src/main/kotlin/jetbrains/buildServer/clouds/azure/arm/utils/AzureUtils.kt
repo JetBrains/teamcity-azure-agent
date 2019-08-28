@@ -19,16 +19,14 @@ package jetbrains.buildServer.clouds.azure.arm.utils
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.node.ArrayNode
-import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intellij.openapi.util.io.StreamUtil
 import com.microsoft.aad.adal4j.AuthenticationException
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageType
-import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.util.ExceptionUtil
 import jetbrains.buildServer.util.StringUtil
+import org.apache.commons.lang3.StringUtils
 import java.io.IOException
 
 /**
@@ -36,8 +34,9 @@ import java.io.IOException
  */
 object AzureUtils {
     private val INVALID_TENANT = Regex("AADSTS90002: No service namespace named '([\\w-]+)' was found in the data store\\.")
-    private val IP_REGEX = Regex("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\$")
-    private val mapper = ObjectMapper()
+    private val ENVIRONMENT_VARIABLE_NAME_REGEX = Regex("[a-zA-Z0-9_=]+")
+
+    internal val mapper = ObjectMapper()
 
     fun getResourceAsString(name: String): String {
         val stream = AzureUtils::class.java.getResourceAsStream(name) ?: return ""
@@ -49,40 +48,28 @@ object AzureUtils {
         }
     }
 
-    fun isValidIp(ip: String): Boolean {
-        return IP_REGEX.matches(ip)
-    }
-
-    fun checkTemplate(template: String) {
-        val root = try {
-            val reader = mapper.reader()
-            reader.readTree(template) as ObjectNode
-        } catch (e: Exception) {
-            throw CheckedCloudException("Invalid JSON template", e)
+    fun customEnvironmentVariableSyntaxIsValid(envVar: String): Boolean {
+        if (envVar.isEmpty()) {
+            return false
         }
-
-        try {
-            root["parameters"]["vmName"] as ObjectNode
-        } catch (e: Exception) {
-            throw CheckedCloudException("No 'vmName' parameter", e)
+        val firstEqualsSign = envVar.indexOf('=')
+        if (!(firstEqualsSign > 0 && firstEqualsSign < envVar.length)) {
+            return false
         }
-
-        try {
-            val resources = root["resources"] as ArrayNode
-            resources.filterIsInstance<ObjectNode>()
-                    .first {
-                        it["type"].asText() == "Microsoft.Compute/virtualMachines" &&
-                                it["name"].asText() == "[parameters('vmName')]"
-                    }
-        } catch (e: Exception) {
-            throw CheckedCloudException("No virtual machine resource with name set to 'vmName' parameter", e)
+        val firstChar = envVar.substring(0, 1)
+        if (!(StringUtils.isAlpha(firstChar) || firstChar == "_")) {
+            return false
         }
+        if (envVar.length == firstEqualsSign) {
+            return true
+        }
+        return envVar.substring(0, firstEqualsSign).matches(ENVIRONMENT_VARIABLE_NAME_REGEX)
     }
 
     fun getExceptionDetails(e: com.microsoft.azure.CloudException): String {
         e.body()?.let {
             return it.message() + " " + it.details().joinToString("\n", transform = {
-                AzureUtils.deserializeAzureError(it.message()) + " (${it.code()})"
+                deserializeAzureError(it.message()) + " (${it.code()})"
             })
         }
         return e.message ?: ""

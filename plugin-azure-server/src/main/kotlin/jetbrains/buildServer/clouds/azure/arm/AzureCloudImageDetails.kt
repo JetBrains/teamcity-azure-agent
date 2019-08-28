@@ -75,8 +75,8 @@ class AzureCloudImageDetails(
         val profileId: String?,
         @SerializedName(AzureConstants.REUSE_VM)
         private val myReuseVm: Boolean,
-        @SerializedName(AzureConstants.USE_CUSTOM_DNS)
-        val useCustomDns: String? = null) : CloudImagePasswordDetails {
+        @SerializedName(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES)
+        val customEnvironmentVariables: String? = null) : CloudImagePasswordDetails {
 
     private var myPassword: String? = null
 

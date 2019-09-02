@@ -16,7 +16,10 @@
 
 package jetbrains.buildServer.clouds.azure.arm
 
-import jetbrains.buildServer.clouds.*
+import jetbrains.buildServer.clouds.CloudClientParameters
+import jetbrains.buildServer.clouds.CloudImageParameters
+import jetbrains.buildServer.clouds.CloudRegistrar
+import jetbrains.buildServer.clouds.CloudState
 import jetbrains.buildServer.clouds.azure.AzureCloudImagesHolder
 import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.AzureUtils
@@ -27,7 +30,6 @@ import jetbrains.buildServer.serverSide.AgentDescription
 import jetbrains.buildServer.serverSide.PropertiesProcessor
 import jetbrains.buildServer.serverSide.ServerSettings
 import jetbrains.buildServer.web.openapi.PluginDescriptor
-import java.util.*
 
 /**
  * Constructs Azure ARM cloud clients.
@@ -68,38 +70,34 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
             return AzureUtils.parseImageData(AzureCloudImageDetails::class.java, params)
         }
 
-        return params.cloudImages.map {
+        return params.cloudImages.map { param ->
             AzureCloudImageDetails(
-                    it.id,
-                    it.getParameter(AzureConstants.DEPLOY_TARGET)?.let {
-                        AzureCloudDeployTarget.valueOf(it)
-                    },
-                    it.getParameter(AzureConstants.REGION),
-                    it.getParameter(AzureConstants.GROUP_ID),
-                    it.getParameter(AzureConstants.IMAGE_TYPE)?.let {
-                        AzureCloudImageType.valueOf(it)
-                    },
-                    it.getParameter(AzureConstants.IMAGE_URL),
-                    it.getParameter(AzureConstants.IMAGE_ID),
-                    it.getParameter(AzureConstants.INSTANCE_ID),
-                    it.getParameter(AzureConstants.OS_TYPE),
-                    it.getParameter(AzureConstants.NETWORK_ID),
-                    it.getParameter(AzureConstants.SUBNET_ID),
-                    it.getParameter(AzureConstants.VM_NAME_PREFIX),
-                    it.getParameter(AzureConstants.VM_SIZE),
-                    (it.getParameter(AzureConstants.VM_PUBLIC_IP) ?: "").toBoolean(),
-                    (it.getParameter(AzureConstants.MAX_INSTANCES_COUNT) ?: "1").toInt(),
-                    it.getParameter(AzureConstants.VM_USERNAME),
-                    it.getParameter(AzureConstants.STORAGE_ACCOUNT_TYPE),
-                    it.getParameter(AzureConstants.TEMPLATE),
-                    it.getParameter(AzureConstants.NUMBER_CORES),
-                    it.getParameter(AzureConstants.MEMORY),
-                    it.getParameter(AzureConstants.STORAGE_ACCOUNT),
-                    it.getParameter(AzureConstants.REGISTRY_USERNAME),
-                    it.agentPoolId,
-                    it.getParameter(AzureConstants.PROFILE_ID),
-                    (it.getParameter(AzureConstants.REUSE_VM) ?: "").toBoolean(),
-                    it.getParameter(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES))
+                    param.id,
+                    param.getParameter(AzureConstants.DEPLOY_TARGET)?.let(AzureCloudDeployTarget::valueOf),
+                    param.getParameter(AzureConstants.REGION),
+                    param.getParameter(AzureConstants.GROUP_ID),
+                    param.getParameter(AzureConstants.IMAGE_TYPE)?.let(AzureCloudImageType::valueOf),
+                    param.getParameter(AzureConstants.IMAGE_URL),
+                    param.getParameter(AzureConstants.IMAGE_ID),
+                    param.getParameter(AzureConstants.INSTANCE_ID),
+                    param.getParameter(AzureConstants.OS_TYPE),
+                    param.getParameter(AzureConstants.NETWORK_ID),
+                    param.getParameter(AzureConstants.SUBNET_ID),
+                    param.getParameter(AzureConstants.VM_NAME_PREFIX),
+                    param.getParameter(AzureConstants.VM_SIZE),
+                    (param.getParameter(AzureConstants.VM_PUBLIC_IP) ?: "").toBoolean(),
+                    (param.getParameter(AzureConstants.MAX_INSTANCES_COUNT) ?: "1").toInt(),
+                    param.getParameter(AzureConstants.VM_USERNAME),
+                    param.getParameter(AzureConstants.STORAGE_ACCOUNT_TYPE),
+                    param.getParameter(AzureConstants.TEMPLATE),
+                    param.getParameter(AzureConstants.NUMBER_CORES),
+                    param.getParameter(AzureConstants.MEMORY),
+                    param.getParameter(AzureConstants.STORAGE_ACCOUNT),
+                    param.getParameter(AzureConstants.REGISTRY_USERNAME),
+                    param.agentPoolId,
+                    param.getParameter(AzureConstants.PROFILE_ID),
+                    (param.getParameter(AzureConstants.REUSE_VM) ?: "").toBoolean(),
+                    param.getParameter(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES))
         }.apply {
             AzureUtils.setPasswords(AzureCloudImageDetails::class.java, params, this)
         }
@@ -134,11 +132,13 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
     }
 
     override fun canBeAgentOfType(description: AgentDescription): Boolean {
-        return description.configurationParameters.containsKey(AzureProperties.INSTANCE_NAME)
+        val availableParameters = description.availableParameters
+        return availableParameters.containsKey(AzureProperties.INSTANCE_NAME)
+                || availableParameters.containsKey("env." + AzureProperties.INSTANCE_ENV_VAR)
     }
 
     companion object {
-        private val SKIP_PARAMETERS = Arrays.asList(
+        private val SKIP_PARAMETERS = listOf(
                 AzureConstants.IMAGE_URL, AzureConstants.OS_TYPE,
                 AzureConstants.MAX_INSTANCES_COUNT, AzureConstants.MAX_INSTANCES_COUNT,
                 AzureConstants.VM_USERNAME, AzureConstants.VM_PASSWORD,

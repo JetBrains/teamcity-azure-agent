@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.util.io.StreamUtil
 import com.microsoft.aad.adal4j.AuthenticationException
+import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageType
@@ -89,6 +90,22 @@ object AzureUtils {
     } catch (e: JsonProcessingException) {
         json
     }
+
+    internal fun getResourceGroup(details: AzureCloudImageDetails, instanceName: String): String {
+        return when (details.target) {
+            AzureCloudDeployTarget.NewGroup -> instanceName
+            AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
+            AzureCloudDeployTarget.Instance -> {
+                RESOURCE_GROUP_PATTERN.find(details.instanceId!!)?.let {
+                    val (groupId) = it.destructured
+                    return groupId
+                }
+                throw CloudException("Invalid instance ID ${details.instanceId}")
+            }
+        }
+    }
+
+    private val RESOURCE_GROUP_PATTERN = Regex("resourceGroups/([^/]+)/providers/")
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

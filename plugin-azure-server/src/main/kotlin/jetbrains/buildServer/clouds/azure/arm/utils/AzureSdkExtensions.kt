@@ -100,4 +100,22 @@ suspend fun <T> Observable<T>.awaitOne(): T = suspendCancellableCoroutine { cont
     }
 }
 
+suspend fun <T> Single<T>.awaitOne(): T = suspendCancellableCoroutine { cont ->
+    lateinit var subscription: Subscription
+
+    subscription = subscribe(object : SingleSubscriber<T>() {
+        override fun onSuccess(t: T) {
+            if (cont.isActive) cont.resume(t)
+        }
+
+        override fun onError(e: Throwable) {
+            if (cont.isActive) cont.resumeWithException(e)
+        }
+    })
+
+    cont.invokeOnCancellation {
+        subscription.unsubscribe()
+    }
+}
+
 suspend fun <T> Observable<T>.awaitList(): List<T> = toList().awaitOne()

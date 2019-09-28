@@ -22,11 +22,6 @@ import com.microsoft.azure.credentials.ApplicationTokenCredentials
 import com.microsoft.azure.credentials.MSICredentials
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
-import com.microsoft.azure.management.compute.VirtualMachine
-import com.microsoft.azure.management.containerinstance.ContainerGroup
-import com.microsoft.azure.management.resources.Deployment
-import com.microsoft.azure.management.resources.DeploymentMode
-import com.microsoft.azure.management.resources.fluentcore.arm.Region
 import com.microsoft.azure.storage.CloudStorageAccount
 import com.microsoft.azure.storage.StorageCredentialsAccountAndKey
 import com.microsoft.azure.storage.blob.CloudBlob
@@ -36,41 +31,48 @@ import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.azure.AzureCompress
 import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.arm.*
-import jetbrains.buildServer.clouds.azure.arm.utils.*
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.*
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerAdapterImpl
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerImpl
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerStrategyImpl
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskTimeExecutionType
+import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
+import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
+import jetbrains.buildServer.clouds.azure.arm.utils.awaitOne
+import jetbrains.buildServer.clouds.azure.arm.utils.isVmInstance
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase
 import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.version.ServerVersionHolder
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.apache.commons.codec.binary.Base64
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.locks.ReentrantReadWriteLock
-import kotlin.collections.HashMap
-import kotlin.concurrent.read
-import kotlin.concurrent.write
 
 /**
  * Provides azure arm management capabilities.
  */
+@Suppress("UNUSED_DESTRUCTURED_PARAMETER_ENTRY")
 class AzureApiConnectorImpl(params: Map<String, String>)
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
-    private val myAzure: Azure.Authenticated
+    private var myAzureReadsRequestsThrottler: AzureThrottlerImpl<Azure, AzureThrottlerReadTasks.Values>
+    private var myAzureActionsRequestsThrottler: AzureThrottlerImpl<Azure, AzureThrottlerActionTasks.Values>
     private var mySubscriptionId: String? = null
     private var myServerId: String? = null
     private var myProfileId: String? = null
     private val deploymentLocks = ConcurrentHashMap<String, Mutex>()
     private val servicesByRegion = ConcurrentHashMap<String, Map<String, Set<String>>>()
-    private var virtualMachines: Set<String> = hashSetOf()
-    private val virtualMachinesLock = ReentrantReadWriteLock()
 
     init {
         params[AzureConstants.SUBSCRIPTION_ID]?.let {
@@ -95,15 +97,91 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             ApplicationTokenCredentials(clientId, tenantId, clientSecret, env)
         }
 
-        myAzure = Azure.configure()
+        val azureAdapter = AzureThrottlerAdapterImpl(
+                Azure.configure()
                 .configureProxy()
-                .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}")
-                .authenticate(credentials)
+                .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}"),
+                credentials,
+                mySubscriptionId)
+
+        val readsStrategy = AzureThrottlerStrategyImpl<Azure, AzureThrottlerReadTasks.Values>(
+                azureAdapter, 50, 10, 90)
+
+        myAzureReadsRequestsThrottler = AzureThrottlerImpl(azureAdapter, readsStrategy)
+
+        myAzureReadsRequestsThrottler
+                .registerTask(AzureThrottlerReadTasks.FetchResourceGroups,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerReadTasks.FetchVirtualMachines,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerReadTasks.FetchInstances,
+                    AzureThrottlerTaskTimeExecutionType.Periodical,
+                    60)
+                .registerTask(AzureThrottlerReadTasks.FetchCustomImages,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerReadTasks.FetchStorageAccounts,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerReadTasks.FetchVirtualMachineSizes,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerReadTasks.FetchSubscriptions,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerReadTasks.FetchLocations,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerReadTasks.FetchNetworks,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerReadTasks.FetchServices,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+
+        val azureActionAdapter = AzureThrottlerAdapterImpl(
+                Azure.configure()
+                        .configureProxy()
+                        .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}"),
+                credentials,
+                mySubscriptionId)
+
+        val actionsStrategy = AzureThrottlerStrategyImpl<Azure, AzureThrottlerActionTasks.Values>(
+                azureActionAdapter, 50, 10, 90)
+
+        myAzureActionsRequestsThrottler =  AzureThrottlerImpl(azureActionAdapter, actionsStrategy)
+        myAzureActionsRequestsThrottler
+                .registerTask(AzureThrottlerActionTasks.CreateDeployment,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerActionTasks.CreateResourceGroup,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerActionTasks.DeleteResourceGroup,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerActionTasks.StopVirtualMachine,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerActionTasks.StartVirtualMachine,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerActionTasks.RestartVirtualMachine,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
+                .registerTask(AzureThrottlerActionTasks.DeleteDeployment,
+                    AzureThrottlerTaskTimeExecutionType.Random,
+                    60)
     }
 
-    override fun test() {
+    override fun test() = runBlocking {
         try {
-            myAzure.subscriptions().list()
+            withContext(Dispatchers.IO) {
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchSubscriptions, Unit).awaitOne()
+            }
+            Unit
         } catch (e: Exception) {
             val message = "Failed to get list of groups: " + e.message
             LOG.debug(message, e)
@@ -114,263 +192,43 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>) = runBlocking {
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
 
-        val machines = if (images.any { it.imageDetails.isVmInstance() }) {
-            getVirtualMachines()
-        } else {
-            emptyList()
-        }
+        val parameter = FetchInstancesTaskParameter(myServerId, myProfileId, images.map { FetchInstancesTaskImageDescriptor(it.id, it.imageDetails) })
 
-        val containers = if (images.any { !it.imageDetails.isVmInstance() }) {
-            getContainerGroups()
-        } else {
-            emptyList()
-        }
-
-        images.forEach { image ->
-            try {
-                val result = if (image.imageDetails.isVmInstance()) {
-                    findVmInstances(image, machines)
-                } else {
-                    findContainerInstances(image, containers)
-                }
-                LOG.debug("Received list of image ${image.name} instances")
-                @Suppress("UNCHECKED_CAST")
-                imageMap[image] = result as Map<String, R>
-            } catch (e: Throwable) {
-                LOG.warn("Failed to receive list of image ${image.name} instances: ${e.message}", e)
-                image.updateErrors(TypedCloudErrorInfo.fromException(e))
-            }
-        }
-
-        imageMap
-    }
-
-    private suspend fun findVmInstances(image: AzureCloudImage, machines: List<VirtualMachine>) = coroutineScope {
-        val instances = hashMapOf<String, AzureInstance>()
-        val details = image.imageDetails
-
-        for (virtualMachine in machines) {
-            val name = virtualMachine.name()
-            val tags = virtualMachine.tags()
-
-            if (details.target == AzureCloudDeployTarget.Instance) {
-                if (virtualMachine.id() != details.instanceId!!) {
-                    LOG.debug("Ignore vm with invalid id " + virtualMachine.id())
-                    continue
-                }
-            } else {
-                if (!name.startsWith(details.sourceId, true)) {
-                    LOG.debug("Ignore vm with name $name")
-                    continue
-                }
-
-                val serverId = tags[AzureConstants.TAG_SERVER]
-                if (!serverId.equals(myServerId, true)) {
-                    LOG.debug("Ignore vm with invalid server tag $serverId")
-                    continue
-                }
-
-                val profileId = tags[AzureConstants.TAG_PROFILE]
-                if (!profileId.equals(myProfileId, true)) {
-                    LOG.debug("Ignore vm with invalid profile tag $profileId")
-                    continue
-                }
-
-                val sourceName = tags[AzureConstants.TAG_SOURCE]
-                if (!sourceName.equals(details.sourceId, true)) {
-                    LOG.debug("Ignore vm with invalid source tag $sourceName")
-                    continue
-                }
-            }
-
-            val instance = AzureInstance(name)
-            instance.properties = tags
-            instances[name] = instance
-        }
-
-        val exceptions = arrayListOf<Throwable>()
-        instances.values.forEach { instance ->
-            try {
-                getInstanceData(instance, details)
-            } catch (e: Throwable) {
-                LOG.debug("Failed to receive vm data: " + e.message, e)
-                exceptions.add(e)
-            }
-        }
-
-        val errors = exceptions.map { TypedCloudErrorInfo.fromException(it) }.toTypedArray()
-        image.updateErrors(*errors)
-
-        instances
-    }
-
-    private suspend fun findContainerInstances(image: AzureCloudImage, containers: List<ContainerGroup>) = coroutineScope {
-        val instances = hashMapOf<String, AzureInstance>()
-        val details = image.imageDetails
-
-        for (container in containers) {
-            val name = container.name()
-            val tags = container.tags()
-
-            if (!name.startsWith(details.sourceId, true)) {
-                LOG.debug("Ignore container with name $name")
-                continue
-            }
-
-            val serverId = tags[AzureConstants.TAG_SERVER]
-            if (!serverId.equals(myServerId, true)) {
-                LOG.debug("Ignore container with invalid server tag $serverId")
-                continue
-            }
-
-            val profileId = tags[AzureConstants.TAG_PROFILE]
-            if (!profileId.equals(myProfileId, true)) {
-                LOG.debug("Ignore container with invalid profile tag $profileId")
-                continue
-            }
-
-            val sourceName = tags[AzureConstants.TAG_SOURCE]
-            if (!sourceName.equals(details.sourceId, true)) {
-                LOG.debug("Ignore container with invalid source tag $sourceName")
-                continue
-            }
-
-            val instance = AzureInstance(name)
-            instance.properties = tags
-            container.containers()[name]?.let {
-                it.instanceView()?.currentState()?.let { state ->
-                    instance.setPowerState(state.state())
-                    state.startTime()?.let { time ->
-                        instance.setStartDate(time.toDate())
-                    }
-                }
-            }
-
-            instances[name] = instance
-        }
-
-        instances
-    }
-
-    private suspend fun getVirtualMachines() = coroutineScope {
         try {
-            val list = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .virtualMachines()
-                        .listAsync()
-                        .awaitList()
-                        .also { vms ->
-                            virtualMachinesLock.write {
-                                virtualMachines = vms.map { it.id() }.toSet()
-                            }
-                        }
+            val instanceDescriptorMap = withContext(Dispatchers.IO) {
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchInstances, parameter)
+                        .awaitOne()
+                        .groupBy { it.imageId }
             }
-            LOG.debug("Received list of virtual machines")
-            list
+
+            LOG.debug("Received list of instances")
+            for(image in images) {
+                val map = hashMapOf<String, AbstractInstance>()
+
+                @Suppress("UNCHECKED_CAST")
+                imageMap[image] = map as Map<String, R>
+
+                val errors = arrayListOf<TypedCloudErrorInfo>()
+                for(instanceDescriptor in instanceDescriptorMap.getOrDefault(image.id, emptyList())) {
+                    val instance = AzureInstance(instanceDescriptor.name)
+                    instance.properties = instanceDescriptor.tags
+                    instanceDescriptor.powerState?.let { instance.setPowerState(it) }
+                    instanceDescriptor.provisioningState?.let { instance.setProvisioningState(it) }
+                    instanceDescriptor.startDate?.let { instance.setStartDate(it) }
+                    instanceDescriptor.publicIpAddress?.let { instance.setIpAddress(it) }
+
+                    map[instance.name] = instance
+
+                    instanceDescriptor.error?.let {errors.add(it) }
+                }
+                image.updateErrors(*errors.toTypedArray())
+            }
         } catch (t: Throwable) {
             val message = "Failed to get list of virtual machines: " + t.message
             LOG.debug(message, t)
             throw CloudException(message, t)
         }
-    }
-
-    private suspend fun getContainerGroups() = coroutineScope {
-        try {
-            val list = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .containerGroups()
-                        .listAsync()
-                        .awaitList()
-            }
-            LOG.debug("Received list of container groups")
-            list
-        } catch (t: Throwable) {
-            val message = "Failed to get list of container groups: " + t.message
-            LOG.debug(message, t)
-            throw CloudException(message, t)
-        }
-    }
-
-    private suspend fun getInstanceData(instance: AzureInstance, details: AzureCloudImageDetails) = coroutineScope {
-        val name = instance.name
-        val groupId = getResourceGroup(details, name)
-        val promises = arrayListOf<Deferred<Any?>>()
-
-        promises += async(start = CoroutineStart.LAZY) {
-            getVirtualMachine(groupId, name)?.let {
-                it.refreshInstanceViewAsync().awaitOne()
-                LOG.debug("Received virtual machine $name info")
-
-                for (status in it.instanceView().statuses()) {
-                    val code = status.code()
-                    if (code.startsWith(PROVISIONING_STATE)) {
-                        instance.setProvisioningState(code.substring(PROVISIONING_STATE.length))
-                        val dateTime = status.time()
-                        if (dateTime != null) {
-                            instance.setStartDate(dateTime.toDate())
-                        }
-                    }
-
-                    if (code.startsWith(POWER_STATE)) {
-                        instance.setPowerState(code.substring(POWER_STATE.length))
-                    }
-                }
-
-                if (it.tags().containsKey(AzureConstants.TAG_INVESTIGATION)) {
-                    LOG.debug("Virtual machine $name is marked by ${AzureConstants.TAG_INVESTIGATION} tag")
-                    instance.setProvisioningState("Investigation")
-                }
-            }
-        }
-
-        if (details.vmPublicIp == true && instance.ipAddress == null) {
-            val pipName = name + PUBLIC_IP_SUFFIX
-            promises += async(start = CoroutineStart.LAZY) {
-                val ip = getPublicIp(groupId, pipName)
-                LOG.debug("Received public ip $ip for virtual machine $name")
-
-                if (!ip.isNullOrBlank()) {
-                    instance.setIpAddress(ip)
-                }
-            }
-        }
-
-        promises.awaitAll()
-    }
-
-    private suspend fun getVirtualMachine(groupId: String, name: String) = coroutineScope {
-        try {
-            val machine = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .virtualMachines()
-                        .getByResourceGroupAsync(groupId, name)
-                        .awaitOne()
-            }
-
-            LOG.debug("Received virtual machine $name info")
-            machine
-        } catch (e: Throwable) {
-            val message = "Failed to get virtual machine info: " + e.message
-            LOG.debug(message, e)
-            throw CloudException(message, e)
-        }
-    }
-
-    private suspend fun getPublicIp(groupId: String, name: String) = coroutineScope {
-        try {
-            val ipAddress = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .publicIPAddresses()
-                        .getByResourceGroupAsync(groupId, name)
-                        .awaitOne()
-            }
-            LOG.debug("Received public ip $ipAddress for $name")
-            ipAddress.ipAddress()
-        } catch (e: Throwable) {
-            val message = "Failed to get public ip address $name info: ${e.message}"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
-        }
+        imageMap
     }
 
     @Suppress("UselessCallOnNotNull")
@@ -391,20 +249,13 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      */
     override suspend fun getResourceGroups() = coroutineScope {
         try {
-            val list = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .resourceGroups()
-                        .listAsync()
-                        .awaitList()
+            val resourceGroupMap = withContext(Dispatchers.IO) {
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchResourceGroups, Unit)
+                        .awaitOne()
             }
-            LOG.debug("Received list of resource groups")
+            LOG.debug("Received map of resource groups")
 
-            list.asSequence()
-                    .sortedBy { it.name() }
-                    .associateBy(
-                            { it.name() },
-                            { it.regionName() }
-                    )
+            resourceGroupMap
         } catch (e: Throwable) {
             val message = "Failed to get list of resource groups: ${e.message}"
             LOG.debug(message, e)
@@ -418,17 +269,20 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      */
     override suspend fun getInstances() = coroutineScope {
         try {
-            val list = getVirtualMachines()
+            val vmInstanceMap = withContext(Dispatchers.IO) {
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchVirtualMachines, Unit)
+                        .awaitOne()
+                        .asSequence().map {
+                            it.id to "${it.groupName}/${it.name}".toLowerCase()
+                        }.sortedBy {
+                            it.second
+                        }.associateBy(
+                                { it.first },
+                                { it.second }
+                        )
+            }
             LOG.debug("Received list of vm instances")
-
-            list.asSequence().map {
-                it.id() to "${it.resourceGroupName()}/${it.name()}".toLowerCase()
-            }.sortedBy {
-                it.second
-            }.associateBy(
-                    { it.first },
-                    { it.second }
-            )
+            vmInstanceMap
         } catch (e: Throwable) {
             val message = "Failed to get list of instances: ${e.message}"
             LOG.debug(message, e)
@@ -440,9 +294,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * Checks whether virtual machine exists.
      */
     override suspend fun hasInstance(id: String): Boolean {
-        return virtualMachinesLock.read {
-            virtualMachines.contains(id)
-        }
+        return getInstances().containsKey(id)
     }
 
     /**
@@ -451,15 +303,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      */
     override suspend fun getImageName(imageId: String): String = coroutineScope {
         try {
-            val image = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .virtualMachineCustomImages()
-                        .getByIdAsync(imageId)
+            val images = withContext(Dispatchers.IO) {
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchCustomImages, Unit)
                         .awaitOne()
             }
             LOG.debug("Received image $imageId")
 
-            image.name()
+            val image = images.first { it.id.equals(imageId, ignoreCase = true) }
+            image.name
         } catch (e: Throwable) {
             val message = "Failed to get image $imageId: ${e.message}"
             LOG.debug(message, e)
@@ -474,22 +325,19 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override suspend fun getImages(region: String) = coroutineScope {
         try {
             val list = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .virtualMachineCustomImages()
-                        .listAsync()
-                        .awaitList()
-                        .asSequence()
-                        .filter { it.regionName().equals(region, ignoreCase = true) }
-                        .filter { it.osDiskImage().osState() == OperatingSystemStateTypes.GENERALIZED }
-                        .toList()
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchCustomImages, Unit)
+                        .awaitOne()
             }
             LOG.debug("Received list of images")
 
             list.asSequence()
-                    .sortedBy { it.name() }
+                    .filter { it.regionName.equals(region, ignoreCase = true) }
+                    .filter { it.osState == OperatingSystemStateTypes.GENERALIZED }
+                    .toList()
+                    .sortedBy { it.name }
                     .associateBy(
-                            { it.id() },
-                            { listOf(it.name(), it.osDiskImage().osType().toString()) }
+                            { it.id },
+                            { listOf(it.name, it.osType.toString()) }
                     )
         } catch (e: Throwable) {
             val message = "Failed to get list of images: ${e.message}"
@@ -506,15 +354,12 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override suspend fun getVmSizes(region: String) = coroutineScope {
         try {
             val vmSizes = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .virtualMachines()
-                        .sizes()
-                        .listByRegionAsync(region)
-                        .awaitList()
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchVirtualMachineSizes, region)
+                        .awaitOne()
             }
             LOG.debug("Received list of vm sizes in region $region")
             val comparator = AlphaNumericStringComparator()
-            vmSizes.asSequence().map { it.name() }.sortedWith(comparator).toList()
+            vmSizes.asSequence().sortedWith(comparator).toList()
         } catch (e: Throwable) {
             val message = "Failed to get list of vm sizes in region $region: ${e.message}"
             LOG.debug(message, e)
@@ -529,18 +374,15 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override suspend fun getStorageAccounts(region: String) = coroutineScope {
         try {
             val storageAccounts = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .storageAccounts()
-                        .listAsync()
-                        .awaitList()
-                        .asSequence()
-                        .filter { region.equals(it.regionName(), ignoreCase = true) }
-                        .filter { !it.skuType().name().name.contains("premium", ignoreCase = true) }
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchStorageAccounts, Unit)
+                        .awaitOne()
+                        .filter { region.equals(it.regionName, ignoreCase = true) }
+                        .filter { !it.skuTypeName.contains("premium", ignoreCase = true) }
                         .toList()
             }
             LOG.debug("Received list of storage accounts in region $region")
             val comparator = AlphaNumericStringComparator()
-            storageAccounts.asSequence().map { it.name() }.sortedWith(comparator).toList()
+            storageAccounts.asSequence().map { it.name }.sortedWith(comparator).toList()
         } catch (e: Throwable) {
             val message = "Failed to get list of storage accounts in region $region: ${e.message}"
             LOG.debug(message, e)
@@ -670,9 +512,9 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     private suspend fun createResourceGroup(groupId: String, region: String) = coroutineScope {
         try {
             withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId).resourceGroups().define(groupId)
-                        .withRegion(region)
-                        .createAsync()
+                myAzureActionsRequestsThrottler.executeTask(
+                        AzureThrottlerActionTasks.CreateResourceGroup,
+                        CreateResourceGroupTaskParameter(groupId, region))
                         .awaitOne()
             }
             LOG.debug("Created resource group $groupId in region $region")
@@ -692,12 +534,9 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         deploymentLocks.getOrPut("$groupId/$deploymentId") { Mutex() }.withLock {
             try {
                 withContext(Dispatchers.IO) {
-                    myAzure.withSubscription(mySubscriptionId).deployments().define(deploymentId)
-                            .withExistingResourceGroup(groupId)
-                            .withTemplate(template)
-                            .withParameters(params)
-                            .withMode(DeploymentMode.INCREMENTAL)
-                            .createAsync()
+                    myAzureActionsRequestsThrottler.executeTask(
+                            AzureThrottlerActionTasks.CreateDeployment,
+                            CreateDeploymentTaskParameter(groupId, deploymentId, template, params))
                             .awaitOne()
                 }
                 LOG.debug("Created deployment in group $groupId")
@@ -723,10 +562,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @return promise.
      */
     override suspend fun deleteInstance(instance: AzureCloudInstance) = coroutineScope {
-        if (!instance.image.imageDetails.isVmInstance()) {
-            deleteContainer(instance)
-        } else {
+        if (instance.image.imageDetails.isVmInstance()) {
             deleteVm(instance)
+        } else {
+            deleteDeployTarget(instance)
         }
         Unit
     }
@@ -736,36 +575,49 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         val name = instance.name
         val groupId = getResourceGroup(details, name)
 
-        val virtualMachine = getVirtualMachine(groupId, name)
+        var virtualMachine : FetchVirtualMachinesTaskVirtualMachineDescriptor?
+        try {
+            virtualMachine = withContext(Dispatchers.IO) {
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchVirtualMachines, Unit)
+                        .awaitOne()
+                        .firstOrNull {
+                            it.groupName.equals(groupId, ignoreCase = true) && it.name == name
+                        }
+            }
 
-        when (details.target) {
-            AzureCloudDeployTarget.NewGroup -> deleteResourceGroup(name)
-            AzureCloudDeployTarget.SpecificGroup -> deleteDeployment(groupId, name)
-            AzureCloudDeployTarget.Instance -> throw CloudException("Deleting virtual machine $name is prohibited")
+            LOG.debug("Received virtual machine $name info")
+        } catch (e: Throwable) {
+            val message = "Failed to get virtual machine info: " + e.message
+            LOG.debug(message, e)
+            throw CloudException(message, e)
         }
+
+        deleteDeployTarget(instance)
 
         // Remove OS disk
         virtualMachine?.let {
-            if (!it.isManagedDiskEnabled) {
+            if (!it.isManagedDiskEnabled && it.osUnmanagedDiskVhdUri != null) {
                 try {
-                    val osDisk = URI(it.osUnmanagedDiskVhdUri())
+                    val osDisk = URI(it.osUnmanagedDiskVhdUri)
                     deleteBlobs(osDisk, details.region!!)
                 } catch (e: Throwable) {
-                    LOG.infoAndDebugDetails("Failed to delete disk ${it.osUnmanagedDiskVhdUri()} for instance $name", e)
+                    LOG.infoAndDebugDetails("Failed to delete disk ${it.osUnmanagedDiskVhdUri} for instance $name", e)
                 }
             }
         }
     }
 
-    private suspend fun deleteContainer(instance: AzureCloudInstance) = coroutineScope {
+    private suspend fun deleteDeployTarget(instance: AzureCloudInstance) = coroutineScope {
         val details = instance.image.imageDetails
         val name = instance.name
         val groupId = getResourceGroup(details, details.sourceId)
+        val isVm = instance.image.imageDetails.isVmInstance()
 
         when (details.target) {
             AzureCloudDeployTarget.NewGroup -> deleteResourceGroup(name)
             AzureCloudDeployTarget.SpecificGroup -> deleteDeployment(groupId, name)
-            AzureCloudDeployTarget.Instance -> throw CloudException("Deleting container instance is not supported")
+            AzureCloudDeployTarget.Instance -> throw CloudException(
+                    if (isVm) "Deleting virtual machine $name is prohibited" else "Deleting container instance is not supported")
         }
     }
 
@@ -802,9 +654,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     private suspend fun deleteResourceGroup(groupId: String) = coroutineScope {
         try {
             withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .resourceGroups()
-                        .deleteByNameAsync(groupId)
+                myAzureActionsRequestsThrottler.executeTask(AzureThrottlerActionTasks.DeleteResourceGroup, groupId)
                         .awaitOne()
             }
             LOG.debug("Resource group $groupId has been successfully deleted")
@@ -824,32 +674,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         deploymentLocks.getOrPut("$groupId/$deploymentId") { Mutex() }.withLock {
             withContext(Dispatchers.IO) {
                 try {
-                    val subscription = myAzure.withSubscription(mySubscriptionId)
-                    val deployment = try {
-                        subscription.deployments().getByResourceGroupAsync(groupId, deploymentId).awaitOne()
-                    } catch (e: Exception) {
-                        LOG.debug("Deployment $deploymentId in group $groupId was not found", e)
-                        return@withContext
-                    }
-
-                    LOG.debug("Deleting deployment $deploymentId in group $groupId")
-
-                    if (deployment.provisioningState() == "Canceled") {
-                        LOG.debug("Deployment $deploymentId in group $groupId was canceled")
-                    }
-
-                    // We need to cancel running deployments
-                    if (deployment.provisioningState() == "Running") {
-                        LOG.debug("Canceling running deployment $deploymentId")
-                        deployment.cancelAsync().await()
-                        do {
-                            deployment.refreshAsync().awaitOne()
-                        } while (deployment.provisioningState() != "Canceled")
-                    }
-
-                    deleteDeploymentResources(subscription, deployment)
-
-                    subscription.deployments().deleteByResourceGroupAsync(groupId, deploymentId).await()
+                    myAzureActionsRequestsThrottler.executeTask(AzureThrottlerActionTasks.DeleteDeployment, DeleteDeploymentTaskParameter(groupId, deploymentId))
+                            .awaitOne()
                     LOG.debug("Deleted deployment $deploymentId in group $groupId")
                 } catch (e: com.microsoft.azure.CloudException) {
                     val details = AzureUtils.getExceptionDetails(e)
@@ -863,46 +689,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 }
             }
         }
-    }
-
-    private suspend fun deleteDeploymentResources(subscription: Azure, deployment: Deployment) = coroutineScope {
-        val operations = withContext(Dispatchers.IO) {
-            deployment.deploymentOperations()
-                    .listAsync()
-                    .awaitList()
-        }
-        if (!operations.isNotEmpty()) {
-            return@coroutineScope
-        }
-
-        operations.asSequence().sortedByDescending { it.timestamp() }.map {
-            async(Dispatchers.IO, CoroutineStart.LAZY) {
-                it.targetResource()?.let { target ->
-                    val resourceId = target.id()
-                    val resources = linkedSetOf<String>(resourceId)
-                    if (target.resourceType() == "Microsoft.Compute/virtualMachines") {
-                        subscription.virtualMachines().getByIdAsync(resourceId).awaitOne()?.let { vm ->
-                            if (vm.isManagedDiskEnabled) {
-                                resources.add(vm.osDiskId())
-                            }
-                        }
-                    }
-
-                    resources.forEach { resource ->
-                        try {
-                            LOG.debug("Deleting resource $resource")
-                            subscription.genericResources().deleteByIdAsync(resource).await()
-                        } catch (e: com.microsoft.azure.CloudException) {
-                            val details = AzureUtils.getExceptionDetails(e)
-                            val message = "Failed to delete resource $resource in ${deployment.name()} in group ${deployment.resourceGroupName()}: $details"
-                            LOG.warnAndDebugDetails(message, e)
-                        } catch (e: Exception) {
-                            LOG.warnAndDebugDetails("Failed to delete resource $resource in ${deployment.name()} in group ${deployment.resourceGroupName()}", e)
-                        }
-                    }
-                }
-            }
-        }.forEach { it.await() }
     }
 
     /**
@@ -925,11 +711,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         try {
             withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .virtualMachines()
-                        .getByResourceGroupAsync(groupId, name)
-                        .awaitOne()
-                        .restartAsync()
+                myAzureActionsRequestsThrottler.executeTask(AzureThrottlerActionTasks.RestartVirtualMachine, RestartVirtualMachineTaskParameter(groupId, name))
                         .awaitOne()
             }
             LOG.debug("Virtual machine $name has been successfully restarted")
@@ -965,11 +747,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         try {
             withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .virtualMachines()
-                        .getByResourceGroupAsync(groupId, name)
-                        .awaitOne()
-                        .startAsync()
+                myAzureActionsRequestsThrottler.executeTask(AzureThrottlerActionTasks.StartVirtualMachine, StartVirtualMachineTaskParameter(groupId, name))
                         .awaitOne()
             }
             LOG.debug("Virtual machine $name has been successfully started")
@@ -993,7 +771,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      */
     override suspend fun stopInstance(instance: AzureCloudInstance) = coroutineScope {
         if (!instance.image.imageDetails.isVmInstance()) {
-            deleteContainer(instance)
+            deleteDeployTarget(instance)
         } else {
             stopVm(instance)
         }
@@ -1005,11 +783,9 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         try {
             withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .virtualMachines()
-                        .getByResourceGroupAsync(groupId, name)
-                        .awaitOne()
-                        .deallocateAsync()
+                myAzureActionsRequestsThrottler.executeTask(
+                        AzureThrottlerActionTasks.StopVirtualMachine,
+                        StopVirtualMachineTaskParameter(groupId, name))
                         .awaitOne()
             }
             LOG.debug("Virtual machine $name has been successfully stopped")
@@ -1151,7 +927,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
     private suspend fun getStorageAccount(storage: String, region: String) = coroutineScope {
         val accounts = getStorageAccounts()
-        val account = accounts.firstOrNull { storage.equals(it.name(), true) }
+        val account = accounts.firstOrNull { storage.equals(it.name, true) }
 
         if (account == null) {
             val message = "Storage account $storage not found"
@@ -1159,15 +935,15 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             throw CloudException(message)
         }
 
-        if (!account.regionName().equals(region, true)) {
+        if (!account.regionName.equals(region, true)) {
             val message = "VHD image should be located in storage account in the $region region"
             LOG.debug(message)
             throw CloudException(message)
         }
 
-        val result = RESOURCE_GROUP_PATTERN.find(account.id())
+        val result = RESOURCE_GROUP_PATTERN.find(account.id)
         if (result == null) {
-            val message = "Invalid storage account identifier " + account.id()
+            val message = "Invalid storage account identifier " + account.id
             LOG.debug(message)
             throw CloudException(message)
         }
@@ -1175,7 +951,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         val (groupId) = result.destructured
         val keys = getStorageAccountKeys(groupId, storage)
         try {
-            CloudStorageAccount(StorageCredentialsAccountAndKey(storage, keys[0].value()), true)
+            CloudStorageAccount(StorageCredentialsAccountAndKey(storage, keys[0]), true)
         } catch (e: URISyntaxException) {
             val message = "Invalid storage account $storage credentials: ${e.message}"
             LOG.debug(message)
@@ -1186,10 +962,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     private suspend fun getStorageAccounts() = coroutineScope {
         try {
             val accounts = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .storageAccounts()
-                        .listAsync()
-                        .awaitList()
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchStorageAccounts, Unit)
+                        .awaitOne()
             }
             LOG.debug("Received list of storage accounts")
             accounts
@@ -1203,10 +977,9 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     private suspend fun getStorageAccountKeys(groupName: String, storageName: String) = coroutineScope {
         try {
             val account = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .storageAccounts()
-                        .getByResourceGroupAsync(groupName, storageName)
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchStorageAccounts, Unit)
                         .awaitOne()
+                        .first { x -> x.resourceGroupName.equals(groupName, ignoreCase = true) && x.name == storageName }
             }
             LOG.debug("Received keys for storage account $storageName")
             account.keys
@@ -1225,15 +998,16 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override suspend fun getSubscriptions() = coroutineScope {
         try {
             val list = withContext(Dispatchers.IO) {
-                myAzure.subscriptions().listAsync().awaitList()
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchSubscriptions, Unit)
+                        .awaitOne()
             }
             LOG.debug("Received list of subscriptions")
 
             list.asSequence()
-                    .sortedBy { it.displayName() }
+                    .sortedBy { it.displayName }
                     .associateBy(
-                            { it.subscriptionId() },
-                            { it.displayName() }
+                            { it.subscriptionId },
+                            { it.displayName }
                     )
         } catch (e: Throwable) {
             val message = "Failed to get list of subscriptions: " + AzureUtils.getAuthenticationErrorMessage(e)
@@ -1250,18 +1024,16 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override suspend fun getRegions() = coroutineScope {
         try {
             val list = withContext(Dispatchers.IO) {
-                myAzure.subscriptions()
-                        .getByIdAsync(mySubscriptionId)
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchLocations, Unit)
                         .awaitOne()
-                        .listLocations()
             }
             LOG.debug("Received list of regions in subscription $mySubscriptionId")
 
             list.asSequence()
-                    .sortedBy { it.displayName() }
+                    .sortedBy { it.displayName }
                     .associateBy(
-                            { it.name() },
-                            { it.displayName() }
+                            { it.name },
+                            { it.displayName }
                     )
         } catch (e: Throwable) {
             val message = "Failed to get list of regions in subscription $mySubscriptionId: ${e.message}"
@@ -1278,18 +1050,16 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override suspend fun getNetworks(region: String) = coroutineScope {
         try {
             val list = withContext(Dispatchers.IO) {
-                myAzure.withSubscription(mySubscriptionId)
-                        .networks()
-                        .listAsync()
-                        .awaitList()
+                myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchNetworks, Unit)
+                        .awaitOne()
             }
             LOG.debug("Received list of networks")
 
             list.asSequence().filter {
-                it.regionName().equals(region, ignoreCase = true)
+                it.regionName.equals(region, ignoreCase = true)
             }.associateBy(
-                    { it.id() },
-                    { it.subnets().keys.toList() }
+                    { it.id },
+                    { it.subnets }
             )
         } catch (e: Throwable) {
             val message = "Failed to get list of networks: " + e.message
@@ -1301,24 +1071,18 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override suspend fun getServices(region: String): Map<String, Set<String>> = coroutineScope {
         servicesByRegion.getOrPut(region) {
             try {
-                val result = ConcurrentHashMap<String, MutableSet<String>>()
+                val result = ConcurrentHashMap<String, Set<String>>()
                 withContext(Dispatchers.IO) {
-                    val azure = myAzure.withSubscription(mySubscriptionId)
-                    val location = azure.currentSubscription.getLocationByRegion(Region.fromName(region))
-                    SERVICE_TYPES.map { (name, resourceTypes) ->
-                        async {
-                            val provider = azure.providers().getByNameAsync(name).awaitOne()
-                            if (provider.registrationState() != "Registered") return@async result
-                            resourceTypes.forEach { resourceType ->
-                                provider.resourceTypes().firstOrNull { it.resourceType() == resourceType }?.let {
-                                    if (it.locations().contains(location.displayName())) {
-                                        result.getOrPut(name) { hashSetOf() } += resourceType
-                                    }
-                                }
+                    val services = myAzureReadsRequestsThrottler.executeTask(AzureThrottlerReadTasks.FetchServices, region)
+                            .awaitOne()
+                    for(service in services) {
+                        SERVICE_TYPES[service.namespace]?.let {
+                            val resourceTypeSet = it.intersect(service.resourceTypes)
+                            if (resourceTypeSet.isNotEmpty()) {
+                                result[service.namespace] = resourceTypeSet
                             }
-                            result
                         }
-                    }.awaitAll()
+                    }
                 }
                 LOG.debug("Received list of services")
 
@@ -1405,9 +1169,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     companion object {
         private val LOG = Logger.getInstance(AzureApiConnectorImpl::class.java.name)
         private val RESOURCE_GROUP_PATTERN = Regex("resourceGroups/([^/]+)/providers/")
-        private const val PUBLIC_IP_SUFFIX = "-pip"
-        private const val PROVISIONING_STATE = "ProvisioningState/"
-        private const val POWER_STATE = "PowerState/"
         private const val HTTP_PROXY_HOST = "http.proxyHost"
         private const val HTTP_PROXY_PORT = "http.proxyPort"
         private const val HTTPS_PROXY_HOST = "https.proxyHost"

@@ -74,9 +74,11 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         return subject.toSingle()
     }
 
-    override fun invalidateCache() {
+    override fun resetCache(source: AzureThrottlingSource) {
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
+            LOG.info("Invalidating cache for $taskId task with timeout: $defaultCacheTimeoutInSeconds sec")
             task.invalidateCache()
+            task.setCacheTimeout(defaultCacheTimeoutInSeconds)
         }
     }
 

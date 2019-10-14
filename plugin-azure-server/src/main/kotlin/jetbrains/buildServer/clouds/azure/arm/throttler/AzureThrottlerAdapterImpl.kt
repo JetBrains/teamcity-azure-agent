@@ -53,10 +53,10 @@ class AzureThrottlerAdapterImpl (
         return myInterceptor.getThrottlerTime()
     }
 
-    override fun getWindowWidthInSeconds(): Long {
+    override fun getWindowWidthInMilliseconds(): Long {
         return max(0,
-                myWindowStartTime.get().plusHours(1).toInstant(ZoneOffset.UTC).epochSecond -
-                        LocalDateTime.now(Clock.systemUTC()).toInstant(ZoneOffset.UTC).epochSecond)
+                myWindowStartTime.get().plusHours(1).toInstant(ZoneOffset.UTC).toEpochMilli() -
+                        LocalDateTime.now(Clock.systemUTC()).toInstant(ZoneOffset.UTC).toEpochMilli())
     }
 
     override fun getWindowStartDateTime(): LocalDateTime {

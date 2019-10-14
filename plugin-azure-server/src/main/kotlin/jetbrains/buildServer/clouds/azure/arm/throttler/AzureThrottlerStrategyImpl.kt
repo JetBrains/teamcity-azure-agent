@@ -1,9 +1,6 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
-import java.time.Clock
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.ceil
 import kotlin.math.max
@@ -26,14 +23,13 @@ class AzureThrottlerStrategyImpl<A, I>(
         val taskList = taskContainer.getTaskList()
 
         val currentResourceRequestsCount = adapter.getDefaultReads()
-        val operableResourceRequestsCount = (currentResourceRequestsCount * (1 - resourceReservationInPercents/100.0)).roundToLong()
+        val operableResourceRequestsCount = afterReservation(currentResourceRequestsCount)
 
         val currentRemainingRequestsCount = adapter.getRemainingReads()
-        val operableRemainingRequestsCount = (currentRemainingRequestsCount * (1 - resourceReservationInPercents/100.0)).roundToLong()
+        val operableRemainingRequestsCount = afterReservation(currentRemainingRequestsCount)
 
         val windowStartTime = adapter.getWindowStartDateTime()
-        val windowWidthInSeconds = adapter.getWindowWidthInSeconds()
-        val windowTimePassedInSeconds = max(1, LocalDateTime.now(Clock.systemUTC()).toEpochSecond(ZoneOffset.UTC) - windowStartTime.toEpochSecond(ZoneOffset.UTC))
+        val windowWidthInMs = adapter.getWindowWidthInMilliseconds()
 
         if (operableRemainingRequestsCount > 0) {
             val randomTasksStatistics = taskList
@@ -61,7 +57,7 @@ class AzureThrottlerStrategyImpl<A, I>(
                         val resourceRequestsCount = statistics.resourceRequestsCount ?: 0
                         if (executionCallCount > 0) {
                             val callCount = ceil(remainingPeriodicalResourceRequestsCountPerTask / (1.0 * resourceRequestsCount / executionCallCount)).toLong()
-                            val taskTimeout = windowWidthInSeconds / (callCount + 1)
+                            val taskTimeout = windowWidthInMs / (1000 * (callCount + 1))
                             LOG.info("Trying to set cache timeout for periodical task ${task.taskId} to $taskTimeout sec")
                             task.setCacheTimeout(taskTimeout, AzureThrottlingSource.Throttler)
                         }
@@ -70,12 +66,15 @@ class AzureThrottlerStrategyImpl<A, I>(
             }
         }
 
-        if (currentRemainingRequestsCount > 0 && currentResourceRequestsCount > 0 && currentRemainingRequestsCount * 100 / currentResourceRequestsCount <= 100 - enableAggressiveThrottlingWhenReachLimitInPercents) {
-            val timeoutInMilliseconds = 1000 * windowWidthInSeconds / currentRemainingRequestsCount
-            adapter.setThrottlerTime(timeoutInMilliseconds)
-        } else {
-            adapter.setThrottlerTime(0)
+        var adapterThrottlerTimeInMs = 0L
+        if (currentRemainingRequestsCount > 0
+                && currentResourceRequestsCount > 0
+                && currentRemainingRequestsCount * 100 / currentResourceRequestsCount <= 100 - enableAggressiveThrottlingWhenReachLimitInPercents) {
+            adapterThrottlerTimeInMs = windowWidthInMs / currentRemainingRequestsCount
+        } else if (operableRemainingRequestsCount == 0L) {
+            adapterThrottlerTimeInMs = windowWidthInMs
         }
+        adapter.setThrottlerTime(adapterThrottlerTimeInMs)
     }
 
     override fun notifyCompleted() {
@@ -86,8 +85,7 @@ class AzureThrottlerStrategyImpl<A, I>(
 
             val taskList = taskContainer.getTaskList()
             for(task in taskList) {
-                task.setCacheTimeout(0, AzureThrottlingSource.Throttler)
-                task.invalidateCache()
+                task.resetCache(AzureThrottlingSource.Throttler)
             }
         }
     }
@@ -97,14 +95,19 @@ class AzureThrottlerStrategyImpl<A, I>(
 
         myFlow.set(AzureThrottlerFlow.Suspended)
 
+        val timeout = retryAfterTimeoutInSeconds + RETRY_AFTER_TIMEOUT_DELTA
         val taskList = taskContainer.getTaskList()
         for(task in taskList) {
-            task.setCacheTimeout(retryAfterTimeoutInSeconds + RETRY_AFTER_TIMEOUT_DELTA, AzureThrottlingSource.Adapter)
+            task.setCacheTimeout(timeout, AzureThrottlingSource.Adapter)
         }
     }
 
     override fun setContainer(container: AzureThrottlerStrategyTaskContainer<I>) {
         taskContainer = container
+    }
+
+    private fun afterReservation(value: Long) : Long {
+        return (value * (1 - resourceReservationInPercents/100.0)).roundToLong()
     }
 
     companion object {

@@ -52,7 +52,7 @@ interface AzureThrottlerStrategyTask<I> {
     val timeExecutionType : AzureThrottlerTaskTimeExecutionType
     fun getStatistics(startDateTime: LocalDateTime): AzureThrottlerTaskQueueCallHistoryStatistics
     fun setCacheTimeout(timeoutInSeconds: Long, source: AzureThrottlingSource)
-    fun invalidateCache()
+    fun resetCache(source: AzureThrottlingSource)
 }
 
 interface AzureThrottlerStrategy<I> : AzureThrottlerTaskCompletionResultNotifier {
@@ -90,7 +90,7 @@ interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier
     val api: A
     fun setThrottlerTime(milliseconds: Long)
     fun getThrottlerTime(): Long
-    fun getWindowWidthInSeconds(): Long
+    fun getWindowWidthInMilliseconds(): Long
     fun getWindowStartDateTime(): LocalDateTime
     fun getRemainingReads(): Long
     fun getDefaultReads(): Long

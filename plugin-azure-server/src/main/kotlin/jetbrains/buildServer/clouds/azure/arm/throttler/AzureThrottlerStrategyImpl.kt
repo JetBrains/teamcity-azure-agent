@@ -2,7 +2,7 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.math.ceil
+import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToLong
 
@@ -55,11 +55,14 @@ class AzureThrottlerStrategyImpl<A, I>(
                     for ((task, statistics) in periodicalTasksStatistics) {
                         val executionCallCount = statistics.executionCallCount ?: 0
                         val resourceRequestsCount = statistics.resourceRequestsCount ?: 0
-                        if (executionCallCount > 0) {
-                            val callCount = ceil(remainingPeriodicalResourceRequestsCountPerTask / (1.0 * resourceRequestsCount / executionCallCount)).toLong()
+                        if (executionCallCount > 0 && resourceRequestsCount > 0) {
+                            val callCount = floor(1.0 * remainingPeriodicalResourceRequestsCountPerTask * executionCallCount / resourceRequestsCount).toLong()
                             val taskTimeout = windowWidthInMs / (1000 * (callCount + 1))
                             LOG.info("Trying to set cache timeout for periodical task ${task.taskId} to $taskTimeout sec")
                             task.setCacheTimeout(taskTimeout, AzureThrottlingSource.Throttler)
+                        } else {
+                            LOG.info("Trying to reset cache timeout for periodical task ${task.taskId}")
+                            task.setCacheTimeout(0, AzureThrottlingSource.Throttler)
                         }
                     }
                 }

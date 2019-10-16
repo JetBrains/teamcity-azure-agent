@@ -39,6 +39,9 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
                     .listAsync()
                     .toList()
                     .takeLast(1)
+                    .doOnNext {
+                        LOG.debug("Received list of ip addresses")
+                    }
                     .onErrorReturn {
                         val message = "Failed to get list of public ip addresses: " + it.message
                         LOG.debug(message, it)
@@ -46,7 +49,7 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
                     }
                     .replay(1)
         } else {
-            Observable.just<List<PublicIPAddress>>(emptyList()).publish()
+            Observable.just<List<PublicIPAddress>>(emptyList()).replay(1)
         }
 
         val machineInstances = if (parameter.images.any { it.imageDetails.isVmInstance() }) {
@@ -58,6 +61,8 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
                     .flatMap { (vm, imageDescriptor) ->
                         val tags = vm.tags()
                         val name = vm.name()
+                        LOG.debug("Reading state of virtual machine '$name'")
+
                         vm.refreshInstanceViewAsync()
                                 .map { getInstanceState(it, tags, name) }
                                 .onErrorReturn {
@@ -65,18 +70,19 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
                                     InstanceViewState(null, null, null, it)
                                 }
                                 .withLatestFrom(ipAddresses) { instanceView, ipAddresses ->
-                            val publicIp = getPublicIPAddressOrDefault(imageDescriptor!!.imageDetails, name, ipAddresses)
-                            val instance = FetchInstancesTaskInstanceDescriptor(
-                                    imageDescriptor.imageId,
-                                    name,
-                                    tags,
-                                    publicIp,
-                                    instanceView.provisioningState,
-                                    instanceView.startDate,
-                                    instanceView.powerState,
-                                    if (instanceView.error != null) TypedCloudErrorInfo.fromException(instanceView.error) else null)
-                            instance
-                        }}
+                                    val publicIp = getPublicIPAddressOrDefault(imageDescriptor!!.imageDetails, name, ipAddresses)
+                                    val instance = FetchInstancesTaskInstanceDescriptor(
+                                            imageDescriptor.imageId,
+                                            name,
+                                            tags,
+                                            publicIp,
+                                            instanceView.provisioningState,
+                                            instanceView.startDate,
+                                            instanceView.powerState,
+                                            if (instanceView.error != null) TypedCloudErrorInfo.fromException(instanceView.error) else null)
+                                    instance
+                                }
+                    }
         } else {
             Observable.empty()
         }

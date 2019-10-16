@@ -29,7 +29,6 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTask<Azure, DeleteDeploymentTaskP
                 .flatMap { deployment ->
                     if (deployment.provisioningState().equals(PROVISIONING_STATE_RUNNING, ignoreCase = true)) {
                         Observable.defer { deployment.cancelAsync().toObservable<Deployment>() }
-                                .doOnEach {}
                                 .repeatWhen {
                                     LOG.debug("Canceling running deployment ${deployment.name()}")
 
@@ -41,7 +40,6 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTask<Azure, DeleteDeploymentTaskP
 
                                     }
                                 }
-                                .doOnEach { }
                                 .concatWith(Observable.just(deployment))
                     } else {
                         Observable.just(deployment)
@@ -74,7 +72,6 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTask<Azure, DeleteDeploymentTaskP
                                 api
                                         .genericResources()
                                         .deleteByIdAsync(resourceId)
-                                        .doOnEach { }
                                         .toObservable<Unit>()
                                         .concatWith(Observable.just(Unit))
                             }

@@ -3,6 +3,7 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 import com.microsoft.azure.credentials.AzureTokenCredentials
 import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.serverSide.TeamCityProperties
+import jetbrains.buildServer.version.ServerVersionHolder
 import rx.Single
 import java.time.Clock
 import java.time.LocalDateTime
@@ -12,7 +13,7 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
 
 class AzureThrottlerAdapterImpl (
-        azureConfigurable: Azure.Configurable,
+        azureConfigurable: AzureConfigurableWithNetworkInterceptors,
         credentials: AzureTokenCredentials,
         subscriptionId: String?,
         name: String
@@ -28,7 +29,9 @@ class AzureThrottlerAdapterImpl (
         myInterceptor = AzureThrottlerInterceptor(this, name)
 
         myAzure = azureConfigurable
-                .withInterceptor(myInterceptor)
+                .configureProxy()
+                .withNetworkInterceptor(myInterceptor)
+                .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}")
                 .authenticate(credentials)
                 .withSubscription(subscriptionId)
 
@@ -91,4 +94,3 @@ class AzureThrottlerAdapterImpl (
         myDefaultReads.getAndUpdate { max(it, myRemainingReads.get()) }
     }
 }
-

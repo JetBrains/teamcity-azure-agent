@@ -1,5 +1,7 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
+import com.microsoft.azure.management.Azure
+import okhttp3.Interceptor
 import rx.Single
 import java.time.LocalDateTime
 

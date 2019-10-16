@@ -22,6 +22,7 @@ import com.microsoft.azure.credentials.ApplicationTokenCredentials
 import com.microsoft.azure.credentials.MSICredentials
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
+import com.microsoft.azure.management.resources.fluentcore.arm.implementation.AzureConfigurableImpl
 import com.microsoft.azure.storage.CloudStorageAccount
 import com.microsoft.azure.storage.StorageCredentialsAccountAndKey
 import com.microsoft.azure.storage.blob.CloudBlob
@@ -32,10 +33,7 @@ import jetbrains.buildServer.clouds.azure.AzureCompress
 import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.*
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerAdapterImpl
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerImpl
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerStrategyImpl
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskTimeExecutionType
+import jetbrains.buildServer.clouds.azure.arm.throttler.*
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.utils.awaitOne
@@ -43,9 +41,8 @@ import jetbrains.buildServer.clouds.azure.arm.utils.isVmInstance
 import jetbrains.buildServer.clouds.azure.connector.AzureApiConnectorBase
 import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
+import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
-import jetbrains.buildServer.serverSide.TeamCityProperties
-import jetbrains.buildServer.version.ServerVersionHolder
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
@@ -53,8 +50,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.apache.commons.codec.binary.Base64
-import java.net.InetSocketAddress
-import java.net.Proxy
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.concurrent.ConcurrentHashMap
@@ -98,9 +93,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
 
         val azureAdapter = AzureThrottlerAdapterImpl(
-                Azure.configure()
-                .configureProxy()
-                .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}"),
+                AzureThrottlerConfigurableImpl(),
                 credentials,
                 mySubscriptionId,
                 "ReadAdapter")
@@ -119,7 +112,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                     60)
                 .registerTask(AzureThrottlerReadTasks.FetchInstances,
                     AzureThrottlerTaskTimeExecutionType.Periodical,
-                    60)
+                    120)
                 .registerTask(AzureThrottlerReadTasks.FetchCustomImages,
                     AzureThrottlerTaskTimeExecutionType.Random,
                     60)
@@ -143,9 +136,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                     60)
 
         val azureActionAdapter = AzureThrottlerAdapterImpl(
-                Azure.configure()
-                        .configureProxy()
-                        .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}"),
+                AzureThrottlerConfigurableImpl(),
                 credentials,
                 mySubscriptionId,
                 "ActionAdapter")
@@ -228,7 +219,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         } catch (t: Throwable) {
             val message = "Failed to get list of virtual machines: " + t.message
             LOG.debug(message, t)
-            throw CloudException(message, t)
+            throw CheckedCloudException(message, t)
         }
         imageMap
     }
@@ -1115,45 +1106,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         myProfileId = profileId
     }
 
-    /**
-     * Configures http proxy settings.
-     */
-    private fun Azure.Configurable.configureProxy(): Azure.Configurable {
-        val builder = StringBuilder()
-
-        // Set HTTP proxy
-        val httpProxyHost = TeamCityProperties.getProperty(HTTP_PROXY_HOST)
-        val httpProxyPort = TeamCityProperties.getInteger(HTTP_PROXY_PORT, 80)
-        if (httpProxyHost.isNotBlank()) {
-            this.withProxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpProxyHost, httpProxyPort)))
-            builder.append("$httpProxyHost:$httpProxyPort")
-        }
-
-        // Set HTTPS proxy
-        val httpsProxyHost = TeamCityProperties.getProperty(HTTPS_PROXY_HOST)
-        val httpsProxyPort = TeamCityProperties.getInteger(HTTPS_PROXY_PORT, 443)
-        if (httpsProxyHost.isNotBlank()) {
-            this.withProxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpsProxyHost, httpsProxyPort)))
-            builder.setLength(0)
-            builder.append("$httpsProxyHost:$httpsProxyPort")
-        }
-
-        // Set proxy authentication
-        val httpProxyUser = TeamCityProperties.getProperty(HTTP_PROXY_USER)
-        val httpProxyPassword = TeamCityProperties.getProperty(HTTP_PROXY_PASSWORD)
-        if (httpProxyUser.isNotBlank() && httpProxyPassword.isNotBlank()) {
-            val authenticator = CredentialsAuthenticator(httpProxyUser, httpProxyPassword)
-            this.withProxyAuthenticator(authenticator)
-            builder.insert(0, "$httpProxyUser@")
-        }
-
-        if (builder.isNotEmpty()) {
-            LOG.debug("Using proxy server $builder for connection")
-        }
-
-        return this
-    }
-
     private fun getResourceGroup(details: AzureCloudImageDetails, instanceName: String): String {
         return when (details.target) {
             AzureCloudDeployTarget.NewGroup -> instanceName
@@ -1171,12 +1123,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     companion object {
         private val LOG = Logger.getInstance(AzureApiConnectorImpl::class.java.name)
         private val RESOURCE_GROUP_PATTERN = Regex("resourceGroups/([^/]+)/providers/")
-        private const val HTTP_PROXY_HOST = "http.proxyHost"
-        private const val HTTP_PROXY_PORT = "http.proxyPort"
-        private const val HTTPS_PROXY_HOST = "https.proxyHost"
-        private const val HTTPS_PROXY_PORT = "https.proxyPort"
-        private const val HTTP_PROXY_USER = "http.proxyUser"
-        private const val HTTP_PROXY_PASSWORD = "http.proxyPassword"
 
         private const val CONTAINER_RESOURCE_NAME = "[parameters('containerName')]"
         private const val VM_RESOURCE_NAME = "[parameters('vmName')]"

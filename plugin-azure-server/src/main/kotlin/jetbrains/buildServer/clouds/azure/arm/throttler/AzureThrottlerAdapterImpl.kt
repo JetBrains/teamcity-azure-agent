@@ -2,6 +2,7 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.microsoft.azure.credentials.AzureTokenCredentials
 import com.microsoft.azure.management.Azure
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import rx.Single
 import java.time.Clock
 import java.time.LocalDateTime
@@ -13,18 +14,18 @@ import kotlin.math.max
 class AzureThrottlerAdapterImpl (
         azureConfigurable: Azure.Configurable,
         credentials: AzureTokenCredentials,
-        subscriptionId: String?
+        subscriptionId: String?,
+        name: String
 ) : AzureThrottlerAdapter<Azure> {
     private var myInterceptor: AzureThrottlerInterceptor
     private val myAzure: Azure
 
-    private val myRemainingReads = AtomicLong(0)
-
+    private val myRemainingReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
     private val myWindowStartTime = AtomicReference<LocalDateTime>(LocalDateTime.now())
-    private val myDefaultReads = AtomicLong(12000)
+    private val myDefaultReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
 
     init {
-        myInterceptor = AzureThrottlerInterceptor(this)
+        myInterceptor = AzureThrottlerInterceptor(this, name)
 
         myAzure = azureConfigurable
                 .withInterceptor(myInterceptor)
@@ -36,10 +37,11 @@ class AzureThrottlerAdapterImpl (
                 .manager()
                 .inner()
                 .azureClient
-                .setLongRunningOperationRetryTimeout(60)
+                .setLongRunningOperationRetryTimeout(TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_LONG_RUNNING_QUERY_RETRY_TIMEOUT, 60))
     }
     override val api: Azure
         get() = myAzure
+
 
     override fun getDefaultReads(): Long {
         return myDefaultReads.get()

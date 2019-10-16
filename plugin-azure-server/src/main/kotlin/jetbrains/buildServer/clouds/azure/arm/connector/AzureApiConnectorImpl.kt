@@ -102,7 +102,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 .configureProxy()
                 .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}"),
                 credentials,
-                mySubscriptionId)
+                mySubscriptionId,
+                "ReadAdapter")
 
         val readsStrategy = AzureThrottlerStrategyImpl<Azure, AzureThrottlerReadTasks.Values>(
                 azureAdapter, 50, 10, 90)
@@ -146,7 +147,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                         .configureProxy()
                         .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}"),
                 credentials,
-                mySubscriptionId)
+                mySubscriptionId,
+                "ActionAdapter")
 
         val actionsStrategy = AzureThrottlerStrategyImpl<Azure, AzureThrottlerActionTasks.Values>(
                 azureActionAdapter, 50, 10, 90)

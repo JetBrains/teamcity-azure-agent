@@ -9,15 +9,16 @@ import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.Pattern
 
 class AzureThrottlerInterceptor(
-        private val remainingReadsNotifier: AzureThrottlerAdapterRemainingReadsNotifier
+        private val remainingReadsNotifier: AzureThrottlerAdapterRemainingReadsNotifier,
+        private val name: String
 ) : Interceptor {
     private val myThrottlerDelayInMilliseconds = AtomicLong(0)
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val sleepTime = myThrottlerDelayInMilliseconds.get()
         if (sleepTime != 0L) {
+            LOG.info("[$name] Aggressive throttling. Sleep time: $sleepTime ms")
             Thread.sleep(sleepTime)
-            LOG.info("Aggressive throttling. Sleep time: $sleepTime ms")
         }
 
         val request = chain.request()
@@ -26,20 +27,13 @@ class AzureThrottlerInterceptor(
         val remainingReadsStr = response.header(REMAINING_READS_HEADER)
         val remainingReads = if (remainingReadsStr.isNullOrEmpty()) null else Integer.parseInt(remainingReadsStr).toLong();
 
-        LOG.info("Azure request processed: Remaining reads: $remainingReadsStr, Url: ${request.url()}")
+        LOG.info("[$name] Azure request processed: Remaining reads: $remainingReadsStr, Url: ${request.url()}")
 
         remainingReadsNotifier.notifyRemainingReads(remainingReads)
 
-//        if (remainingSubscriptionsReads > 0 && remainingSubscriptionsReads % 10 == 0) {
-//            response = response.newBuilder()
-//                    .code(429)
-//                    .addHeader("Retry-After", "300")
-//                    .build()
-//        }
-//
         if (response.code() == RETRY_AFTER_STATUS_CODE) {
             val retryAfterSeconds = getRetryAfterSeconds(response)
-            LOG.info("Azure Resource Manager read/write per hour limit reached. Will retry in: $retryAfterSeconds seconds")
+            LOG.info("[$name] Azure Resource Manager read/write per hour limit reached. Will retry in: $retryAfterSeconds seconds")
             throw AzureRateLimitReachedException(retryAfterSeconds ?: DEFAULT_RETRY_AFTER_SECONDS)
         }
         return response
@@ -79,7 +73,7 @@ class AzureThrottlerInterceptor(
                 return retryAfter
         }
         catch(e: Throwable) {
-            LOG.warnAndDebugDetails("Exception occurred during read Retry After timeout value", e)
+            LOG.warnAndDebugDetails("[$name] Exception occurred during read Retry After timeout value", e)
         }
         return null
     }

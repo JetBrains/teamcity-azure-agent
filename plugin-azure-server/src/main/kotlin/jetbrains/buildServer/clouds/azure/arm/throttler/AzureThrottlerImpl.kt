@@ -1,6 +1,7 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.util.executors.ExecutorsFactory
 import rx.Single
 import java.util.concurrent.ConcurrentHashMap
@@ -16,6 +17,7 @@ class AzureThrottlerImpl<A, I>(
     private val myScheduledExecutor : ScheduledExecutorService = ExecutorsFactory.newFixedScheduledDaemonExecutor("Azure throttler task queue executor", 1)
 
     init {
+        val period = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_PERIOD, 300)
         myScheduledExecutor.scheduleAtFixedRate(
                 {
                     try
@@ -27,7 +29,7 @@ class AzureThrottlerImpl<A, I>(
                     }
                 },
                 1000L,
-                300,
+                period,
                 TimeUnit.MILLISECONDS)
 
         throttlerStrategy.setContainer(this)
@@ -43,7 +45,9 @@ class AzureThrottlerImpl<A, I>(
     }
 
     override fun <P, T> executeTask(taskId: I, parameters: P): Single<T> {
+        @Suppress("UNCHECKED_CAST")
         val taskQueue = myTaskQueues[taskId] as AzureThrottlerTaskQueue<I, P, T>
+
         return taskQueue.requestTask(throttlerStrategy.getFlow(), parameters).map { it.value }
     }
 

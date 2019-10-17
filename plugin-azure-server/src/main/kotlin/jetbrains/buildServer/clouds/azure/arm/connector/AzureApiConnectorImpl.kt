@@ -22,7 +22,6 @@ import com.microsoft.azure.credentials.ApplicationTokenCredentials
 import com.microsoft.azure.credentials.MSICredentials
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
-import com.microsoft.azure.management.resources.fluentcore.arm.implementation.AzureConfigurableImpl
 import com.microsoft.azure.storage.CloudStorageAccount
 import com.microsoft.azure.storage.StorageCredentialsAccountAndKey
 import com.microsoft.azure.storage.blob.CloudBlob
@@ -33,7 +32,8 @@ import jetbrains.buildServer.clouds.azure.AzureCompress
 import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.*
-import jetbrains.buildServer.clouds.azure.arm.throttler.*
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottler
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFactory
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.utils.awaitOne
@@ -61,8 +61,8 @@ import java.util.concurrent.ConcurrentHashMap
 class AzureApiConnectorImpl(params: Map<String, String>)
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
-    private var myAzureReadsRequestsThrottler: AzureThrottlerImpl<Azure, AzureThrottlerReadTasks.Values>
-    private var myAzureActionsRequestsThrottler: AzureThrottlerImpl<Azure, AzureThrottlerActionTasks.Values>
+    private var myAzureReadsRequestsThrottler: AzureThrottler<Azure, AzureThrottlerReadTasks.Values>
+    private var myAzureActionsRequestsThrottler: AzureThrottler<Azure, AzureThrottlerActionTasks.Values>
     private var mySubscriptionId: String? = null
     private var myServerId: String? = null
     private var myProfileId: String? = null
@@ -92,81 +92,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             ApplicationTokenCredentials(clientId, tenantId, clientSecret, env)
         }
 
-        val azureAdapter = AzureThrottlerAdapterImpl(
-                AzureThrottlerConfigurableImpl(),
-                credentials,
-                mySubscriptionId,
-                "ReadAdapter")
-
-        val readsStrategy = AzureThrottlerStrategyImpl<Azure, AzureThrottlerReadTasks.Values>(
-                azureAdapter, 50, 10, 90)
-
-        myAzureReadsRequestsThrottler = AzureThrottlerImpl(azureAdapter, readsStrategy)
-
-        myAzureReadsRequestsThrottler
-                .registerTask(AzureThrottlerReadTasks.FetchResourceGroups,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerReadTasks.FetchVirtualMachines,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerReadTasks.FetchInstances,
-                    AzureThrottlerTaskTimeExecutionType.Periodical,
-                    120)
-                .registerTask(AzureThrottlerReadTasks.FetchCustomImages,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerReadTasks.FetchStorageAccounts,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerReadTasks.FetchVirtualMachineSizes,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerReadTasks.FetchSubscriptions,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerReadTasks.FetchLocations,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerReadTasks.FetchNetworks,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerReadTasks.FetchServices,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-
-        val azureActionAdapter = AzureThrottlerAdapterImpl(
-                AzureThrottlerConfigurableImpl(),
-                credentials,
-                mySubscriptionId,
-                "ActionAdapter")
-
-        val actionsStrategy = AzureThrottlerStrategyImpl<Azure, AzureThrottlerActionTasks.Values>(
-                azureActionAdapter, 50, 10, 90)
-
-        myAzureActionsRequestsThrottler =  AzureThrottlerImpl(azureActionAdapter, actionsStrategy)
-        myAzureActionsRequestsThrottler
-                .registerTask(AzureThrottlerActionTasks.CreateDeployment,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerActionTasks.CreateResourceGroup,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerActionTasks.DeleteResourceGroup,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerActionTasks.StopVirtualMachine,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerActionTasks.StartVirtualMachine,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerActionTasks.RestartVirtualMachine,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
-                .registerTask(AzureThrottlerActionTasks.DeleteDeployment,
-                    AzureThrottlerTaskTimeExecutionType.Random,
-                    60)
+        myAzureReadsRequestsThrottler = AzureThrottlerFactory.createReadRequestsThrottler(credentials, mySubscriptionId)
+        myAzureActionsRequestsThrottler = AzureThrottlerFactory.createActionRequestsThrottler(credentials, mySubscriptionId)
     }
 
     override fun test() = runBlocking {

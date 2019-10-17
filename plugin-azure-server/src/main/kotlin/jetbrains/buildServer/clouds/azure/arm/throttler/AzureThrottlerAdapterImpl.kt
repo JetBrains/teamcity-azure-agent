@@ -18,7 +18,9 @@ class AzureThrottlerAdapterImpl (
         subscriptionId: String?,
         name: String
 ) : AzureThrottlerAdapter<Azure> {
+    @Suppress("JoinDeclarationAndAssignment")
     private var myInterceptor: AzureThrottlerInterceptor
+
     private val myAzure: Azure
 
     private val myRemainingReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)

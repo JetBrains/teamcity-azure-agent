@@ -262,7 +262,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
       .extend({minLength: 8}),
     reuseVm: ko.observable(false),
     agentPoolId: ko.observable().extend({required: true}),
-    profileId: ko.observable()
+    profileId: ko.observable(),
+    customEnvironmentVariables: ko.observable()
   });
 
   // Data from Azure APIs
@@ -511,7 +512,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
       osType: osTypes.linux,
       maxInstances: 1,
       numberCores: 2,
-      memory: 2
+      memory: 2,
+      customEnvironmentVariables: ""
     };
 
     // Pre-fill collections while loading resources
@@ -571,6 +573,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.template(image.template);
     model.agentPoolId(image.agentPoolId);
     model.profileId(image.profileId);
+    model.customEnvironmentVariables(image.customEnvironmentVariables);
 
     var key = image.vmNamePrefix;
     var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
@@ -617,7 +620,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
       storageAccountType: model.storageAccountType(),
       template: model.template(),
       agentPoolId: model.agentPoolId(),
-      profileId: model.profileId()
+      profileId: model.profileId(),
+      customEnvironmentVariables: model.customEnvironmentVariables()
     };
 
     var originalImage = self.originalImage;

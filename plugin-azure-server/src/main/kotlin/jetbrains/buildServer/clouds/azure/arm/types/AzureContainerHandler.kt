@@ -1,6 +1,9 @@
 package jetbrains.buildServer.clouds.azure.arm.types
 
-import jetbrains.buildServer.clouds.azure.arm.*
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
+import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
@@ -17,6 +20,7 @@ class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHan
         details.checkOsType(exceptions)
         details.checkImageId(exceptions)
         details.checkResourceGroup(connector, exceptions)
+        details.checkCustomEnvironmentVariables(exceptions)
         details.checkServiceExistence("Microsoft.ContainerInstance", connector, exceptions)
 
         exceptions
@@ -32,7 +36,7 @@ class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHan
                 .setParameterValue(AzureConstants.OS_TYPE, details.osType!!)
                 .setParameterValue(AzureConstants.NUMBER_CORES, details.numberCores!!)
                 .setParameterValue(AzureConstants.MEMORY, details.memory!!)
-                .addContainer(instance.name)
+                .addContainer(instance.name, parseEnvironmentVariables(details.customEnvironmentVariables))
                 .apply {
                     if (!details.registryUsername.isNullOrEmpty() && !details.password.isNullOrEmpty()) {
                         val server = getImageServer(details.imageId)
@@ -54,5 +58,21 @@ class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHan
 
     companion object {
         private val hostMatcher = Regex("^(?:https?:\\/\\/)?([^\\/]+)")
+
+        fun parseEnvironmentVariables(rawString: String?): List<Pair<String, String>> {
+            return if (rawString != null && rawString.isNotEmpty()) {
+                rawString.lines().filter(AzureUtils::customEnvironmentVariableSyntaxIsValid).mapNotNull {
+                    val envVar = it.trim()
+                    val equalsSignIndex = envVar.indexOf("=")
+                    if (equalsSignIndex > 1) {
+                        Pair(envVar.substring(0, equalsSignIndex), envVar.substring(equalsSignIndex + 1))
+                    } else {
+                        null
+                    }
+                }
+            } else {
+                Collections.emptyList()
+            }
+        }
     }
 }

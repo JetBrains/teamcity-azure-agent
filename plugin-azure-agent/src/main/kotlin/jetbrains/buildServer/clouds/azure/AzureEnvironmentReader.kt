@@ -9,7 +9,7 @@ import jetbrains.buildServer.agent.BuildAgentConfigurationEx
 class AzureEnvironmentReader(private val configuration: BuildAgentConfigurationEx) {
     fun process(): Boolean {
         System.getenv(AzureProperties.INSTANCE_ENV_VAR)?.let {
-            AzureCompress.decode(it).forEach { key, value ->
+            AzureCompress.decode(it).forEach { (key, value) ->
                 configuration.addConfigurationParameter(key, value)
                 LOG.info("Added configuration parameter: {$key, $value}")
             }

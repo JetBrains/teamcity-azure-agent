@@ -125,6 +125,9 @@ class AzureConstants {
     val agentPoolId: String
         get() = CloudImageParameters.AGENT_POOL_ID_FIELD
 
+    val customEnvironmentVariables: String
+        get() = CUSTOM_ENVIRONMENT_VARIABLES
+
     companion object {
         const val CLOUD_CODE = "arm"
 
@@ -161,6 +164,7 @@ class AzureConstants {
         const val REGISTRY_USERNAME = "registryUsername"
         const val REGISTRY_PASSWORD = "registryPassword"
         const val PROFILE_ID = "profileId"
+        const val CUSTOM_ENVIRONMENT_VARIABLES = "customEnvironmentVariables"
 
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"

@@ -52,7 +52,7 @@
                 </label>
                 <span class="smallNote">Use credentials from Azure Active Directory application</span>
                 <br/>
-                <a href="https://portal.azure.com" target="_blank">Open Azure Portal</a>
+                <a href="https://portal.azure.com" target="_blank" rel="noopener noreferrer">Open Azure Portal</a>
                 <input type="hidden" name="prop:${cons.credentialsType}" value="<c:out value="${credentialsType}"/>"
                        data-bind="initializeValue: type, value: type"/>
             </td>
@@ -102,7 +102,7 @@
                 <div class="longField inline-block hidden"
                      data-bind="css: {hidden: $parent.subscriptions().length > 0}">
                     <span class="error option-error">
-                        No subscriptions, please <a href="${azureLink}#assign-application-to-role" target="_blank">grant
+                        No subscriptions, please <a href="${azureLink}#assign-application-to-role" target="_blank" rel="noopener noreferrer">grant
                         Contributor role</a> for your application
                     </span>
                 </div>
@@ -189,7 +189,8 @@
                     </span>
                     <span class="smallNote">URL of generalized VHD image placed in the <a
                             href="https://azure.microsoft.com/en-us/documentation/articles/resource-group-portal/"
-                            target="_blank">new storage account</a> <bs:help
+                            target="_blank"
+                            rel="noopener noreferrer">new storage account</a> <bs:help
                             file="TeamCity+Integration+with+Cloud+Solutions"
                             anchor="TeamCitySetupforCloudIntegration"/>
                     </span>
@@ -382,7 +383,8 @@
                            data-bind="textInput: image().vmPassword"/>
                     <span class="smallNote">Choose value according to the <a
                             href="https://msdn.microsoft.com/en-us/library/azure/jj943764.aspx#Anchor_1"
-                            target="_blank">password policies</a></span>
+                            target="_blank"
+                            rel="noopener noreferrer">password policies</a></span>
                     <span class="error option-error" data-bind="validationMessage: image().vmPassword"></span>
                 </td>
             </tr>
@@ -397,8 +399,8 @@
                     </a>
                     <span class="smallNote">Specify the ARM template.
                         <bs:help
-                                urlPrefix="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authoring-templates"
-                                file=""/>
+                            urlPrefix="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authoring-templates"
+                            file=""/>
                         In it you must have "vmName" parameter and<br/>
                         virtual machine with name set to "[parameters('vmName')]".
                     </span>
@@ -420,9 +422,24 @@
                     <i class="icon-refresh icon-spin"></i>
                     <!-- /ko -->
                     <span class="smallNote">
-                        Specify account to persist container volumes in Azure Files.<br>
-                        It prevents build agent upgrade on each start.
+                        Specify account to persist container volumes in Azure Files. It prevents build agent upgrade on each start
                     </span>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Container'" class="advancedSetting">
+                <th class="noBorder"><label for="${cons.customEnvironmentVariables}">Environment Variables:</label></th>
+                <td>
+                    <div>
+                        <textarea name="${cons.customEnvironmentVariables}" class="longField ignoreModified"
+                               data-bind="textInput: image().customEnvironmentVariables">
+                        </textarea>
+                        <span class="smallNote">Newline separated environment variables in the form of <kbd>KEY=VALUE</kbd> to pass to the running container
+                            <bs:help
+                                urlPrefix="https://docs.microsoft.com/en-us/azure/container-instances/container-instances-environment-variables#azure-portal-example"
+                                file=""/>
+                        </span>
+                        <span class="error option-error" data-bind="validationMessage: image().customEnvironmentVariables"></span>
+                    </div>
                 </td>
             </tr>
             <!-- /ko -->

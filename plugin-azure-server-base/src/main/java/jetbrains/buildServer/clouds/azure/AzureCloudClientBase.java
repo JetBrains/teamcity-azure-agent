@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure;
 
 import com.intellij.openapi.diagnostic.Logger;
+import java.util.Map;
 import jetbrains.buildServer.clouds.CloudClientParameters;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
@@ -31,8 +32,7 @@ import jetbrains.buildServer.serverSide.AgentDescription;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.Map;
+import org.springframework.util.CollectionUtils;
 
 /**
  * Azure cloud client base.
@@ -50,6 +50,8 @@ public abstract class AzureCloudClientBase<G extends AbstractCloudInstance<T>, T
     myImagesHolder = imagesHolder;
   }
 
+  @SuppressWarnings("unchecked")
+  @NotNull
   @Override
   protected UpdateInstancesTask<G, T, ?> createUpdateInstancesTask() {
     return new UpdateInstancesTask<>(myApiConnector, this);
@@ -63,9 +65,24 @@ public abstract class AzureCloudClientBase<G extends AbstractCloudInstance<T>, T
   @Nullable
   @Override
   public G findInstanceByAgent(@NotNull final AgentDescription agent) {
-    final String instanceName = agent.getConfigurationParameters().get(AzureProperties.INSTANCE_NAME);
+    String instanceName = agent.getAvailableParameters().get(AzureProperties.INSTANCE_NAME);
     if (instanceName == null) {
-      return null;
+      try {
+        final String compressedConfigurationParameters = agent.getAvailableParameters().get("env." + AzureProperties.INSTANCE_ENV_VAR);
+        if (StringUtil.isEmpty(compressedConfigurationParameters)) {
+          return null;
+        }
+        final Map<String, String> configurationParameters = AzureCompress.INSTANCE.decode(compressedConfigurationParameters);
+        if (CollectionUtils.isEmpty(configurationParameters)) {
+          return null;
+        }
+        instanceName = configurationParameters.get(AzureProperties.INSTANCE_NAME);
+      } catch (Exception e) {
+        LOG.warnAndDebugDetails("Got exception while trying to parse agent configuration parameters from [env.TEAMCITY_AZURE]", e);
+      }
+      if (instanceName == null) {
+        return null;
+      }
     }
 
     for (T image : myImageMap.values()) {
@@ -80,11 +97,12 @@ public abstract class AzureCloudClientBase<G extends AbstractCloudInstance<T>, T
 
   @Nullable
   public String generateAgentName(@NotNull final AgentDescription agent) {
-    final String instanceName = agent.getConfigurationParameters().get(AzureProperties.INSTANCE_NAME);
+    final String instanceName = agent.getAvailableParameters().get(AzureProperties.INSTANCE_NAME);
     LOG.debug("Reported azure instance name: " + instanceName);
     return instanceName;
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   protected T checkAndCreateImage(@NotNull D imageDetails) {
     final String profileId = StringUtil.emptyIfNull(myParameters.getParameter("profileId"));

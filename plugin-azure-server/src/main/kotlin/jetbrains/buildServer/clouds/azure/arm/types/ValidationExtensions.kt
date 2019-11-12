@@ -42,7 +42,7 @@ fun AzureCloudImageDetails.checkNetworkId(errors: MutableList<Throwable>) {
 
 fun AzureCloudImageDetails.checkCustomEnvironmentVariables(errors: MutableList<Throwable>) {
     customEnvironmentVariables?.let { envVars ->
-        if (envVars.lines().any { !AzureUtils.customEnvironmentVariableSyntaxIsValid(it) }) {
+        if (envVars.lines().map { it.trim() }.filter { it.isNotEmpty() }.any { !AzureUtils.customEnvironmentVariableSyntaxIsValid(it) }) {
             errors.add(CheckedCloudException("Invalid custom environment variables"))
         }
     }

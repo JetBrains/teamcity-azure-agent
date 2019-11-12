@@ -61,8 +61,8 @@ class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHan
 
         fun parseEnvironmentVariables(rawString: String?): List<Pair<String, String>> {
             return if (rawString != null && rawString.isNotEmpty()) {
-                rawString.lines().filter(AzureUtils::customEnvironmentVariableSyntaxIsValid).mapNotNull {
-                    val envVar = it.trim()
+                rawString.lines().map { it.trim() }.filter { it.isNotEmpty() }.filter(AzureUtils::customEnvironmentVariableSyntaxIsValid).mapNotNull {
+                    val envVar = it
                     val equalsSignIndex = envVar.indexOf("=")
                     if (equalsSignIndex > 1) {
                         Pair(envVar.substring(0, equalsSignIndex), envVar.substring(equalsSignIndex + 1))

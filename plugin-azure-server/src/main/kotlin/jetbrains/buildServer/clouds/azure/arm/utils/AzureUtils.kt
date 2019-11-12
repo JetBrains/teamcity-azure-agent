@@ -34,7 +34,7 @@ import java.io.IOException
  */
 object AzureUtils {
     private val INVALID_TENANT = Regex("AADSTS90002: No service namespace named '([\\w-]+)' was found in the data store\\.")
-    private val ENVIRONMENT_VARIABLE_NAME_REGEX = Regex("[a-zA-Z0-9_=]+")
+    private val ENVIRONMENT_VARIABLE_REGEX = Regex("^([a-z_][a-z0-9_]*?)=.*?\$", RegexOption.IGNORE_CASE)
 
     internal val mapper = ObjectMapper()
 
@@ -49,21 +49,7 @@ object AzureUtils {
     }
 
     fun customEnvironmentVariableSyntaxIsValid(envVar: String): Boolean {
-        if (envVar.isEmpty()) {
-            return false
-        }
-        val firstEqualsSign = envVar.indexOf('=')
-        if (!(firstEqualsSign > 0 && firstEqualsSign < envVar.length)) {
-            return false
-        }
-        val firstChar = envVar.substring(0, 1)
-        if (!(StringUtils.isAlpha(firstChar) || firstChar == "_")) {
-            return false
-        }
-        if (envVar.length == firstEqualsSign) {
-            return true
-        }
-        return envVar.substring(0, firstEqualsSign).matches(ENVIRONMENT_VARIABLE_NAME_REGEX)
+        return envVar.matches(ENVIRONMENT_VARIABLE_REGEX)
     }
 
     fun getExceptionDetails(e: com.microsoft.azure.CloudException): String {

@@ -263,7 +263,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
     reuseVm: ko.observable(false),
     agentPoolId: ko.observable().extend({required: true}),
     profileId: ko.observable(),
-    customEnvironmentVariables: ko.observable()
+    customEnvironmentVariables: ko.observable('').extend({
+      pattern: {
+        message: 'Incorrect environment variables format',
+        params: /^(((([a-z_][a-z0-9_]*?)=.*?)|\s*))*$/i
+      }
+    })
   });
 
   // Data from Azure APIs

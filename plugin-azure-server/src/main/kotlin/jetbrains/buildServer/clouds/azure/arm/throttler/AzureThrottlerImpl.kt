@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 class AzureThrottlerImpl<A, I>(
         private val adapter: AzureThrottlerAdapter<A>,
         private val throttlerStrategy: AzureThrottlerStrategy<I>
-) : AzureThrottler<A, I> {
+) : AzureThrottler<A, I>, AzureThrottlerStrategyTaskContainer<I>, AzureThrottlerTaskCompletionResultNotifier {
     private val myTaskQueues = ConcurrentHashMap<I, AzureThrottlerTaskQueue<I, *, *>>()
 
     private val myScheduledExecutor : ScheduledExecutorService = ExecutorsFactory.newFixedScheduledDaemonExecutor("Azure throttler task queue executor", 1)

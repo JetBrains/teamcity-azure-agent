@@ -36,7 +36,7 @@ interface AzureTaskDescriptor<A, I, P, T> {
     fun create(): AzureThrottlerTask<A, P, T>
 }
 
-interface AzureThrottler<A, I> : AzureThrottlerTaskCompletionResultNotifier, AzureThrottlerStrategyTaskContainer<I> {
+interface AzureThrottler<A, I> {
     fun <P, T> registerTask(taskId: I, task : AzureThrottlerTask<A, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long) : AzureThrottler<A, I>
     fun <P, T> registerTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long) : AzureThrottler<A, I>
 

@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2000-2020 JetBrains s.r.o.
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~ http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
 <Environment xmlns="http://schemas.dmtf.org/ovf/environment/1" xmlns:oe="http://schemas.dmtf.org/ovf/environment/1" xmlns:wa="http://schemas.microsoft.com/windowsazure" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 
     <wa:ProvisioningSection><wa:Version>1.0</wa:Version><LinuxProvisioningConfigurationSet xmlns="http://schemas.microsoft.com/windowsazure" xmlns:i="http://www.w3.org/2001/XMLSchema-instance"><ConfigurationSetType>LinuxProvisioningConfiguration</ConfigurationSetType><InputEndpoints /><SubnetNames /><StoredCertificateSettings /><HostName>bbb-541c4e94</HostName><UserName>sazureuser</UserName><UserPassword>Qwerty@5</UserPassword><DisableSshPasswordAuthentication>true</DisableSshPasswordAuthentication><CustomData>PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPGNsb3VkLWluc3RhbmNlLWRhdGE+CiAgPGtleS12YWx1ZT4KICAgIDxlbnRyeSBrZXk9ImFnZW50LW5hbWUiIC8+CiAgICA8ZW50cnkga2V5PSJhdXRoLXRva2VuIiAvPgogICAgPGVudHJ5IGtleT0ic2VydmVyLWFkZHJlc3MiPjwhW0NEQVRBW2h0dHA6Ly90Yy1zcnYuY2xvdWRhcHAubmV0OjgxMTFdXT48L2VudHJ5PgogICAgPGVudHJ5IGtleT0icHJvZmlsZSI+PCFbQ0RBVEFbcHJvZmlsZSAnUHJvZmlsZSd7aWQ9Y3AxfV1dPjwvZW50cnk+CiAgICA8ZW50cnkga2V5PSJpZGxlLXRpbWVvdXQiPjI0MDAwMDA8L2VudHJ5PgogIDwva2V5LXZhbHVlPgogIDxhZ2VudC1jb25maWd1cmF0aW9uLXBhcmFtZXRlcnM+CiAgICA8ZW50cnkga2V5PSJzeXN0ZW0uY2xvdWQucHJvZmlsZV9pZCI+PCFbQ0RBVEFbY3AxXV0+PC9lbnRyeT4KICAgIDxlbnRyeSBrZXk9InRlYW1jaXR5LmNsb3VkLmluc3RhbmNlLmhhc2giPjwhW0NEQVRBW054NTBOQWZ6ZW9samgzaUpmNzdqdnRjaTFCU1d0YVoyXV0+PC9lbnRyeT4KICA8L2FnZW50LWNvbmZpZ3VyYXRpb24tcGFyYW1ldGVycz4KPC9jbG91ZC1pbnN0YW5jZS1kYXRhPgoK</CustomData></LinuxProvisioningConfigurationSet></wa:ProvisioningSection>

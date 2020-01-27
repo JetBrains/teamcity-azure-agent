@@ -8,7 +8,7 @@
     <download-url>https://github.com/Jetbrains/teamcity-azure-plugin</download-url>
     <email>Plugin author e-mail</email>
     <vendor>
-      <name>JetBrains, s.r.o.</name>
+      <name>JetBrains</name>
       <url>http://www.jetbrains.com/</url>
       <logo>Plugin vendor logo URL</logo>
     </vendor>

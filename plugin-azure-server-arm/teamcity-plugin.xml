@@ -7,7 +7,7 @@
     <description>Support for build agents running on Azure Cloud</description>
     <download-url>https://github.com/Jetbrains/teamcity-azure-plugin</download-url>
     <vendor>
-      <name>JetBrains, s.r.o.</name>
+      <name>JetBrains</name>
       <url>http://www.jetbrains.com/</url>
     </vendor>
   </info>

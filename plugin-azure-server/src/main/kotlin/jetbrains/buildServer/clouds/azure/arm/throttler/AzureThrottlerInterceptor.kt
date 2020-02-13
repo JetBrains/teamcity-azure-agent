@@ -44,7 +44,7 @@ class AzureThrottlerInterceptor(
         val remainingReadsStr = response.header(REMAINING_READS_HEADER)
         val remainingReads = if (remainingReadsStr.isNullOrEmpty()) null else Integer.parseInt(remainingReadsStr).toLong();
 
-        LOG.info("[$name] Azure request processed: Remaining reads: $remainingReadsStr, Url: ${request.url()}")
+        LOG.debug("[$name] Azure request processed: Remaining reads: $remainingReadsStr, Url: ${request.url()}")
         LOG.debug("[$name] Azure request processed: Requests sequence length: ${myRequestsSequenceLength.get()}), Url: ${request.url()}")
 
         increaseRequestsSequenceLength()

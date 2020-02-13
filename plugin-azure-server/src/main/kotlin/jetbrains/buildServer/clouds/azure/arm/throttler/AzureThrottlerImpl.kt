@@ -19,6 +19,7 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.util.executors.ExecutorsFactory
+import rx.Scheduler
 import rx.Single
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledExecutorService
@@ -26,7 +27,8 @@ import java.util.concurrent.TimeUnit
 
 class AzureThrottlerImpl<A, I>(
         private val adapter: AzureThrottlerAdapter<A>,
-        private val throttlerStrategy: AzureThrottlerStrategy<I>
+        private val throttlerStrategy: AzureThrottlerStrategy<I>,
+        private val requestSchqduler: Scheduler
 ) : AzureThrottler<A, I>, AzureThrottlerStrategyTaskContainer<I>, AzureThrottlerTaskCompletionResultNotifier {
     private val myTaskQueues = ConcurrentHashMap<I, AzureThrottlerTaskQueue<I, *, *>>()
 
@@ -53,7 +55,7 @@ class AzureThrottlerImpl<A, I>(
 
     override fun <P, T> registerTask(taskId: I, task: AzureThrottlerTask<A, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long): AzureThrottler<A, I> {
         if (myTaskQueues.contains(taskId)) throw Exception("Task with Id $taskId has already been registered")
-        myTaskQueues[taskId] = AzureThrottlerTaskQueueImpl(taskId, task, adapter, taskTimeExecutionType, defaultTimeoutInSeconds, this)
+        myTaskQueues[taskId] = AzureThrottlerTaskQueueImpl(taskId, task, adapter, taskTimeExecutionType, defaultTimeoutInSeconds, this, requestSchqduler)
         return this
     }
     override fun <P, T> registerTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long): AzureThrottler<A, I> {

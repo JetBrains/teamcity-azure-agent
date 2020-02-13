@@ -17,8 +17,10 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
+import rx.Scheduler
 import rx.Single
 import rx.internal.util.SubscriptionList
+import rx.schedulers.Schedulers
 import rx.subjects.PublishSubject
 import rx.subjects.Subject
 import java.time.Clock
@@ -30,11 +32,12 @@ import kotlin.math.max
 
 class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         override val taskId: I,
-        private val task : AzureThrottlerTask<A, P, T>,
+        private val task: AzureThrottlerTask<A, P, T>,
         private val adapter: AzureThrottlerAdapter<A>,
         taskExecutionTimeType: AzureThrottlerTaskTimeExecutionType,
         private val defaultCacheTimeoutInSeconds: Long,
-        private val taskCompletionResultNotifier: AzureThrottlerTaskCompletionResultNotifier
+        private val taskCompletionResultNotifier: AzureThrottlerTaskCompletionResultNotifier,
+        private val requestScheduler: Scheduler
 ) : AzureThrottlerTaskQueue<I, P, T> {
     private val myTaskQueue = ConcurrentLinkedQueue<QueueItem<T, P>>()
     private val myLastUpdatedDateTime = AtomicReference<LocalDateTime>(LocalDateTime.MIN)
@@ -129,6 +132,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
 
         subscriptions.add(adapter
                 .execute { task.create(adapter.api, item.parameter) }
+                .subscribeOn(requestScheduler)
                 .doOnSuccess {
                     myLastUpdatedDateTime.set(LocalDateTime.now(Clock.systemUTC()))
                     myCallHistory.addExecutionCall(it.requestsCount)

@@ -91,15 +91,15 @@ class AzureThrottlerAdapterImpl (
     }
 
     override fun <T> execute(queryFactory: (Azure) -> Single<T>): Single<AzureThrottlerAdapterResult<T>> {
-        val startRemainingReads = myRemainingReads.get()
-        return queryFactory(myAzure).map {
-            val remainingReads = myRemainingReads.get()
-            val readsCount = if (remainingReads > startRemainingReads) myDefaultReads.get() - remainingReads else startRemainingReads - remainingReads
-            AzureThrottlerAdapterResult(
-                    it,
-                    if (readsCount > 0) readsCount else null,
-                    false)
-        }
+        return queryFactory(myAzure)
+                .doOnSubscribe { myInterceptor.onBeginRequestsSequence() }
+                .doOnUnsubscribe { myInterceptor.onEndRequestsSequence() }
+                .map {
+                    AzureThrottlerAdapterResult(
+                            it,
+                            myInterceptor.getRequestsSequenceLength(),
+                            false)
+                }
     }
 
     override fun notifyRemainingReads(value: Long?) {

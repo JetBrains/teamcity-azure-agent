@@ -29,6 +29,7 @@ class AzureThrottlerInterceptor(
         private val name: String
 ) : Interceptor {
     private val myThrottlerDelayInMilliseconds = AtomicLong(0)
+    private val myRequestsSequenceLength = ThreadLocal<Long>()
 
     override fun intercept(chain: Interceptor.Chain): Response {
         val sleepTime = myThrottlerDelayInMilliseconds.get()
@@ -44,6 +45,9 @@ class AzureThrottlerInterceptor(
         val remainingReads = if (remainingReadsStr.isNullOrEmpty()) null else Integer.parseInt(remainingReadsStr).toLong();
 
         LOG.info("[$name] Azure request processed: Remaining reads: $remainingReadsStr, Url: ${request.url()}")
+        LOG.debug("[$name] Azure request processed: Requests sequence length: ${myRequestsSequenceLength.get()}), Url: ${request.url()}")
+
+        increaseRequestsSequenceLength()
 
         remainingReadsNotifier.notifyRemainingReads(remainingReads)
 
@@ -61,6 +65,24 @@ class AzureThrottlerInterceptor(
 
     fun getThrottlerTime(): Long {
         return myThrottlerDelayInMilliseconds.get()
+    }
+
+    fun onBeginRequestsSequence() {
+        myRequestsSequenceLength.set(0)
+    }
+
+    fun onEndRequestsSequence() {
+        myRequestsSequenceLength.remove()
+    }
+
+    fun getRequestsSequenceLength() : Long? {
+        return myRequestsSequenceLength.get()
+    }
+
+    private fun increaseRequestsSequenceLength() {
+        myRequestsSequenceLength.get()?.let {
+            myRequestsSequenceLength.set(it + 1)
+        }
     }
 
     private fun getRetryAfterSeconds(response: Response): Long? {

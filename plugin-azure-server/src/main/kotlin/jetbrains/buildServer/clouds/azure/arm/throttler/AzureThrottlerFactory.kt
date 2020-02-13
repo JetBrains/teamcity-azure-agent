@@ -21,6 +21,7 @@ import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerActionTasks
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerReadTasks
 import jetbrains.buildServer.serverSide.TeamCityProperties
+import rx.schedulers.Schedulers
 
 object AzureThrottlerFactory {
     fun createReadRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?): AzureThrottler<Azure, AzureThrottlerReadTasks.Values> {
@@ -40,7 +41,7 @@ object AzureThrottlerFactory {
                 taskReservation,
                 aggressiveThrottlingLimit)
 
-        val throttler = AzureThrottlerImpl(azureAdapter, readsStrategy)
+        val throttler = AzureThrottlerImpl(azureAdapter, readsStrategy, Schedulers.immediate())
 
         val randomTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT, 60)
         val periodicalTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_PERIODICAL_TASK_CACHE_TIMEOUT, 120)
@@ -97,7 +98,7 @@ object AzureThrottlerFactory {
 
         val randomTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT, 60)
 
-        val throttler =  AzureThrottlerImpl(azureActionAdapter, actionsStrategy)
+        val throttler =  AzureThrottlerImpl(azureActionAdapter, actionsStrategy, Schedulers.io())
         return throttler
                 .registerTask(AzureThrottlerActionTasks.CreateDeployment,
                         AzureThrottlerTaskTimeExecutionType.Random,

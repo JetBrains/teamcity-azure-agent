@@ -16,8 +16,10 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
+import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import rx.Observable
 import rx.Single
 
 data class StopVirtualMachineTaskParameter(
@@ -29,7 +31,19 @@ class StopVirtualMachineTaskImpl : AzureThrottlerTask<Azure, StopVirtualMachineT
         return api
                 .virtualMachines()
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)
-                .flatMap { it.deallocateAsync().toObservable<Unit>() }
+                .flatMap {
+                    if (it != null) {
+                        it.deallocateAsync().toObservable<Unit>()
+                    } else {
+                        LOG.warnAndDebugDetails("Could not find virtual machine to stop. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
+                        Observable.just(Unit)
+                    }
+                }
+                .defaultIfEmpty(Unit)
                 .toSingle()
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(StopVirtualMachineTaskImpl::class.java.name)
     }
 }

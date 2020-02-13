@@ -26,6 +26,7 @@ class DeleteResourceGroupTaskImpl : AzureThrottlerTask<Azure, String, Unit> {
                 .resourceGroups()
                 .deleteByNameAsync(parameter)
                 .toObservable<Unit>()
+                .defaultIfEmpty(Unit)
                 .toSingle()
     }
 }

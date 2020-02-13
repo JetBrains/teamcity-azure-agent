@@ -16,8 +16,10 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
+import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import rx.Observable
 import rx.Single
 
 data class RestartVirtualMachineTaskParameter(
@@ -29,8 +31,20 @@ class RestartVirtualMachineTaskImpl : AzureThrottlerTask<Azure, RestartVirtualMa
         return api
                 .virtualMachines()
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)
-                .flatMap { it.restartAsync().toObservable<Unit>() }
+                .flatMap {
+                    if (it != null) {
+                        it.restartAsync().toObservable<Unit>()
+                    } else {
+                        LOG.warnAndDebugDetails("Could not find virtual machine to restart. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
+                        Observable.just(Unit)
+                    }
+                }
+                .defaultIfEmpty(Unit)
                 .toSingle()
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(RestartVirtualMachineTaskImpl::class.java.name)
     }
 }
 

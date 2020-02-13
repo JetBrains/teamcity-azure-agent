@@ -16,8 +16,10 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
+import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import rx.Observable
 import rx.Single
 
 data class StartVirtualMachineTaskParameter(
@@ -29,7 +31,19 @@ class StartVirtualMachineTaskImpl : AzureThrottlerTask<Azure, StartVirtualMachin
         return api
                 .virtualMachines()
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)
-                .flatMap { it.startAsync().toObservable<Unit>() }
+                .flatMap {
+                    if (it != null) {
+                        it.startAsync().toObservable<Unit>()
+                    } else {
+                        LOG.warnAndDebugDetails("Could not find resource to start. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
+                        Observable.just(Unit)
+                    }
+                }
+                .defaultIfEmpty(Unit)
                 .toSingle()
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(StartVirtualMachineTaskImpl::class.java.name)
     }
 }

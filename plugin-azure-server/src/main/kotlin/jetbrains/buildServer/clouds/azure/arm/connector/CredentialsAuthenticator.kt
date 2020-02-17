@@ -25,7 +25,7 @@ class CredentialsAuthenticator(username: String, password: String) : Authenticat
 
     private val myCredentials: String = Credentials.basic(username, password)
 
-    override fun authenticate(route: Route, response: Response): Request {
+    override fun authenticate(route: Route?, response: Response): Request {
         return response.request().newBuilder()
                 .header("Proxy-Authorization", myCredentials)
                 .build()

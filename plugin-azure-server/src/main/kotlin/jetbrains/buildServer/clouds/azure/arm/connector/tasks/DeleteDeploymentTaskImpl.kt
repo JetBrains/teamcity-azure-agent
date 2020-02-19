@@ -122,7 +122,6 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTask<Azure, DeleteDeploymentTaskP
                                     LOG.warnAndDebugDetails("Error occured during deletion of resource $resourceId :", it)
                                     Observable.just(Unit)
                                 }
-                                .subscribeOn(Schedulers.io())
                             }
                 }
                 .concatWith(Observable.just(Unit))

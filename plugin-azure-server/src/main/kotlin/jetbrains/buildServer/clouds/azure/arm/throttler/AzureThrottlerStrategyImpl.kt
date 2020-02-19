@@ -78,10 +78,10 @@ class AzureThrottlerStrategyImpl<A, I>(
                             if (executionCallCount > 0 && resourceRequestsCount > 0) {
                                 val callCount = floor(1.0 * remainingPeriodicalResourceRequestsCountPerTask * executionCallCount / resourceRequestsCount).toLong()
                                 val taskTimeout = windowWidthInMs / (1000 * (callCount + 1))
-                                LOG.info("Trying to set cache timeout for periodical task ${task.taskId} to $taskTimeout sec")
+                                LOG.debug("Trying to set cache timeout for periodical task ${task.taskId} to $taskTimeout sec")
                                 task.setCacheTimeout(taskTimeout, AzureThrottlingSource.Throttler)
                             } else {
-                                LOG.info("Trying to reset cache timeout for periodical task ${task.taskId}")
+                                LOG.debug("Trying to reset cache timeout for periodical task ${task.taskId}")
                                 task.setCacheTimeout(0, AzureThrottlingSource.Throttler)
                             }
                         }

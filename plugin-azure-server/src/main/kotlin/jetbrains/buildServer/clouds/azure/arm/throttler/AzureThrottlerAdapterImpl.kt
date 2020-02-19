@@ -58,7 +58,7 @@ class AzureThrottlerAdapterImpl (
                 .manager()
                 .inner()
                 .azureClient
-                .setLongRunningOperationRetryTimeout(TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_LONG_RUNNING_QUERY_RETRY_TIMEOUT, 60))
+                .setLongRunningOperationRetryTimeout(TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_LONG_RUNNING_QUERY_RETRY_TIMEOUT, 30))
     }
     override val api: Azure
         get() = myAzure

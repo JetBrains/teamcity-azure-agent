@@ -18,10 +18,15 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
+import com.microsoft.azure.management.compute.Disk
 import com.microsoft.azure.management.resources.Deployment
+import com.microsoft.azure.management.resources.fluentcore.collection.SupportsDeletingById
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import rx.Notification
 import rx.Observable
 import rx.Single
+import rx.schedulers.Schedulers
+import rx.subjects.BehaviorSubject
 
 data class DeleteDeploymentTaskParameter(
         val resourceGroupName: String,
@@ -37,25 +42,45 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTask<Azure, DeleteDeploymentTaskP
                     Observable.empty()
                 }
                 .doOnNext{
-                    LOG.debug("Deleting deployment ${it.name()} in group ${it.resourceGroupName()}")
+                    LOG.debug("Deleting deployment ${it.name()} in group ${it.resourceGroupName()}. Provisioning state ${it.provisioningState()}")
                     if (it.provisioningState().equals(PROVISIONING_STATE_CANCELLED, ignoreCase = true)) {
                         LOG.debug("Deployment ${it.name()} in group ${it.resourceGroupName()} was canceled")
                     }
                 }
                 .flatMap { deployment ->
                     if (deployment.provisioningState().equals(PROVISIONING_STATE_RUNNING, ignoreCase = true)) {
-                        Observable.defer { deployment.cancelAsync().toObservable<Deployment>() }
-                                .repeatWhen {
+                        val cancelOperationState = BehaviorSubject.create<Notification<Deployment>>()
+                        Observable.
+                                defer {
+                                    deployment.
+                                            cancelAsync().
+                                            toObservable<Deployment>().
+                                            materialize().
+                                            take(1).
+                                            doOnNext { cancelOperationState.onNext(it) }
+                                }.
+                                repeatWhen {
                                     LOG.debug("Canceling running deployment ${deployment.name()}")
 
-                                    deployment.refreshAsync().flatMap {
-                                        if (it.provisioningState().equals(PROVISIONING_STATE_CANCELLED, ignoreCase = true))
-                                            Observable.empty()
-                                        else
-                                            Observable.just(Unit).concatWith(Observable.never())
-
+                                    if (!cancelOperationState.hasValue() || cancelOperationState.value == null) {
+                                        Observable.just(Unit).concatWith(Observable.never())
+                                    } else {
+                                        val cancelOperationStateValue = cancelOperationState.value
+                                        when (cancelOperationStateValue.kind) {
+                                            Notification.Kind.OnNext -> deployment.refreshAsync().flatMap {
+                                                if (it.provisioningState().equals(PROVISIONING_STATE_CANCELLED, ignoreCase = true))
+                                                    Observable.empty()
+                                                else
+                                                    Observable.just(Unit).concatWith(Observable.never())
+                                            }
+                                            Notification.Kind.OnError -> Observable.error<Notification<Deployment>>(cancelOperationState.throwable)
+                                            Notification.Kind.OnCompleted -> Observable.empty<Notification<Deployment>>()
+                                            null -> Observable.empty<Notification<Deployment>>()
+                                        }
                                     }
                                 }
+                                .dematerialize<Deployment>()
+                                .take(1)
                                 .concatWith(Observable.just(deployment))
                     } else {
                         Observable.just(deployment)
@@ -69,7 +94,7 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTask<Azure, DeleteDeploymentTaskP
                             .map { it.targetResource() }
                             .filter { it != null }
                             .concatMap { targetResource ->
-                                val result = Observable.just(targetResource.id())
+                                val result = Observable.just(targetResource.id() to targetResource.resourceType())
                                 if (targetResource.resourceType().equals(VIRTUAL_MACHINE_RESOURCE_TYPE, ignoreCase = true))
                                         api
                                                 .virtualMachines()
@@ -77,19 +102,27 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTask<Azure, DeleteDeploymentTaskP
                                                 .filter { it != null && it.isManagedDiskEnabled }
                                                 .map { it.osDiskId() }
                                                 .concatMap {
-                                                    result.concatWith(Observable.just(it))
+                                                    result.concatWith(Observable.just(it to "Microsoft.Compute/disks"))
                                                 }
                                 else
                                     result
                             }
                             .distinctUntilChanged()
-                            .flatMap { resourceId ->
+                            .flatMap { (resourceId, resourceType) ->
                                 LOG.debug("Deleting resource $resourceId")
-                                api
-                                        .genericResources()
-                                        .deleteByIdAsync(resourceId)
-                                        .toObservable<Unit>()
-                                        .concatWith(Observable.just(Unit))
+
+                                when(resourceType) {
+                                    "Microsoft.ContainerInstance/containerGroups" -> api.containerGroups() as SupportsDeletingById
+                                    else -> api.genericResources() as SupportsDeletingById
+                                }
+                                .deleteByIdAsync(resourceId)
+                                .toObservable<Unit>()
+                                .concatWith(Observable.just(Unit))
+                                .onErrorReturn {
+                                    LOG.warnAndDebugDetails("Error occured during deletion of resource $resourceId :", it)
+                                    Observable.just(Unit)
+                                }
+                                .subscribeOn(Schedulers.io())
                             }
                 }
                 .concatWith(Observable.just(Unit))

@@ -44,8 +44,29 @@ data class FetchInstancesTaskInstanceDescriptor (
         val error: TypedCloudErrorInfo?
         )
 
-data class FetchInstancesTaskParameter(val serverId: String?, val profileId: String?, val images: List<FetchInstancesTaskImageDescriptor>)
-data class FetchInstancesTaskImageDescriptor(val imageId: String, val imageDetails: AzureCloudImageDetails)
+data class FetchInstancesTaskParameter(val serverId: String?, val profileId: String?, val images: Array<FetchInstancesTaskImageDescriptor>) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as FetchInstancesTaskParameter
+
+        if (serverId != other.serverId) return false
+        if (profileId != other.profileId) return false
+        if (!images.contentDeepEquals(other.images)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = serverId?.hashCode() ?: 0
+        result = 31 * result + (profileId?.hashCode() ?: 0)
+        result = 31 * result + images.contentDeepHashCode()
+        return result
+    }
+}
+data class FetchInstancesTaskImageDescriptor(val imageId: String, val imageDetails: FetchInstancesTaskCloudImageDetails)
+data class FetchInstancesTaskCloudImageDetails(val vmPublicIp: Boolean?, val instanceId: String?, val sourceId: String, val target: AzureCloudDeployTarget, val isVmInstance: Boolean, val resourceGroup: String)
 
 class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstancesTaskParameter, List<FetchInstancesTaskInstanceDescriptor>>() {
     override fun create(api: Azure, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
@@ -68,7 +89,7 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
             Observable.just<List<PublicIPAddress>>(emptyList()).replay(1)
         }
 
-        val machineInstances = if (parameter.images.any { it.imageDetails.isVmInstance() }) {
+        val machineInstances = if (parameter.images.any { it.imageDetails.isVmInstance }) {
             api
                     .virtualMachines()
                     .listAsync()
@@ -103,7 +124,7 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
             Observable.empty()
         }
 
-        val containerInstances = if (parameter.images.any { !it.imageDetails.isVmInstance() }) {
+        val containerInstances = if (parameter.images.any { !it.imageDetails.isVmInstance }) {
             api
                     .containerGroups()
                     .listAsync()
@@ -166,8 +187,8 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
         return InstanceViewState(provisioningState, startDate, powerState, null)
     }
 
-    private fun shouldIgnoreResource(resource: Resource, details: AzureCloudImageDetails, serverId: String?, profileId: String?): Boolean {
-        val isVm = details.isVmInstance()
+    private fun shouldIgnoreResource(resource: Resource, details: FetchInstancesTaskCloudImageDetails, serverId: String?, profileId: String?): Boolean {
+        val isVm = details.isVmInstance
         val name = resource.name()
         val tags = resource.tags()
         val id = resource.id()
@@ -207,10 +228,10 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
         return false
     }
 
-    private fun getPublicIPAddressOrDefault(details: AzureCloudImageDetails, name: String, ipAddresses: List<PublicIPAddress>): String? {
+    private fun getPublicIPAddressOrDefault(details: FetchInstancesTaskCloudImageDetails, name: String, ipAddresses: List<PublicIPAddress>): String? {
         if (details.vmPublicIp != true) return null
 
-        val groupId = getResourceGroup(details, name)
+        val groupId = if (details.target == AzureCloudDeployTarget.NewGroup) name else details.resourceGroup
         val pipName = name + PUBLIC_IP_SUFFIX
         val ips = ipAddresses.filter { it.resourceGroupName() == groupId && it.name() == pipName }
 

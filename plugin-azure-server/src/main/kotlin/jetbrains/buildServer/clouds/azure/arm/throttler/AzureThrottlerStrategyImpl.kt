@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.math.floor
@@ -27,17 +28,22 @@ class AzureThrottlerStrategyImpl<A, I>(
         private val adapter: AzureThrottlerAdapter<A>,
         private val randomTasksResourceReservationInPercents: Int,
         private val resourceReservationInPercents: Int,
-        private val enableAggressiveThrottlingWhenReachLimitInPercents: Int
+        private val enableAggressiveThrottlingWhenReachLimitInPercents: Int,
+        private val defaultAdapterThrottlerTimeInMs: Long
 ) : AzureThrottlerStrategy<I> {
     private val myFlow = AtomicReference(AzureThrottlerFlow.Normal)
     private lateinit var taskContainer: AzureThrottlerStrategyTaskContainer<I>
     private val myLock = ReentrantLock()
+    private val mySuccessfullExecutionFlag = AtomicBoolean(false)
 
     override fun getFlow(): AzureThrottlerFlow {
         return myFlow.get()
     }
 
     override fun applyTaskChanges() {
+        if (myFlow.get() == AzureThrottlerFlow.Suspended) {
+            return
+        }
         myLock.lock();
         try {
             val taskList = taskContainer.getTaskList()
@@ -97,7 +103,8 @@ class AzureThrottlerStrategyImpl<A, I>(
             } else if (operableRemainingRequestsCount == 0L) {
                 adapterThrottlerTimeInMs = windowWidthInMs
             }
-            adapter.setThrottlerTime(adapterThrottlerTimeInMs)
+            var resultAdaptherThrottlerTimeInMs = max(adapterThrottlerTimeInMs, defaultAdapterThrottlerTimeInMs)
+            adapter.setThrottlerTime(resultAdaptherThrottlerTimeInMs)
         }
         finally {
             myLock.unlock()
@@ -107,8 +114,17 @@ class AzureThrottlerStrategyImpl<A, I>(
     override fun notifyCompleted() {
         myLock.lock();
         try {
+            if (!mySuccessfullExecutionFlag.get()) {
+                mySuccessfullExecutionFlag.set(true)
+
+                val taskList = taskContainer.getTaskList()
+                for(task in taskList) {
+                    task.enableRetryOnThrottle()
+                }
+            }
+
             if (myFlow.get() == AzureThrottlerFlow.Suspended) {
-                LOG.info("Task completed successfully, switching Suspended state to Normal")
+                LOG.debug("Task completed successfully, switching Suspended state to Normal")
 
                 myFlow.set(AzureThrottlerFlow.Normal)
 

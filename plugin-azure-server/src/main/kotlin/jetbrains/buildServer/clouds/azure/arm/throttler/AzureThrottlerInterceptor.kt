@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import okhttp3.Interceptor
 import okhttp3.Response
 import okhttp3.ResponseBody
@@ -34,22 +35,30 @@ class AzureThrottlerInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val sleepTime = myThrottlerDelayInMilliseconds.get()
         if (sleepTime != 0L) {
-            LOG.info("[$name] Aggressive throttling. Sleep time: $sleepTime ms")
             Thread.sleep(sleepTime)
         }
 
         val request = chain.request()
         val response = chain.proceed(request)
 
-        val remainingReadsStr = response.header(REMAINING_READS_HEADER)
-        val remainingReads = if (remainingReadsStr.isNullOrEmpty()) null else Integer.parseInt(remainingReadsStr).toLong();
+        val remainingReads = getHeaderLongValue(response, SUBSCRIPTION_REMAINING_READS_HEADER);
+        val remainingResourceReads = getHeaderLongValue(response, SUBSCRIPTION_RESOURCE_REMAINING_READS_HEADER);
+        val remainingTenantReads = getHeaderLongValue(response, TENANT_REMAINING_READS_HEADER);
+        val remainingTenantResourceReads = getHeaderLongValue(response, TENANT_RESOURCE_REMAINING_READS_HEADER);
 
-        LOG.debug("[$name] Azure request processed: Remaining reads: $remainingReadsStr, Url: ${request.url()}")
-        LOG.debug("[$name] Azure request processed: Requests sequence length: ${myRequestsSequenceLength.get()}), Url: ${request.url()}")
+        val remainingReadsResult = remainingReads ?: remainingTenantReads ?: remainingResourceReads ?: remainingTenantResourceReads;
+
+        LOG.debug("[$name] Azure request processed: Remaining reads: $remainingReadsResult, Url: ${request.url()}")
+        LOG.debug("[$name] Azure request processed: Requests sequence length: ${myRequestsSequenceLength.get()}, Url: ${request.url()}")
+        LOG.debug("[$name] Azure request processed: Headers: $SUBSCRIPTION_REMAINING_READS_HEADER=$remainingReads," +
+                "$SUBSCRIPTION_RESOURCE_REMAINING_READS_HEADER=$remainingResourceReads, " +
+                "$TENANT_REMAINING_READS_HEADER=$remainingTenantReads, " +
+                "$TENANT_RESOURCE_REMAINING_READS_HEADER=$remainingTenantResourceReads, " +
+                "Url: ${request.url()}")
 
         increaseRequestsSequenceLength()
 
-        remainingReadsNotifier.notifyRemainingReads(remainingReads)
+        remainingReadsNotifier.notifyRemainingReads(remainingReadsResult)
 
         if (response.code() == RETRY_AFTER_STATUS_CODE) {
             val retryAfterSeconds = getRetryAfterSeconds(response)
@@ -60,6 +69,10 @@ class AzureThrottlerInterceptor(
     }
 
     fun setThrottlerTime(milliseconds: Long) {
+        val originalValue = myThrottlerDelayInMilliseconds.get()
+        if (originalValue != milliseconds) {
+            LOG.debug("[$name] Throttling delay changed from $originalValue ms to $milliseconds ms")
+        }
         myThrottlerDelayInMilliseconds.set(milliseconds)
     }
 
@@ -126,9 +139,18 @@ class AzureThrottlerInterceptor(
         return buffer.readUtf8()
     }
 
+    private fun getHeaderLongValue(response: Response, name: String) : Long? {
+        val value = response.header(name)
+        return if (value.isNullOrEmpty()) null else Integer.parseInt(value).toLong();
+    }
+
     companion object {
         private val LOG = Logger.getInstance(AzureThrottlerInterceptor::class.java.name)
-        private const val REMAINING_READS_HEADER = "x-ms-ratelimit-remaining-subscription-reads"
+        private const val SUBSCRIPTION_REMAINING_READS_HEADER = "x-ms-ratelimit-remaining-subscription-reads"
+        private const val SUBSCRIPTION_RESOURCE_REMAINING_READS_HEADER = "x-ms-ratelimit-remaining-subscription-resource-requests"
+        private const val TENANT_REMAINING_READS_HEADER = "x-ms-ratelimit-remaining-tenant-reads"
+        private const val TENANT_RESOURCE_REMAINING_READS_HEADER = "x-ms-ratelimit-remaining-tenant-resource-requests"
+
         private const val RETRY_AFTER = "Retry-After"
         private const val TRY_AGAIN_AFTER_MINUTES_PATTERN = "try again after '([0-9]*)' minutes"
         private const val TRY_AGAIN_AFTER_SECONDS_PATTERN = "try again after '([0-9]*)' seconds"

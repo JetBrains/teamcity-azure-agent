@@ -34,12 +34,14 @@ object AzureThrottlerFactory {
         val randomTaskReservation = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_RESERVATION, 50)
         val taskReservation = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_TASK_RESERVATION, 10)
         val aggressiveThrottlingLimit = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT, 90)
+        val adapterThrottlerTimeInMs = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_DEFAULT_DELAY_IN_MS, 400)
 
         val readsStrategy = AzureThrottlerStrategyImpl<Azure, AzureThrottlerReadTasks.Values>(
                 azureAdapter,
                 randomTaskReservation,
                 taskReservation,
-                aggressiveThrottlingLimit)
+                aggressiveThrottlingLimit,
+                adapterThrottlerTimeInMs)
 
         val throttler = AzureThrottlerImpl(azureAdapter, readsStrategy, Schedulers.immediate())
 
@@ -89,12 +91,14 @@ object AzureThrottlerFactory {
         val randomTaskReservation = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_RESERVATION, 50)
         val taskReservation = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_TASK_RESERVATION, 10)
         val aggressiveThrottlingLimit = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT, 90)
+        val adapterThrottlerTimeInMs = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_DEFAULT_DELAY_IN_MS, 100)
 
         val actionsStrategy = AzureThrottlerStrategyImpl<Azure, AzureThrottlerActionTasks.Values>(
                 azureActionAdapter,
                 randomTaskReservation,
                 taskReservation,
-                aggressiveThrottlingLimit)
+                aggressiveThrottlingLimit,
+                adapterThrottlerTimeInMs)
 
         val randomTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT, 60)
 

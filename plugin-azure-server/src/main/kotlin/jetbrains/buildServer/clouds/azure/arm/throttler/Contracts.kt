@@ -71,6 +71,7 @@ interface AzureThrottlerStrategyTask<I> {
     fun getStatistics(startDateTime: LocalDateTime): AzureThrottlerTaskQueueCallHistoryStatistics
     fun setCacheTimeout(timeoutInSeconds: Long, source: AzureThrottlingSource)
     fun resetCache(source: AzureThrottlingSource)
+    fun enableRetryOnThrottle()
 }
 
 interface AzureThrottlerStrategy<I> : AzureThrottlerTaskCompletionResultNotifier {
@@ -125,3 +126,7 @@ interface AzureThrottlerTaskCompletionResultNotifier {
 }
 
 class AzureRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
+
+open class AzureRetryTaskException(msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
+class AzureMaxTaskLiveException(msg: String? = null, cause: Throwable? = null): AzureRetryTaskException(msg, cause)
+class AzureMaxRetryCountException(msg: String? = null, cause: Throwable? = null): AzureRetryTaskException(msg, cause)

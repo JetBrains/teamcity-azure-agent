@@ -32,10 +32,7 @@ import jetbrains.buildServer.clouds.azure.AzureCompress
 import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.*
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottler
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottlerCache
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottler
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFactory
+import jetbrains.buildServer.clouds.azure.arm.throttler.*
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.utils.awaitOne
@@ -79,6 +76,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchSubscriptions, Unit).awaitOne()
             }
             Unit
+        } catch (e: AzureRetryTaskException) {
+            Unit
         } catch (e: Exception) {
             val message = "Failed to get list of groups: " + e.message
             LOG.debug(message, e)
@@ -89,7 +88,20 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>) = runBlocking {
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
 
-        val parameter = FetchInstancesTaskParameter(myServerId, myProfileId, images.map { FetchInstancesTaskImageDescriptor(it.id, it.imageDetails) })
+        val parameter = FetchInstancesTaskParameter(
+                myServerId,
+                myProfileId,
+                images.map {
+                    val imageDetails = it.imageDetails
+                    FetchInstancesTaskImageDescriptor(it.id,
+                            FetchInstancesTaskCloudImageDetails(
+                                    imageDetails.vmPublicIp,
+                                    imageDetails.instanceId,
+                                    imageDetails.sourceId,
+                                    imageDetails.target,
+                                    imageDetails.isVmInstance(),
+                                    getResourceGroup(imageDetails, "")))
+                }.sortedBy { it.imageId }.toTypedArray())
 
         try {
             val instanceDescriptorMap = withContext(Dispatchers.IO) {
@@ -99,14 +111,14 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             }
 
             LOG.debug("Received list of instances")
-            for(image in images) {
+            for (image in images) {
                 val map = hashMapOf<String, AbstractInstance>()
 
                 @Suppress("UNCHECKED_CAST")
                 imageMap[image] = map as Map<String, R>
 
                 val errors = arrayListOf<TypedCloudErrorInfo>()
-                for(instanceDescriptor in instanceDescriptorMap.getOrDefault(image.id, emptyList())) {
+                for (instanceDescriptor in instanceDescriptorMap.getOrDefault(image.id, emptyList())) {
                     val instance = AzureInstance(instanceDescriptor.name)
                     instance.properties = instanceDescriptor.tags
                     instanceDescriptor.powerState?.let { instance.setPowerState(it) }
@@ -116,10 +128,11 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
                     map[instance.name] = instance
 
-                    instanceDescriptor.error?.let {errors.add(it) }
+                    instanceDescriptor.error?.let { errors.add(it) }
                 }
                 image.updateErrors(*errors.toTypedArray())
             }
+        } catch (e: AzureRetryTaskException) {
         } catch (t: Throwable) {
             val message = "Failed to get list of virtual machines: " + t.message
             LOG.debug(message, t)
@@ -153,6 +166,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             LOG.debug("Received map of resource groups")
 
             resourceGroupMap
+        } catch(e: AzureRetryTaskException) {
+            emptyMap<String, String>()
         } catch (e: Throwable) {
             val message = "Failed to get list of resource groups: ${e.message}"
             LOG.debug(message, e)
@@ -180,6 +195,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             }
             LOG.debug("Received list of vm instances")
             vmInstanceMap
+        } catch(e : AzureRetryTaskException) {
+            emptyMap<String, String>()
         } catch (e: Throwable) {
             val message = "Failed to get list of instances: ${e.message}"
             LOG.debug(message, e)
@@ -208,6 +225,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
             val image = images.first { it.id.equals(imageId, ignoreCase = true) }
             image.name
+        } catch (e : AzureRetryTaskException) {
+            ""
         } catch (e: Throwable) {
             val message = "Failed to get image $imageId: ${e.message}"
             LOG.debug(message, e)
@@ -236,6 +255,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                             { it.id },
                             { listOf(it.name, it.osType.toString()) }
                     )
+        } catch (e: AzureRetryTaskException) {
+            emptyMap<String, List<String>>()
         } catch (e: Throwable) {
             val message = "Failed to get list of images: ${e.message}"
             LOG.debug(message, e)
@@ -972,7 +993,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 withContext(Dispatchers.IO) {
                     val services = myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchServices, region)
                             .awaitOne()
-                    for(service in services) {
+                    for (service in services) {
                         SERVICE_TYPES[service.namespace]?.let {
                             val resourceTypeSet = it.intersect(service.resourceTypes)
                             if (resourceTypeSet.isNotEmpty()) {
@@ -984,6 +1005,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 LOG.debug("Received list of services")
 
                 result
+            } catch( e: AzureRetryTaskException) {
+                emptyMap<String, Set<String>>()
             } catch (e: Throwable) {
                 val message = "Failed to get list of services: " + e.message
                 LOG.debug(message, e)

@@ -52,5 +52,5 @@ abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerCacheab
         myCache.set(newCache)
     }
 
-    private fun createCache() = CacheBuilder.newBuilder().expireAfterWrite(myTimeoutInSeconds.get(), TimeUnit.SECONDS).build<P, T>()
+    private fun createCache() = CacheBuilder.newBuilder().expireAfterWrite(myTimeoutInSeconds.get(), TimeUnit.SECONDS).recordStats().build<P, T>()
 }

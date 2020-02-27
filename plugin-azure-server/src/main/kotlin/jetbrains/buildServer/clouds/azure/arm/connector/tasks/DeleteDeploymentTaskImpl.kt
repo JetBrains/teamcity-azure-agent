@@ -41,7 +41,13 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTask<Azure, DeleteDeploymentTaskP
                     LOG.debug("Deployment ${parameter.name} in group ${parameter.resourceGroupName} was not found", it)
                     Observable.empty()
                 }
-                .doOnNext{
+                .doOnNext {
+                    if (it == null) {
+                        LOG.debug("Deleting deployment error. Could not find deployment ${parameter.name} in group ${parameter.resourceGroupName}")
+                    }
+                }
+                .filter { it != null }
+                .doOnNext {
                     LOG.debug("Deleting deployment ${it.name()} in group ${it.resourceGroupName()}. Provisioning state ${it.provisioningState()}")
                     if (it.provisioningState().equals(PROVISIONING_STATE_CANCELLED, ignoreCase = true)) {
                         LOG.debug("Deployment ${it.name()} in group ${it.resourceGroupName()} was canceled")

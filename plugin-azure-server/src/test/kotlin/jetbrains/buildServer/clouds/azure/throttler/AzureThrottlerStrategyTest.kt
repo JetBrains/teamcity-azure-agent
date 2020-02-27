@@ -30,6 +30,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
     private var enableAggressiveThrottlingWhenReachLimitInPercents: Int = 0
     private var resourceReservationInPercents: Int = 0
     private var randomTasksResourceReservationInPercents: Int = 0
+    private var delay : Long = 100L
 
     private lateinit var mockery: Mockery
     private lateinit var adapter: AzureThrottlerAdapter<Unit>
@@ -126,6 +127,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
                 object : Expectations() {
                     init {
                         oneOf(task).resetCache(AzureThrottlingSource.Throttler)
+                        oneOf(task).enableRetryOnThrottle()
                     }
                 }
         )
@@ -173,10 +175,26 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
     }
 
     @Test
-    fun shouldDoNothingWhenNotifyCompletedInNormalFlow() {
+    fun shouldDoNothingWhenNotifyCompletedInNormalFlowWithPreviousSuccessfullExecution() {
         // Given
         val instance = createInstance()
         instance.setContainer(container)
+
+        val flow = mockery.states("flow").startsAs("Initial")
+
+        mockery.checking(
+                object : Expectations() {
+                    init {
+                        oneOf(container).getTaskList()
+                        `when`(flow.`is`("Initial"))
+                        will(returnValue(tasks))
+                    }
+                }
+        )
+
+        instance.notifyCompleted()
+        mockery.assertIsSatisfied()
+        flow.become("Normal")
 
         // When
         instance.notifyCompleted()
@@ -263,7 +281,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
 
         mockery.checking(object : Expectations() {
             init {
-                oneOf(adapter).setThrottlerTime(0)
+                oneOf(adapter).setThrottlerTime(delay)
             }
         })
 
@@ -316,12 +334,74 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         mockery.assertIsSatisfied()
     }
 
+    fun shouldNotSetThrottlerTimeWhenSuspended() {
+        // Given
+        enableAggressiveThrottlingWhenReachLimitInPercents = 0
+
+        val instance = createInstance()
+        instance.setContainer(container)
+
+        val flow = mockery.states("flow").startsAs("Normal")
+
+        mockery.checking(
+                object : Expectations() {
+                    init {
+                        oneOf(container).getTaskList()
+                        `when`(flow.`is`("Normal"))
+                        will(returnValue(tasks))
+                    }
+                }
+        )
+
+        instance.notifyRateLimitReached(delay)
+        mockery.assertIsSatisfied()
+        flow.become("Suspended")
+
+        // When
+        instance.applyTaskChanges()
+
+        // Then
+        mockery.assertIsSatisfied()
+    }
+
+    fun shouldNotSetTimeoutForPeriodicalTasks() {
+        // Given
+        randomTasksResourceReservationInPercents = 50
+        enableAggressiveThrottlingWhenReachLimitInPercents = 100
+
+        val instance = createInstance()
+        instance.setContainer(container)
+
+        val flow = mockery.states("flow").startsAs("Normal")
+
+        mockery.checking(
+                object : Expectations() {
+                    init {
+                        allowing(container).getTaskList()
+                        `when`(flow.`is`("Normal"))
+                        will(returnValue(tasks))
+                    }
+                }
+        )
+
+        instance.notifyRateLimitReached(delay)
+        mockery.assertIsSatisfied()
+        flow.become("Suspended")
+
+        // When
+        instance.applyTaskChanges()
+
+        // Then
+        mockery.assertIsSatisfied()
+    }
+
     private fun createInstance() : AzureThrottlerStrategyImpl<Unit, String> {
         return AzureThrottlerStrategyImpl(
                 adapter,
                 randomTasksResourceReservationInPercents,
                 resourceReservationInPercents,
-                enableAggressiveThrottlingWhenReachLimitInPercents)
+                enableAggressiveThrottlingWhenReachLimitInPercents,
+                delay)
     }
 
     @DataProvider
@@ -329,14 +409,14 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         //defaultReads: Long, remainingReads: Long, aggressiveLimits: Int, windowInMs: Long, expectedTime: Long
         return arrayOf(
                 arrayOf(0, 0, 0, 1000, 1000),
-                arrayOf(0, 0, 0, 0, 0),
+                arrayOf(0, 0, 0, 0, 100),
                 arrayOf(20, 0, 0, 1234, 1234),
                 arrayOf(20, 0, 100, 1234, 1234),
 
                 arrayOf(10, 1, 90, 1234, 1234),
                 arrayOf(20, 2, 90, 1234, 1234/2),
-                arrayOf(20, 2, 100, 1234, 0),
-                arrayOf(20, 20, 90, 1234, 0)
+                arrayOf(20, 2, 100, 1234, 100),
+                arrayOf(20, 20, 90, 1234, 100)
         )
     }
 

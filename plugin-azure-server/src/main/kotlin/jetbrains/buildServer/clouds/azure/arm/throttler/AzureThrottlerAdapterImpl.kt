@@ -103,12 +103,17 @@ class AzureThrottlerAdapterImpl (
     }
 
     override fun notifyRemainingReads(value: Long?) {
-        if (value == null) return
-
-        if (myRemainingReads.get() < value) {
-            myWindowStartTime.set(LocalDateTime.now(Clock.systemUTC()))
+        if (value == null) {
+            val sequenceLength = myInterceptor.getRequestsSequenceLength()
+            if (sequenceLength != null) {
+                myRemainingReads.getAndUpdate { max(0, it - sequenceLength) }
+            }
+        } else {
+            if (myRemainingReads.get() < value) {
+                myWindowStartTime.set(LocalDateTime.now(Clock.systemUTC()))
+            }
+            myRemainingReads.set(value)
+            myDefaultReads.getAndUpdate { max(it, myRemainingReads.get()) }
         }
-        myRemainingReads.set(value)
-        myDefaultReads.getAndUpdate { max(it, myRemainingReads.get()) }
     }
 }

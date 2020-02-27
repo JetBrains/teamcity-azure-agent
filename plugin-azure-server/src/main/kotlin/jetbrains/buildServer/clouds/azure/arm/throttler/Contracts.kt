@@ -58,6 +58,8 @@ interface AzureThrottler<A, I> {
 
     fun <P, T> executeTask(taskId: I, parameters: P) : Single<T>
     fun <P, T> executeTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P) : Single<T>
+
+    fun isSuspended() : Boolean
 }
 
 interface AzureThrottlerStrategyTaskContainer<I> {
@@ -122,7 +124,7 @@ interface AzureThrottlerAdapterRemainingReadsNotifier {
 
 interface AzureThrottlerTaskCompletionResultNotifier {
     fun notifyRateLimitReached(retryAfterTimeoutInSeconds: Long)
-    fun notifyCompleted()
+    fun notifyCompleted(performedRequests: Boolean)
 }
 
 class AzureRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)

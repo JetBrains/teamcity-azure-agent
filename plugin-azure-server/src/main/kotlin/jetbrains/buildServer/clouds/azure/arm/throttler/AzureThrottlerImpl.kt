@@ -73,8 +73,8 @@ class AzureThrottlerImpl<A, I>(
         return executeTask(taskDescriptor.taskId, parameters)
     }
 
-    override fun notifyCompleted() {
-        throttlerStrategy.notifyCompleted()
+    override fun notifyCompleted(performedRequests: Boolean) {
+        throttlerStrategy.notifyCompleted(performedRequests)
     }
 
     override fun notifyRateLimitReached(retryAfterTimeoutInSeconds: Long) {
@@ -83,6 +83,10 @@ class AzureThrottlerImpl<A, I>(
 
     override fun getTaskList(): List<AzureThrottlerStrategyTask<I>> {
         return myTaskQueues.asSequence().map{ it.value }.toList()
+    }
+
+    override fun isSuspended(): Boolean {
+        return throttlerStrategy.getFlow() == AzureThrottlerFlow.Suspended
     }
 
     private fun executeNextTask() {

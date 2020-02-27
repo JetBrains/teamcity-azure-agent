@@ -90,7 +90,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         }
 
         var timeToStart = LocalDateTime.now(Clock.systemUTC())
-        if (flow == AzureThrottlerFlow.Suspended) {
+        if (flow == AzureThrottlerFlow.Suspended && myEnableRetryOnThrottle.get()) {
             timeToStart = timeToStart.plusSeconds(myCacheTimeoutInSeconds.get())
         }
 
@@ -164,7 +164,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
                 .doOnSuccess {
                     myLastUpdatedDateTime.set(LocalDateTime.now(Clock.systemUTC()))
                     myCallHistory.addExecutionCall(it.requestsCount)
-                    taskCompletionResultNotifier.notifyCompleted()
+                    taskCompletionResultNotifier.notifyCompleted((it.requestsCount ?: 0) > 0)
 
                     if (task is AzureThrottlerCacheableTask<A, P, T>) {
                         task.setToCache(item.parameter, it.value)

@@ -43,7 +43,10 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
             exceptions.add(CheckedCloudException("Image ID is empty"))
         } else {
             try {
-                connector.getImageName(imageId)
+                val imageName = connector.getImageName(imageId)
+                if (imageName.isNullOrEmpty() && connector.isSuspended()) {
+                    exceptions.add(CheckedCloudException("Could not update image status. Please wait"))
+                }
             } catch (e: Throwable) {
                 LOG.infoAndDebugDetails("Failed to get image ID $imageId", e)
                 exceptions.add(e)

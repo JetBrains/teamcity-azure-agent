@@ -154,7 +154,7 @@ class AzureThrottlerInterceptor(
         private const val RETRY_AFTER = "Retry-After"
         private const val TRY_AGAIN_AFTER_MINUTES_PATTERN = "try again after '([0-9]*)' minutes"
         private const val TRY_AGAIN_AFTER_SECONDS_PATTERN = "try again after '([0-9]*)' seconds"
-        private const val DEFAULT_RETRY_AFTER_SECONDS = 60L
+        private const val DEFAULT_RETRY_AFTER_SECONDS = 5 * 60L
         private const val RETRY_AFTER_STATUS_CODE = 429
     }
 }

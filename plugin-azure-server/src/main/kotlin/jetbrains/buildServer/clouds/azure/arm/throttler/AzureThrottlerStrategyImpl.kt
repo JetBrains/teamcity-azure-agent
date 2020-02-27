@@ -111,10 +111,10 @@ class AzureThrottlerStrategyImpl<A, I>(
         }
     }
 
-    override fun notifyCompleted() {
+    override fun notifyCompleted(performedRequests: Boolean) {
         myLock.lock();
         try {
-            if (!mySuccessfullExecutionFlag.get()) {
+            if (performedRequests && !mySuccessfullExecutionFlag.get()) {
                 mySuccessfullExecutionFlag.set(true)
 
                 val taskList = taskContainer.getTaskList()

@@ -134,7 +134,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         tasks.add(task)
 
         // When
-        instance.notifyCompleted()
+        instance.notifyCompleted(true)
 
         // Then
         Assert.assertEquals(instance.getFlow(), AzureThrottlerFlow.Normal)
@@ -192,12 +192,12 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
                 }
         )
 
-        instance.notifyCompleted()
+        instance.notifyCompleted(true)
         mockery.assertIsSatisfied()
         flow.become("Normal")
 
         // When
-        instance.notifyCompleted()
+        instance.notifyCompleted(true)
 
         // Then
         Assert.assertEquals(instance.getFlow(), AzureThrottlerFlow.Normal)

@@ -70,4 +70,6 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
     suspend fun getServices(region: String): Map<String, Set<String>>
 
     suspend fun deleteVmBlobs(instance: AzureCloudInstance)
+
+    fun isSuspended() : Boolean
 }

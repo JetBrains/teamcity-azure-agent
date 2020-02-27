@@ -104,7 +104,11 @@ suspend fun AzureCloudImageDetails.checkResourceGroup(connector: AzureApiConnect
         if (groupId == null) {
             errors.add(CheckedCloudException("Resource group name is empty"))
         } else if (!connector.getResourceGroups().containsKey(groupId)) {
-            errors.add(CheckedCloudException("Resource group \"$groupId\" does not exist"))
+            if (connector.isSuspended()) {
+                errors.add(CheckedCloudException("Could not update resource groups. Please wait"))
+            } else {
+                errors.add(CheckedCloudException("Resource group \"$groupId\" does not exist"))
+            }
         }
     }
 }
@@ -112,10 +116,14 @@ suspend fun AzureCloudImageDetails.checkResourceGroup(connector: AzureApiConnect
 suspend fun AzureCloudImageDetails.checkServiceExistence(serviceName: String, connector: AzureApiConnector, errors: MutableList<Throwable>) {
     val services = connector.getServices(region!!)
     if (!services.containsKey(serviceName)) {
-        errors.add(CheckedCloudException(
-                "\"$serviceName\" resource provider is not available in $region region.\n" +
-                "Ensure that you have registered \"$serviceName\" in your subscription, and it is available in $region region:\n" +
-                "https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-manager-supported-services"
-        ))
+        if (connector.isSuspended()) {
+            errors.add(CheckedCloudException("Could not update services existence. Please wait"))
+        } else {
+            errors.add(CheckedCloudException(
+                    "\"$serviceName\" resource provider is not available in $region region.\n" +
+                            "Ensure that you have registered \"$serviceName\" in your subscription, and it is available in $region region:\n" +
+                            "https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-manager-supported-services"
+            ))
+        }
     }
 }

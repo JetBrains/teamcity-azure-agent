@@ -45,8 +45,8 @@ object AzureThrottlerFactory {
 
         val throttler = AzureThrottlerImpl(azureAdapter, readsStrategy, Schedulers.immediate())
 
-        val randomTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT, 60)
-        val periodicalTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_PERIODICAL_TASK_CACHE_TIMEOUT, 120)
+        val randomTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT, 120)
+        val periodicalTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_PERIODICAL_TASK_CACHE_TIMEOUT, 240)
 
         return throttler
                 .registerTask(AzureThrottlerReadTasks.FetchResourceGroups,

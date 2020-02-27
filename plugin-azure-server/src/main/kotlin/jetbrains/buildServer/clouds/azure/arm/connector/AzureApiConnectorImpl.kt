@@ -17,10 +17,6 @@
 package jetbrains.buildServer.clouds.azure.arm.connector
 
 import com.intellij.openapi.diagnostic.Logger
-import com.microsoft.azure.AzureEnvironment
-import com.microsoft.azure.credentials.ApplicationTokenCredentials
-import com.microsoft.azure.credentials.MSICredentials
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
 import com.microsoft.azure.storage.CloudStorageAccount
 import com.microsoft.azure.storage.StorageCredentialsAccountAndKey
@@ -64,7 +60,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     private var myServerId: String? = null
     private var myProfileId: String? = null
     private val deploymentLocks = ConcurrentHashMap<String, Mutex>()
-    private val servicesByRegion = ConcurrentHashMap<String, Map<String, Set<String>>>()
 
     init {
         myAzureRequestsThrottler = AzureRequestThrottlerCache.getOrCreateThrottler(params)
@@ -321,6 +316,12 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         } else {
             createVm(instance, userData)
         }
+
+
+    }
+
+    override fun isSuspended(): Boolean {
+        return myAzureRequestsThrottler.isUpdateOperationSuspended() || myAzureRequestsThrottler.isReadOperationSuspended()
     }
 
     private suspend fun createVm(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
@@ -987,31 +988,29 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     }
 
     override suspend fun getServices(region: String): Map<String, Set<String>> = coroutineScope {
-        servicesByRegion.getOrPut(region) {
-            try {
-                val result = ConcurrentHashMap<String, Set<String>>()
-                withContext(Dispatchers.IO) {
-                    val services = myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchServices, region)
-                            .awaitOne()
-                    for (service in services) {
-                        SERVICE_TYPES[service.namespace]?.let {
-                            val resourceTypeSet = it.intersect(service.resourceTypes)
-                            if (resourceTypeSet.isNotEmpty()) {
-                                result[service.namespace] = resourceTypeSet
-                            }
+        try {
+            val result = ConcurrentHashMap<String, Set<String>>()
+            withContext(Dispatchers.IO) {
+                val services = myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchServices, region)
+                        .awaitOne()
+                for (service in services) {
+                    SERVICE_TYPES[service.namespace]?.let {
+                        val resourceTypeSet = it.intersect(service.resourceTypes)
+                        if (resourceTypeSet.isNotEmpty()) {
+                            result[service.namespace] = resourceTypeSet
                         }
                     }
                 }
-                LOG.debug("Received list of services")
-
-                result
-            } catch( e: AzureRetryTaskException) {
-                emptyMap<String, Set<String>>()
-            } catch (e: Throwable) {
-                val message = "Failed to get list of services: " + e.message
-                LOG.debug(message, e)
-                throw CloudException(message, e)
             }
+            LOG.debug("Received list of services")
+
+            result
+        } catch( e: AzureRetryTaskException) {
+            emptyMap<String, Set<String>>()
+        } catch (e: Throwable) {
+            val message = "Failed to get list of services: " + e.message
+            LOG.debug(message, e)
+            throw CloudException(message, e)
         }
     }
 

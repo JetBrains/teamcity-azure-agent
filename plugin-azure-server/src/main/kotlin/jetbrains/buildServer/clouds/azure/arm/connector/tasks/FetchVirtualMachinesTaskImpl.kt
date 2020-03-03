@@ -28,7 +28,7 @@ data class FetchVirtualMachinesTaskVirtualMachineDescriptor(
         val osUnmanagedDiskVhdUri: String?)
 
 class FetchVirtualMachinesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<FetchVirtualMachinesTaskVirtualMachineDescriptor>>() {
-    override fun create(api: Azure, parameter: Unit): Single<List<FetchVirtualMachinesTaskVirtualMachineDescriptor>> {
+    override fun createQuery(api: Azure, parameter: Unit): Single<List<FetchVirtualMachinesTaskVirtualMachineDescriptor>> {
         return api
                 .virtualMachines()
                 .listAsync()

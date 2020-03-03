@@ -21,6 +21,7 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.clouds.azure.arm.throttler.ThrottlerExecutionTaskException
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import kotlinx.coroutines.coroutineScope
@@ -38,6 +39,8 @@ class AzureInstanceHandler(private val connector: AzureApiConnector) : AzureHand
                 if (!connector.hasInstance(details.instanceId)) {
                     exceptions.add(CheckedCloudException("Virtual machine ${details.sourceId} is not found"))
                 }
+            } catch (e: ThrottlerExecutionTaskException) {
+                exceptions.add(CheckedCloudException("Could not update virtual machines list. Please wait"))
             } catch (e: Throwable) {
                 LOG.infoAndDebugDetails("Failed to get list of virtual machines", e)
                 exceptions.add(e)

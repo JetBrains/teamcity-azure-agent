@@ -18,39 +18,62 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.google.common.cache.CacheBuilder
 import com.microsoft.azure.management.Azure
+import jetbrains.buildServer.serverSide.TeamCityProperties
+import rx.Single
+import java.time.Clock
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
-abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerCacheableTask<Azure, P, T> {
+abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerTaskBaseImpl<Azure, P, T>(), AzureThrottlerCacheableTask<Azure, P, T> {
     private val myTimeoutInSeconds = AtomicLong(60)
-    private val myCache = AtomicReference(createCache())
+    private val myCache = createCache()
 
-    override fun getFromCache(flow: AzureThrottlerFlow, parameter: P): T? {
-        return myCache.get().getIfPresent(parameter)
-    }
-
-    override fun setToCache(parameter: P, value: T?) {
-        if (value != null) {
-            myCache.get().put(parameter, value)
-        } else {
-            myCache.get().invalidate(parameter)
-        }
+    override fun getFromCache(parameter: P): T? {
+        return myCache.getIfPresent(parameter)?.value
     }
 
     override fun invalidateCache() {
-        myCache.get().invalidateAll()
+        myCache.invalidateAll()
     }
 
     override fun setCacheTimeout(timeoutInSeconds: Long) {
-        if (myTimeoutInSeconds.get() == timeoutInSeconds) return
-
         myTimeoutInSeconds.set(timeoutInSeconds)
-        val newCache = createCache()
-        newCache.putAll(myCache.get().asMap())
-
-        myCache.set(newCache)
     }
 
-    private fun createCache() = CacheBuilder.newBuilder().expireAfterWrite(myTimeoutInSeconds.get(), TimeUnit.SECONDS).recordStats().build<P, T>()
+    override fun create(api: Azure, parameter: P): Single<T> {
+        return createQuery(api, parameter)
+                .doOnSuccess {
+                    myCache.put(parameter, CacheValue(it, LocalDateTime.now(Clock.systemUTC())))
+                }
+    }
+
+    override fun needCacheUpdate(parameter: P): Boolean {
+        val lastUpdatedDateTime = myCache.getIfPresent(parameter)?.lastUpdatedDateTime
+        return lastUpdatedDateTime == null || lastUpdatedDateTime.plusSeconds(myTimeoutInSeconds.get()) < LocalDateTime.now(Clock.systemUTC())
+    }
+
+    override fun checkThrottleTime(parameter: P): Boolean {
+        val lastUpdatedDateTime = myCache.getIfPresent(parameter)?.lastUpdatedDateTime
+        return lastUpdatedDateTime == null || lastUpdatedDateTime.plusSeconds(getTaskThrottleTime()) < LocalDateTime.now(Clock.systemUTC())
+    }
+
+    override fun areParametersEqual(parameter: P, other: P): Boolean {
+        return parameter == other
+    }
+
+    private fun getTaskThrottleTime(): Long {
+        return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC, 10)
+    }
+
+    protected abstract fun createQuery(api: Azure, parameter: P): Single<T>
+
+    data class CacheValue<T>(val value: T, val lastUpdatedDateTime : LocalDateTime)
+
+    private fun createCache() = CacheBuilder
+            .newBuilder()
+            .expireAfterWrite(TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_CACHE_TIMEOUT_SEC, 32 * 60), TimeUnit.SECONDS)
+            .build<P, CacheValue<T>>()
 }

@@ -63,7 +63,7 @@ class AzureThrottlerInterceptor(
         if (response.code() == RETRY_AFTER_STATUS_CODE) {
             val retryAfterSeconds = getRetryAfterSeconds(response)
             LOG.info("[$name] Azure Resource Manager read/write per hour limit reached. Will retry in: $retryAfterSeconds seconds")
-            throw AzureRateLimitReachedException(retryAfterSeconds ?: DEFAULT_RETRY_AFTER_SECONDS)
+            throw ThrottlerRateLimitReachedException(retryAfterSeconds ?: DEFAULT_RETRY_AFTER_SECONDS)
         }
         return response
     }

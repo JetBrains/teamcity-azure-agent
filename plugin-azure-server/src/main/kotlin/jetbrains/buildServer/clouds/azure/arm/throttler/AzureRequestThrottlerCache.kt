@@ -32,6 +32,7 @@ interface AzureRequestThrottler {
     val subscriptionId : String?
 
     fun <P, T> executeReadTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P) : Single<T>;
+    fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P) : Single<T>;
     fun <P, T> executeUpdateTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerActionTasks.Values, P, T>, parameters: P) : Single<T>;
 
     fun isReadOperationSuspended(): Boolean
@@ -96,6 +97,10 @@ object AzureRequestThrottlerCache {
 
         override fun <P, T> executeReadTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {
             return myReadsThrottler.executeTask(taskDescriptor, parameters);
+        }
+
+        override fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {
+            return myReadsThrottler.executeTaskWithTimeout(taskDescriptor, parameters);
         }
 
         override fun <P, T> executeUpdateTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerActionTasks.Values, P, T>, parameters: P): Single<T> {

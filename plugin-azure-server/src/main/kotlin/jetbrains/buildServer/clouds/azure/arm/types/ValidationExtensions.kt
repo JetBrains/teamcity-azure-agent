@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.clouds.azure.arm.throttler.ThrottlerExecutionTaskException
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import java.util.*
@@ -101,29 +102,29 @@ fun AzureCloudImageDetails.checkTemplate(exceptions: ArrayList<Throwable>) {
 
 suspend fun AzureCloudImageDetails.checkResourceGroup(connector: AzureApiConnector, errors: MutableList<Throwable>) {
     if (target == AzureCloudDeployTarget.SpecificGroup) {
-        if (groupId == null) {
-            errors.add(CheckedCloudException("Resource group name is empty"))
-        } else if (!connector.getResourceGroups().containsKey(groupId)) {
-            if (connector.isSuspended()) {
-                errors.add(CheckedCloudException("Could not update resource groups. Please wait"))
-            } else {
+        try {
+            if (groupId == null) {
+                errors.add(CheckedCloudException("Resource group name is empty"))
+            } else if (!connector.getResourceGroups().containsKey(groupId)) {
                 errors.add(CheckedCloudException("Resource group \"$groupId\" does not exist"))
             }
+        } catch (e : ThrottlerExecutionTaskException) {
+            errors.add(CheckedCloudException("Could not update resource groups. Please wait"))
         }
     }
 }
 
 suspend fun AzureCloudImageDetails.checkServiceExistence(serviceName: String, connector: AzureApiConnector, errors: MutableList<Throwable>) {
-    val services = connector.getServices(region!!)
-    if (!services.containsKey(serviceName)) {
-        if (connector.isSuspended()) {
-            errors.add(CheckedCloudException("Could not update services existence. Please wait"))
-        } else {
+    try {
+        val services = connector.getServices(region!!)
+        if (!services.containsKey(serviceName)) {
             errors.add(CheckedCloudException(
                     "\"$serviceName\" resource provider is not available in $region region.\n" +
                             "Ensure that you have registered \"$serviceName\" in your subscription, and it is available in $region region:\n" +
                             "https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-manager-supported-services"
             ))
         }
+    } catch (e : ThrottlerExecutionTaskException) {
+        errors.add(CheckedCloudException("Could not update services existence. Please wait"))
     }
 }

@@ -30,7 +30,7 @@ data class CustomImageTaskImageDescriptor(
         val osType: OperatingSystemTypes)
 
 class FetchCustomImagesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<CustomImageTaskImageDescriptor>>() {
-    override fun create(api: Azure, parameter: Unit): Single<List<CustomImageTaskImageDescriptor>> {
+    override fun createQuery(api: Azure, parameter: Unit): Single<List<CustomImageTaskImageDescriptor>> {
         return api
                 .virtualMachineCustomImages()
                 .listAsync()

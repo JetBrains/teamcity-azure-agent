@@ -19,6 +19,7 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Observable
 import rx.Single
 
@@ -26,7 +27,7 @@ data class StartVirtualMachineTaskParameter(
         val groupId: String,
         val name: String)
 
-class StartVirtualMachineTaskImpl : AzureThrottlerTask<Azure, StartVirtualMachineTaskParameter, Unit> {
+class StartVirtualMachineTaskImpl : AzureThrottlerTaskBaseImpl<Azure, StartVirtualMachineTaskParameter, Unit>() {
     override fun create(api: Azure, parameter: StartVirtualMachineTaskParameter): Single<Unit> {
         return api
                 .virtualMachines()

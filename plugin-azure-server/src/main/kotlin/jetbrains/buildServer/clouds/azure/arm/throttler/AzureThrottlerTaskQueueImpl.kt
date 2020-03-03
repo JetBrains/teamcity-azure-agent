@@ -28,6 +28,7 @@ import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -48,6 +49,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     private val myCallHistory = AzureThrottlerTaskQueueCallHistoryImpl()
     private var myTaskTimeExecutionType = AtomicReference(taskExecutionTimeType)
     private val myEnableRetryOnThrottle = AtomicBoolean(false)
+    private val myTaskQueueId = AtomicLong(0)
 
     init {
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
@@ -79,13 +81,33 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         myCallHistory.addRequestCall()
 
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
-            if (flow == AzureThrottlerFlow.Normal && !isTimeToUpdate() || flow == AzureThrottlerFlow.Suspended) {
-                LOG.debug("Trying to get data from cache for task $taskId, mode $flow.")
-                val cacheValue = task.getFromCache(flow, parameters)
-                if (cacheValue != null) {
-                    LOG.debug("Returning value from cache for task $taskId, mode $flow.")
-                    return Single.just(AzureThrottlerAdapterResult(cacheValue, null, true))
+            LOG.debug("Trying to get data from cache for task $taskId, mode $flow.")
+            val cacheValue = task.getFromCache(parameters)
+            if (cacheValue != null) {
+                if (flow == AzureThrottlerFlow.Normal && isTimeToUpdate()) {
+                    LOG.debug("Prefetching data for task $taskId.")
+                    val subject = PublishSubject.create<AzureThrottlerAdapterResult<T>>()
+                    val subscriptionList = SubscriptionList()
+                    subscriptionList.add(
+                            subject
+                                    .doAfterTerminate {
+                                        LOG.debug("Prefetching data for task $taskId done.")
+                                        subscriptionList.clear()
+                                    }
+                                    .subscribe()
+                    )
+                    myTaskQueue.add(QueueItem(
+                            myTaskQueueId.incrementAndGet(),
+                            LocalDateTime.now(Clock.systemUTC()),
+                            parameters,
+                            true,
+                            true,
+                            subject,
+                            0,
+                            LocalDateTime.now(Clock.systemUTC())))
                 }
+                LOG.debug("Returning value from cache for task $taskId, mode $flow.")
+                return Single.just<AzureThrottlerAdapterResult<T>>(AzureThrottlerAdapterResult(cacheValue, null, true))
             }
         }
 
@@ -98,6 +120,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
 
         val subject = PublishSubject.create<AzureThrottlerAdapterResult<T>>()
         myTaskQueue.add(QueueItem(
+                myTaskQueueId.incrementAndGet(),
                 timeToStart,
                 parameters,
                 false,
@@ -141,7 +164,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
 
     private fun execute(item: QueueItem<T, P>) {
         val itemsToCombine = myTaskQueue
-                .filter { it == item || it.canBeCombined && it.parameter == item.parameter }
+                .filter { it == item || it.canBeCombined && task.areParametersEqual(it.parameter, item.parameter) }
 
         myTaskQueue.removeAll(itemsToCombine)
 
@@ -157,6 +180,25 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
                     .subscribe()
         )
 
+        val hasForceItem = itemsToCombine.any { it.force }
+        if (task is AzureThrottlerCacheableTask<A, P, T> && !hasForceItem) {
+
+            if (hasForceItem && !task.checkThrottleTime(item.parameter)) {
+                LOG.debug("Force update for task cached task $taskId.")
+            } else {
+                val cacheValue = task.getFromCache(item.parameter)
+                if (cacheValue != null && !task.needCacheUpdate(item.parameter)) {
+                    LOG.debug("Updating queue items from cache for task $taskId. Count: ${itemsToCombine.count()}")
+                    var subscription = Observable
+                            .just<AzureThrottlerAdapterResult<T>>(AzureThrottlerAdapterResult(cacheValue, null, true))
+                            .delaySubscription(10, TimeUnit.MILLISECONDS)
+                            .subscribe(resultSubject)
+                    subjectSubscriptions.add(subscription)
+                    return
+                }
+            }
+        }
+
         val resultSubscription = SubscriptionList()
         resultSubscription.add(adapter
                 .execute { task.create(adapter.api, item.parameter) }
@@ -166,27 +208,25 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
                     myCallHistory.addExecutionCall(it.requestsCount)
                     taskCompletionResultNotifier.notifyCompleted((it.requestsCount ?: 0) > 0)
 
-                    if (task is AzureThrottlerCacheableTask<A, P, T>) {
-                        task.setToCache(item.parameter, it.value)
-                    }
+                    postProcessQueue(item, it, subjectSubscriptions)
                 }
                 .onErrorResumeNext { error ->
-                    if (error is AzureRateLimitReachedException) {
+                    if (error is ThrottlerRateLimitReachedException) {
                         taskCompletionResultNotifier.notifyRateLimitReached(error.retryAfterTimeoutInSeconds)
 
                         val taskLiveTime = LocalDateTime.now(Clock.systemUTC()).toEpochSecond(ZoneOffset.UTC) - item.createdDate.toEpochSecond(ZoneOffset.UTC)
                         if (taskLiveTime >= getMaxTaskLiveTimeInSeconds()) {
-                            val throttlerError = AzureMaxTaskLiveException("Task $taskId has not been executed for $taskLiveTime sec", error)
+                            val throttlerError = ThrottlerMaxTaskLiveException("Task $taskId has not been executed for $taskLiveTime sec", error)
                             LOG.debug(throttlerError)
                             return@onErrorResumeNext Single.error<AzureThrottlerAdapterResult<T>>(throttlerError)
                         } else if (maxAttemptNo >= getMaxRetryCount()) {
-                            val throttlerError = AzureMaxRetryCountException("Attempt count for task $taskId exceeded", error)
+                            val throttlerError = ThrottlerMaxRetryCountException("Attempt count for task $taskId exceeded", error)
                             LOG.debug(throttlerError)
                             return@onErrorResumeNext Single.error<AzureThrottlerAdapterResult<T>>(throttlerError)
                         } else {
                             if (task is AzureThrottlerCacheableTask<A, P, T>) {
                                 LOG.debug("Trying to get data from cache for task $taskId, mode ${AzureThrottlerFlow.Suspended}.")
-                                val cacheValue = task.getFromCache(AzureThrottlerFlow.Suspended, item.parameter)
+                                val cacheValue = task.getFromCache(item.parameter)
                                 if (cacheValue != null) {
                                     LOG.debug("Returning value from cache for task $taskId, mode ${AzureThrottlerFlow.Suspended}.")
                                     return@onErrorResumeNext Single.just<AzureThrottlerAdapterResult<T>>(AzureThrottlerAdapterResult(cacheValue, null, true))
@@ -196,6 +236,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
                             val timeToStart = LocalDateTime.now(Clock.systemUTC()).plusSeconds(error.retryAfterTimeoutInSeconds)
                             LOG.debug("Retry task $taskId due to Rate limit exception. Attempt no: ${maxAttemptNo + 1}. Time to start: $timeToStart")
                             myTaskQueue.add(QueueItem(
+                                    myTaskQueueId.incrementAndGet(),
                                     timeToStart,
                                     item.parameter,
                                     item.force,
@@ -214,6 +255,24 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
                 .subscribe(resultSubject))
     }
 
+    private fun postProcessQueue(item: QueueItem<T, P>, result: AzureThrottlerAdapterResult<T>, containerSubscription: SubscriptionList) {
+        val postProcessItems = myTaskQueue
+                .filter { it == item || it.canBeCombined && task.areParametersEqual(it.parameter, item.parameter) }
+
+        if (myTaskQueue.removeAll(postProcessItems)) {
+            LOG.debug("Post-processing queue items for task $taskId. Count: ${postProcessItems.count()}")
+
+            if (taskId == "FetchInstances") {
+                val x = task
+            }
+            var source = Observable
+                    .just<AzureThrottlerAdapterResult<T>>(result)
+                    .delaySubscription(10, TimeUnit.MILLISECONDS)
+
+            postProcessItems.map { source.subscribe(it.result) }.forEach { containerSubscription.add(it) }
+        }
+    }
+
     private fun getMaxTaskLiveTimeInSeconds(): Long {
         if (myEnableRetryOnThrottle.get())
             return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_MAX_TASK_LIVE_IN_SEC, 60 * 15)
@@ -229,6 +288,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     private fun isTimeToUpdate() = myLastUpdatedDateTime.get().plusSeconds(myCacheTimeoutInSeconds.get()) <= LocalDateTime.now(Clock.systemUTC())
 
     data class QueueItem<T, P>(
+            val id: Long,
             val timeToExecute: LocalDateTime,
             val parameter: P,
             val force: Boolean,

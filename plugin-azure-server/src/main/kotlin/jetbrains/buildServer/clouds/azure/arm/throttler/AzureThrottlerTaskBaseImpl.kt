@@ -14,21 +14,12 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure.arm.connector.tasks
+package jetbrains.buildServer.clouds.azure.arm.throttler
 
-import com.microsoft.azure.management.Azure
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Single
 
-class DeleteResourceGroupTaskImpl : AzureThrottlerTaskBaseImpl<Azure, String, Unit>() {
-    override fun create(api: Azure, parameter: String): Single<Unit> {
-        return api
-                .resourceGroups()
-                .deleteByNameAsync(parameter)
-                .toObservable<Unit>()
-                .defaultIfEmpty(Unit)
-                .toSingle()
+abstract class AzureThrottlerTaskBaseImpl<A, P, T> : AzureThrottlerTask<A, P, T> {
+    override fun areParametersEqual(parameter: P, other: P): Boolean {
+        return parameter == other
     }
 }
-

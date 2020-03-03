@@ -68,10 +68,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override fun test() = runBlocking {
         try {
             withContext(Dispatchers.IO) {
-                myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchSubscriptions, Unit).awaitOne()
+                myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchSubscriptions, Unit).awaitOne()
             }
             Unit
-        } catch (e: AzureRetryTaskException) {
+        } catch (e: ThrottlerExecutionTaskException) {
             Unit
         } catch (e: Exception) {
             val message = "Failed to get list of groups: " + e.message
@@ -100,7 +100,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
         try {
             val instanceDescriptorMap = withContext(Dispatchers.IO) {
-                myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchInstances, parameter)
+                myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchInstances, parameter)
                         .awaitOne()
                         .groupBy { it.imageId }
             }
@@ -127,7 +127,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 }
                 image.updateErrors(*errors.toTypedArray())
             }
-        } catch (e: AzureRetryTaskException) {
+        } catch (e: ThrottlerExecutionTaskException) {
         } catch (t: Throwable) {
             val message = "Failed to get list of virtual machines: " + t.message
             LOG.debug(message, t)
@@ -135,6 +135,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
         imageMap
     }
+
 
     @Suppress("UselessCallOnNotNull")
     override fun checkImage(image: AzureCloudImage) = runBlocking {
@@ -154,15 +155,15 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      */
     override suspend fun getResourceGroups() = coroutineScope {
         try {
-            val resourceGroupMap = withContext(Dispatchers.IO) {
-                myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchResourceGroups, Unit)
+            val resourceGroupMap =
+                myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchResourceGroups, Unit)
                         .awaitOne()
-            }
+
             LOG.debug("Received map of resource groups")
 
             resourceGroupMap
-        } catch(e: AzureRetryTaskException) {
-            emptyMap<String, String>()
+        } catch (e: ThrottlerExecutionTaskException) {
+            throw e
         } catch (e: Throwable) {
             val message = "Failed to get list of resource groups: ${e.message}"
             LOG.debug(message, e)
@@ -190,8 +191,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             }
             LOG.debug("Received list of vm instances")
             vmInstanceMap
-        } catch(e : AzureRetryTaskException) {
-            emptyMap<String, String>()
         } catch (e: Throwable) {
             val message = "Failed to get list of instances: ${e.message}"
             LOG.debug(message, e)
@@ -213,15 +212,15 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override suspend fun getImageName(imageId: String): String = coroutineScope {
         try {
             val images = withContext(Dispatchers.IO) {
-                myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchCustomImages, Unit)
+                myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchCustomImages, Unit)
                         .awaitOne()
             }
             LOG.debug("Received image $imageId")
 
             val image = images.first { it.id.equals(imageId, ignoreCase = true) }
             image.name
-        } catch (e : AzureRetryTaskException) {
-            ""
+        } catch (e: ThrottlerExecutionTaskException) {
+            throw e
         } catch (e: Throwable) {
             val message = "Failed to get image $imageId: ${e.message}"
             LOG.debug(message, e)
@@ -236,7 +235,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     override suspend fun getImages(region: String) = coroutineScope {
         try {
             val list = withContext(Dispatchers.IO) {
-                myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchCustomImages, Unit)
+                myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchCustomImages, Unit)
                         .awaitOne()
             }
             LOG.debug("Received list of images")
@@ -250,8 +249,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                             { it.id },
                             { listOf(it.name, it.osType.toString()) }
                     )
-        } catch (e: AzureRetryTaskException) {
-            emptyMap<String, List<String>>()
+        } catch (e: ThrottlerExecutionTaskException) {
+            throw e
         } catch (e: Throwable) {
             val message = "Failed to get list of images: ${e.message}"
             LOG.debug(message, e)
@@ -991,7 +990,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         try {
             val result = ConcurrentHashMap<String, Set<String>>()
             withContext(Dispatchers.IO) {
-                val services = myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchServices, region)
+                val services = myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchServices, region)
                         .awaitOne()
                 for (service in services) {
                     SERVICE_TYPES[service.namespace]?.let {
@@ -1005,8 +1004,8 @@ class AzureApiConnectorImpl(params: Map<String, String>)
             LOG.debug("Received list of services")
 
             result
-        } catch( e: AzureRetryTaskException) {
-            emptyMap<String, Set<String>>()
+        } catch (e: ThrottlerExecutionTaskException) {
+            throw e
         } catch (e: Throwable) {
             val message = "Failed to get list of services: " + e.message
             LOG.debug(message, e)

@@ -16,8 +16,6 @@
 
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
-import com.microsoft.azure.management.Azure
-import okhttp3.Interceptor
 import rx.Single
 import java.time.LocalDateTime
 
@@ -37,14 +35,16 @@ enum class AzureThrottlerFlow {
 }
 
 interface AzureThrottlerCacheableTask<A, P, T> : AzureThrottlerTask<A, P, T> {
-    fun getFromCache(flow: AzureThrottlerFlow, parameter: P): T?
-    fun setToCache(parameter: P, value: T?)
+    fun getFromCache(parameter: P): T?
     fun invalidateCache()
     fun setCacheTimeout(timeoutInSeconds: Long)
+    fun needCacheUpdate(parameter: P): Boolean
+    fun checkThrottleTime(parameter: P): Boolean
 }
 
 interface AzureThrottlerTask<A, P, T> {
     fun create(api: A, parameter: P): Single<T>
+    fun areParametersEqual(parameter: P, other: P): Boolean
 }
 
 interface AzureTaskDescriptor<A, I, P, T> {
@@ -58,6 +58,8 @@ interface AzureThrottler<A, I> {
 
     fun <P, T> executeTask(taskId: I, parameters: P) : Single<T>
     fun <P, T> executeTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P) : Single<T>
+
+    fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P) : Single<T>
 
     fun isSuspended() : Boolean
 }
@@ -127,8 +129,9 @@ interface AzureThrottlerTaskCompletionResultNotifier {
     fun notifyCompleted(performedRequests: Boolean)
 }
 
-class AzureRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
+class ThrottlerRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
 
-open class AzureRetryTaskException(msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
-class AzureMaxTaskLiveException(msg: String? = null, cause: Throwable? = null): AzureRetryTaskException(msg, cause)
-class AzureMaxRetryCountException(msg: String? = null, cause: Throwable? = null): AzureRetryTaskException(msg, cause)
+open class ThrottlerExecutionTaskException(msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
+class ThrottlerMaxTaskLiveException(msg: String? = null, cause: Throwable? = null): ThrottlerExecutionTaskException(msg, cause)
+class ThrottlerMaxRetryCountException(msg: String? = null, cause: Throwable? = null): ThrottlerExecutionTaskException(msg, cause)
+class ThrottlerTimeoutException(msg: String? = null, cause: Throwable? = null): ThrottlerExecutionTaskException(msg, cause)

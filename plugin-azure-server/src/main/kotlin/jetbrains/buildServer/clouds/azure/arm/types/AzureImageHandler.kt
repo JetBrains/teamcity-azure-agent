@@ -19,6 +19,7 @@ package jetbrains.buildServer.clouds.azure.arm.types
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.clouds.azure.arm.throttler.ThrottlerExecutionTaskException
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
@@ -43,10 +44,9 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
             exceptions.add(CheckedCloudException("Image ID is empty"))
         } else {
             try {
-                val imageName = connector.getImageName(imageId)
-                if (imageName.isNullOrEmpty() && connector.isSuspended()) {
-                    exceptions.add(CheckedCloudException("Could not update image status. Please wait"))
-                }
+                connector.getImageName(imageId)
+            } catch (e: ThrottlerExecutionTaskException) {
+                exceptions.add(CheckedCloudException("Could not update image status. Please wait"))
             } catch (e: Throwable) {
                 LOG.infoAndDebugDetails("Failed to get image ID $imageId", e)
                 exceptions.add(e)

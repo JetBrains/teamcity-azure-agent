@@ -19,11 +19,15 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.util.executors.ExecutorsFactory
+import rx.Observable
 import rx.Scheduler
 import rx.Single
+import rx.internal.util.SubscriptionList
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicLong
 
 class AzureThrottlerImpl<A, I>(
         private val adapter: AzureThrottlerAdapter<A>,
@@ -33,6 +37,7 @@ class AzureThrottlerImpl<A, I>(
     private val myTaskQueues = ConcurrentHashMap<I, AzureThrottlerTaskQueue<I, *, *>>()
 
     private val myScheduledExecutor : ScheduledExecutorService = ExecutorsFactory.newFixedScheduledDaemonExecutor("Azure throttler task queue executor", 1)
+    private val myNonBlockingTaskExecutionId = AtomicLong(0)
 
     init {
         val period = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_PERIOD, 300)
@@ -70,7 +75,47 @@ class AzureThrottlerImpl<A, I>(
     }
 
     override fun <P, T> executeTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P): Single<T> {
-        return executeTask(taskDescriptor.taskId, parameters)
+        return executeTask<P, T>(taskDescriptor.taskId, parameters)
+    }
+
+    override fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P): Single<T> {
+        val executionId = myNonBlockingTaskExecutionId.incrementAndGet()
+        LOG.debug("[${taskDescriptor.taskId}-$executionId] Starting non blocking task")
+
+        var source = executeTask<P, T>(taskDescriptor.taskId, parameters)
+                .toObservable()
+                .delaySubscription(10, TimeUnit.MILLISECONDS)
+                .publish()
+
+        var noExternalSubscriber = false;
+        val subscriptions = SubscriptionList()
+        subscriptions.add(
+                source
+                        .doAfterTerminate { if (noExternalSubscriber) subscriptions.clear() }
+                        .doOnNext { LOG.debug("[${taskDescriptor.taskId}-$executionId] Data fetched") }
+                        .doOnCompleted { LOG.debug("[${taskDescriptor.taskId}-$executionId] Anchor completed") }
+                        .subscribe()
+        )
+
+        return source
+                .timeout(getTaskExecutionTimeout(), TimeUnit.SECONDS)
+                .onErrorResumeNext { error ->
+                    if (error is TimeoutException) {
+                        noExternalSubscriber = true;
+                        LOG.debug("[${taskDescriptor.taskId}-$executionId] Task could not be executed for requested time")
+                        return@onErrorResumeNext Observable.error<T>(ThrottlerTimeoutException("Task ${taskDescriptor.taskId} could not be executed for requested time", error))
+                    }
+                    return@onErrorResumeNext Observable.error<T>(error)
+                }
+                .doOnSubscribe {
+                    LOG.debug("[${taskDescriptor.taskId}-$executionId] Subscribing")
+                    subscriptions.add(source.connect())
+                }
+                .doOnUnsubscribe { LOG.debug("[${taskDescriptor.taskId}-$executionId] Unsubscribing") }
+                .doOnCompleted { LOG.debug("[${taskDescriptor.taskId}-$executionId] Completed")}
+                .doOnNext { LOG.debug("[${taskDescriptor.taskId}-$executionId] Data delivered")}
+                .doAfterTerminate { if (!noExternalSubscriber) subscriptions.clear() }
+                .toSingle()
     }
 
     override fun notifyCompleted(performedRequests: Boolean) {
@@ -102,7 +147,11 @@ class AzureThrottlerImpl<A, I>(
         throttlerStrategy.applyTaskChanges()
     }
 
+    private fun getTaskExecutionTimeout(): Long {
+        return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_TIMEOUT_SEC, 15L)
+    }
+
     companion object {
-        private val LOG = Logger.getInstance(AzureThrottlerInterceptor::class.java.name)
+        private val LOG = Logger.getInstance(AzureThrottlerImpl::class.java.name)
     }
 }

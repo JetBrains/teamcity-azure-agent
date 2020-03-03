@@ -21,7 +21,7 @@ import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableT
 import rx.Single
 
 class FetchVirtualMachineSizesTaskImpl  : AzureThrottlerCacheableTaskBaseImpl<String, List<String>>() {
-    override fun create(api: Azure, parameter: String): Single<List<String>> {
+    override fun createQuery(api: Azure, parameter: String): Single<List<String>> {
         return api
                 .virtualMachines()
                 .sizes()

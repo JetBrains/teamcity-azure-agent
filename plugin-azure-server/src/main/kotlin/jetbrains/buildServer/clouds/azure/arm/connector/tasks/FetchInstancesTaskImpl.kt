@@ -16,25 +16,28 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
+import com.google.common.cache.CacheBuilder
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.VirtualMachineInstanceView
-import com.microsoft.azure.management.network.PublicIPAddress
 import com.microsoft.azure.management.resources.fluentcore.arm.models.Resource
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
-import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils.getResourceGroup
-import jetbrains.buildServer.clouds.azure.arm.utils.isVmInstance
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFlow
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
-import rx.Observable
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import rx.Single
-import rx.internal.util.SubscriptionList
+import java.time.Clock
+import java.time.LocalDateTime
 import java.util.*
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 data class FetchInstancesTaskInstanceDescriptor (
         val imageId: String,
+        val id: String,
         val name: String,
         val tags: Map<String, String>,
         val publicIpAddress: String?,
@@ -68,12 +71,17 @@ data class FetchInstancesTaskParameter(val serverId: String?, val profileId: Str
 data class FetchInstancesTaskImageDescriptor(val imageId: String, val imageDetails: FetchInstancesTaskCloudImageDetails)
 data class FetchInstancesTaskCloudImageDetails(val vmPublicIp: Boolean?, val instanceId: String?, val sourceId: String, val target: AzureCloudDeployTarget, val isVmInstance: Boolean, val resourceGroup: String)
 
-class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstancesTaskParameter, List<FetchInstancesTaskInstanceDescriptor>>() {
+class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstancesTaskParameter, List<FetchInstancesTaskInstanceDescriptor>> {
+    val myCache = createCache()
+    private val myTimeoutInSeconds = AtomicLong(60)
+
     override fun create(api: Azure, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
-        val ipAddresses = if (parameter.images.any { it.imageDetails.vmPublicIp == true } ) {
+        val ipAddresses =
             api
                     .publicIPAddresses()
                     .listAsync()
+                    .filter { !it.ipAddress().isNullOrBlank() }
+                    .map { IPAddressDescriptor(it.name(), it.resourceGroupName(), it.ipAddress()) }
                     .toList()
                     .takeLast(1)
                     .doOnNext {
@@ -84,19 +92,15 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
                         LOG.debug(message, it)
                         emptyList()
                     }
-                    .replay(1)
-        } else {
-            Observable.just<List<PublicIPAddress>>(emptyList()).replay(1)
-        }
 
-        val machineInstances = if (parameter.images.any { it.imageDetails.isVmInstance }) {
+        val machineInstances =
             api
                     .virtualMachines()
                     .listAsync()
-                    .map { vm -> vm to parameter.images.find { !shouldIgnoreResource(vm, it.imageDetails, parameter.serverId, parameter.profileId) } }
-                    .filter { (_, imageDescriptor) -> imageDescriptor != null }
-                    .flatMap { (vm, imageDescriptor) ->
+                    .filter { vm -> !shouldIgnoreResource(vm, parameter.serverId) }
+                    .flatMap { vm ->
                         val tags = vm.tags()
+                        val id = vm.id()
                         val name = vm.name()
                         LOG.debug("Reading state of virtual machine '$name'")
 
@@ -106,13 +110,11 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
                                     LOG.debug("Failed to get status of virtual machine '$name': $it.message", it)
                                     InstanceViewState(null, null, null, it)
                                 }
-                                .withLatestFrom(ipAddresses) { instanceView, ipAddresses ->
-                                    val publicIp = getPublicIPAddressOrDefault(imageDescriptor!!.imageDetails, name, ipAddresses)
-                                    val instance = FetchInstancesTaskInstanceDescriptor(
-                                            imageDescriptor.imageId,
+                                .map { instanceView->
+                                    val instance = InstanceDescriptor(
+                                            id,
                                             name,
                                             tags,
-                                            publicIp,
                                             instanceView.provisioningState,
                                             instanceView.startDate,
                                             instanceView.powerState,
@@ -120,44 +122,117 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
                                     instance
                                 }
                     }
-        } else {
-            Observable.empty()
-        }
 
-        val containerInstances = if (parameter.images.any { !it.imageDetails.isVmInstance }) {
+        val containerInstances =
             api
                     .containerGroups()
                     .listAsync()
-                    .map { containerGroup -> containerGroup to parameter.images.find { !shouldIgnoreResource(containerGroup, it.imageDetails, parameter.serverId, parameter.profileId) } }
-                    .filter { (_, imageDescriptor) -> imageDescriptor != null }
-                    .map { (containerGroup, imageDescriptor) ->
+                    .filter { contanerGroup -> !shouldIgnoreResource(contanerGroup, parameter.serverId) }
+                    .map { containerGroup ->
                         val state = containerGroup.containers()[containerGroup.name()]?.instanceView()?.currentState()
                         val startDate = state?.startTime()?.toDate()
                         val powerState = state?.state()
-                        val instance = FetchInstancesTaskInstanceDescriptor(
-                                imageDescriptor!!.imageId,
+                        val instance = InstanceDescriptor(
+                                containerGroup.id(),
                                 containerGroup.name(),
                                 containerGroup.tags(),
-                                null,
                                 null,
                                 startDate,
                                 powerState,
                                 null)
                         instance
                     }
-        } else {
-            Observable.empty()
-        }
-
-        val subscriptionList = SubscriptionList()
-        subscriptionList.add(ipAddresses.connect())
 
         return machineInstances
                 .mergeWith(containerInstances)
                 .toList()
                 .takeLast(1)
-                .doAfterTerminate{ subscriptionList.clear() }
+                .withLatestFrom(ipAddresses) { instances, ipList -> CacheValue(instances, ipList, LocalDateTime.now(Clock.systemUTC())) }
+                .doOnNext { myCache.put(CacheKey(parameter.serverId), it) }
+                .map { filterResources(it, parameter.profileId, parameter.images) }
                 .toSingle()
+    }
+
+    override fun getFromCache(parameter: FetchInstancesTaskParameter): List<FetchInstancesTaskInstanceDescriptor>? {
+        val value = myCache.getIfPresent(CacheKey(parameter.serverId))
+        return if (value != null) filterResources(value, parameter.profileId, parameter.images) else null
+    }
+
+    override fun needCacheUpdate(parameter: FetchInstancesTaskParameter): Boolean {
+        val lastUpdatedDateTime = myCache.getIfPresent(CacheKey(parameter.serverId))?.lastUpdatedDateTime
+        return lastUpdatedDateTime == null || lastUpdatedDateTime.plusSeconds(myTimeoutInSeconds.get()) < LocalDateTime.now(Clock.systemUTC())
+    }
+
+    override fun checkThrottleTime(parameter: FetchInstancesTaskParameter): Boolean {
+        val lastUpdatedDateTime = myCache.getIfPresent(CacheKey(parameter.serverId))?.lastUpdatedDateTime
+        return lastUpdatedDateTime == null || lastUpdatedDateTime.plusSeconds(getTaskThrottleTime()) < LocalDateTime.now(Clock.systemUTC())
+    }
+
+    override fun areParametersEqual(parameter: FetchInstancesTaskParameter, other: FetchInstancesTaskParameter): Boolean {
+        return parameter.serverId == other.serverId
+    }
+
+    private fun getTaskThrottleTime(): Long {
+        return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC, 10)
+    }
+
+    private fun filterResources(data: CacheValue, profileId: String?, images: Array<FetchInstancesTaskImageDescriptor>): List<FetchInstancesTaskInstanceDescriptor> {
+        return data.instances
+                .map { it to images.find { image -> !isNotInstanceOfImage(it, image, profileId) } }
+                .filter { (_, image) -> image != null }
+                .map { (instance, image) ->
+                    FetchInstancesTaskInstanceDescriptor(
+                        image!!.imageId,
+                        instance.id,
+                        instance.name,
+                        instance.tags,
+                        getPublicIPAddressOrDefault(image.imageDetails, instance.name, data.ipAddresses),
+                        instance.provisioningState,
+                        instance.startDate,
+                        instance.powerState,
+                        instance.error
+                ) }
+                .toList()
+    }
+
+    private fun isNotInstanceOfImage(instance: InstanceDescriptor, image: FetchInstancesTaskImageDescriptor, profileId: String?): Boolean {
+        val details = image.imageDetails
+        val isVm = details.isVmInstance
+        val name = instance.name
+        val tags = instance.tags
+        val id = instance.id
+        val resourceTypeLogName = if (isVm) "vm" else "container"
+
+        if (isVm && details.target == AzureCloudDeployTarget.Instance) {
+            if (id != details.instanceId!!) {
+                LOG.debug("Ignore vm with invalid id " + id)
+                return true
+            }
+            return false
+        }
+
+        if (!name.startsWith(details.sourceId, true)) {
+            LOG.debug("Ignore $resourceTypeLogName with name $name")
+            return true
+        }
+
+        val sourceName = tags[AzureConstants.TAG_SOURCE]
+        if (!sourceName.equals(details.sourceId, true)) {
+            LOG.debug("Ignore $resourceTypeLogName with invalid source tag $sourceName")
+            return true
+        }
+
+        val resourceProfileId = tags[AzureConstants.TAG_PROFILE]
+        if (!resourceProfileId.equals(profileId, true)) {
+            LOG.debug("Ignore resource with invalid profile tag $resourceProfileId")
+            return true
+        }
+
+        return false
+    }
+
+    override fun invalidateCache() {
+        myCache.invalidateAll()
     }
 
     private fun getInstanceState(instanceView: VirtualMachineInstanceView, tags: Map<String, String>, name: String): InstanceViewState {
@@ -187,60 +262,35 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
         return InstanceViewState(provisioningState, startDate, powerState, null)
     }
 
-    private fun shouldIgnoreResource(resource: Resource, details: FetchInstancesTaskCloudImageDetails, serverId: String?, profileId: String?): Boolean {
-        val isVm = details.isVmInstance
-        val name = resource.name()
+    private fun shouldIgnoreResource(resource: Resource, serverId: String?): Boolean {
         val tags = resource.tags()
-        val id = resource.id()
-        val resourceTypeLogName = if (isVm) "vm" else "container"
-
-        if (isVm && details.target == AzureCloudDeployTarget.Instance) {
-            if (id != details.instanceId!!) {
-                LOG.debug("Ignore vm with invalid id " + id)
-                return true
-            }
-            return false
-        }
-
-        if (!name.startsWith(details.sourceId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with name $name")
-            return true
-        }
 
         val resourceServerId = tags[AzureConstants.TAG_SERVER]
         if (!resourceServerId.equals(serverId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with invalid server tag $resourceServerId")
-            return true
-        }
-
-        val resourceProfileId = tags[AzureConstants.TAG_PROFILE]
-        if (!resourceProfileId.equals(profileId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with invalid profile tag $resourceProfileId")
-            return true
-        }
-
-        val sourceName = tags[AzureConstants.TAG_SOURCE]
-        if (!sourceName.equals(details.sourceId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with invalid source tag $sourceName")
+            LOG.debug("Ignore resource with invalid server tag $resourceServerId")
             return true
         }
 
         return false
     }
 
-    private fun getPublicIPAddressOrDefault(details: FetchInstancesTaskCloudImageDetails, name: String, ipAddresses: List<PublicIPAddress>): String? {
+    override fun setCacheTimeout(timeoutInSeconds: Long) {
+        myTimeoutInSeconds.set(timeoutInSeconds)
+    }
+
+    private fun getPublicIPAddressOrDefault(details: FetchInstancesTaskCloudImageDetails, name: String, ipAddresses: List<IPAddressDescriptor>): String? {
         if (details.vmPublicIp != true) return null
 
         val groupId = if (details.target == AzureCloudDeployTarget.NewGroup) name else details.resourceGroup
         val pipName = name + PUBLIC_IP_SUFFIX
-        val ips = ipAddresses.filter { it.resourceGroupName() == groupId && it.name() == pipName }
+        val ips = ipAddresses.filter { it.resourceGroupName == groupId && it.name == pipName }
 
         if (ips.isNotEmpty()) {
             for (ip in ips) {
-                LOG.debug("Received public ip ${ip.ipAddress()} ($ip) for virtual machine $name, pip $pipName")
+                LOG.debug("Received public ip ${ip.ipAddress} ($ip) for virtual machine $name, pip $pipName")
             }
 
-            val ip = ips.first().ipAddress()
+            val ip = ips.first().ipAddress
             if (!ip.isNullOrBlank()) {
                 return ip
             }
@@ -250,7 +300,29 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<FetchInstance
         return null
     }
 
+    private fun createCache() = CacheBuilder.newBuilder().expireAfterWrite(32 * 60, TimeUnit.SECONDS).build<CacheKey, CacheValue>()
+
     data class InstanceViewState (val provisioningState: String?, val startDate: Date?, val powerState: String?, val error: Throwable?)
+
+    data class CacheKey (val server: String?)
+
+    data class CacheValue(val instances: List<InstanceDescriptor>, val ipAddresses: List<IPAddressDescriptor>, val lastUpdatedDateTime: LocalDateTime)
+
+    data class InstanceDescriptor (
+            val id: String,
+            val name: String,
+            val tags: Map<String, String>,
+            val provisioningState: String?,
+            val startDate: Date?,
+            val powerState: String?,
+            val error: TypedCloudErrorInfo?
+    )
+
+    data class IPAddressDescriptor (
+            val name: String,
+            val resourceGroupName: String,
+            val ipAddress: String
+    )
 
     companion object {
         private val LOG = Logger.getInstance(FetchInstancesTaskImpl::class.java.name)

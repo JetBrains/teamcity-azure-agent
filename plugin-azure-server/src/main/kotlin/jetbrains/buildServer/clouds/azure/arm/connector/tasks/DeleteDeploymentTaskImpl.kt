@@ -22,6 +22,7 @@ import com.microsoft.azure.management.compute.Disk
 import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.fluentcore.collection.SupportsDeletingById
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Notification
 import rx.Observable
 import rx.Single
@@ -32,7 +33,7 @@ data class DeleteDeploymentTaskParameter(
         val resourceGroupName: String,
         val name: String)
 
-class DeleteDeploymentTaskImpl : AzureThrottlerTask<Azure, DeleteDeploymentTaskParameter, Unit> {
+class DeleteDeploymentTaskImpl : AzureThrottlerTaskBaseImpl<Azure, DeleteDeploymentTaskParameter, Unit>() {
     override fun create(api: Azure, parameter: DeleteDeploymentTaskParameter): Single<Unit> {
         return api
                 .deployments()

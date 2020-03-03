@@ -20,6 +20,7 @@ import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.resources.DeploymentMode
 import com.microsoft.azure.management.resources.fluentcore.model.Indexable
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Single
 
 data class CreateDeploymentTaskParameter(
@@ -28,7 +29,7 @@ data class CreateDeploymentTaskParameter(
         val template: String,
         val params: String)
 
-class CreateDeploymentTaskImpl : AzureThrottlerTask<Azure, CreateDeploymentTaskParameter, Indexable> {
+class CreateDeploymentTaskImpl : AzureThrottlerTaskBaseImpl<Azure, CreateDeploymentTaskParameter, Indexable>() {
     override fun create(api: Azure, parameter: CreateDeploymentTaskParameter): Single<Indexable> {
         return api
                 .deployments()

@@ -24,7 +24,7 @@ import rx.Single
 data class FetchServicesTaskServiceDescriptor(val namespace: String, val resourceTypes: List<String>)
 
 class FetchServicesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<String, List<FetchServicesTaskServiceDescriptor>>() {
-    override fun create(api: Azure, parameter: String): Single<List<FetchServicesTaskServiceDescriptor>> {
+    override fun createQuery(api: Azure, parameter: String): Single<List<FetchServicesTaskServiceDescriptor>> {
         return api
                 .providers()
                 .listAsync()

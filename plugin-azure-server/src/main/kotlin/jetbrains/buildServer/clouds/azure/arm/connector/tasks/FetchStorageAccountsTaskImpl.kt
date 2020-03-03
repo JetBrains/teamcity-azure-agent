@@ -29,7 +29,7 @@ data class StorageAccountTaskAccountDescriptor(
         var keys: List<String>)
 
 class FetchStorageAccountsTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<StorageAccountTaskAccountDescriptor>>() {
-    override fun create(api: Azure, parameter: Unit): Single<List<StorageAccountTaskAccountDescriptor>> {
+    override fun createQuery(api: Azure, parameter: Unit): Single<List<StorageAccountTaskAccountDescriptor>> {
         return api
                 .storageAccounts()
                 .listAsync()

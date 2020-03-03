@@ -37,5 +37,8 @@ const val TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_PERIOD = "teamcity.clouds.azure.
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_MAX_RETRY_COUNT = "teamcity.clouds.azure.throttler.queue.max.retry.count"
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_MAX_TASK_LIVE_IN_SEC = "teamcity.clouds.azure.throttler.queue.max.task.live"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_TIMEOUT_SEC = "teamcity.clouds.azure.throttler.task.timeout"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_CACHE_TIMEOUT_SEC = "teamcity.clouds.azure.throttler.task.cache.timeout"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC = "teamcity.clouds.azure.throttler.task.throttle.timeout"
 
 const val DEFAULT_REMAINING_READS_PER_HOUR = 12000L

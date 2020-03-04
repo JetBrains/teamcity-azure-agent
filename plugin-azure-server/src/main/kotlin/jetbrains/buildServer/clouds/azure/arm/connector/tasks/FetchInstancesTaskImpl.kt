@@ -20,11 +20,9 @@ import com.google.common.cache.CacheBuilder
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.VirtualMachineInstanceView
-import com.microsoft.azure.management.resources.fluentcore.arm.models.Resource
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTask
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFlow
 import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
@@ -97,7 +95,6 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
             api
                     .virtualMachines()
                     .listAsync()
-                    .filter { vm -> !shouldIgnoreResource(vm, parameter.serverId) }
                     .flatMap { vm ->
                         val tags = vm.tags()
                         val id = vm.id()
@@ -127,7 +124,6 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
             api
                     .containerGroups()
                     .listAsync()
-                    .filter { contanerGroup -> !shouldIgnoreResource(contanerGroup, parameter.serverId) }
                     .map { containerGroup ->
                         val state = containerGroup.containers()[containerGroup.name()]?.instanceView()?.currentState()
                         val startDate = state?.startTime()?.toDate()
@@ -149,13 +145,13 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
                 .takeLast(1)
                 .withLatestFrom(ipAddresses) { instances, ipList -> CacheValue(instances, ipList, LocalDateTime.now(Clock.systemUTC())) }
                 .doOnNext { myCache.put(CacheKey(parameter.serverId), it) }
-                .map { filterResources(it, parameter.profileId, parameter.images) }
+                .map { filterResources(it, parameter) }
                 .toSingle()
     }
 
     override fun getFromCache(parameter: FetchInstancesTaskParameter): List<FetchInstancesTaskInstanceDescriptor>? {
         val value = myCache.getIfPresent(CacheKey(parameter.serverId))
-        return if (value != null) filterResources(value, parameter.profileId, parameter.images) else null
+        return if (value != null) filterResources(value, parameter) else null
     }
 
     override fun needCacheUpdate(parameter: FetchInstancesTaskParameter): Boolean {
@@ -176,9 +172,9 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
         return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC, 10)
     }
 
-    private fun filterResources(data: CacheValue, profileId: String?, images: Array<FetchInstancesTaskImageDescriptor>): List<FetchInstancesTaskInstanceDescriptor> {
+    private fun filterResources(data: CacheValue, filter: FetchInstancesTaskParameter): List<FetchInstancesTaskInstanceDescriptor> {
         return data.instances
-                .map { it to images.find { image -> !isNotInstanceOfImage(it, image, profileId) } }
+                .map { it to filter.images.find { image -> !isNotInstanceOfImage(it, image, filter.serverId, filter.profileId) } }
                 .filter { (_, image) -> image != null }
                 .map { (instance, image) ->
                     FetchInstancesTaskInstanceDescriptor(
@@ -195,7 +191,7 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
                 .toList()
     }
 
-    private fun isNotInstanceOfImage(instance: InstanceDescriptor, image: FetchInstancesTaskImageDescriptor, profileId: String?): Boolean {
+    private fun isNotInstanceOfImage(instance: InstanceDescriptor, image: FetchInstancesTaskImageDescriptor, serverId: String?, profileId: String?): Boolean {
         val details = image.imageDetails
         val isVm = details.isVmInstance
         val name = instance.name
@@ -219,6 +215,12 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
         val sourceName = tags[AzureConstants.TAG_SOURCE]
         if (!sourceName.equals(details.sourceId, true)) {
             LOG.debug("Ignore $resourceTypeLogName with invalid source tag $sourceName")
+            return true
+        }
+
+        val resourceServerId = tags[AzureConstants.TAG_SERVER]
+        if (!resourceServerId.equals(serverId, true)) {
+            LOG.debug("Ignore resource with invalid server tag $resourceServerId")
             return true
         }
 
@@ -260,18 +262,6 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
             provisioningState = "Investigation"
         }
         return InstanceViewState(provisioningState, startDate, powerState, null)
-    }
-
-    private fun shouldIgnoreResource(resource: Resource, serverId: String?): Boolean {
-        val tags = resource.tags()
-
-        val resourceServerId = tags[AzureConstants.TAG_SERVER]
-        if (!resourceServerId.equals(serverId, true)) {
-            LOG.debug("Ignore resource with invalid server tag $resourceServerId")
-            return true
-        }
-
-        return false
     }
 
     override fun setCacheTimeout(timeoutInSeconds: Long) {

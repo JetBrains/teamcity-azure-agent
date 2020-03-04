@@ -34,7 +34,7 @@ object AzureThrottlerFactory {
         val randomTaskReservation = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_RESERVATION, 50)
         val taskReservation = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_TASK_RESERVATION, 10)
         val aggressiveThrottlingLimit = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT, 90)
-        val adapterThrottlerTimeInMs = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_DEFAULT_DELAY_IN_MS, 400)
+        val adapterThrottlerTimeInMs = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_DEFAULT_DELAY_IN_MS, 200)
 
         val readsStrategy = AzureThrottlerStrategyImpl<Azure, AzureThrottlerReadTasks.Values>(
                 azureAdapter,
@@ -45,21 +45,21 @@ object AzureThrottlerFactory {
 
         val throttler = AzureThrottlerImpl(azureAdapter, readsStrategy, Schedulers.immediate())
 
-        val randomTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT, 70)
-        val periodicalTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_PERIODICAL_TASK_CACHE_TIMEOUT, 130)
+        val randomTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT, 90)
+        val periodicalTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_PERIODICAL_TASK_CACHE_TIMEOUT, 150)
 
         return throttler
                 .registerTask(AzureThrottlerReadTasks.FetchResourceGroups,
                         AzureThrottlerTaskTimeExecutionType.Random,
                         randomTaskCacheTimeout)
                 .registerTask(AzureThrottlerReadTasks.FetchVirtualMachines,
-                        AzureThrottlerTaskTimeExecutionType.Random,
-                        randomTaskCacheTimeout)
+                        AzureThrottlerTaskTimeExecutionType.Periodical,
+                        periodicalTaskCacheTimeout)
                 .registerTask(AzureThrottlerReadTasks.FetchInstances,
                         AzureThrottlerTaskTimeExecutionType.Periodical,
                         periodicalTaskCacheTimeout)
                 .registerTask(AzureThrottlerReadTasks.FetchCustomImages,
-                        AzureThrottlerTaskTimeExecutionType.Random,
+                        AzureThrottlerTaskTimeExecutionType.Periodical,
                         randomTaskCacheTimeout)
                 .registerTask(AzureThrottlerReadTasks.FetchStorageAccounts,
                         AzureThrottlerTaskTimeExecutionType.Random,

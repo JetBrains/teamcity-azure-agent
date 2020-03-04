@@ -36,7 +36,7 @@ class AzureInstanceHandler(private val connector: AzureApiConnector) : AzureHand
             exceptions.add(CheckedCloudException("Invalid instance id"))
         } else {
             try {
-                if (!connector.hasInstance(details.instanceId)) {
+                if (!connector.hasInstance(image)) {
                     exceptions.add(CheckedCloudException("Virtual machine ${details.sourceId} is not found"))
                 }
             } catch (e: ThrottlerExecutionTaskException) {

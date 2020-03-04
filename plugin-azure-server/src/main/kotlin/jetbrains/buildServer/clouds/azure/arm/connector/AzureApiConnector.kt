@@ -16,18 +16,10 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector
 
-import com.microsoft.azure.management.compute.StorageAccountTypes
-import com.microsoft.azure.management.compute.VirtualMachine
-import com.microsoft.azure.management.compute.VirtualMachineCustomImage
-import com.microsoft.azure.management.containerinstance.ContainerGroup
-import com.microsoft.azure.management.network.PublicIPAddress
-import com.microsoft.azure.management.resources.ResourceGroup
-import com.microsoft.azure.management.storage.StorageAccount
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector
-import rx.Observable
 
 /**
  * Azure ARM API connector.
@@ -51,7 +43,7 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     suspend fun getInstances(): Map<String, String>
 
-    suspend fun hasInstance(id: String): Boolean
+    suspend fun hasInstance(image: AzureCloudImage): Boolean
 
     suspend fun getImageName(imageId: String): String
 

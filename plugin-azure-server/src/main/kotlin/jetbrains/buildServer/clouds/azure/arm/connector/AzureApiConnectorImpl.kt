@@ -201,8 +201,38 @@ class AzureApiConnectorImpl(params: Map<String, String>)
     /**
      * Checks whether virtual machine exists.
      */
-    override suspend fun hasInstance(id: String): Boolean {
-        return getInstances().containsKey(id)
+    override suspend fun hasInstance(image: AzureCloudImage): Boolean {
+        val imageDetails = image.imageDetails
+        val descriptor = FetchInstancesTaskImageDescriptor(image.id,
+                FetchInstancesTaskCloudImageDetails(
+                        imageDetails.vmPublicIp,
+                        imageDetails.instanceId,
+                        imageDetails.sourceId,
+                        imageDetails.target,
+                        imageDetails.isVmInstance(),
+                        getResourceGroup(imageDetails, "")))
+        val parameter = FetchInstancesTaskParameter(
+                myServerId,
+                myProfileId,
+                arrayOf(descriptor))
+
+        try {
+            val instanceDescriptorMap = withContext(Dispatchers.IO) {
+                myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchInstances, parameter)
+                        .awaitOne()
+                        .groupBy { it.id }
+            }
+
+            val instanceExists = instanceDescriptorMap.containsKey(imageDetails.instanceId)
+            LOG.debug("Received instance information for image ${image.id}. Instance exists: $instanceExists ")
+            return instanceExists
+        } catch (e: ThrottlerExecutionTaskException) {
+            throw e
+        } catch (t: Throwable) {
+            val message = "Failed to get virtual machines information " + t.message
+            LOG.debug(message, t)
+            throw CheckedCloudException(message, t)
+        }
     }
 
     /**

@@ -63,5 +63,5 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     suspend fun deleteVmBlobs(instance: AzureCloudInstance)
 
-    fun isSuspended() : Boolean
+    fun start()
 }

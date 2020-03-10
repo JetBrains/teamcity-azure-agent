@@ -62,6 +62,18 @@ interface AzureThrottler<A, I> {
     fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P) : Single<T>
 
     fun isSuspended() : Boolean
+
+    fun start() : Boolean
+    fun stop()
+}
+
+interface AzureThrottlerScheduledExecutor {
+    fun start(): Boolean
+    fun stop()
+}
+
+interface AzureThrottlerScheduledExecutorFactorty {
+    fun create(scheduledAction: () -> Unit) : AzureThrottlerScheduledExecutor
 }
 
 interface AzureThrottlerStrategyTaskContainer<I> {

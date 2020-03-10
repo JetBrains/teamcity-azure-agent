@@ -49,12 +49,11 @@ class AzureThrottlerInterceptor(
         val remainingReadsResult = remainingReads ?: remainingTenantReads ?: remainingResourceReads ?: remainingTenantResourceReads;
 
         LOG.debug("[$name] Azure request processed: Remaining reads: $remainingReadsResult, Url: ${request.url()}")
-        LOG.debug("[$name] Azure request processed: Requests sequence length: ${myRequestsSequenceLength.get()}, Url: ${request.url()}")
-        LOG.debug("[$name] Azure request processed: Headers: $SUBSCRIPTION_REMAINING_READS_HEADER=$remainingReads," +
+        LOG.debug("[$name] Azure request processed: Requests sequence length: ${myRequestsSequenceLength.get()}")
+        LOG.debug("[$name] Azure request processed: Headers: $SUBSCRIPTION_REMAINING_READS_HEADER=$remainingReads" +
                 "$SUBSCRIPTION_RESOURCE_REMAINING_READS_HEADER=$remainingResourceReads, " +
                 "$TENANT_REMAINING_READS_HEADER=$remainingTenantReads, " +
-                "$TENANT_RESOURCE_REMAINING_READS_HEADER=$remainingTenantResourceReads, " +
-                "Url: ${request.url()}")
+                "$TENANT_RESOURCE_REMAINING_READS_HEADER=$remainingTenantResourceReads, ")
 
         increaseRequestsSequenceLength()
 

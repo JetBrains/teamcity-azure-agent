@@ -62,6 +62,8 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         val azureCloudClient = AzureCloudClient(params, apiConnector, myImagesHolder)
         azureCloudClient.updateErrors(*errors)
 
+        apiConnector.start()
+
         return azureCloudClient
     }
 

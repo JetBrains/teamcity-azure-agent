@@ -18,49 +18,65 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.serverSide.TeamCityProperties
-import jetbrains.buildServer.util.executors.ExecutorsFactory
 import rx.Observable
 import rx.Scheduler
 import rx.Single
 import rx.internal.util.SubscriptionList
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
+import java.util.concurrent.*
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 class AzureThrottlerImpl<A, I>(
         private val adapter: AzureThrottlerAdapter<A>,
         private val throttlerStrategy: AzureThrottlerStrategy<I>,
-        private val requestSchqduler: Scheduler
+        private val requestScheduler: Scheduler,
+        private val timeoutScheduler: Scheduler,
+        private val scheduledExecutorFactory: AzureThrottlerScheduledExecutorFactorty
 ) : AzureThrottler<A, I>, AzureThrottlerStrategyTaskContainer<I>, AzureThrottlerTaskCompletionResultNotifier {
     private val myTaskQueues = ConcurrentHashMap<I, AzureThrottlerTaskQueue<I, *, *>>()
-
-    private val myScheduledExecutor : ScheduledExecutorService = ExecutorsFactory.newFixedScheduledDaemonExecutor("Azure throttler task queue executor", 1)
     private val myNonBlockingTaskExecutionId = AtomicLong(0)
+    private val mySubscriptions = SubscriptionList()
+    private val myStartStopLock = ReentrantReadWriteLock()
+    private var myScheduledExecutor: AzureThrottlerScheduledExecutor? = null
 
     init {
-        val period = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_PERIOD, 300)
-        myScheduledExecutor.scheduleAtFixedRate(
-                {
-                    try
-                    {
-                        executeNextTask()
-                    }
-                    catch(e: Throwable) {
-                        LOG.warnAndDebugDetails("An error occurred during processing task in Azure Throttler", e)
-                    }
-                },
-                1000L,
-                period,
-                TimeUnit.MILLISECONDS)
-
         throttlerStrategy.setContainer(this)
+    }
+
+    override fun start(): Boolean {
+        if (myStartStopLock.read { return@read myScheduledExecutor != null }) return false
+
+        return myStartStopLock.write {
+            if (myScheduledExecutor != null) return false
+
+            val executor = scheduledExecutorFactory.create {
+                executeNextTask()
+            }
+            executor.start()
+
+            myScheduledExecutor = executor
+
+            return true
+        }
+    }
+
+    override fun stop() {
+        myStartStopLock.write {
+            if (myScheduledExecutor != null) {
+                val executor = myScheduledExecutor!!
+                myScheduledExecutor = null
+
+                executor.stop()
+            }
+            mySubscriptions.clear()
+        }
     }
 
     override fun <P, T> registerTask(taskId: I, task: AzureThrottlerTask<A, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long): AzureThrottler<A, I> {
         if (myTaskQueues.contains(taskId)) throw Exception("Task with Id $taskId has already been registered")
-        myTaskQueues[taskId] = AzureThrottlerTaskQueueImpl(taskId, task, adapter, taskTimeExecutionType, defaultTimeoutInSeconds, this, requestSchqduler)
+        myTaskQueues[taskId] = AzureThrottlerTaskQueueImpl(taskId, task, adapter, taskTimeExecutionType, defaultTimeoutInSeconds, this, requestScheduler)
         return this
     }
     override fun <P, T> registerTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long): AzureThrottler<A, I> {
@@ -82,23 +98,25 @@ class AzureThrottlerImpl<A, I>(
         val executionId = myNonBlockingTaskExecutionId.incrementAndGet()
         LOG.debug("[${taskDescriptor.taskId}-$executionId] Starting non blocking task")
 
+        val subscription = SubscriptionList()
+        mySubscriptions.add(subscription)
+
         var source = executeTask<P, T>(taskDescriptor.taskId, parameters)
                 .toObservable()
                 .delaySubscription(10, TimeUnit.MILLISECONDS)
                 .publish()
 
         var noExternalSubscriber = false;
-        val subscriptions = SubscriptionList()
-        subscriptions.add(
+        subscription.add(
                 source
-                        .doAfterTerminate { if (noExternalSubscriber) subscriptions.clear() }
+                        .doAfterTerminate { if (noExternalSubscriber) mySubscriptions.remove(subscription) }
                         .doOnNext { LOG.debug("[${taskDescriptor.taskId}-$executionId] Data fetched") }
                         .doOnCompleted { LOG.debug("[${taskDescriptor.taskId}-$executionId] Anchor completed") }
-                        .subscribe()
+                        .subscribe({}, {})
         )
 
         return source
-                .timeout(getTaskExecutionTimeout(), TimeUnit.SECONDS)
+                .timeout(getTaskExecutionTimeout(), TimeUnit.SECONDS, timeoutScheduler)
                 .onErrorResumeNext { error ->
                     if (error is TimeoutException) {
                         noExternalSubscriber = true;
@@ -109,12 +127,12 @@ class AzureThrottlerImpl<A, I>(
                 }
                 .doOnSubscribe {
                     LOG.debug("[${taskDescriptor.taskId}-$executionId] Subscribing")
-                    subscriptions.add(source.connect())
+                    subscription.add(source.connect())
                 }
                 .doOnUnsubscribe { LOG.debug("[${taskDescriptor.taskId}-$executionId] Unsubscribing") }
                 .doOnCompleted { LOG.debug("[${taskDescriptor.taskId}-$executionId] Completed")}
                 .doOnNext { LOG.debug("[${taskDescriptor.taskId}-$executionId] Data delivered")}
-                .doAfterTerminate { if (!noExternalSubscriber) subscriptions.clear() }
+                .doAfterTerminate { if (!noExternalSubscriber) mySubscriptions.remove(subscription) }
                 .toSingle()
     }
 

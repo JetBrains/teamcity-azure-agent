@@ -32,6 +32,7 @@ internal abstract class AzureResourceHandler : ResourceHandler {
         PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true)
 
         val apiConnector = AzureApiConnectorImpl(propsBean.properties)
+        apiConnector.start()
 
         return handle(apiConnector, request)
     }

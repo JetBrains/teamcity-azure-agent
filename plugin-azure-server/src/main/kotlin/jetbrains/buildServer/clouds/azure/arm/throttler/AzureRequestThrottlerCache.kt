@@ -35,8 +35,7 @@ interface AzureRequestThrottler {
     fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P) : Single<T>;
     fun <P, T> executeUpdateTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerActionTasks.Values, P, T>, parameters: P) : Single<T>;
 
-    fun isReadOperationSuspended(): Boolean
-    fun isUpdateOperationSuspended(): Boolean
+    fun start()
 }
 
 object AzureRequestThrottlerCache {
@@ -107,12 +106,9 @@ object AzureRequestThrottlerCache {
             return myUpdatesThrottler.executeTask(taskDescriptor, parameters);
         }
 
-        override fun isReadOperationSuspended(): Boolean {
-            return myReadsThrottler.isSuspended()
-        }
-
-        override fun isUpdateOperationSuspended(): Boolean {
-            return myUpdatesThrottler.isSuspended()
+        override fun start() {
+            myReadsThrottler.start()
+            myUpdatesThrottler.start()
         }
     }
 }

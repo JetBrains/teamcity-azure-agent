@@ -65,6 +65,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         myAzureRequestsThrottler = AzureRequestThrottlerCache.getOrCreateThrottler(params)
     }
 
+    override fun start() {
+        myAzureRequestsThrottler.start()
+    }
+
     override fun test() = runBlocking {
         try {
             withContext(Dispatchers.IO) {
@@ -347,10 +351,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         }
 
 
-    }
-
-    override fun isSuspended(): Boolean {
-        return myAzureRequestsThrottler.isUpdateOperationSuspended() || myAzureRequestsThrottler.isReadOperationSuspended()
     }
 
     private suspend fun createVm(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {

@@ -177,7 +177,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         subjectSubscriptions.add(
             resultSubject
                     .doAfterTerminate { subjectSubscriptions.clear() }
-                    .subscribe()
+                    .subscribe({}, {})
         )
 
         val hasForceItem = itemsToCombine.any { it.force }

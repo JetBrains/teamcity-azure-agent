@@ -57,7 +57,7 @@ abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerTaskBas
 
     override fun checkThrottleTime(parameter: P): Boolean {
         val lastUpdatedDateTime = myCache.getIfPresent(parameter)?.lastUpdatedDateTime
-        return lastUpdatedDateTime == null || lastUpdatedDateTime.plusSeconds(getTaskThrottleTime()) < LocalDateTime.now(Clock.systemUTC())
+        return lastUpdatedDateTime != null && lastUpdatedDateTime.plusSeconds(getTaskThrottleTime()) < LocalDateTime.now(Clock.systemUTC())
     }
 
     override fun areParametersEqual(parameter: P, other: P): Boolean {
@@ -65,7 +65,7 @@ abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerTaskBas
     }
 
     private fun getTaskThrottleTime(): Long {
-        return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC, 10)
+        return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC, 5)
     }
 
     protected abstract fun createQuery(api: Azure, parameter: P): Single<T>

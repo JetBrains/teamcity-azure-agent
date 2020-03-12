@@ -16,7 +16,11 @@
 
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
+import rx.Observable
 import rx.Single
+import rx.Subscription
+import rx.subjects.Subject
+import java.time.Clock
 import java.time.LocalDateTime
 
 enum class AzureThrottlerTaskTimeExecutionType {
@@ -42,8 +46,11 @@ interface AzureThrottlerCacheableTask<A, P, T> : AzureThrottlerTask<A, P, T> {
     fun checkThrottleTime(parameter: P): Boolean
 }
 
-interface AzureThrottlerTask<A, P, T> {
+interface AzureThrottlerTask<A, P, T> :  AzureThrottlerTaskParameterEqualityComparer<P> {
     fun create(api: A, parameter: P): Single<T>
+}
+
+interface AzureThrottlerTaskParameterEqualityComparer<P> {
     fun areParametersEqual(parameter: P, other: P): Boolean
 }
 
@@ -106,6 +113,28 @@ interface AzureThrottlerTaskQueueRequestor<P, T> {
 }
 
 interface AzureThrottlerTaskQueue<I, P, T> : AzureThrottlerTaskQueueExecutor, AzureThrottlerTaskQueueRequestor<P, T>, AzureThrottlerStrategyTask<I> {
+}
+
+interface AzureThrottlerRequestQueue<I, P, T> {
+    fun addRequest(timeToExecute: LocalDateTime,
+                   parameter: P,
+                   result: Subject<AzureThrottlerAdapterResult<T>, AzureThrottlerAdapterResult<T>>,
+                   force: Boolean = false,
+                   canBeCombined: Boolean = true,
+                   attemptNo: Int = 0,
+                   createdDate: LocalDateTime = LocalDateTime.now(Clock.systemUTC()))
+    fun extractNextBatch(): AzureThrottlerRequestBatch<P, T>
+    fun extractBatchFor(parameter: P): AzureThrottlerRequestBatch<P, T>
+}
+
+interface AzureThrottlerRequestBatch<P, T> {
+    val parameter: P
+    fun count(): Int
+    fun hasForceRequest(): Boolean
+    fun canBeCombined(): Boolean
+    fun getMaxAttempNo(): Int
+    fun getMinCreatedDate(): LocalDateTime
+    fun subscribeTo(source: Observable<AzureThrottlerAdapterResult<T>>): Subscription
 }
 
 interface AzureThrottlerTaskQueueCallHistory {

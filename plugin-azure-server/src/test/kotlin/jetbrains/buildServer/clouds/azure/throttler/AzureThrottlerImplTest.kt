@@ -21,7 +21,6 @@ import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureTaskDescripto
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
 import junit.framework.TestCase
 import org.jmock.MockObjectTestCase
-import org.jmock.Mockery
 import org.testng.Assert
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
@@ -32,7 +31,6 @@ import rx.Single
 import java.util.concurrent.TimeUnit
 
 class AzureThrottlerImplTest : MockObjectTestCase() {
-    private lateinit var mockery: Mockery
     private lateinit var adapter: AzureThrottlerAdapter<Unit>
     private lateinit var throttlerStrategy: AzureThrottlerStrategy<Unit>
     private lateinit var scheduler: TestScheduler

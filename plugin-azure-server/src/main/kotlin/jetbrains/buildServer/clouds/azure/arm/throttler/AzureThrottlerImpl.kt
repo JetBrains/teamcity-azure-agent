@@ -76,9 +76,19 @@ class AzureThrottlerImpl<A, I>(
 
     override fun <P, T> registerTask(taskId: I, task: AzureThrottlerTask<A, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long): AzureThrottler<A, I> {
         if (myTaskQueues.contains(taskId)) throw Exception("Task with Id $taskId has already been registered")
-        myTaskQueues[taskId] = AzureThrottlerTaskQueueImpl(taskId, task, adapter, taskTimeExecutionType, defaultTimeoutInSeconds, this, requestScheduler)
+        myTaskQueues[taskId] = AzureThrottlerTaskQueueImpl(
+                taskId,
+                AzureThrottlerRequestQueueImpl<I, P, T>(task),
+                task,
+                adapter,
+                taskTimeExecutionType,
+                defaultTimeoutInSeconds,
+                this,
+                requestScheduler
+        )
         return this
     }
+
     override fun <P, T> registerTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long): AzureThrottler<A, I> {
         return registerTask(taskDescriptor.taskId, taskDescriptor.create(), taskTimeExecutionType, defaultTimeoutInSeconds)
     }

@@ -41,7 +41,7 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     suspend fun getResourceGroups(): Map<String, String>
 
-    suspend fun getInstances(): Map<String, String>
+    suspend fun getInstances(): List<AzureApiVMInstance>
 
     suspend fun hasInstance(image: AzureCloudImage): Boolean
 
@@ -65,3 +65,9 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     fun start()
 }
+
+data class AzureApiVMInstance(
+    val id: String,
+    val description: String,
+    val osType: String?
+)

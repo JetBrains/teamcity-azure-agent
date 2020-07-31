@@ -24,6 +24,7 @@ import jetbrains.buildServer.serverSide.SBuildServer
 import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 import jetbrains.buildServer.web.openapi.WebControllerManager
+import jetbrains.buildServer.web.util.WebUtil
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
@@ -83,6 +84,7 @@ class SettingsController(server: SBuildServer,
         mv.model["basePath"] = myHtmlPath
         mv.model["resPath"] = myPluginDescriptor.pluginResourcesPath
         mv.model["projectId"] = request.getParameter("projectId")
+        mv.model["contextPath"] = WebUtil.getRootUrl(request)
         return mv
     }
 

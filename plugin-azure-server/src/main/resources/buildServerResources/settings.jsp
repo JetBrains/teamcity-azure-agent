@@ -590,7 +590,8 @@
         ko.validation.init({insertMessages: false});
         ko.applyBindings(new ArmImagesViewModel($j, ko, BS.ArmImageDialog, {
             baseUrl: "<c:url value='${basePath}'/>",
-            projectId: "${projectId}"
+            projectId: "${projectId}",
+            contextPath: "${contextPath}"
         }), dialog);
     });
 </script>

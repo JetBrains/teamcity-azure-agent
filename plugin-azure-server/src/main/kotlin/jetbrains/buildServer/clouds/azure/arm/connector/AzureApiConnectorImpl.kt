@@ -181,20 +181,20 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      */
     override suspend fun getInstances() = coroutineScope {
         try {
-            val vmInstanceMap = withContext(Dispatchers.IO) {
+            val vmInstanceList = withContext(Dispatchers.IO) {
                 myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchVirtualMachines, Unit)
                         .awaitOne()
-                        .asSequence().map {
-                            it.id to "${it.groupName}/${it.name}".toLowerCase()
-                        }.sortedBy {
-                            it.second
-                        }.associateBy(
-                                { it.first },
-                                { it.second }
-                        )
+                        .asSequence()
+                        .map {
+                            AzureApiVMInstance(it.id, "${it.groupName}/${it.name}".toLowerCase(), it.osType)
+                        }
+                        .sortedBy {
+                            it.description
+                        }
+                        .toList()
             }
             LOG.debug("Received list of vm instances")
-            vmInstanceMap
+            vmInstanceList
         } catch (e: Throwable) {
             val message = "Failed to get list of instances: ${e.message}"
             LOG.debug(message, e)

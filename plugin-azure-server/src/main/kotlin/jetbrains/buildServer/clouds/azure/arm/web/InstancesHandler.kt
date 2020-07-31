@@ -29,9 +29,10 @@ internal class InstancesHandler : AzureResourceHandler() {
         val instances = connector.getInstances()
 
         val instancesElement = Element("instances")
-        for ((id, description) in instances) {
+        for ((id, description, osType) in instances) {
             instancesElement.addContent(Element("instance").apply {
                 setAttribute("id", id)
+                setAttribute("osType", osType)
                 text = description
             })
         }

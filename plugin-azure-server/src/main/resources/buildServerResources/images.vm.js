@@ -689,6 +689,10 @@ function ArmImagesViewModel($, ko, dialog, config) {
     return false;
   };
 
+  self.getContextPath = function() {
+    return config.contextPath;
+  };
+
   self.getOsImage = function (data) {
     if (!data) return "";
 
@@ -696,12 +700,19 @@ function ArmImagesViewModel($, ko, dialog, config) {
     if (ko.unwrap(data.imageType) === imageTypes.template) {
       image = "/img/buildTypeTemplate.png";
     } else if (ko.unwrap(data.deployTarget) === deployTargets.instance) {
-      image = "/img/buildType.png"
+      return ko.computed(function() {
+        var instance = ko.utils.arrayFirst(self.instances(), function(instance) {
+          return instance.id == data.instanceId
+        });
+        return "url('" + self.getContextPath() +
+          (instance !== null && instance.osType && self.osTypeImage[instance.osType] || "/img/buildType.png") +
+          "')";
+      });
     } else {
       image = self.osTypeImage[ko.unwrap(data.osType)];
     }
 
-    return "url('" + image + "')";
+    return ko.observable("url('" + self.getContextPath() + image + "')");
   };
 
   self.loadSubscriptions = function () {
@@ -1010,7 +1021,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   function getInstances($response) {
     return $response.find("instances:eq(0) instance").map(function () {
-      return {id: $(this).attr("id"), text: $(this).text()};
+      return {id: $(this).attr("id"), text: $(this).text(), osType: $(this).attr("osType")};
     }).get();
   }
 

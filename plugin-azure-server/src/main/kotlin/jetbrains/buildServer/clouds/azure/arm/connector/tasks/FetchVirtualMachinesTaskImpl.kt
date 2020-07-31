@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.microsoft.azure.management.Azure
+import com.microsoft.azure.management.compute.OperatingSystemTypes
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
 import rx.Single
 
@@ -25,7 +26,8 @@ data class FetchVirtualMachinesTaskVirtualMachineDescriptor(
         val name: String,
         val groupName: String,
         val isManagedDiskEnabled: Boolean,
-        val osUnmanagedDiskVhdUri: String?)
+        val osUnmanagedDiskVhdUri: String?,
+        val osType: String?)
 
 class FetchVirtualMachinesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<FetchVirtualMachinesTaskVirtualMachineDescriptor>>() {
     override fun createQuery(api: Azure, parameter: Unit): Single<List<FetchVirtualMachinesTaskVirtualMachineDescriptor>> {
@@ -38,7 +40,12 @@ class FetchVirtualMachinesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, L
                             it.name(),
                             it.resourceGroupName(),
                             it.isManagedDiskEnabled,
-                            it.osUnmanagedDiskVhdUri()
+                            it.osUnmanagedDiskVhdUri(),
+                            when(it.osType()) {
+                                OperatingSystemTypes.LINUX -> "Linux"
+                                OperatingSystemTypes.WINDOWS -> "Windows"
+                                else -> it.osType()?.name
+                            }
                     )
                 }
                 .toList()

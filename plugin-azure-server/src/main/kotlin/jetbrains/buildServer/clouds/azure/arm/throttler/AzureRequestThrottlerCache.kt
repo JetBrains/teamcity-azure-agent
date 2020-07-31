@@ -63,7 +63,7 @@ object AzureRequestThrottlerCache {
             val tenantId = params[AzureConstants.TENANT_ID]
             val clientId = params[AzureConstants.CLIENT_ID]
             val clientSecret = params[AzureConstants.CLIENT_SECRET]
-            return getOrCreateByAppToken(ApplicationTokenCredentials(clientId, tenantId, clientSecret, env), subscriptionId)
+            return getOrCreateByCredentials(clientId, tenantId, clientSecret, env, subscriptionId)
         }
     }
 
@@ -73,14 +73,14 @@ object AzureRequestThrottlerCache {
         }
     }
 
-    private fun getOrCreateByAppToken(credentials: ApplicationTokenCredentials, subscriptionId: String?) : AzureRequestThrottler {
-        return appMap.getOrPut(AppKey(credentials.domain(), credentials.clientId(), subscriptionId)) {
-            AzureRequestThrottlerImpl(subscriptionId, credentials)
+    private fun getOrCreateByCredentials(clientId: String?, tenantId: String?, clientSecret: String?, env: AzureEnvironment, subscriptionId: String?) : AzureRequestThrottler {
+        return appMap.getOrPut(AppKey(clientId, tenantId, clientSecret, subscriptionId)) {
+            AzureRequestThrottlerImpl(subscriptionId, ApplicationTokenCredentials(clientId, tenantId, clientSecret, env))
         }
     }
 
     data class EnvKey(val env: AzureEnvironment, val subscriptionId: String?);
-    data class AppKey(val tenantId: String?, val clientId: String?, val subscriptionId: String?);
+    data class AppKey(val clientId: String?, val tenantId: String?, val clientSecret: String?, val subscriptionId: String?);
 
     class AzureRequestThrottlerImpl(
             override val subscriptionId: String?,

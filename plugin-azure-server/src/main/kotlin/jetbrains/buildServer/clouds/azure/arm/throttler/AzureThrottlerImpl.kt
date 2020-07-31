@@ -110,7 +110,7 @@ class AzureThrottlerImpl<A, I>(
         LOG.debug("[${taskDescriptor.taskId}-$executionId] Starting non blocking task")
 
         return executeTask<P, T>(taskDescriptor.taskId, parameters)
-                .doOnEach { LOG.debug("[${taskDescriptor.taskId}-$executionId] Single On Each Value of task. Kind: ${it.kind}, Value: ${it.value}") }
+                .doOnEach { LOG.debug("[${taskDescriptor.taskId}-$executionId] Single On Each Value of task. Kind: ${it.kind}") }
                 .timeout(getTaskExecutionTimeout(), TimeUnit.SECONDS, timeoutScheduler)
                 .onErrorResumeNext { error ->
                     LOG.debug("[${taskDescriptor.taskId}-$executionId] Error occured: ${error}")

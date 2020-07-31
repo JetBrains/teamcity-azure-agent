@@ -272,7 +272,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
             every { count() } returns 1
             every { hasForceRequest() } returns false
-            every { subscribeTo(any()) } returns SubscriptionList()
+            every { subscribeTo(any(), any()) } returns Unit
         }
 
         every { taskCompletionResultNotifier.notifyCompleted(any()) } returns Unit
@@ -323,11 +323,12 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
             every { count() } returns 1
             every { hasForceRequest() } returns false
-            every {subscribeTo(capture(observableSlot)) } answers { observableSlot.captured.subscribe(observer) }
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
         }
 
         // When
         instance.executeNext()
+        requestScheduler.triggerActions()
 
         // Then
         verify(timeout = 100) {
@@ -355,7 +356,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
             every { count() } returns 1
             every { hasForceRequest() } returns false
-            every {subscribeTo(any()) } returns SubscriptionList()
+            every {subscribeTo(any(), any()) } returns Unit
         }
 
         // When
@@ -386,7 +387,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
             every { count() } returns 1
             every { hasForceRequest() } returns false
-            every {subscribeTo(capture(tmpObservableSlot)) } answers { tmpObservableSlot.captured.subscribe({}) }
+            every {subscribeTo(capture(tmpObservableSlot), any()) } answers { tmpObservableSlot.captured.subscribe({}) }
         }
 
         every { taskCompletionResultNotifier.notifyCompleted(false) } returns Unit
@@ -403,7 +404,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
             every { count() } returns 10
             every { hasForceRequest() } returns false
-            every {subscribeTo(capture(observableSlot)) } answers { observableSlot.captured.subscribe(observer) }
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
         }
 
         // When
@@ -443,7 +444,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
             every { count() } returns 10
             every { hasForceRequest() } returns false
-            every {subscribeTo(capture(observableSlot)) } answers { observableSlot.captured.subscribe(observer) }
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
         }
 
         // When
@@ -485,7 +486,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
             every { count() } returns 10
             every { hasForceRequest() } returns false
-            every {subscribeTo(capture(observableSlot)) } answers { observableSlot.captured.subscribe(observer) }
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
         }
 
         // When
@@ -527,7 +528,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns LocalDateTime.now(Clock.systemUTC())
             every { count() } returns 10
             every { hasForceRequest() } returns false
-            every {subscribeTo(capture(observableSlot)) } answers { observableSlot.captured.subscribe(observer) }
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
         }
 
         // When
@@ -568,7 +569,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns LocalDateTime.now(Clock.systemUTC())
             every { count() } returns 10
             every { hasForceRequest() } returns false
-            every {subscribeTo(capture(observableSlot)) } answers { observableSlot.captured.subscribe(observer) }
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
         }
 
         // When
@@ -610,7 +611,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns minCreatedDate
             every { count() } returns 10
             every { hasForceRequest() } returns false
-            every {subscribeTo(capture(observableSlot)) } answers { observableSlot.captured.subscribe(observer) }
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
         }
         every { requestQueue.addRequest(any(), any(), any(), any(), any(), any(), any()) } returns Unit
 
@@ -662,7 +663,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
             every { getMinCreatedDate() } returns minCreatedDate
             every { count() } returns 10
             every { hasForceRequest() } returns false
-            every {subscribeTo(capture(observableSlot)) } answers { observableSlot.captured.subscribe(observer) }
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
         }
         every {
             requestQueue.addRequest(any(), any(), capture(retrySubject), any(), any(), any(), any())

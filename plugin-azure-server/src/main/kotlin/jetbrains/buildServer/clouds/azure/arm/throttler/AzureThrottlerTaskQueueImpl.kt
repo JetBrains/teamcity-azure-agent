@@ -23,7 +23,6 @@ import rx.Scheduler
 import rx.Single
 import rx.internal.util.SubscriptionList
 import rx.subjects.PublishSubject
-import rx.subjects.Subject
 import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneOffset
@@ -152,18 +151,10 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     }
 
     private fun execute(requestBatch: AzureThrottlerRequestBatch<P, T>) {
-        val subjectSubscriptions = SubscriptionList()
-        mySubscriptions.add(subjectSubscriptions)
+        LOG.debug("Start executing batch of tasks. TaskId: ${taskId}, Task count: ${requestBatch.count()}")
 
         val resultSubject = PublishSubject.create<AzureThrottlerAdapterResult<T>>()
-        subjectSubscriptions.add(
-                requestBatch.subscribeTo(resultSubject)
-        )
-        subjectSubscriptions.add(
-            resultSubject
-                    .doAfterTerminate { mySubscriptions.remove(subjectSubscriptions) }
-                    .subscribe({}, {})
-        )
+        requestBatch.subscribeTo(resultSubject, mySubscriptions)
 
         val hasForceItem = requestBatch.hasForceRequest()
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
@@ -173,11 +164,14 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
                 val cacheValue = task.getFromCache(requestBatch.parameter)
                 if (cacheValue != null && !task.needCacheUpdate(requestBatch.parameter)) {
                     LOG.debug("Updating queue items from cache for task $taskId. Count: ${requestBatch.count()}")
-                    var subscription = Observable
+
+                    val cacheSubscription = SubscriptionList()
+                    mySubscriptions.add(cacheSubscription)
+                    cacheSubscription.add(Single
                             .just<AzureThrottlerAdapterResult<T>>(AzureThrottlerAdapterResult(cacheValue, null, true))
-                            .delaySubscription(10, TimeUnit.MILLISECONDS)
-                            .subscribe(resultSubject)
-                    subjectSubscriptions.add(subscription)
+                            .subscribeOn(requestScheduler)
+                            .doOnUnsubscribe { mySubscriptions.remove(cacheSubscription) }
+                            .subscribe(resultSubject))
                     return
                 }
             }
@@ -185,9 +179,9 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
 
         val resultSubscription = SubscriptionList()
         mySubscriptions.add(resultSubscription)
-
         resultSubscription.add(adapter
                 .execute { task.create(adapter.api, requestBatch.parameter) }
+                .doOnEach { LOG.debug("[$taskId] Received task notification. Kind: ${it.kind}") }
                 .subscribeOn(requestScheduler)
                 .doOnSuccess {
                     myLastUpdatedDateTime.set(LocalDateTime.now(Clock.systemUTC()))
@@ -230,6 +224,9 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
                                     requestBatch.getMaxAttempNo() + 1,
                                     requestBatch.getMinCreatedDate()
                             )
+
+                            mySubscriptions.remove(resultSubscription);
+
                             return@onErrorResumeNext Observable.never<AzureThrottlerAdapterResult<T>>().toSingle()
                         }
                     } else {
@@ -245,16 +242,10 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         if (requestBatch.count() > 0) {
             LOG.debug("Post-processing queue items for task $taskId. Count: ${requestBatch.count()}")
 
-            var subscription = SubscriptionList()
-            mySubscriptions.add(subscription)
             var source = Observable
                     .just<AzureThrottlerAdapterResult<T>>(result)
-                    .delaySubscription(10, TimeUnit.MILLISECONDS)
-                    .doAfterTerminate { mySubscriptions.remove(subscription) }
-                    .publish()
-
-            subscription.add(requestBatch.subscribeTo(source))
-            subscription.add(source.connect())
+                    .subscribeOn(requestScheduler)
+            requestBatch.subscribeTo(source, mySubscriptions)
         }
     }
 

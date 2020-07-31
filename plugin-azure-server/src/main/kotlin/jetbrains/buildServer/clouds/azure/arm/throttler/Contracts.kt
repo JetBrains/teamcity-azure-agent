@@ -17,8 +17,10 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import rx.Observable
+import rx.Observer
 import rx.Single
 import rx.Subscription
+import rx.internal.util.SubscriptionList
 import rx.subjects.Subject
 import java.time.Clock
 import java.time.LocalDateTime
@@ -134,7 +136,7 @@ interface AzureThrottlerRequestBatch<P, T> {
     fun canBeCombined(): Boolean
     fun getMaxAttempNo(): Int
     fun getMinCreatedDate(): LocalDateTime
-    fun subscribeTo(source: Observable<AzureThrottlerAdapterResult<T>>): Subscription
+    fun subscribeTo(source: Observable<AzureThrottlerAdapterResult<T>>, anchor: SubscriptionList)
 }
 
 interface AzureThrottlerTaskQueueCallHistory {

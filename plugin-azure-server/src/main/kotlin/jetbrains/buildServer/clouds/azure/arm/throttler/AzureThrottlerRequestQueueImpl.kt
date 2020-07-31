@@ -17,7 +17,6 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import rx.Observable
-import rx.Subscription
 import rx.internal.util.SubscriptionList
 import rx.subjects.Subject
 import java.lang.Exception
@@ -108,7 +107,7 @@ class AzureThrottlerRequestQueueImpl<I, P, T>(
             throw Exception("Request batch is empty")
         }
 
-        override fun subscribeTo(source: Observable<AzureThrottlerAdapterResult<T>>): Subscription {
+        override fun subscribeTo(source: Observable<AzureThrottlerAdapterResult<T>>, anchor: SubscriptionList) {
             throw Exception("Request batch is empty")
         }
     }
@@ -137,10 +136,16 @@ class AzureThrottlerRequestQueueImpl<I, P, T>(
             return items.any { it.force }
         }
 
-        override fun subscribeTo(source: Observable<AzureThrottlerAdapterResult<T>>): Subscription {
-            val result = SubscriptionList()
-            items.map { source.subscribe(it.result) }.forEach { result.add(it) }
-            return result
+        override fun subscribeTo(source: Observable<AzureThrottlerAdapterResult<T>>, anchor: SubscriptionList) {
+            items.forEach { queueItem ->
+                val subscription = SubscriptionList()
+                anchor.add(subscription)
+
+                subscription.add(source
+                        .take(1)
+                        .doOnUnsubscribe { anchor.remove(subscription) }
+                        .subscribe(queueItem.result));
+            }
         }
     }
 

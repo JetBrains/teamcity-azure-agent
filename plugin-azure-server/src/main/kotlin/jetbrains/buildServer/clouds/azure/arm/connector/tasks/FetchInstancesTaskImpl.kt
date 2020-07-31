@@ -26,7 +26,9 @@ import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableT
 import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
+import jetbrains.buildServer.util.StringUtil
 import rx.Single
+import rx.Observable
 import java.time.Clock
 import java.time.LocalDateTime
 import java.util.*
@@ -74,6 +76,12 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
     private val myTimeoutInSeconds = AtomicLong(60)
 
     override fun create(api: Azure, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
+        if (StringUtil.isEmptyOrSpaces(api.subscriptionId())) {
+            LOG.debug("FetchInstancesTask returns empty list. Subscription is empty")
+            return Single
+                    .just(emptyList<FetchInstancesTaskInstanceDescriptor>());
+        }
+
         val ipAddresses =
             api
                     .publicIPAddresses()

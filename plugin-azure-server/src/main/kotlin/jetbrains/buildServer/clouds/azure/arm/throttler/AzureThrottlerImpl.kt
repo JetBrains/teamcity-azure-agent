@@ -23,6 +23,7 @@ import rx.Scheduler
 import rx.Single
 import rx.internal.util.SubscriptionList
 import java.util.concurrent.*
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
@@ -108,42 +109,19 @@ class AzureThrottlerImpl<A, I>(
         val executionId = myNonBlockingTaskExecutionId.incrementAndGet()
         LOG.debug("[${taskDescriptor.taskId}-$executionId] Starting non blocking task")
 
-        val subscription = SubscriptionList()
-        mySubscriptions.add(subscription)
-
-        var source = executeTask<P, T>(taskDescriptor.taskId, parameters)
-                .toObservable()
-                .delaySubscription(10, TimeUnit.MILLISECONDS)
-                .publish()
-
-        var noExternalSubscriber = false;
-        subscription.add(
-                source
-                        .doAfterTerminate { if (noExternalSubscriber) mySubscriptions.remove(subscription) }
-                        .doOnNext { LOG.debug("[${taskDescriptor.taskId}-$executionId] Data fetched") }
-                        .doOnCompleted { LOG.debug("[${taskDescriptor.taskId}-$executionId] Anchor completed") }
-                        .subscribe({}, {})
-        )
-
-        return source
+        return executeTask<P, T>(taskDescriptor.taskId, parameters)
+                .doOnEach { LOG.debug("[${taskDescriptor.taskId}-$executionId] Single On Each Value of task. Kind: ${it.kind}, Value: ${it.value}") }
                 .timeout(getTaskExecutionTimeout(), TimeUnit.SECONDS, timeoutScheduler)
                 .onErrorResumeNext { error ->
+                    LOG.debug("[${taskDescriptor.taskId}-$executionId] Error occured: ${error}")
                     if (error is TimeoutException) {
-                        noExternalSubscriber = true;
                         LOG.debug("[${taskDescriptor.taskId}-$executionId] Task could not be executed for requested time")
-                        return@onErrorResumeNext Observable.error<T>(ThrottlerTimeoutException("Task ${taskDescriptor.taskId} could not be executed for requested time", error))
+                        return@onErrorResumeNext Single.error<T>(ThrottlerTimeoutException("Task ${taskDescriptor.taskId} could not be executed for requested time", error))
                     }
-                    return@onErrorResumeNext Observable.error<T>(error)
+                    return@onErrorResumeNext Single.error<T>(error)
                 }
-                .doOnSubscribe {
-                    LOG.debug("[${taskDescriptor.taskId}-$executionId] Subscribing")
-                    subscription.add(source.connect())
-                }
+                .doOnSubscribe { LOG.debug("[${taskDescriptor.taskId}-$executionId] Subscribing") }
                 .doOnUnsubscribe { LOG.debug("[${taskDescriptor.taskId}-$executionId] Unsubscribing") }
-                .doOnCompleted { LOG.debug("[${taskDescriptor.taskId}-$executionId] Completed")}
-                .doOnNext { LOG.debug("[${taskDescriptor.taskId}-$executionId] Data delivered")}
-                .doAfterTerminate { if (!noExternalSubscriber) mySubscriptions.remove(subscription) }
-                .toSingle()
     }
 
     override fun notifyCompleted(performedRequests: Boolean) {

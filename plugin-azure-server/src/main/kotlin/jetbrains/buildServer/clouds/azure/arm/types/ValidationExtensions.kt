@@ -87,7 +87,7 @@ fun AzureCloudImageDetails.checkTemplate(exceptions: ArrayList<Throwable>) {
                 val resources = root["resources"] as ArrayNode
                 resources.filterIsInstance<ObjectNode>()
                         .first {
-                            it["type"].asText() == "Microsoft.Compute/virtualMachines" &&
+                            // it["type"].asText() == "Microsoft.Compute/virtualMachines" &&
                                     it["name"].asText() == "[parameters('vmName')]"
                         }
             } catch (e: Exception) {

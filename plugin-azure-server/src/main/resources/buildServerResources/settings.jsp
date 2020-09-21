@@ -569,30 +569,32 @@
 </div>
 
 <script type="text/javascript">
-    BS.ArmImageDialog = OO.extend(BS.AbstractModalDialog, {
-        getContainer: function () {
-            return $('ArmImageDialog');
-        },
-        showDialog: function (addImage) {
-            var action = addImage ? "Add" : "Edit";
-            $j("#ArmImageDialogTitle").text(action + " Image");
-            this.showCentered();
-        }
-    });
+    $j(function () {
+      BS.ArmImageDialog = OO.extend(BS.AbstractModalDialog, {
+          getContainer: function () {
+              return $('ArmImageDialog');
+          },
+          showDialog: function (addImage) {
+              var action = addImage ? "Add" : "Edit";
+              $j("#ArmImageDialogTitle").text(action + " Image");
+              this.showCentered();
+          }
+      });
 
-    $j.when($j.getScript("<c:url value="${resPath}knockout-3.4.0.js"/>").then(function () {
-                return $j.when($j.getScript("<c:url value="${resPath}knockout.validation-2.0.3.js"/>"),
-                        $j.getScript("<c:url value="${resPath}knockout.extenders.js"/>"));
-            }),
-            $j.getScript("<c:url value="${resPath}images.vm.js"/>")
-    ).then(function () {
-        var dialog = document.getElementById("arm-setting");
-        ko.validation.init({insertMessages: false});
-        ko.applyBindings(new ArmImagesViewModel($j, ko, BS.ArmImageDialog, {
-            baseUrl: "<c:url value='${basePath}'/>",
-            projectId: "${projectId}",
-            contextPath: "${contextPath}"
-        }), dialog);
+      $j.when($j.getScript("<c:url value="${resPath}knockout-3.4.0.js"/>").then(function () {
+                  return $j.when($j.getScript("<c:url value="${resPath}knockout.validation-2.0.3.js"/>"),
+                          $j.getScript("<c:url value="${resPath}knockout.extenders.js"/>"));
+              }),
+              $j.getScript("<c:url value="${resPath}images.vm.js"/>")
+      ).then(function () {
+          var dialog = document.getElementById("arm-setting");
+          ko.validation.init({insertMessages: false});
+          ko.applyBindings(new ArmImagesViewModel($j, ko, BS.ArmImageDialog, {
+              baseUrl: "<c:url value='${basePath}'/>",
+              projectId: "${projectId}",
+              contextPath: "${contextPath}"
+          }), dialog);
+      });
     });
 </script>
 <table class="runnerFormTable">

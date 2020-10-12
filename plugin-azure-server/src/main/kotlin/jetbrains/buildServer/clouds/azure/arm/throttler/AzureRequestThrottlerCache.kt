@@ -88,10 +88,11 @@ object AzureRequestThrottlerCache {
     ) : AzureRequestThrottler {
         private var myReadsThrottler: AzureThrottler<Azure, AzureThrottlerReadTasks.Values>
         private var myUpdatesThrottler: AzureThrottler<Azure, AzureThrottlerActionTasks.Values>
+        private var myTaskNotifications = AzureTaskNotificationsImpl()
 
         init {
-            myReadsThrottler = AzureThrottlerFactory.createReadRequestsThrottler(credentials, subscriptionId)
-            myUpdatesThrottler = AzureThrottlerFactory.createActionRequestsThrottler(credentials, subscriptionId)
+            myReadsThrottler = AzureThrottlerFactory.createReadRequestsThrottler(credentials, subscriptionId, myTaskNotifications)
+            myUpdatesThrottler = AzureThrottlerFactory.createActionRequestsThrottler(credentials, subscriptionId, myTaskNotifications)
         }
 
         override fun <P, T> executeReadTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {

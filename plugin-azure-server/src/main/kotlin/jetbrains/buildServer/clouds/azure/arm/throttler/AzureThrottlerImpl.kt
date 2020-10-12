@@ -34,7 +34,8 @@ class AzureThrottlerImpl<A, I>(
         private val throttlerStrategy: AzureThrottlerStrategy<I>,
         private val requestScheduler: Scheduler,
         private val timeoutScheduler: Scheduler,
-        private val scheduledExecutorFactory: AzureThrottlerScheduledExecutorFactorty
+        private val scheduledExecutorFactory: AzureThrottlerScheduledExecutorFactorty,
+        private val taskNotifications: AzureTaskNotifications
 ) : AzureThrottler<A, I>, AzureThrottlerStrategyTaskContainer<I>, AzureThrottlerTaskCompletionResultNotifier {
     private val myTaskQueues = ConcurrentHashMap<I, AzureThrottlerTaskQueue<I, *, *>>()
     private val myNonBlockingTaskExecutionId = AtomicLong(0)
@@ -91,7 +92,7 @@ class AzureThrottlerImpl<A, I>(
     }
 
     override fun <P, T> registerTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long): AzureThrottler<A, I> {
-        return registerTask(taskDescriptor.taskId, taskDescriptor.create(), taskTimeExecutionType, defaultTimeoutInSeconds)
+        return registerTask(taskDescriptor.taskId, taskDescriptor.create(taskNotifications), taskTimeExecutionType, defaultTimeoutInSeconds)
     }
 
     override fun <P, T> executeTask(taskId: I, parameters: P): Single<T> {

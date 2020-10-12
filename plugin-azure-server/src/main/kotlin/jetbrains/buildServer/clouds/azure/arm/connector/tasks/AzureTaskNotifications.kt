@@ -17,15 +17,14 @@
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.microsoft.azure.management.Azure
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskDescriptor
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import com.microsoft.azure.management.compute.VirtualMachine
+import com.microsoft.azure.management.resources.Deployment
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskEventArgs
+import kotlin.reflect.KClass
 
-class AzureTaskDescriptorImpl<I, P, T>(
-        override val taskId: I,
-        private val factory: (AzureTaskNotifications) -> AzureThrottlerTask<Azure, P, T>
-) : AzureTaskDescriptor<Azure, I, P, T> {
-    override fun create(taskNotifications: AzureTaskNotifications): AzureThrottlerTask<Azure, P, T> {
-        return factory(taskNotifications)
-    }
+class AzureTaskVirtualMachineStatusChangedEventArgs(override val api: Azure, val virtualMachine: VirtualMachine) : AzureTaskEventArgs {
 }
+
+class AzureTaskDeploymentStatusChangedEventArgs(override val api: Azure, val deployment: Deployment, val isDeleting: Boolean = false) : AzureTaskEventArgs {
+}
+

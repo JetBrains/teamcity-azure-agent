@@ -19,21 +19,28 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 import com.google.common.cache.CacheBuilder
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
+import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.compute.VirtualMachineInstanceView
+import com.microsoft.azure.management.containerinstance.ContainerGroup
+import com.microsoft.azure.management.network.PublicIPAddress
+import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTask
 import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC
+import jetbrains.buildServer.clouds.azure.arm.throttler.register
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.util.StringUtil
-import rx.Single
 import rx.Observable
+import rx.Single
 import java.time.Clock
 import java.time.LocalDateTime
 import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 data class FetchInstancesTaskInstanceDescriptor (
         val imageId: String,
@@ -71,9 +78,41 @@ data class FetchInstancesTaskParameter(val serverId: String?, val profileId: Str
 data class FetchInstancesTaskImageDescriptor(val imageId: String, val imageDetails: FetchInstancesTaskCloudImageDetails)
 data class FetchInstancesTaskCloudImageDetails(val vmPublicIp: Boolean?, val instanceId: String?, val sourceId: String, val target: AzureCloudDeployTarget, val isVmInstance: Boolean, val resourceGroup: String)
 
-class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstancesTaskParameter, List<FetchInstancesTaskInstanceDescriptor>> {
-    val myCache = createCache()
+class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerCacheableTask<Azure, FetchInstancesTaskParameter, List<FetchInstancesTaskInstanceDescriptor>> {
     private val myTimeoutInSeconds = AtomicLong(60)
+    private val myIpAddresses = AtomicReference<Array<IPAddressDescriptor>>(emptyArray())
+    private val myInstancesCache = createCache()
+    private val myLastUpdatedDate = AtomicReference<LocalDateTime>(LocalDateTime.MIN)
+
+    init {
+        myNotifications.register<AzureTaskVirtualMachineStatusChangedEventArgs> {
+            updateVirtualMachine(it.api, it.virtualMachine)
+        }
+        myNotifications.register<AzureTaskDeploymentStatusChangedEventArgs> { args ->
+            val dependency = args.deployment.dependencies().firstOrNull { it.resourceType() == VIRTUAL_MACHINES_RESOURCE_TYPE }
+            if (dependency != null) {
+                if (args.deployment.provisioningState() == PROVISIONING_STATE_SUCCEEDED) {
+                    updateVirtualMachine(args.api, dependency.id())
+                }
+                return@register
+            }
+
+            val containerProvider = args.deployment.providers().firstOrNull { it.namespace() == CONTAINER_INSTANCE_NAMESPACE }
+            if (containerProvider != null) {
+                val id = args.deployment.id()
+                val name = args.deployment.name()
+
+                val containerId = ResourceUtils.constructResourceId(
+                        ResourceUtils.subscriptionFromResourceId(id),
+                        ResourceUtils.groupFromResourceId(id),
+                        containerProvider.namespace(),
+                        CONTAINER_GROUPS_RESOURCE_TYPE,
+                        name,
+                        "")
+                updateContainer(args.api, containerId)
+            }
+        }
+    }
 
     override fun create(api: Azure, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
         if (StringUtil.isEmptyOrSpaces(api.subscriptionId())) {
@@ -83,93 +122,164 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
         }
 
         val ipAddresses =
-            api
-                    .publicIPAddresses()
-                    .listAsync()
-                    .filter { !it.ipAddress().isNullOrBlank() }
-                    .map { IPAddressDescriptor(it.name(), it.resourceGroupName(), it.ipAddress()) }
-                    .toList()
-                    .takeLast(1)
-                    .doOnNext {
-                        LOG.debug("Received list of ip addresses")
-                    }
-                    .onErrorReturn {
-                        val message = "Failed to get list of public ip addresses: " + it.message
-                        LOG.debug(message, it)
-                        emptyList()
-                    }
+                fetchIPAddresses(api)
 
         val machineInstances =
             api
                     .virtualMachines()
                     .listAsync()
-                    .flatMap { vm ->
-                        val tags = vm.tags()
-                        val id = vm.id()
-                        val name = vm.name()
-                        LOG.debug("Reading state of virtual machine '$name'")
-
-                        vm.refreshInstanceViewAsync()
-                                .map { getInstanceState(it, tags, name) }
-                                .onErrorReturn {
-                                    LOG.debug("Failed to get status of virtual machine '$name': $it.message", it)
-                                    InstanceViewState(null, null, null, it)
-                                }
-                                .map { instanceView->
-                                    val instance = InstanceDescriptor(
-                                            id,
-                                            name,
-                                            tags,
-                                            instanceView.provisioningState,
-                                            instanceView.startDate,
-                                            instanceView.powerState,
-                                            if (instanceView.error != null) TypedCloudErrorInfo.fromException(instanceView.error) else null)
-                                    instance
-                                }
-                    }
+                    .flatMap { fetchVirtualMachine(it) }
 
         val containerInstances =
             api
                     .containerGroups()
                     .listAsync()
-                    .map { containerGroup ->
-                        val state = containerGroup.containers()[containerGroup.name()]?.instanceView()?.currentState()
-                        val startDate = state?.startTime()?.toDate()
-                        val powerState = state?.state()
-                        val instance = InstanceDescriptor(
-                                containerGroup.id(),
-                                containerGroup.name(),
-                                containerGroup.tags(),
-                                null,
-                                startDate,
-                                powerState,
-                                null)
-                        instance
-                    }
+                    .map { fetchContainer(it) }
 
         return machineInstances
                 .mergeWith(containerInstances)
                 .toList()
                 .takeLast(1)
-                .withLatestFrom(ipAddresses) { instances, ipList -> CacheValue(instances, ipList, LocalDateTime.now(Clock.systemUTC())) }
-                .doOnNext { myCache.put(CacheKey(parameter.serverId), it) }
-                .map { filterResources(it, parameter) }
+                .withLatestFrom(ipAddresses) { instances, ipList ->
+                    myLastUpdatedDate.set(LocalDateTime.now(Clock.systemUTC()))
+                    myIpAddresses.set(ipList.toTypedArray())
+
+                    val keysInCache = myInstancesCache.asMap().keys.toSet()
+                    val newInstances = instances.associateBy { it.id.toLowerCase() }
+                    myInstancesCache.putAll(newInstances)
+                    myInstancesCache.invalidateAll(keysInCache.minus(newInstances.keys))
+
+                    Unit
+                }
+                .map { getFilteredResources(parameter) }
                 .toSingle()
     }
 
+    private fun fetchIPAddresses(api: Azure): Observable<MutableList<IPAddressDescriptor>> {
+        return api
+                .publicIPAddresses()
+                .listAsync()
+                .filter { !it.ipAddress().isNullOrBlank() }
+                .map { IPAddressDescriptor(it.name(), it.resourceGroupName(), it.ipAddress(), getAssignedNetworkInterfaceId(it)) }
+                .toList()
+                .takeLast(1)
+                .doOnNext {
+                    LOG.debug("Received list of ip addresses")
+                }
+                .onErrorReturn {
+                    val message = "Failed to get list of public ip addresses: " + it.message
+                    LOG.debug(message, it)
+                    emptyList()
+                }
+    }
+
+    private fun updateContainer(api: Azure, containerId: String) {
+        api.containerGroups()
+                .getByIdAsync(containerId)
+                .map { it?.let { fetchContainer(it) } }
+                .withLatestFrom(fetchIPAddresses(api)) {
+                    instance, ipList ->
+                    myIpAddresses.set(ipList.toTypedArray())
+                    if (instance != null) {
+                        myInstancesCache.put(instance.id.toLowerCase(), instance)
+                    } else {
+                        myInstancesCache.invalidate(containerId.toLowerCase())
+                    }
+                }
+                .take(1)
+                .subscribe()
+    }
+
+    private fun fetchContainer(containerGroup: ContainerGroup): InstanceDescriptor {
+        val state = containerGroup.containers()[containerGroup.name()]?.instanceView()?.currentState()
+        val startDate = state?.startTime()?.toDate()
+        val powerState = state?.state()
+        val instance = InstanceDescriptor(
+                containerGroup.id(),
+                containerGroup.name(),
+                containerGroup.tags(),
+                null,
+                startDate,
+                powerState,
+                null,
+                null)
+        return instance
+    }
+
+
+    private fun fetchVirtualMachine(vm: VirtualMachine): Observable<InstanceDescriptor> {
+        val tags = vm.tags()
+        val id = vm.id()
+        val name = vm.name()
+        LOG.debug("Reading state of virtual machine '$name'")
+
+        return vm.refreshInstanceViewAsync()
+                .map { getInstanceState(it, tags, name) }
+                .onErrorReturn {
+                    LOG.debug("Failed to get status of virtual machine '$name': $it.message", it)
+                    InstanceViewState(null, null, null, it)
+                }
+                .map { instanceView ->
+                    val instance = InstanceDescriptor(
+                            id,
+                            name,
+                            tags,
+                            instanceView.provisioningState,
+                            instanceView.startDate,
+                            instanceView.powerState,
+                            if (instanceView.error != null) TypedCloudErrorInfo.fromException(instanceView.error) else null,
+                            vm.primaryNetworkInterfaceId())
+                    instance
+                }
+    }
+
+    private fun updateVirtualMachine(api: Azure, virtualMachine: VirtualMachine) {
+        fetchVirtualMachine(virtualMachine)
+                .withLatestFrom(fetchIPAddresses(api)) { instance, ipList ->
+                    myIpAddresses.set(ipList.toTypedArray())
+                    myInstancesCache.put(instance.id.toLowerCase(), instance)
+                }
+                .take(1)
+                .subscribe()
+    }
+
+    private fun updateVirtualMachine(api: Azure, virtualMachineId: String) {
+        api.virtualMachines()
+                .getByIdAsync(virtualMachineId)
+                .flatMap { if (it != null) fetchVirtualMachine(it) else Observable.just(null) }
+                .withLatestFrom(fetchIPAddresses(api)) {
+                    instance, ipList ->
+                    myIpAddresses.set(ipList.toTypedArray())
+                    if (instance != null) {
+                        myInstancesCache.put(instance.id.toLowerCase(), instance)
+                    } else {
+                        myInstancesCache.invalidate(virtualMachineId.toLowerCase())
+                    }
+                }
+                .take(1)
+                .subscribe()
+    }
+
+    private fun getAssignedNetworkInterfaceId(publicIpAddress: PublicIPAddress?): String? {
+        if (publicIpAddress == null || !publicIpAddress.hasAssignedNetworkInterface()) return null
+        val refId: String = publicIpAddress.inner().ipConfiguration().id()
+        val parentId = ResourceUtils.parentResourceIdFromResourceId(refId)
+        return parentId
+    }
+
+
     override fun getFromCache(parameter: FetchInstancesTaskParameter): List<FetchInstancesTaskInstanceDescriptor>? {
-        val value = myCache.getIfPresent(CacheKey(parameter.serverId))
-        return if (value != null) filterResources(value, parameter) else null
+        return getFilteredResources(parameter)
     }
 
     override fun needCacheUpdate(parameter: FetchInstancesTaskParameter): Boolean {
-        val lastUpdatedDateTime = myCache.getIfPresent(CacheKey(parameter.serverId))?.lastUpdatedDateTime
-        return lastUpdatedDateTime == null || lastUpdatedDateTime.plusSeconds(myTimeoutInSeconds.get()) < LocalDateTime.now(Clock.systemUTC())
+        val lastUpdatedDateTime = myLastUpdatedDate.get()
+        return lastUpdatedDateTime.plusSeconds(myTimeoutInSeconds.get()) < LocalDateTime.now(Clock.systemUTC())
     }
 
     override fun checkThrottleTime(parameter: FetchInstancesTaskParameter): Boolean {
-        val lastUpdatedDateTime = myCache.getIfPresent(CacheKey(parameter.serverId))?.lastUpdatedDateTime
-        return lastUpdatedDateTime == null || lastUpdatedDateTime.plusSeconds(getTaskThrottleTime()) < LocalDateTime.now(Clock.systemUTC())
+        val lastUpdatedDateTime = myLastUpdatedDate.get()
+        return lastUpdatedDateTime.plusSeconds(getTaskThrottleTime()) < LocalDateTime.now(Clock.systemUTC())
     }
 
     override fun areParametersEqual(parameter: FetchInstancesTaskParameter, other: FetchInstancesTaskParameter): Boolean {
@@ -180,8 +290,8 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
         return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC, 10)
     }
 
-    private fun filterResources(data: CacheValue, filter: FetchInstancesTaskParameter): List<FetchInstancesTaskInstanceDescriptor> {
-        return data.instances
+    private fun getFilteredResources(filter: FetchInstancesTaskParameter): List<FetchInstancesTaskInstanceDescriptor> {
+        return myInstancesCache.asMap().values
                 .map { it to filter.images.find { image -> !isNotInstanceOfImage(it, image, filter.serverId, filter.profileId) } }
                 .filter { (_, image) -> image != null }
                 .map { (instance, image) ->
@@ -190,7 +300,7 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
                         instance.id,
                         instance.name,
                         instance.tags,
-                        getPublicIPAddressOrDefault(image.imageDetails, instance.name, data.ipAddresses),
+                        getPublicIPAddressOrDefault(image.imageDetails, instance),
                         instance.provisioningState,
                         instance.startDate,
                         instance.powerState,
@@ -242,7 +352,8 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
     }
 
     override fun invalidateCache() {
-        myCache.invalidateAll()
+        myInstancesCache.invalidateAll()
+        myIpAddresses.set(emptyArray())
     }
 
     private fun getInstanceState(instanceView: VirtualMachineInstanceView, tags: Map<String, String>, name: String): InstanceViewState {
@@ -276,12 +387,17 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
         myTimeoutInSeconds.set(timeoutInSeconds)
     }
 
-    private fun getPublicIPAddressOrDefault(details: FetchInstancesTaskCloudImageDetails, name: String, ipAddresses: List<IPAddressDescriptor>): String? {
-        if (details.vmPublicIp != true) return null
+    private fun getPublicIPAddressOrDefault(details: FetchInstancesTaskCloudImageDetails, instance: InstanceDescriptor): String? {
+        var ipAddresses = myIpAddresses.get()
+        if (ipAddresses.isEmpty()) return null
 
+        val name = instance.name
         val groupId = if (details.target == AzureCloudDeployTarget.NewGroup) name else details.resourceGroup
         val pipName = name + PUBLIC_IP_SUFFIX
-        val ips = ipAddresses.filter { it.resourceGroupName == groupId && it.name == pipName }
+        val ips = ipAddresses.filter {
+            (it.resourceGroupName == groupId && it.name == pipName)
+            || (instance.primaryNetworkInterfaceId != null && it.assignedNetworkInterfaceId == instance.primaryNetworkInterfaceId)
+        }
 
         if (ips.isNotEmpty()) {
             for (ip in ips) {
@@ -298,7 +414,7 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
         return null
     }
 
-    private fun createCache() = CacheBuilder.newBuilder().expireAfterWrite(32 * 60, TimeUnit.SECONDS).build<CacheKey, CacheValue>()
+    private fun createCache() = CacheBuilder.newBuilder().expireAfterWrite(32 * 60, TimeUnit.SECONDS).build<String, InstanceDescriptor>()
 
     data class InstanceViewState (val provisioningState: String?, val startDate: Date?, val powerState: String?, val error: Throwable?)
 
@@ -313,19 +429,26 @@ class FetchInstancesTaskImpl : AzureThrottlerCacheableTask<Azure, FetchInstances
             val provisioningState: String?,
             val startDate: Date?,
             val powerState: String?,
-            val error: TypedCloudErrorInfo?
+            val error: TypedCloudErrorInfo?,
+            val primaryNetworkInterfaceId: String?
     )
 
     data class IPAddressDescriptor (
             val name: String,
             val resourceGroupName: String,
-            val ipAddress: String
+            val ipAddress: String,
+            val assignedNetworkInterfaceId: String?
     )
 
     companion object {
         private val LOG = Logger.getInstance(FetchInstancesTaskImpl::class.java.name)
         private const val PUBLIC_IP_SUFFIX = "-pip"
         private const val PROVISIONING_STATE = "ProvisioningState/"
+        private const val PROVISIONING_STATE_SUCCEEDED = "Succeeded"
         private const val POWER_STATE = "PowerState/"
+        private const val CACHE_KEY = "key"
+        private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
+        private const val CONTAINER_INSTANCE_NAMESPACE = "Microsoft.ContainerInstance"
+        private const val CONTAINER_GROUPS_RESOURCE_TYPE = "containerGroups"
     }
 }

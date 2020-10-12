@@ -18,7 +18,7 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Observable
 import rx.Single
@@ -27,14 +27,14 @@ data class StopVirtualMachineTaskParameter(
         val groupId: String,
         val name: String)
 
-class StopVirtualMachineTaskImpl : AzureThrottlerTaskBaseImpl<Azure, StopVirtualMachineTaskParameter, Unit>() {
+class StopVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<Azure, StopVirtualMachineTaskParameter, Unit>() {
     override fun create(api: Azure, parameter: StopVirtualMachineTaskParameter): Single<Unit> {
         return api
                 .virtualMachines()
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)
-                .flatMap {
-                    if (it != null) {
-                        it.deallocateAsync().toObservable<Unit>()
+                .flatMap { vm ->
+                    if (vm != null) {
+                        vm.deallocateAsync().toObservable<Unit>().doOnCompleted { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
                     } else {
                         LOG.warnAndDebugDetails("Could not find virtual machine to stop. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
                         Observable.just(Unit)

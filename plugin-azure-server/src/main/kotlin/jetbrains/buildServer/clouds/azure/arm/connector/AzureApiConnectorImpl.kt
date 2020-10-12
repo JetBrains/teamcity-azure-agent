@@ -119,11 +119,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                 val errors = arrayListOf<TypedCloudErrorInfo>()
                 for (instanceDescriptor in instanceDescriptorMap.getOrDefault(image.id, emptyList())) {
                     val instance = AzureInstance(instanceDescriptor.name)
-                    instance.properties = instanceDescriptor.tags
-                    instanceDescriptor.powerState?.let { instance.setPowerState(it) }
-                    instanceDescriptor.provisioningState?.let { instance.setProvisioningState(it) }
-                    instanceDescriptor.startDate?.let { instance.setStartDate(it) }
-                    instanceDescriptor.publicIpAddress?.let { instance.setIpAddress(it) }
+                    updateInstanceByDescriptor(instance, instanceDescriptor)
 
                     map[instance.name] = instance
 
@@ -140,6 +136,13 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         imageMap
     }
 
+    private fun updateInstanceByDescriptor(instance: AzureInstance, instanceDescriptor: FetchInstancesTaskInstanceDescriptor) {
+        instance.properties = instanceDescriptor.tags
+        instanceDescriptor.powerState?.let { instance.setPowerState(it) }
+        instanceDescriptor.provisioningState?.let { instance.setProvisioningState(it) }
+        instanceDescriptor.startDate?.let { instance.setStartDate(it) }
+        instanceDescriptor.publicIpAddress?.let { instance.setIpAddress(it) }
+    }
 
     @Suppress("UselessCallOnNotNull")
     override fun checkImage(image: AzureCloudImage) = runBlocking {
@@ -349,8 +352,6 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         } else {
             createVm(instance, userData)
         }
-
-
     }
 
     private suspend fun createVm(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {

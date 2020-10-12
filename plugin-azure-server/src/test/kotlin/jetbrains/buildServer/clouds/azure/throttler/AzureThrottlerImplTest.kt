@@ -17,9 +17,7 @@
 package jetbrains.buildServer.clouds.azure.throttler
 
 import io.mockk.*
-import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureTaskDescriptorImpl
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
-import junit.framework.TestCase
 import org.jmock.MockObjectTestCase
 import org.testng.Assert
 import org.testng.annotations.BeforeMethod
@@ -38,7 +36,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
     private lateinit var scheduledExecutorFactory: AzureThrottlerScheduledExecutorFactorty
     private lateinit var scheduledExecutor: AzureThrottlerScheduledExecutor
     private lateinit var executeTaskAction: () -> Unit
-
+    private lateinit var taskNotifications: AzureTaskNotifications
 
     @BeforeMethod
     fun beforeMethod() {
@@ -71,6 +69,8 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
 
         scheduler = Schedulers.test()
         timeoutScheduler = Schedulers.test()
+
+        taskNotifications = mockk()
     }
 
     @Test
@@ -147,7 +147,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
         every { task.create(Unit, capture(parameterSlot)) } answers { Single.just("Executed with ${parameterSlot.captured}") }
 
         val taskDescriptor: AzureTaskDescriptor<Unit, Unit, String, String> = mockk()
-        every { taskDescriptor.create() } returns task
+        every { taskDescriptor.create(taskNotifications) } returns task
         every { taskDescriptor.taskId } returns Unit
 
         instance.registerTask(Unit, task, AzureThrottlerTaskTimeExecutionType.Random, 10)
@@ -184,7 +184,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
         every { task.create(Unit, any()) } answers { Single.error(error) }
 
         val taskDescriptor: AzureTaskDescriptor<Unit, Unit, String, String> = mockk()
-        every { taskDescriptor.create() } returns task
+        every { taskDescriptor.create(taskNotifications) } returns task
         every { taskDescriptor.taskId } returns Unit
 
         instance.registerTask(Unit, task, AzureThrottlerTaskTimeExecutionType.Random, 10)
@@ -221,7 +221,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
         every { task.create(Unit, capture(parameterSlot)) } answers { Single.just("Executed with ${parameterSlot.captured}") }
 
         val taskDescriptor: AzureTaskDescriptor<Unit, Unit, String, String> = mockk()
-        every { taskDescriptor.create() } returns task
+        every { taskDescriptor.create(taskNotifications) } returns task
         every { taskDescriptor.taskId } returns Unit
 
         instance.registerTask(Unit, task, AzureThrottlerTaskTimeExecutionType.Random, 10)
@@ -268,7 +268,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
         }
 
         val taskDescriptor: AzureTaskDescriptor<Unit, Unit, String, String> = mockk()
-        every { taskDescriptor.create() } returns task
+        every { taskDescriptor.create(taskNotifications) } returns task
         every { taskDescriptor.taskId } returns Unit
 
         instance.registerTask(Unit, task, AzureThrottlerTaskTimeExecutionType.Random, 10)
@@ -314,7 +314,8 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
                 throttlerStrategy,
                 scheduler,
                 timeoutScheduler,
-                scheduledExecutorFactory
+                scheduledExecutorFactory,
+                taskNotifications
         )
     }
 }

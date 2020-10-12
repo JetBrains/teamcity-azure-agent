@@ -33,7 +33,7 @@ class AzureThrottlerReadTasks {
     companion object {
         val FetchResourceGroups = AzureTaskDescriptorImpl(Values.FetchResourceGroups, { FetchResourceGroupsMapTaskImpl() })
         val FetchVirtualMachines = AzureTaskDescriptorImpl(Values.FetchVirtualMachines, { FetchVirtualMachinesTaskImpl() })
-        val FetchInstances = AzureTaskDescriptorImpl(Values.FetchInstances, { FetchInstancesTaskImpl() })
+        val FetchInstances = AzureTaskDescriptorImpl(Values.FetchInstances, { notifications -> FetchInstancesTaskImpl(notifications) })
         val FetchCustomImages = AzureTaskDescriptorImpl(Values.FetchCustomImages, { FetchCustomImagesTaskImpl() })
         val FetchStorageAccounts = AzureTaskDescriptorImpl(Values.FetchStorageAccounts, { FetchStorageAccountsTaskImpl() })
         val FetchVirtualMachineSizes = AzureTaskDescriptorImpl(Values.FetchVirtualMachineSizes, { FetchVirtualMachineSizesTaskImpl() })

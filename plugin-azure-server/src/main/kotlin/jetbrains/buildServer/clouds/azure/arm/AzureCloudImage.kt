@@ -23,6 +23,7 @@ import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.QuotaException
 import jetbrains.buildServer.clouds.azure.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
 import jetbrains.buildServer.clouds.azure.arm.types.*
 import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
@@ -124,6 +125,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val instance = AzureCloudInstance(this, name)
         instance.status = InstanceStatus.SCHEDULED_TO_START
         val data = AzureUtils.setVmNameForTag(userData, name)
+        val image = this
 
         GlobalScope.launch {
             val hash = handler!!.getImageHash(imageDetails)
@@ -134,9 +136,10 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             instance.properties[AzureConstants.TAG_IMAGE_HASH] = hash
 
             try {
+                instance.status = InstanceStatus.STARTING
                 LOG.info("Creating new virtual machine ${instance.name}")
                 myApiConnector.createInstance(instance, data)
-                instance.status = InstanceStatus.RUNNING
+                updateInstanceStatus(image, instance)
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 handleDeploymentError(e)
@@ -170,64 +173,68 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      *
      * @return instance if it found.
      */
-    private suspend fun tryToStartStoppedInstance(userData: CloudInstanceUserData) = coroutineScope {
-        val instances = stoppedInstances
-        if (instances.isNotEmpty()) {
-            val validInstances = if (myImageDetails.behaviour.isDeleteAfterStop) {
-                LOG.info("Will remove all virtual machines due to cloud image settings")
-                emptyList()
-            } else {
-                instances.filter {
-                    if (!isSameImageInstance(it)) {
-                        LOG.info("Will remove virtual machine ${it.name} due to changes in image source")
-                        return@filter false
+    private suspend fun tryToStartStoppedInstance(userData: CloudInstanceUserData): AzureCloudInstance? {
+        val image = this
+        return coroutineScope {
+            val instances = stoppedInstances
+            if (instances.isNotEmpty()) {
+                val validInstances = if (myImageDetails.behaviour.isDeleteAfterStop) {
+                    LOG.info("Will remove all virtual machines due to cloud image settings")
+                    emptyList()
+                } else {
+                    instances.filter {
+                        if (!isSameImageInstance(it)) {
+                            LOG.info("Will remove virtual machine ${it.name} due to changes in image source")
+                            return@filter false
+                        }
+                        val data = AzureUtils.setVmNameForTag(userData, it.name)
+                        if (it.properties[AzureConstants.TAG_DATA_HASH] != getDataHash(data)) {
+                            LOG.info("Will remove virtual machine ${it.name} due to changes in cloud profile")
+                            return@filter false
+                        }
+                        return@filter true
                     }
-                    val data = AzureUtils.setVmNameForTag(userData, it.name)
-                    if (it.properties[AzureConstants.TAG_DATA_HASH] != getDataHash(data)) {
-                        LOG.info("Will remove virtual machine ${it.name} due to changes in cloud profile")
-                        return@filter false
-                    }
-                    return@filter true
                 }
+
+                val invalidInstances = instances - validInstances
+                val instance = validInstances.firstOrNull()
+
+                instance?.status = InstanceStatus.SCHEDULED_TO_START
+
+                GlobalScope.launch {
+                    invalidInstances.forEach {
+                        try {
+                            LOG.info("Removing virtual machine ${it.name}")
+                            myApiConnector.deleteInstance(it)
+                            removeInstance(it.instanceId)
+                        } catch (e: Throwable) {
+                            LOG.warnAndDebugDetails(e.message, e)
+                            it.status = InstanceStatus.ERROR
+                            it.updateErrors(TypedCloudErrorInfo.fromException(e))
+                        }
+                    }
+
+                    instance?.let {
+                        try {
+                            instance.status = InstanceStatus.STARTING
+                            LOG.info("Starting stopped virtual machine ${it.name}")
+                            myApiConnector.startInstance(it)
+                            updateInstanceStatus(image, it)
+                        } catch (e: Throwable) {
+                            LOG.warnAndDebugDetails(e.message, e)
+                            handleDeploymentError(e)
+
+                            it.status = InstanceStatus.ERROR
+                            it.updateErrors(TypedCloudErrorInfo.fromException(e))
+                        }
+                    }
+                }
+
+                return@coroutineScope instance
             }
 
-            val invalidInstances = instances - validInstances
-            val instance = validInstances.firstOrNull()
-
-            instance?.status = InstanceStatus.SCHEDULED_TO_START
-
-            GlobalScope.launch {
-                invalidInstances.forEach {
-                    try {
-                        LOG.info("Removing virtual machine ${it.name}")
-                        myApiConnector.deleteInstance(it)
-                        removeInstance(it.instanceId)
-                    } catch (e: Throwable) {
-                        LOG.warnAndDebugDetails(e.message, e)
-                        it.status = InstanceStatus.ERROR
-                        it.updateErrors(TypedCloudErrorInfo.fromException(e))
-                    }
-                }
-
-                instance?.let {
-                    try {
-                        LOG.info("Starting stopped virtual machine ${it.name}")
-                        myApiConnector.startInstance(it)
-                        instance.status = InstanceStatus.RUNNING
-                    } catch (e: Throwable) {
-                        LOG.warnAndDebugDetails(e.message, e)
-                        handleDeploymentError(e)
-
-                        it.status = InstanceStatus.ERROR
-                        it.updateErrors(TypedCloudErrorInfo.fromException(e))
-                    }
-                }
-            }
-
-            return@coroutineScope instance
+            null
         }
-
-        null
     }
 
     /**
@@ -241,11 +248,13 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
         instance.status = InstanceStatus.SCHEDULED_TO_START
 
+        val image = this
         GlobalScope.launch {
             try {
+                instance.status = InstanceStatus.STARTING
                 LOG.info("Starting virtual machine ${instance.name}")
                 myApiConnector.startInstance(instance)
-                instance.status = InstanceStatus.RUNNING
+                updateInstanceStatus(image, instance)
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 handleDeploymentError(e)
@@ -256,6 +265,15 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         }
 
         return instance
+    }
+
+    private fun updateInstanceStatus(image: AzureCloudImage, instance: AzureCloudInstance) {
+        val instances = myApiConnector.fetchInstances<AzureInstance>(image)
+        instances.get(instance.name)?.let {
+            it.startDate?.let { instance.setStartDate(it) }
+            it.ipAddress?.let { instance.setNetworkIdentify(it) }
+            instance.status = it.instanceStatus
+        }
     }
 
     private suspend fun isSameImageInstance(instance: AzureCloudInstance) = coroutineScope {
@@ -281,11 +299,13 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     override fun restartInstance(instance: AzureCloudInstance) {
         instance.status = InstanceStatus.RESTARTING
 
+        val image = this
         GlobalScope.launch {
             try {
+                instance.status = InstanceStatus.STARTING
                 LOG.info("Restarting virtual machine ${instance.name}")
                 myApiConnector.restartInstance(instance)
-                instance.status = InstanceStatus.RUNNING
+                updateInstanceStatus(image, instance)
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 instance.status = InstanceStatus.ERROR
@@ -300,6 +320,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
             return
         }
 
+        val image = this
         instance.status = InstanceStatus.SCHEDULED_TO_STOP
 
         GlobalScope.launch {
@@ -316,7 +337,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 } else {
                     LOG.info("Stopping virtual machine ${instance.name}")
                     myApiConnector.stopInstance(instance)
-                    instance.status = InstanceStatus.STOPPED
+                    updateInstanceStatus(image, instance)
                 }
 
                 LOG.info("Virtual machine ${instance.name} has been successfully terminated")

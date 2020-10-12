@@ -18,23 +18,22 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
-import com.microsoft.azure.management.compute.Disk
 import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.fluentcore.collection.SupportsDeletingById
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Notification
 import rx.Observable
 import rx.Single
-import rx.schedulers.Schedulers
 import rx.subjects.BehaviorSubject
 
 data class DeleteDeploymentTaskParameter(
         val resourceGroupName: String,
         val name: String)
 
-class DeleteDeploymentTaskImpl : AzureThrottlerTaskBaseImpl<Azure, DeleteDeploymentTaskParameter, Unit>() {
+class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<Azure, DeleteDeploymentTaskParameter, Unit>() {
     override fun create(api: Azure, parameter: DeleteDeploymentTaskParameter): Single<Unit> {
+        var originalDeployment: Deployment? = null
         return api
                 .deployments()
                 .getByResourceGroupAsync(parameter.resourceGroupName, parameter.name)
@@ -53,6 +52,7 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTaskBaseImpl<Azure, DeleteDeploym
                     if (it.provisioningState().equals(PROVISIONING_STATE_CANCELLED, ignoreCase = true)) {
                         LOG.debug("Deployment ${it.name()} in group ${it.resourceGroupName()} was canceled")
                     }
+                    originalDeployment = it
                 }
                 .flatMap { deployment ->
                     if (deployment.provisioningState().equals(PROVISIONING_STATE_RUNNING, ignoreCase = true)) {
@@ -102,14 +102,14 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTaskBaseImpl<Azure, DeleteDeploym
                             .filter { it != null }
                             .concatMap { targetResource ->
                                 val result = Observable.just(targetResource.id() to targetResource.resourceType())
-                                if (targetResource.resourceType().equals(VIRTUAL_MACHINE_RESOURCE_TYPE, ignoreCase = true))
+                                if (targetResource.resourceType().equals(VIRTUAL_MACHINES_RESOURCE_TYPE, ignoreCase = true))
                                         api
                                                 .virtualMachines()
                                                 .getByIdAsync(targetResource.id())
                                                 .filter { it != null && it.isManagedDiskEnabled }
                                                 .map { it.osDiskId() }
                                                 .concatMap {
-                                                    result.concatWith(Observable.just(it to "Microsoft.Compute/disks"))
+                                                    result.concatWith(Observable.just(it to DISKS_RESOURCE_TYPE))
                                                 }
                                 else
                                     result
@@ -119,7 +119,7 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTaskBaseImpl<Azure, DeleteDeploym
                                 LOG.debug("Deleting resource $resourceId")
 
                                 when(resourceType) {
-                                    "Microsoft.ContainerInstance/containerGroups" -> api.containerGroups() as SupportsDeletingById
+                                    CONTAINER_GROUPS_RESOURCE_TYPE -> api.containerGroups() as SupportsDeletingById
                                     else -> api.genericResources() as SupportsDeletingById
                                 }
                                 .deleteByIdAsync(resourceId)
@@ -133,12 +133,17 @@ class DeleteDeploymentTaskImpl : AzureThrottlerTaskBaseImpl<Azure, DeleteDeploym
                 }
                 .concatWith(Observable.just(Unit))
                 .last()
+                .doOnNext {
+                    originalDeployment?.let { myNotifications.raise(AzureTaskDeploymentStatusChangedEventArgs(api, it, true)) }
+                }
                 .toSingle()
     }
 
     companion object {
         private val LOG = Logger.getInstance(DeleteDeploymentTaskImpl::class.java.name)
-        private const val VIRTUAL_MACHINE_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
+        private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
+        private const val CONTAINER_GROUPS_RESOURCE_TYPE = "Microsoft.ContainerInstance/containerGroups"
+        private const val DISKS_RESOURCE_TYPE = "Microsoft.Compute/disks"
         private const val PROVISIONING_STATE_CANCELLED = "Canceled"
         private const val PROVISIONING_STATE_RUNNING = "Running"
     }

@@ -58,7 +58,7 @@ interface AzureThrottlerTaskParameterEqualityComparer<P> {
 
 interface AzureTaskDescriptor<A, I, P, T> {
     val taskId: I
-    fun create(): AzureThrottlerTask<A, P, T>
+    fun create(taskNotifications: AzureTaskNotifications): AzureThrottlerTask<A, P, T>
 }
 
 interface AzureThrottler<A, I> {

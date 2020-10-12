@@ -24,7 +24,7 @@ import jetbrains.buildServer.serverSide.TeamCityProperties
 import rx.schedulers.Schedulers
 
 object AzureThrottlerFactory {
-    fun createReadRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?): AzureThrottler<Azure, AzureThrottlerReadTasks.Values> {
+    fun createReadRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<Azure, AzureThrottlerReadTasks.Values> {
         val azureAdapter = AzureThrottlerAdapterImpl(
                 AzureThrottlerConfigurableImpl(),
                 credentials,
@@ -48,7 +48,8 @@ object AzureThrottlerFactory {
                 readsStrategy,
                 Schedulers.immediate(),
                 Schedulers.computation(),
-                AzureThrottlerScheduledExecutorFactortyImpl()
+                AzureThrottlerScheduledExecutorFactortyImpl(),
+                taskNotifications
         )
 
         val randomTaskCacheTimeout = TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT, 90)
@@ -87,7 +88,7 @@ object AzureThrottlerFactory {
                         randomTaskCacheTimeout)
     }
 
-    fun createActionRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?): AzureThrottler<Azure, AzureThrottlerActionTasks.Values> {
+    fun createActionRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<Azure, AzureThrottlerActionTasks.Values> {
         val azureActionAdapter = AzureThrottlerAdapterImpl(
                 AzureThrottlerConfigurableImpl(),
                 credentials,
@@ -113,7 +114,8 @@ object AzureThrottlerFactory {
                 actionsStrategy,
                 Schedulers.io(),
                 Schedulers.computation(),
-                AzureThrottlerScheduledExecutorFactortyImpl()
+                AzureThrottlerScheduledExecutorFactortyImpl(),
+                taskNotifications
         )
 
         return throttler

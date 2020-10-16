@@ -29,11 +29,12 @@ import java.util.*
 /**
  * Allows to customize ARM template.
  */
-class ArmTemplateBuilder(template: String) {
+class ArmTemplateBuilder(template: String, tagsAsParameters: Boolean = false) {
 
     private val mapper = ObjectMapper()
     private var root: ObjectNode
     private val parameters = linkedMapOf<String, JsonValue>()
+    private val tagsAsParameters = tagsAsParameters
 
     init {
         val reader = mapper.reader()
@@ -53,9 +54,24 @@ class ArmTemplateBuilder(template: String) {
     }
 
     fun setTags(resourceName: String, tags: Map<String, String>): ArmTemplateBuilder {
-        // Moved to parameters because of incremental ARM templates
-        for ((key, value) in tags) {
-            this.setParameterValue(key, value);
+        if (tagsAsParameters)
+        {
+            // Moved to parameters because of incremental ARM templates
+            for ((key, value) in tags) {
+                this.setParameterValue(key, value);
+            }
+        }
+        else
+        {
+            val resources = root["resources"] as ArrayNode
+            val resource = resources.filterIsInstance<ObjectNode>()
+                    .first { it["name"].asText() == resourceName }
+            val element = (resource["tags"] as? ObjectNode) ?: resource.putObject("tags")
+            element.apply {
+                for ((key, value) in tags) {
+                    this.put(key, value)
+                }
+            }
         }
         return this
     }

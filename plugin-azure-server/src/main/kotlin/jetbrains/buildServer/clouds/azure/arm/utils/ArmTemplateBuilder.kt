@@ -53,14 +53,9 @@ class ArmTemplateBuilder(template: String) {
     }
 
     fun setTags(resourceName: String, tags: Map<String, String>): ArmTemplateBuilder {
-        val resources = root["resources"] as ArrayNode
-        val resource = resources.filterIsInstance<ObjectNode>()
-                .first { it["name"].asText() == resourceName }
-        val element = (resource["tags"] as? ObjectNode) ?: resource.putObject("tags")
-        element.apply {
-            for ((key, value) in tags) {
-                this.put(key, value)
-            }
+        // Moved to parameters because of incremental ARM templates
+        for ((key, value) in tags) {
+            this.setParameterValue(key, value);
         }
         return this
     }
@@ -151,15 +146,8 @@ class ArmTemplateBuilder(template: String) {
     }
 
     fun setCustomData(customData: String): ArmTemplateBuilder {
-        (root["resources"] as ArrayNode).apply {
-            this.filterIsInstance<ObjectNode>()
-                    .first { it["name"].asText() == "[parameters('vmName')]" }
-                    .apply {
-                        val properties = (this["properties"] as? ObjectNode) ?: this.putObject("properties")
-                        val osProfile = (properties["osProfile"] as? ObjectNode) ?: properties.putObject("osProfile")
-                        osProfile.put("customData", customData)
-                    }
-        }
+        // Moved to parameters because of incremental ARM templates
+        this.setParameterValue("customData", customData);
         return this
     }
 

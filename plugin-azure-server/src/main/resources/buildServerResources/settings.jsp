@@ -362,6 +362,44 @@
                     <!-- /ko -->
                 </td>
             </tr>
+            <tr data-bind="if: image().imageType() === 'Container'">
+                <th><label for="${cons.networkId}">Virtual Network: </label></th>
+                <td>
+                    <select name="${cons.networkId}" class="longField ignoreModified"
+                            data-bind="options: networks, optionsText: function (item) {
+                                return item.substring(item.lastIndexOf('/') + 1);
+                            }, optionsCaption: '<Not specified>', value: image().networkId, css: {hidden: networks().length == 0}"></select>
+                    <div class="longField inline-block" data-bind="css: {hidden: networks().length > 0}">
+                        No virtual networks found in <span data-bind="text: regionName"></span> region
+                    </div>
+                    <!-- ko if: loadingResources -->
+                    <i class="icon-refresh icon-spin"></i>
+                    <!-- /ko -->
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() === 'Container'">
+                <th class="noBorder"><label for="${cons.subnetId}">Sub Network: </label></th>
+                <td>
+                    <select name="${cons.subnetId}" class="longField ignoreModified"
+                            data-bind="options: subNetworks, value: image().subnetId, css: {hidden: subNetworks().length == 0}"></select>
+                    <div class="longField inline-block" data-bind="css: {hidden: subNetworks().length > 0 || !image().networkId() }">
+                        <span class="error option-error">
+                            No sub networks found in <span data-bind="text: regionName"></span> region
+                        </span>
+                    </div>
+                    <div class="longField inline-block" data-bind="css: {hidden: image().networkId()}">
+                        Not specified
+                    </div>
+                    <!-- ko if: loadingResources -->
+                    <i class="icon-refresh icon-spin"></i>
+                    <!-- /ko -->
+                    <span class="smallNote" data-bind="css: {smallNote_hidden: !image().networkId()}">Specify subnet which can be used by the dedicated service Microsoft.ContainerInstance/containerGroups.
+                        <bs:help
+                            urlPrefix="https://docs.microsoft.com/en-us/azure/virtual-network/manage-subnet-delegation#delegate-a-subnet-to-an-azure-service"
+                            file=""/>
+                    </span>
+                </td>
+            </tr>
             <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th class="noBorder"><label for="${cons.subnetId}">Sub Network: <l:star/></label></th>
                 <td>
@@ -424,7 +462,7 @@
                 </td>
             </tr>
             <tr data-bind="if: image().imageType() == 'Container' && image().osType() == 'Linux'">
-                <th class="noBorder"><label for="${cons.storageAccount}">Storage account: </label></th>
+                <th><label for="${cons.storageAccount}">Storage account: </label></th>
                 <td>
                     <select name="${cons.storageAccount}" class="longField ignoreModified"
                             data-bind="options: storageAccounts, value: image().storageAccount,
@@ -443,7 +481,7 @@
                 </td>
             </tr>
             <tr data-bind="if: image().imageType() == 'Container'" class="advancedSetting">
-                <th class="noBorder"><label for="${cons.customEnvironmentVariables}">Environment Variables:</label></th>
+                <th><label for="${cons.customEnvironmentVariables}">Environment Variables:</label></th>
                 <td>
                     <div>
                         <textarea name="${cons.customEnvironmentVariables}" class="longField ignoreModified"

@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.utils
 
+import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
@@ -36,6 +37,8 @@ class ArmTemplateBuilder(template: String) {
     private val parameters = linkedMapOf<String, JsonValue>()
 
     init {
+        mapper.enable(JsonParser.Feature.ALLOW_COMMENTS)
+
         val reader = mapper.reader()
         root = reader.readTree(template) as ObjectNode
     }
@@ -221,6 +224,57 @@ class ArmTemplateBuilder(template: String) {
         })
 
         reloadTemplate()
+
+        return this
+    }
+
+    fun addContainerNetwork(): ArmTemplateBuilder {
+        addParameter("networkId", "String", "Virtual Network name for the container.")
+        addParameter("subnetName", "String", "Sub network name for the container.")
+
+        (root["variables"] as ObjectNode).apply {
+            this.put("netProfileName", "[concat(parameters('containerName'), '-net-profile')]")
+            this.put("netConfigName", "[concat(parameters('containerName'), '-net-config')]")
+            this.put("netIPConfigName", "[concat(parameters('containerName'), '-net-ip-config')]")
+            this.put("subnetRef", "[concat(parameters('networkId'), '/subnets/', parameters('subnetName'))]")
+        }
+
+        (root["resources"] as ArrayNode).apply {
+            this.addPOJO(object {
+                val apiVersion = "2019-11-01"
+                val type = "Microsoft.Network/networkProfiles"
+                val name = "[variables('netProfileName')]"
+                val location = "[variables('location')]"
+                val properties = object {
+                    val containerNetworkInterfaceConfigurations = arrayOf(
+                            object {
+                                val name = "[variables('netConfigName')]"
+                                val properties = object {
+                                    val ipConfigurations = arrayOf(
+                                            object {
+                                                val name = "[variables('netIPConfigName')]"
+                                                val properties = object {
+                                                    val subnet = object {
+                                                        val id = "[variables('subnetRef')]"
+                                                    }
+                                                }
+                                            })
+                                }
+                            }
+                    )
+                }
+            })
+        }
+
+        val container = (root["resources"].filterIsInstance<ObjectNode>().first { it["type"].asText() == "Microsoft.ContainerInstance/containerGroups" })
+        container
+                .putArray("dependsOn")
+                .add("[resourceId('Microsoft.Network/networkProfiles', variables('netProfileName'))]")
+
+        val containerNetworkProfileRef = container["properties"] as ObjectNode
+        containerNetworkProfileRef
+                .putObject("networkProfile")
+                .put("id", "[resourceId('Microsoft.Network/networkProfiles', variables('netProfileName'))]")
 
         return this
     }

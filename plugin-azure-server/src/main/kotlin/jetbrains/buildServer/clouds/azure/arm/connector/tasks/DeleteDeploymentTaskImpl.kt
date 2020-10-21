@@ -19,6 +19,8 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.resources.Deployment
+import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId
+import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import com.microsoft.azure.management.resources.fluentcore.collection.SupportsDeletingById
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
@@ -26,6 +28,7 @@ import rx.Notification
 import rx.Observable
 import rx.Single
 import rx.subjects.BehaviorSubject
+import java.util.ArrayList
 
 data class DeleteDeploymentTaskParameter(
         val resourceGroupName: String,
@@ -102,28 +105,37 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                             .filter { it != null }
                             .concatMap { targetResource ->
                                 val result = Observable.just(targetResource.id() to targetResource.resourceType())
-                                if (targetResource.resourceType().equals(VIRTUAL_MACHINES_RESOURCE_TYPE, ignoreCase = true))
-                                        api
-                                                .virtualMachines()
-                                                .getByIdAsync(targetResource.id())
-                                                .filter { it != null && it.isManagedDiskEnabled }
-                                                .map { it.osDiskId() }
-                                                .concatMap {
-                                                    result.concatWith(Observable.just(it to DISKS_RESOURCE_TYPE))
-                                                }
-                                else
+                                if (targetResource.resourceType().equals(VIRTUAL_MACHINES_RESOURCE_TYPE, ignoreCase = true)) {
+                                    api
+                                            .virtualMachines()
+                                            .getByIdAsync(targetResource.id())
+                                            .filter { it != null && it.isManagedDiskEnabled }
+                                            .map { it.osDiskId() }
+                                            .concatMap {
+                                                result.concatWith(Observable.just(it to DISKS_RESOURCE_TYPE))
+                                            }
+                                } else {
                                     result
+                                }
                             }
                             .distinctUntilChanged()
-                            .flatMap { (resourceId, resourceType) ->
+                            .concatMap { (resourceId, resourceType) ->
                                 LOG.debug("Deleting resource $resourceId")
 
                                 when(resourceType) {
-                                    CONTAINER_GROUPS_RESOURCE_TYPE -> api.containerGroups() as SupportsDeletingById
-                                    else -> api.genericResources() as SupportsDeletingById
+                                    CONTAINER_GROUPS_RESOURCE_TYPE -> api.containerGroups().deleteByIdAsync(resourceId).toObservable<Unit>()
+                                    NETWORK_PROFILE_RESOURCE_TYPE -> {
+                                        val id = ResourceId.fromString(resourceId)
+                                        val networkProfilesService = api.networks().manager().inner().networkProfiles()
+                                        networkProfilesService
+                                                .getByResourceGroupAsync(id.resourceGroupName(), id.name())
+                                                .filter { it != null }
+                                                .map { it.withContainerNetworkInterfaceConfigurations(emptyList()) }
+                                                .flatMap { networkProfilesService.createOrUpdateAsync(id.resourceGroupName(), id.name(), it) }
+                                                .flatMap { networkProfilesService.deleteAsync(id.resourceGroupName(), id.name()).map({ Unit }) }
+                                    }
+                                    else -> api.genericResources().deleteByIdAsync(resourceId).toObservable<Unit>()
                                 }
-                                .deleteByIdAsync(resourceId)
-                                .toObservable<Unit>()
                                 .concatWith(Observable.just(Unit))
                                 .onErrorReturn {
                                     LOG.warnAndDebugDetails("Error occured during deletion of resource $resourceId :", it)
@@ -143,6 +155,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         private val LOG = Logger.getInstance(DeleteDeploymentTaskImpl::class.java.name)
         private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
         private const val CONTAINER_GROUPS_RESOURCE_TYPE = "Microsoft.ContainerInstance/containerGroups"
+        private const val NETWORK_PROFILE_RESOURCE_TYPE = "Microsoft.Network/networkProfiles"
         private const val DISKS_RESOURCE_TYPE = "Microsoft.Compute/disks"
         private const val PROVISIONING_STATE_CANCELLED = "Canceled"
         private const val PROVISIONING_STATE_RUNNING = "Running"

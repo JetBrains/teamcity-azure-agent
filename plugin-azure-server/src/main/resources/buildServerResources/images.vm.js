@@ -308,7 +308,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
   ]);
 
   self.imageTypes = ko.observableArray([
-    {id: imageTypes.container, text: "Container (preview)"},
+    {id: imageTypes.container, text: "Container"},
     {id: imageTypes.image, text: "Image"},
     {id: imageTypes.template, text: "Template"},
     {id: imageTypes.vhd, text: "VHD"}
@@ -462,7 +462,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
   });
 
   self.image().networkId.subscribe(function (networkId) {
-    var subNetworks = self.nets[networkId] || [];
+    var subNetworks = networkId !== self.noneNetwork && self.nets[networkId] || [];
     self.subNetworks(subNetworks);
   });
 

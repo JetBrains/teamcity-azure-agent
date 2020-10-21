@@ -58,6 +58,11 @@ class AzureContainerHandler(private val connector: AzureApiConnector) : AzureHan
                         val server = getImageServer(details.imageId)
                         addContainerCredentials(server, details.registryUsername.trim(), details.password!!.trim())
                     }
+                    if (!details.networkId.isNullOrEmpty() && !details.subnetId.isNullOrEmpty()) {
+                        setParameterValue("networkId", details.networkId)
+                        setParameterValue("subnetName", details.subnetId)
+                        addContainerNetwork()
+                    }
                 }
     }
 

@@ -152,7 +152,6 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                     try {
                         myApiConnector.deleteInstance(instance)
                         LOG.info("Allocated resources for virtual machine ${instance.name} have been removed")
-                        removeInstance(instance.instanceId)
                     } catch (e: Throwable) {
                         val message = "Failed to delete allocated resources for virtual machine ${instance.name}: ${e.message}"
                         LOG.warnAndDebugDetails(message, e)

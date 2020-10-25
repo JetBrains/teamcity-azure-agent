@@ -63,6 +63,10 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   // Image details
   var maxLength = 12;
+
+  // Note container can create a storage share with folders like <container-name>-plugins, etc. Max length of such name should be less than 63 characters
+  var containerVmPrefixMaxLength = 50;
+
   var deployTargets = {
     specificGroup: 'SpecificGroup',
     newGroup: 'NewGroup',
@@ -81,6 +85,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   self.deployTarget = ko.observable();
   self.imageType = ko.observable();
+  self.osType = ko.observable();
 
   var requiredForDeployment = {
     required: {
@@ -182,7 +187,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
         }
       }
     }),
-    osType: ko.observable().extend({
+    osType: self.osType.extend({
       required: {
         onlyIf: function () {
           return self.imageType() !== imageTypes.template &&
@@ -218,7 +223,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
     registryPassword: ko.observable(),
     storageAccount: ko.observable(),
     storageAccountType: ko.observable(),
-    vmNamePrefix: ko.observable('').trimmed().extend({required: true}).extend({
+    vmNamePrefix: ko.observable('').trimmed().extend({
+      required: {
+        onlyIf: function () {
+          return self.imageType() !== imageTypes.image ||
+            (self.imageType() === imageTypes.image && self.osType() != null)
+        }
+      }
+    }).extend({
       validation: {
         validator: function (value) {
           return self.originalImage && self.originalImage.vmNamePrefix === value || !self.passwords[value];
@@ -226,9 +238,41 @@ function ArmImagesViewModel($, ko, dialog, config) {
         message: 'Name prefix should be unique within subscription'
       }
     }).extend({
-      pattern: {
-        message: 'Name can contain alphanumeric characters, underscore and hyphen',
-        params: /^[a-z][a-z0-9_-]*$/i
+      validation: {
+        validator: function (value) {
+          return ko.validation.rules['pattern'].validator(value, /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/i) && self.imageType() === imageTypes.container ||
+            self.imageType() !== imageTypes.container;
+        },
+        message: 'Name can contain alphanumeric characters and hyphen'
+      }
+    }).extend({
+      validation: {
+        validator: function (value) {
+          var namePattern = self.osType() === osTypes.linux ? /^[a-z0-9]([\.-a-z0-9]*[a-z0-9])?$/i : /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/i;
+          return ko.validation.rules['pattern'].validator(value, namePattern) && self.imageType() === imageTypes.image ||
+            self.imageType() !== imageTypes.image;
+        },
+        message: function(params, observable) {
+          return self.osType() === osTypes.linux
+                 ? 'Name can contain alphanumeric characters, hyphen and period'
+                 : 'Name can contain alphanumeric characters and hyphen';
+        }
+      }
+    }).extend({
+      validation: {
+        validator: function (value) {
+          return ko.validation.rules['pattern'].validator(value, /^[a-z][a-z0-9_-]*$/i) && self.imageType() === imageTypes.template ||
+            self.imageType() !== imageTypes.template;
+        },
+        message: 'Name can contain alphanumeric characters, underscore and hyphen'
+      }
+    }).extend({
+      validation: {
+        validator: function (value) {
+          return ko.validation.rules['pattern'].validator(value, /^[a-z][a-z0-9_-]*$/i) && self.imageType() === imageTypes.vhd ||
+            self.imageType() !== imageTypes.vhd;
+        },
+        message: 'Name can contain alphanumeric characters, underscore and hyphen'
       }
     }).extend({
       validation: {
@@ -238,6 +282,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
             self.imageType() === imageTypes.container;
         },
         message: 'Please enter no more than ' + maxLength + ' characters.'
+      }
+    }).extend({
+      validation: {
+        validator: function (value) {
+          return !value || value.length <= containerVmPrefixMaxLength ||
+            self.imageType() != imageTypes.container;
+        },
+        message: 'Please enter no more than ' + containerVmPrefixMaxLength + ' characters.'
       }
     }),
     vmPublicIp: ko.observable(false),
@@ -285,7 +337,6 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.storageAccounts = ko.observableArray([]);
   self.agentPools = ko.observableArray([]);
   self.osTypes = ko.observableArray([osTypes.linux, osTypes.windows]);
-  self.osType = ko.observable();
   self.osTypeImage = {
     "Linux": "/img/os/lin-small-bw.png",
     "Windows": "/img/os/win-small-bw.png"
@@ -462,7 +513,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
   });
 
   self.image().networkId.subscribe(function (networkId) {
-    var subNetworks = networkId !== self.noneNetwork && self.nets[networkId] || [];
+    var subNetworks = self.nets[networkId] || [];
     self.subNetworks(subNetworks);
   });
 
@@ -590,6 +641,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }
 
     self.image.errors.showAllMessages(false);
+    ko.validation.group(self.image().vmNamePrefix).showAllMessages();
+
     dialog.showDialog(!self.originalImage);
 
     return false;

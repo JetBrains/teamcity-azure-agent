@@ -565,7 +565,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       groupId: self.getResourceGroup(),
       imageType: imageTypes.container,
       imageId: "jetbrains/teamcity-agent",
-      vmNamePrefix: "teamcity-agent",
+      vmNamePrefix: "tc-agent",
       osType: osTypes.linux,
       maxInstances: 1,
       numberCores: 2,

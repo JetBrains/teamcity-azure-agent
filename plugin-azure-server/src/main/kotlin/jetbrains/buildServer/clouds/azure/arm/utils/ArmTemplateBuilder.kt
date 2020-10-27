@@ -162,8 +162,23 @@ class ArmTemplateBuilder(template: String, tagsAsParameters: Boolean = false) {
     }
 
     fun setCustomData(customData: String): ArmTemplateBuilder {
-        // Moved to parameters because of incremental ARM templates
-        this.setParameterValue("customData", customData);
+        if (tagsAsParameters)
+        {
+            // Moved to parameters because of incremental ARM templates
+            this.setParameterValue("customData", customData);
+        }
+        else
+        {
+            (root["resources"] as ArrayNode).apply {
+            this.filterIsInstance<ObjectNode>()
+                    .first { it["name"].asText() == "[parameters('vmName')]" }
+                    .apply {
+                        val properties = (this["properties"] as? ObjectNode) ?: this.putObject("properties")
+                        val osProfile = (properties["osProfile"] as? ObjectNode) ?: properties.putObject("osProfile")
+                        osProfile.put("customData", customData)
+                    }
+            }
+        }
         return this
     }
 

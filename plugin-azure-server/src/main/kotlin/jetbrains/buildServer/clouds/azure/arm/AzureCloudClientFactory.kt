@@ -99,7 +99,10 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                     param.agentPoolId,
                     param.getParameter(AzureConstants.PROFILE_ID),
                     (param.getParameter(AzureConstants.REUSE_VM) ?: "").toBoolean(),
-                    param.getParameter(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES))
+                    param.getParameter(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES),
+                    param.getParameter(AzureConstants.SPOT_VM)?.toBoolean(),
+                    param.getParameter(AzureConstants.ENABLE_SPOT_PRICE)?.toBoolean(),
+                    param.getParameter(AzureConstants.SPOT_PRICE)?.toInt())
         }.apply {
             AzureUtils.setPasswords(AzureCloudImageDetails::class.java, params, this)
         }

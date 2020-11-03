@@ -25,4 +25,6 @@
     <bean class="jetbrains.buildServer.clouds.azure.UnixCustomDataReader"/>
     <bean class="jetbrains.buildServer.clouds.azure.WindowsCustomDataReader"/>
     <bean class="jetbrains.buildServer.clouds.azure.FileUtilsImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.AzureScheduledExecutorServiceImpl" />
+    <bean class="jetbrains.buildServer.clouds.azure.SpotInstanceTerminationCheckerImpl" />
 </beans>

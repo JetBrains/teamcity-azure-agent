@@ -345,6 +345,47 @@
                     </div>
                 </td>
             </tr>
+            <tr data-bind="if: image().imageType() == 'Image'">
+                <th><label for="${cons.spotVm}">Spot instance:</label></th>
+                <td>
+                    <input type="checkbox" name="${cons.spotVm}" data-bind="checked: image().spotVm"/>
+                    <span class="smallNote">
+                        Use Azure capacity at a discounted rate.
+                        <bs:help
+                            urlPrefix="https://docs.microsoft.com/en-us/azure/virtual-machines/spot-vms"
+                            file=""/>
+                    </span>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Image' && image().spotVm()">
+                <th class="noBorder"></th>
+                <td>
+                    <input type="checkbox" name="${cons.enableSpotPrice}" data-bind="checked: image().enableSpotPrice"/>
+                    <label for="${cons.spotVm}">Evict by price</label>
+                    <span class="smallNote">
+                        Allow evicting virtual machine when the cost of the instance is greater than your max price.
+                        <bs:help
+                            urlPrefix="https://docs.microsoft.com/en-us/azure/virtual-machines/spot-vms#eviction-policy"
+                            file=""/>
+                    </span>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Image' && image().spotVm() && image().enableSpotPrice()">
+                <th class="noBorder"><label for="${cons.spotPrice}">Max price: <l:star/></label></th>
+                <td>
+                    <div>
+                        <input type="text" name="${cons.spotPrice}" class="longField ignoreModified"
+                               data-bind="textInput: image().spotPrice"/>
+                        <span class="smallNote">
+                            Choose the maximum price per hour you are willing to pay for a single instance of the selected virtual machine size. Prices are in USD ($).
+                            <bs:help
+                                urlPrefix="https://docs.microsoft.com/en-us/azure/virtual-machines/spot-vms#pricing"
+                                file=""/>
+                        </span>
+                        <span class="error option-error" data-bind="validationMessage: image().spotPrice"></span>
+                    </div>
+                </td>
+            </tr>
             <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th><label for="${cons.networkId}">Virtual Network: <l:star/></label></th>
                 <td>

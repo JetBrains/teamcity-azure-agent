@@ -76,6 +76,10 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
                 .setParameterValue(AzureConstants.OS_TYPE, details.osType!!)
                 .setStorageAccountType(details.storageAccountType)
                 .setParameterValue("vmSize", details.vmSize!!)
+        if (details.spotVm == true) {
+            builder.setupSpotInstance(details.enableSpotPrice, details.spotPrice)
+        }
+        builder
     }
 
     override suspend fun getImageHash(details: AzureCloudImageDetails) = coroutineScope {

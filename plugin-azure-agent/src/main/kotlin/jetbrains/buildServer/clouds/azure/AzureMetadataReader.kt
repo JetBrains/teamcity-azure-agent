@@ -19,8 +19,10 @@ package jetbrains.buildServer.clouds.azure
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx
 
-class AzureMetadataReader(private val configuration: BuildAgentConfigurationEx) {
-
+class AzureMetadataReader(
+        private val configuration: BuildAgentConfigurationEx,
+        private val spotTerminationChecker: SpotInstanceTerminationChecker
+) {
     fun process() {
         val metadata = try {
             AzureMetadata.readInstanceMetadata()
@@ -31,6 +33,14 @@ class AzureMetadataReader(private val configuration: BuildAgentConfigurationEx) 
         }
 
         updateConfiguration(metadata)
+
+        runSpotChecker(metadata);
+    }
+
+    private fun runSpotChecker(metadata: AzureMetadata.Metadata) {
+        metadata.compute?.name?.let {
+            spotTerminationChecker.start(it)
+        }
     }
 
     internal fun updateConfiguration(metadata: AzureMetadata.Metadata) {

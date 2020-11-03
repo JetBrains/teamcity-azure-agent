@@ -76,7 +76,15 @@ class AzureCloudImageDetails(
         @SerializedName(AzureConstants.REUSE_VM)
         private val myReuseVm: Boolean,
         @SerializedName(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES)
-        val customEnvironmentVariables: String? = null) : CloudImagePasswordDetails {
+        val customEnvironmentVariables: String? = null,
+        @SerializedName(AzureConstants.SPOT_VM)
+        val spotVm: Boolean?,
+        @SerializedName(AzureConstants.ENABLE_SPOT_PRICE)
+        val enableSpotPrice: Boolean?,
+        @SerializedName(AzureConstants.SPOT_PRICE)
+        val spotPrice: Int?
+
+) : CloudImagePasswordDetails {
 
     private var myPassword: String? = null
 

@@ -67,6 +67,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
   // Note container can create a storage share with folders like <container-name>-plugins, etc. Max length of such name should be less than 63 characters
   var containerVmPrefixMaxLength = 50;
 
+  var priceDivider = 100000;
+  var spotPriceDefault = 0.00001;
+
   var deployTargets = {
     specificGroup: 'SpecificGroup',
     newGroup: 'NewGroup',
@@ -86,6 +89,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.deployTarget = ko.observable();
   self.imageType = ko.observable();
   self.osType = ko.observable();
+  self.spotVm = ko.observable(false);
+  self.enableSpotPrice = ko.observable(false);
 
   var requiredForDeployment = {
     required: {
@@ -321,7 +326,17 @@ function ArmImagesViewModel($, ko, dialog, config) {
         message: 'Incorrect environment variables format',
         params: /^(((([a-z_][a-z0-9_]*?)=.*?)|\s*))*$/i
       }
+    }),
+    spotVm: self.spotVm,
+    enableSpotPrice: self.enableSpotPrice,
+    spotPrice: ko.observable().extend({
+      required: {
+        onlyIf: function () {
+          return self.imageType() === imageTypes.image && self.spotVm() && self.enableSpotPrice()
+        }
+      }
     })
+    .extend({min: 0.00001, max: 20000})
   });
 
   // Data from Azure APIs
@@ -539,6 +554,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
         image.region = image.region || self.credentials().region();
       }
       image.imageType = image.imageType || imageTypes.vhd;
+      image.spotVm = JSON.parse(image.spotVm || "false");
+      image.enableSpotPrice = JSON.parse(image.enableSpotPrice || "false");
     });
 
     self.images(images);
@@ -547,6 +564,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   self.passwords_data.subscribe(function (data) {
     self.passwords = ko.utils.parseJson(data || "{}");
+  });
+
+  self.enableSpotPrice.subscribe(function(data) {
+    self.image().spotPrice(spotPriceDefault);
+  });
+
+  self.spotVm.subscribe(function(data) {
+    self.image().enableSpotPrice(false);
   });
 
   // Dialogs
@@ -570,7 +595,10 @@ function ArmImagesViewModel($, ko, dialog, config) {
       maxInstances: 1,
       numberCores: 2,
       memory: 2,
-      customEnvironmentVariables: ""
+      customEnvironmentVariables: "",
+      spotVm: false,
+      enableSpotPrice: false,
+      spotPrice: spotPriceDefault * priceDivider
     };
 
     // Pre-fill collections while loading resources
@@ -631,6 +659,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.agentPoolId(image.agentPoolId);
     model.profileId(image.profileId);
     model.customEnvironmentVariables(image.customEnvironmentVariables);
+    model.spotVm(image.spotVm);
+    model.enableSpotPrice(image.enableSpotPrice);
+    model.spotPrice(image.spotPrice !== null ? image.spotPrice/priceDivider : null);
 
     var key = image.vmNamePrefix;
     var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
@@ -680,7 +711,10 @@ function ArmImagesViewModel($, ko, dialog, config) {
       template: model.template(),
       agentPoolId: model.agentPoolId(),
       profileId: model.profileId(),
-      customEnvironmentVariables: model.customEnvironmentVariables()
+      customEnvironmentVariables: model.customEnvironmentVariables(),
+      spotVm: model.spotVm(),
+      enableSpotPrice: model.enableSpotPrice(),
+      spotPrice: Math.trunc(parseFloat(model.spotPrice())*priceDivider),
     };
 
     var originalImage = self.originalImage;

@@ -128,6 +128,15 @@ class AzureConstants {
     val customEnvironmentVariables: String
         get() = CUSTOM_ENVIRONMENT_VARIABLES
 
+    val spotVm: String
+        get() = SPOT_VM
+
+    val enableSpotPrice: String
+        get() = ENABLE_SPOT_PRICE
+
+    val spotPrice: String
+        get() = SPOT_PRICE
+
     companion object {
         const val CLOUD_CODE = "arm"
 
@@ -165,6 +174,9 @@ class AzureConstants {
         const val REGISTRY_PASSWORD = "registryPassword"
         const val PROFILE_ID = "profileId"
         const val CUSTOM_ENVIRONMENT_VARIABLES = "customEnvironmentVariables"
+        const val SPOT_VM = "spotVm"
+        const val ENABLE_SPOT_PRICE = "enableSpotPrice"
+        const val SPOT_PRICE = "spotPrice"
 
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"

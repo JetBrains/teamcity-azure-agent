@@ -394,7 +394,23 @@ class ArmTemplateBuilder(template: String) {
         LOG.debug(deploymentParameters)
     }
 
+    fun setupSpotInstance(enableSpotPrice: Boolean?, spotPrice: Int?): ArmTemplateBuilder {
+        val properties = getPropertiesOfResource("type", "Microsoft.Compute/virtualMachines")
+        properties.put("priority", "Spot")
+        properties.put("evictionPolicy", "Deallocate")
+
+        val billingProfile = properties.putObject("billingProfile")
+        if (enableSpotPrice == true && spotPrice != null) {
+            billingProfile.put("maxPrice", spotPrice / PRICE_DIVIDER)
+        } else {
+            billingProfile.put("maxPrice", -1)
+        }
+
+        return this
+    }
+
     companion object {
         private val LOG = Logger.getInstance(ArmTemplateBuilder::class.java.name)
+        private val PRICE_DIVIDER = 100000F
     }
 }

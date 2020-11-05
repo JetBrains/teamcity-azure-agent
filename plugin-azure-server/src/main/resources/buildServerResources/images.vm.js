@@ -254,30 +254,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
       validation: {
         validator: function (value) {
           var namePattern = self.osType() === osTypes.linux ? /^[a-z0-9]([\.-a-z0-9]*[a-z0-9])?$/i : /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/i;
-          return ko.validation.rules['pattern'].validator(value, namePattern) && self.imageType() === imageTypes.image ||
-            self.imageType() !== imageTypes.image;
+          return ko.validation.rules['pattern'].validator(value, namePattern) && self.imageType() !== imageTypes.container ||
+            self.imageType() === imageTypes.container;
         },
         message: function(params, observable) {
           return self.osType() === osTypes.linux
                  ? 'Name can contain alphanumeric characters, hyphen and period'
                  : 'Name can contain alphanumeric characters and hyphen';
         }
-      }
-    }).extend({
-      validation: {
-        validator: function (value) {
-          return ko.validation.rules['pattern'].validator(value, /^[a-z][a-z0-9_-]*$/i) && self.imageType() === imageTypes.template ||
-            self.imageType() !== imageTypes.template;
-        },
-        message: 'Name can contain alphanumeric characters, underscore and hyphen'
-      }
-    }).extend({
-      validation: {
-        validator: function (value) {
-          return ko.validation.rules['pattern'].validator(value, /^[a-z][a-z0-9_-]*$/i) && self.imageType() === imageTypes.vhd ||
-            self.imageType() !== imageTypes.vhd;
-        },
-        message: 'Name can contain alphanumeric characters, underscore and hyphen'
       }
     }).extend({
       validation: {

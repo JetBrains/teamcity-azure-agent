@@ -357,6 +357,14 @@ class ArmTemplateBuilder(template: String) {
         return this
     }
 
+    @Suppress("unused", "MayBeConstant")
+    fun enableAcceleratedNerworking(): ArmTemplateBuilder {
+        val properties = getPropertiesOfResource("type", "Microsoft.Network/networkInterfaces")
+        properties.put("enableAcceleratedNetworking", true)
+
+        return this
+    }
+
     fun serializeParameters(): String {
         return try {
             mapper.writeValueAsString(parameters)

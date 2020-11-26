@@ -75,6 +75,12 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
                 .setParameterValue("adminPassword", details.password!!)
                 .setParameterValue(AzureConstants.OS_TYPE, details.osType!!)
                 .setParameterValue("vmSize", details.vmSize!!)
+
+        if (details.enableAcceleratedNetworking == true) {
+            builder.enableAcceleratedNerworking()
+        }
+
+        builder
     }
 
     override suspend fun getImageHash(details: AzureCloudImageDetails) = coroutineScope {

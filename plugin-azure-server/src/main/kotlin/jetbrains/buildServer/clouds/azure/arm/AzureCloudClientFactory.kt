@@ -102,7 +102,8 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                     param.getParameter(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES),
                     param.getParameter(AzureConstants.SPOT_VM)?.toBoolean(),
                     param.getParameter(AzureConstants.ENABLE_SPOT_PRICE)?.toBoolean(),
-                    param.getParameter(AzureConstants.SPOT_PRICE)?.toInt())
+                    param.getParameter(AzureConstants.SPOT_PRICE)?.toInt(),
+                    param.getParameter(AzureConstants.ENABLE_ACCELERATED_NETWORKING)?.toBoolean())
         }.apply {
             AzureUtils.setPasswords(AzureCloudImageDetails::class.java, params, this)
         }

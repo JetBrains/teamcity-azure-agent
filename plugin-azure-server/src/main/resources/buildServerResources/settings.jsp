@@ -464,6 +464,13 @@
                 </td>
             </tr>
             <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
+                <th class="noBorder"></th>
+                <td>
+                  <input type="checkbox" name="${cons.enableAcceleratedNetworking}" data-bind="checked: image().enableAcceleratedNetworking"/>
+                  <label for="${cons.enableAcceleratedNetworking}">Enable accelerated networking</label>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th><label for="${cons.vmUsername}">Provision Username: <l:star/></label></th>
                 <td>
                     <input type="text" id="${cons.vmUsername}" class="longField ignoreModified"

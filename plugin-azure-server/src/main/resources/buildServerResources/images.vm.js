@@ -320,7 +320,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
         }
       }
     })
-    .extend({min: 0.00001, max: 20000})
+    .extend({min: 0.00001, max: 20000}),
+    enableAcceleratedNetworking: ko.observable(false)
   });
 
   // Data from Azure APIs
@@ -540,6 +541,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       image.imageType = image.imageType || imageTypes.vhd;
       image.spotVm = JSON.parse(image.spotVm || "false");
       image.enableSpotPrice = JSON.parse(image.enableSpotPrice || "false");
+      image.enableAcceleratedNetworking = JSON.parse(image.enableAcceleratedNetworking || "false");
     });
 
     self.images(images);
@@ -646,6 +648,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.spotVm(image.spotVm);
     model.enableSpotPrice(image.enableSpotPrice);
     model.spotPrice(image.spotPrice !== null ? image.spotPrice/priceDivider : null);
+    model.enableAcceleratedNetworking(image.enableAcceleratedNetworking);
 
     var key = image.vmNamePrefix;
     var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
@@ -699,6 +702,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       spotVm: model.spotVm(),
       enableSpotPrice: model.enableSpotPrice(),
       spotPrice: Math.trunc(parseFloat(model.spotPrice())*priceDivider),
+      enableAcceleratedNetworking: model.enableAcceleratedNetworking()
     };
 
     var originalImage = self.originalImage;

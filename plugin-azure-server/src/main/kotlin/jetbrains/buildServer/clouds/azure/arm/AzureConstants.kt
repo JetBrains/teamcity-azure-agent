@@ -137,6 +137,9 @@ class AzureConstants {
     val spotPrice: String
         get() = SPOT_PRICE
 
+    val enableAcceleratedNetworking: String
+        get() = ENABLE_ACCELERATED_NETWORKING
+
     companion object {
         const val CLOUD_CODE = "arm"
 
@@ -177,6 +180,7 @@ class AzureConstants {
         const val SPOT_VM = "spotVm"
         const val ENABLE_SPOT_PRICE = "enableSpotPrice"
         const val SPOT_PRICE = "spotPrice"
+        const val ENABLE_ACCELERATED_NETWORKING = "enableAcceleratedNetworking"
 
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"

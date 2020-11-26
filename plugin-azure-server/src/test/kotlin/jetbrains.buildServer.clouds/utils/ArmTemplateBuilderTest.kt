@@ -141,4 +141,18 @@ class ArmTemplateBuilderTest {
         Assert.assertEquals(builder.toString(),
                 """{"resources":[{"type":"Microsoft.ContainerInstance/containerGroups","name":"myName","properties":{"containers":[{"name":"myName","properties":{"environmentVariables":[{"name":"key","value":"value"}]}}]}}]}""")
     }
+
+    fun testEnableAcceleratedNerworking() {
+        val builder = ArmTemplateBuilder("""{"resources": [
+      {
+        "type": "Microsoft.Network/networkInterfaces",
+        "name": "myName",
+        "properties": {
+        }
+      }
+    ]}""").enableAcceleratedNerworking()
+
+        Assert.assertEquals(builder.toString(),
+                "{\"resources\":[{\"type\":\"Microsoft.Network/networkInterfaces\",\"name\":\"myName\",\"properties\":{\"enableAcceleratedNetworking\":true}}]}")
+    }
 }

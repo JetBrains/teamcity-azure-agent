@@ -79,6 +79,9 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
         if (details.spotVm == true) {
             builder.setupSpotInstance(details.enableSpotPrice, details.spotPrice)
         }
+        if (details.enableAcceleratedNetworking == true) {
+            builder.enableAcceleratedNerworking()
+        }
         builder
     }
 

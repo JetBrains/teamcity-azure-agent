@@ -6,7 +6,7 @@
 <%@ taglib prefix="util" uri="/WEB-INF/functions/util" %>
 <%@ taglib prefix="bs" tagdir="/WEB-INF/tags" %>
 <%--
-  ~ Copyright 2000-2020 JetBrains s.r.o.
+  ~ Copyright 2000-2021 JetBrains s.r.o.
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.

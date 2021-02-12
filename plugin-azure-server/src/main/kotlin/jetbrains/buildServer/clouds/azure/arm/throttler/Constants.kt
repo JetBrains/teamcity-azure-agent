@@ -25,6 +25,7 @@ const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_RESERVATION = "teamci
 const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_TASK_RESERVATION = "teamcity.clouds.azure.read.throttler.task.reservation"
 const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT = "teamcity.clouds.azure.read.throttler.aggressive.throttler.limit"
 const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_DEFAULT_DELAY_IN_MS = "teamcity.clouds.azure.read.throttler.default.delay"
+const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_MAX_DELAY_IN_MS = "teamcity.clouds.azure.read.throttler.max.delay"
 
 const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT = "teamcity.clouds.azure.action.throttler.random.task.cache.timeout"
 
@@ -32,6 +33,7 @@ const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_RESERVATION = "team
 const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_TASK_RESERVATION = "teamcity.clouds.azure.action.throttler.task.reservation"
 const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT = "teamcity.clouds.azure.action.throttler.aggressive.throttler.limit"
 const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_DEFAULT_DELAY_IN_MS = "teamcity.clouds.azure.action.throttler.default.delay"
+const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_MAX_DELAY_IN_MS = "teamcity.clouds.azure.action.throttler.max.delay"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_PERIOD = "teamcity.clouds.azure.throttler.queue.period"
 
@@ -40,5 +42,6 @@ const val TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_MAX_TASK_LIVE_IN_SEC = "teamcity
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_TIMEOUT_SEC = "teamcity.clouds.azure.throttler.task.timeout"
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_CACHE_TIMEOUT_SEC = "teamcity.clouds.azure.throttler.task.cache.timeout"
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC = "teamcity.clouds.azure.throttler.task.throttle.timeout"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_PRINT_DIAGNOSTIC_INTERVAL_SEC = "teamcity.clouds.azure.throttler.print.diagnostic.interval"
 
 const val DEFAULT_REMAINING_READS_PER_HOUR = 12000L

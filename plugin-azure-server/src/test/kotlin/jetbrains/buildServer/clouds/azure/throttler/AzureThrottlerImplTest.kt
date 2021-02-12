@@ -49,6 +49,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
         } answers {
             lambda<(Unit) -> Single<String>>().captured.invoke(Unit).map { AzureThrottlerAdapterResult(it, null, false) }
         }
+        every { adapter.logDiagnosticInfo() } returns Unit
 
         throttlerStrategy = mockk()
         every { throttlerStrategy.setContainer(any()) } returns Unit

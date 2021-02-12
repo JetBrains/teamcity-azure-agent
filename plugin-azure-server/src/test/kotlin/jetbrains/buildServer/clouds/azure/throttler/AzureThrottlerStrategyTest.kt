@@ -31,6 +31,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
     private var resourceReservationInPercents: Int = 0
     private var randomTasksResourceReservationInPercents: Int = 0
     private var delay : Long = 100L
+    private var maxDelay : Long = 3000L
 
     private lateinit var mockery: Mockery
     private lateinit var adapter: AzureThrottlerAdapter<Unit>
@@ -398,10 +399,11 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
     private fun createInstance() : AzureThrottlerStrategyImpl<Unit, String> {
         return AzureThrottlerStrategyImpl(
                 adapter,
-                randomTasksResourceReservationInPercents,
-                resourceReservationInPercents,
-                enableAggressiveThrottlingWhenReachLimitInPercents,
-                delay)
+                { randomTasksResourceReservationInPercents },
+                { resourceReservationInPercents },
+                { enableAggressiveThrottlingWhenReachLimitInPercents },
+                { delay },
+                { maxDelay })
     }
 
     @DataProvider

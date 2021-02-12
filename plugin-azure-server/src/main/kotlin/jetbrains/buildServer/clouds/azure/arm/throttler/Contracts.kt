@@ -95,6 +95,7 @@ interface AzureThrottlerStrategyTask<I> {
     val timeExecutionType : AzureThrottlerTaskTimeExecutionType
     fun getStatistics(startDateTime: LocalDateTime): AzureThrottlerTaskQueueCallHistoryStatistics
     fun setCacheTimeout(timeoutInSeconds: Long, source: AzureThrottlingSource)
+    fun getCacheTimeout() : Long
     fun resetCache(source: AzureThrottlingSource)
     fun enableRetryOnThrottle()
 }
@@ -161,6 +162,7 @@ interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier
     fun getRemainingReads(): Long
     fun getDefaultReads(): Long
     fun <T> execute(queryFactory: (A) -> Single<T>): Single<AzureThrottlerAdapterResult<T>>
+    fun logDiagnosticInfo()
 }
 
 interface AzureThrottlerAdapterRemainingReadsNotifier {

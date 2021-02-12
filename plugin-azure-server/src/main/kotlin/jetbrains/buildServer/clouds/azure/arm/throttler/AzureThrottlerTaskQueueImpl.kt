@@ -142,6 +142,10 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         }
     }
 
+    override fun getCacheTimeout(): Long {
+        return myCacheTimeoutInSeconds.get()
+    }
+
     override fun getStatistics(startDateTime: LocalDateTime): AzureThrottlerTaskQueueCallHistoryStatistics {
         return myCallHistory.getStatistics(startDateTime)
     }

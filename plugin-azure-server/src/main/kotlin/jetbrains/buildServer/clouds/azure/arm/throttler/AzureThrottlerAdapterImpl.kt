@@ -16,12 +16,14 @@
 
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
+import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.credentials.AzureTokenCredentials
 import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.version.ServerVersionHolder
 import rx.Single
 import java.time.Clock
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicLong
@@ -32,7 +34,7 @@ class AzureThrottlerAdapterImpl (
         azureConfigurable: AzureConfigurableWithNetworkInterceptors,
         credentials: AzureTokenCredentials,
         subscriptionId: String?,
-        name: String
+        private val name: String
 ) : AzureThrottlerAdapter<Azure> {
     @Suppress("JoinDeclarationAndAssignment")
     private var myInterceptor: AzureThrottlerInterceptor
@@ -40,7 +42,7 @@ class AzureThrottlerAdapterImpl (
     private val myAzure: Azure
 
     private val myRemainingReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
-    private val myWindowStartTime = AtomicReference<LocalDateTime>(LocalDateTime.now())
+    private val myWindowStartTime = AtomicReference<LocalDateTime>(LocalDateTime.now(Clock.systemUTC()))
     private val myDefaultReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
 
     init {
@@ -115,5 +117,18 @@ class AzureThrottlerAdapterImpl (
             myRemainingReads.set(value)
             myDefaultReads.getAndUpdate { max(it, myRemainingReads.get()) }
         }
+    }
+
+    override fun logDiagnosticInfo() {
+        LOG.info("[${name}] info: " +
+                "Default reads: ${getDefaultReads()}, " +
+                "Remaining reads: ${getRemainingReads()}, " +
+                "Window start time: ${getWindowStartDateTime()}, " +
+                "Window width: ${Duration.ofMillis(getWindowWidthInMilliseconds())}, " +
+                "Throttler time: ${Duration.ofMillis(getThrottlerTime())}")
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(AzureThrottlerAdapterImpl::class.java.name)
     }
 }

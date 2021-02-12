@@ -18,13 +18,14 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.serverSide.TeamCityProperties
-import rx.Observable
 import rx.Scheduler
 import rx.Single
 import rx.internal.util.SubscriptionList
+import java.time.Clock
+import java.time.LocalDateTime
 import java.util.concurrent.*
-import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantReadWriteLock
 import kotlin.concurrent.read
 import kotlin.concurrent.write
@@ -42,6 +43,7 @@ class AzureThrottlerImpl<A, I>(
     private val mySubscriptions = SubscriptionList()
     private val myStartStopLock = ReentrantReadWriteLock()
     private var myScheduledExecutor: AzureThrottlerScheduledExecutor? = null
+    private val myLastLogDiagnosticTime = AtomicReference<LocalDateTime>(LocalDateTime.MIN)
 
     init {
         throttlerStrategy.setContainer(this)
@@ -152,10 +154,33 @@ class AzureThrottlerImpl<A, I>(
         if (!taskWasExecuted) return
 
         throttlerStrategy.applyTaskChanges()
+        logDiagnosticInfo()
+    }
+
+    private fun logDiagnosticInfo() {
+        val nextCheckTime = myLastLogDiagnosticTime.get().plusSeconds(getPrintDiagnosticInterval())
+        if (nextCheckTime >= LocalDateTime.now(Clock.systemUTC())) return
+        myLastLogDiagnosticTime.set(LocalDateTime.now(Clock.systemUTC()))
+
+        var result = StringBuilder()
+        result.append("Tasks statistics: ")
+        for(taskEntry in myTaskQueues) {
+            result.append("Task: ${taskEntry.key}, " +
+                    "Last updated: ${taskEntry.value.lastUpdatedDateTime}, " +
+                    "Cache timeout: ${taskEntry.value.getCacheTimeout()}" +
+                    ";")
+        }
+        LOG.info(result.toString())
+
+        adapter.logDiagnosticInfo()
     }
 
     private fun getTaskExecutionTimeout(): Long {
         return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_TIMEOUT_SEC, 15L)
+    }
+
+    private fun getPrintDiagnosticInterval(): Long {
+        return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_PRINT_DIAGNOSTIC_INTERVAL_SEC, 30L)
     }
 
     companion object {

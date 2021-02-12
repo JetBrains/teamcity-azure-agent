@@ -24,6 +24,7 @@ import com.microsoft.azure.management.compute.VirtualMachineInstanceView
 import com.microsoft.azure.management.containerinstance.ContainerGroup
 import com.microsoft.azure.management.network.PublicIPAddress
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
+import com.microsoft.azure.management.resources.fluentcore.arm.models.HasId
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
@@ -121,6 +122,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     .just(emptyList<FetchInstancesTaskInstanceDescriptor>());
         }
 
+        val cacheSnapshot = myInstancesCache.asMap();
+
         val ipAddresses =
                 fetchIPAddresses(api)
 
@@ -128,23 +131,29 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
             api
                     .virtualMachines()
                     .listAsync()
-                    .flatMap { fetchVirtualMachine(it) }
+                    .flatMap {
+                        val cachedInstance = getLiveInstanceFromSnapshot(cacheSnapshot, it)
+                        if (cachedInstance != null)
+                            Observable.just(cachedInstance)
+                        else
+                            fetchVirtualMachine(it)
+                    }
 
         val containerInstances =
             api
                     .containerGroups()
                     .listAsync()
-                    .map { fetchContainer(it) }
+                    .map { getLiveInstanceFromSnapshot(cacheSnapshot, it) ?: fetchContainer(it) }
 
         return machineInstances
                 .mergeWith(containerInstances)
                 .toList()
                 .takeLast(1)
                 .withLatestFrom(ipAddresses) { instances, ipList ->
-                    myLastUpdatedDate.set(LocalDateTime.now(Clock.systemUTC()))
+                    myLastUpdatedDate.set(getCurrentUTC())
                     myIpAddresses.set(ipList.toTypedArray())
 
-                    val keysInCache = myInstancesCache.asMap().keys.toSet()
+                    val keysInCache = cacheSnapshot.keys.toSet()
                     val newInstances = instances.associateBy { it.id.toLowerCase() }
                     myInstancesCache.putAll(newInstances)
                     myInstancesCache.invalidateAll(keysInCache.minus(newInstances.keys))
@@ -153,6 +162,16 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 }
                 .map { getFilteredResources(parameter) }
                 .toSingle()
+    }
+
+    private fun getLiveInstanceFromSnapshot(snapshot: Map<String, FetchInstancesTaskImpl.InstanceDescriptor>, resource: HasId?): InstanceDescriptor? {
+        if (resource?.id() == null) return null
+
+        val instance = snapshot.get(resource.id().toLowerCase())
+        if (instance == null) return null
+
+        if (needUpdate(instance.lastUpdatedDate)) return null
+        return instance
     }
 
     private fun fetchIPAddresses(api: Azure): Observable<MutableList<IPAddressDescriptor>> {
@@ -202,7 +221,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 startDate,
                 powerState,
                 null,
-                null)
+                null,
+                getCurrentUTC())
         return instance
     }
 
@@ -228,7 +248,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                             instanceView.startDate,
                             instanceView.powerState,
                             if (instanceView.error != null) TypedCloudErrorInfo.fromException(instanceView.error) else null,
-                            vm.primaryNetworkInterfaceId())
+                            vm.primaryNetworkInterfaceId(),
+                            getCurrentUTC())
                     instance
                 }
     }
@@ -273,13 +294,12 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
     }
 
     override fun needCacheUpdate(parameter: FetchInstancesTaskParameter): Boolean {
-        val lastUpdatedDateTime = myLastUpdatedDate.get()
-        return lastUpdatedDateTime.plusSeconds(myTimeoutInSeconds.get()) < LocalDateTime.now(Clock.systemUTC())
+        return needUpdate(myLastUpdatedDate.get())
     }
 
     override fun checkThrottleTime(parameter: FetchInstancesTaskParameter): Boolean {
         val lastUpdatedDateTime = myLastUpdatedDate.get()
-        return lastUpdatedDateTime.plusSeconds(getTaskThrottleTime()) < LocalDateTime.now(Clock.systemUTC())
+        return lastUpdatedDateTime.plusSeconds(getTaskThrottleTime()) < getCurrentUTC()
     }
 
     override fun areParametersEqual(parameter: FetchInstancesTaskParameter, other: FetchInstancesTaskParameter): Boolean {
@@ -416,6 +436,12 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
     private fun createCache() = CacheBuilder.newBuilder().expireAfterWrite(32 * 60, TimeUnit.SECONDS).build<String, InstanceDescriptor>()
 
+    private fun getCurrentUTC() = LocalDateTime.now(Clock.systemUTC())
+
+    private fun needUpdate(lastUpdatedDate: LocalDateTime) : Boolean {
+        return lastUpdatedDate.plusSeconds(myTimeoutInSeconds.get()) < getCurrentUTC()
+    }
+
     data class InstanceViewState (val provisioningState: String?, val startDate: Date?, val powerState: String?, val error: Throwable?)
 
     data class CacheKey (val server: String?)
@@ -430,7 +456,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
             val startDate: Date?,
             val powerState: String?,
             val error: TypedCloudErrorInfo?,
-            val primaryNetworkInterfaceId: String?
+            val primaryNetworkInterfaceId: String?,
+            val lastUpdatedDate: LocalDateTime
     )
 
     data class IPAddressDescriptor (

@@ -22,14 +22,17 @@ import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerActi
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerReadTasks
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import rx.schedulers.Schedulers
+import java.util.concurrent.atomic.AtomicLong
 
 object AzureThrottlerFactory {
+    private val throttlerId = AtomicLong(0)
+
     fun createReadRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<Azure, AzureThrottlerReadTasks.Values> {
         val azureAdapter = AzureThrottlerAdapterImpl(
                 AzureThrottlerConfigurableImpl(),
                 credentials,
                 subscriptionId,
-                "ReadAdapter")
+                "${throttlerId.incrementAndGet()}-ReadAdapter")
 
         val randomTaskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_RESERVATION, 80) }
         val taskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_TASK_RESERVATION, 10) }
@@ -95,7 +98,7 @@ object AzureThrottlerFactory {
                 AzureThrottlerConfigurableImpl(),
                 credentials,
                 subscriptionId,
-                "ActionAdapter")
+                "${throttlerId.incrementAndGet()}-ActionAdapter")
 
         val randomTaskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_RESERVATION, 50) }
         val taskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_TASK_RESERVATION, 10) }

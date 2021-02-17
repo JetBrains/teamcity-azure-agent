@@ -339,7 +339,6 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
         if (isVm && details.target == AzureCloudDeployTarget.Instance) {
             if (id != details.instanceId!!) {
-                LOG.debug("Ignore vm with invalid id " + id)
                 return true
             }
             return false

@@ -159,15 +159,21 @@ class AzureThrottlerImpl<A, I>(
 
     private fun logDiagnosticInfo() {
         val nextCheckTime = myLastLogDiagnosticTime.get().plusSeconds(getPrintDiagnosticInterval())
-        if (nextCheckTime >= LocalDateTime.now(Clock.systemUTC())) return
-        myLastLogDiagnosticTime.set(LocalDateTime.now(Clock.systemUTC()))
+        var now = LocalDateTime.now(Clock.systemUTC())
+
+        if (nextCheckTime >= now) return
+        myLastLogDiagnosticTime.set(now)
 
         var result = StringBuilder()
-        result.append("Tasks statistics: ")
+        result.append("Tasks statistics: Now: ${now}; ")
         for(taskEntry in myTaskQueues) {
+            val statistics = taskEntry.value.getStatistics(now.minusHours(1))
             result.append("Task: ${taskEntry.key}, " +
                     "Last updated: ${taskEntry.value.lastUpdatedDateTime}, " +
-                    "Cache timeout: ${taskEntry.value.getCacheTimeout()}" +
+                    "Cache timeout: ${taskEntry.value.getCacheTimeout()}, " +
+                    "ExecutionCallCount: ${statistics.executionCallCount}, " +
+                    "RequestCallCount: ${statistics.requestCallCount}, " +
+                    "ResourceRequestsCount: ${statistics.resourceRequestsCount}" +
                     ";")
         }
         LOG.info(result.toString())

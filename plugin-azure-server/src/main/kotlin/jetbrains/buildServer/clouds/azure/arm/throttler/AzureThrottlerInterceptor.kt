@@ -57,7 +57,7 @@ class AzureThrottlerInterceptor(
 
         increaseRequestsSequenceLength()
 
-        remainingReadsNotifier.notifyRemainingReads(remainingReadsResult)
+        remainingReadsNotifier.notifyRemainingReads(remainingReadsResult, 1)
 
         if (response.code() == RETRY_AFTER_STATUS_CODE) {
             val retryAfterSeconds = getRetryAfterSeconds(response)

@@ -104,17 +104,14 @@ class AzureThrottlerAdapterImpl (
                 }
     }
 
-    override fun notifyRemainingReads(value: Long?) {
+    override fun notifyRemainingReads(value: Long?, requestCount: Long) {
         if (value == null) {
-            val sequenceLength = myInterceptor.getRequestsSequenceLength()
-            if (sequenceLength != null) {
-                myRemainingReads.getAndUpdate { max(0, it - sequenceLength) }
-            }
+            myRemainingReads.getAndUpdate { max(MIN_REMAINING_READS, it - requestCount) }
         } else {
             if (myRemainingReads.get() < value) {
                 myWindowStartTime.set(LocalDateTime.now(Clock.systemUTC()))
             }
-            myRemainingReads.set(value)
+            myRemainingReads.set(max(MIN_REMAINING_READS, value))
             myDefaultReads.getAndUpdate { max(it, myRemainingReads.get()) }
         }
     }
@@ -130,5 +127,6 @@ class AzureThrottlerAdapterImpl (
 
     companion object {
         private val LOG = Logger.getInstance(AzureThrottlerAdapterImpl::class.java.name)
+        private val MIN_REMAINING_READS = 1L
     }
 }

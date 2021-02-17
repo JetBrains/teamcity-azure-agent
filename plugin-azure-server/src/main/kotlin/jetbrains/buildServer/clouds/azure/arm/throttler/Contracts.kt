@@ -166,7 +166,7 @@ interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier
 }
 
 interface AzureThrottlerAdapterRemainingReadsNotifier {
-    fun notifyRemainingReads(value: Long?)
+    fun notifyRemainingReads(value: Long?, requestCount: Long)
 }
 
 interface AzureThrottlerTaskCompletionResultNotifier {

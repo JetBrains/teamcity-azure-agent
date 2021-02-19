@@ -34,7 +34,7 @@ class AzureThrottlerAdapterImpl (
         azureConfigurable: AzureConfigurableWithNetworkInterceptors,
         credentials: AzureTokenCredentials,
         subscriptionId: String?,
-        private val name: String
+        override val name: String
 ) : AzureThrottlerAdapter<Azure> {
     @Suppress("JoinDeclarationAndAssignment")
     private var myInterceptor: AzureThrottlerInterceptor

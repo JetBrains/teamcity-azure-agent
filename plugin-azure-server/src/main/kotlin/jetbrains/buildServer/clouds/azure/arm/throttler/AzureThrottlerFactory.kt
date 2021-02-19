@@ -34,7 +34,7 @@ object AzureThrottlerFactory {
                 subscriptionId,
                 "${throttlerId.incrementAndGet()}-ReadAdapter")
 
-        val randomTaskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_RESERVATION, 80) }
+        val randomTaskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_RESERVATION, 20) }
         val taskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_TASK_RESERVATION, 10) }
         val aggressiveThrottlingLimit = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT, 90) }
         val adapterThrottlerTimeInMs = { TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_DEFAULT_DELAY_IN_MS, 300) }

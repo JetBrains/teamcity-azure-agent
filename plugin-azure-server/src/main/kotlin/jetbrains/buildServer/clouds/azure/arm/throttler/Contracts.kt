@@ -155,6 +155,7 @@ data class AzureThrottlerAdapterResult<T>(val value: T?, val requestsCount: Long
 
 interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier {
     val api: A
+    val name: String
     fun setThrottlerTime(milliseconds: Long)
     fun getThrottlerTime(): Long
     fun getWindowWidthInMilliseconds(): Long
@@ -174,7 +175,7 @@ interface AzureThrottlerTaskCompletionResultNotifier {
     fun notifyCompleted(performedRequests: Boolean)
 }
 
-class ThrottlerRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
+class ThrottlerRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, val requestSequenceLength: Long?, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
 
 open class ThrottlerExecutionTaskException(msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
 class ThrottlerMaxTaskLiveException(msg: String? = null, cause: Throwable? = null): ThrottlerExecutionTaskException(msg, cause)

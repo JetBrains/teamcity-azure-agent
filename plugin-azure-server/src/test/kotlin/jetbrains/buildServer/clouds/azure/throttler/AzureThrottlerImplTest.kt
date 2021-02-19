@@ -44,6 +44,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
 
         adapter = mockk()
         every { adapter.api } returns Unit
+        every { adapter.name } returns "Adapter"
         every {
             adapter.execute<String>(captureLambda())
         } answers {

@@ -60,6 +60,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         adapter = mockk()
         every { adapter.api } returns Unit
+        every { adapter.name } returns "Adapter"
         every {
             adapter.execute<String>(captureLambda())
         } answers {
@@ -460,7 +461,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldRespectMaxTaskLiveTimeWhenERetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
@@ -502,7 +503,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldRespectMaxRetryCountWhenRetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
@@ -544,7 +545,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldGetFromCacheWhenRetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
@@ -587,7 +588,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldRetryWhenRetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
@@ -636,7 +637,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldDeliverMessageWhenRetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit

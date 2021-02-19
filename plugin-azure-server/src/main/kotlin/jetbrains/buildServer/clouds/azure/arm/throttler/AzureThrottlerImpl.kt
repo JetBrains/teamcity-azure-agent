@@ -151,9 +151,10 @@ class AzureThrottlerImpl<A, I>(
                 break
         }
 
-        if (!taskWasExecuted) return
+        if (taskWasExecuted) {
+            throttlerStrategy.applyTaskChanges()
+        }
 
-        throttlerStrategy.applyTaskChanges()
         logDiagnosticInfo()
     }
 
@@ -165,7 +166,7 @@ class AzureThrottlerImpl<A, I>(
         myLastLogDiagnosticTime.set(now)
 
         var result = StringBuilder()
-        result.append("Tasks statistics: Now: ${now}; ")
+        result.append("Tasks statistics: Now: ${now}; Flow: ${throttlerStrategy.getFlow()}; ")
         for(taskEntry in myTaskQueues) {
             val statistics = taskEntry.value.getStatistics(now.minusHours(1))
             result.append("Task: ${taskEntry.key}, " +

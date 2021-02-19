@@ -49,6 +49,9 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     private val myEnableRetryOnThrottle = AtomicBoolean(false)
     private val mySubscriptions = SubscriptionList()
 
+    private val name: String
+        get() = adapter.name
+
     init {
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
             task.setCacheTimeout(myCacheTimeoutInSeconds.get())
@@ -73,41 +76,41 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     override fun requestTask(flow: AzureThrottlerFlow, parameters: P): Single<AzureThrottlerAdapterResult<T>> {
         myCallHistory.addRequestCall()
 
+        var timeToStart = LocalDateTime.now(Clock.systemUTC())
+        if (flow == AzureThrottlerFlow.Suspended && myEnableRetryOnThrottle.get()) {
+            timeToStart = timeToStart.plusSeconds(myCacheTimeoutInSeconds.get())
+        }
+
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
-            LOG.debug("Trying to get data from cache for task $taskId, mode $flow.")
+            LOG.debug("[$name] Trying to get data from cache for task $taskId, mode $flow.")
             val cacheValue = task.getFromCache(parameters)
             if (cacheValue != null) {
-                if (flow == AzureThrottlerFlow.Normal && isTimeToUpdate()) {
-                    LOG.debug("Prefetching data for task $taskId.")
+                if (isTimeToUpdate()) {
+                    LOG.debug("[$name] Prefetching data for task $taskId.")
                     val subject = PublishSubject.create<AzureThrottlerAdapterResult<T>>()
                     val subscriptionList = SubscriptionList()
                     subscriptionList.add(
                             subject
                                     .doAfterTerminate {
-                                        LOG.debug("Prefetching data for task $taskId done.")
+                                        LOG.debug("[$name] Prefetching data for task $taskId done.")
                                         subscriptionList.clear()
                                     }
                                     .subscribe({}, {})
                     )
                     requestQueue.addRequest(
-                            LocalDateTime.now(Clock.systemUTC()),
+                            timeToStart,
                             parameters,
                             subject,
                             true,
                             true
                     )
                 }
-                LOG.debug("Returning value from cache for task $taskId, mode $flow.")
+                LOG.debug("[$name] Returning value from cache for task $taskId, mode $flow.")
                 return Single.just<AzureThrottlerAdapterResult<T>>(AzureThrottlerAdapterResult(cacheValue, null, true))
             }
         }
 
-        var timeToStart = LocalDateTime.now(Clock.systemUTC())
-        if (flow == AzureThrottlerFlow.Suspended && myEnableRetryOnThrottle.get()) {
-            timeToStart = timeToStart.plusSeconds(myCacheTimeoutInSeconds.get())
-        }
-
-        LOG.debug("There is no data in cache for task $taskId, mode $flow. Adding request to queue. Time to start: $timeToStart")
+        LOG.debug("[$name] There is no data in cache for task $taskId, mode $flow. Adding request to queue. Time to start: $timeToStart")
 
         val subject = PublishSubject.create<AzureThrottlerAdapterResult<T>>()
         requestQueue.addRequest(
@@ -121,7 +124,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
 
     override fun resetCache(source: AzureThrottlingSource) {
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
-            LOG.debug("Invalidating cache for $taskId task with timeout: $defaultCacheTimeoutInSeconds sec")
+            LOG.debug("[$name] Invalidating cache for $taskId task with timeout: $defaultCacheTimeoutInSeconds sec")
             task.invalidateCache()
             task.setCacheTimeout(defaultCacheTimeoutInSeconds)
         }
@@ -130,11 +133,11 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     override fun setCacheTimeout(timeoutInSeconds: Long, source: AzureThrottlingSource) {
         val timeout = max(defaultCacheTimeoutInSeconds, timeoutInSeconds)
         if (myCacheTimeoutInSeconds.get() == timeout) {
-            LOG.debug("New timeout $timeoutInSeconds was ignored for $taskId task (current value: $timeout)")
+            LOG.debug("[$name] New timeout $timeoutInSeconds was ignored for $taskId task (current value: $timeout)")
             return
         }
 
-        LOG.debug("New timeout $timeoutInSeconds was accepted for $taskId task")
+        LOG.debug("[$name] New timeout $timeoutInSeconds was accepted for $taskId task")
 
         myCacheTimeoutInSeconds.set(timeout)
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
@@ -155,7 +158,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     }
 
     private fun execute(requestBatch: AzureThrottlerRequestBatch<P, T>) {
-        LOG.debug("Start executing batch of tasks. TaskId: ${taskId}, Task count: ${requestBatch.count()}")
+        LOG.debug("[$name] Start executing batch of tasks. TaskId: ${taskId}, Task count: ${requestBatch.count()}")
 
         val resultSubject = PublishSubject.create<AzureThrottlerAdapterResult<T>>()
         requestBatch.subscribeTo(resultSubject, mySubscriptions)
@@ -163,11 +166,11 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         val hasForceItem = requestBatch.hasForceRequest()
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
             if (hasForceItem && !task.checkThrottleTime(requestBatch.parameter)) {
-                LOG.debug("Force update for task cached task $taskId.")
+                LOG.debug("[$name] Force update for task cached task $taskId.")
             } else {
                 val cacheValue = task.getFromCache(requestBatch.parameter)
                 if (cacheValue != null && !task.needCacheUpdate(requestBatch.parameter)) {
-                    LOG.debug("Updating queue items from cache for task $taskId. Count: ${requestBatch.count()}")
+                    LOG.debug("[$name] Updating queue items from cache for task $taskId. Count: ${requestBatch.count()}")
 
                     val cacheSubscription = SubscriptionList()
                     mySubscriptions.add(cacheSubscription)
@@ -185,7 +188,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         mySubscriptions.add(resultSubscription)
         resultSubscription.add(adapter
                 .execute { task.create(adapter.api, requestBatch.parameter) }
-                .doOnEach { LOG.debug("[$taskId] Received task notification. Kind: ${it.kind}") }
+                .doOnEach { LOG.debug("[$name] [$taskId] Received task notification. Kind: ${it.kind}") }
                 .subscribeOn(requestScheduler)
                 .doOnSuccess {
                     myLastUpdatedDateTime.set(LocalDateTime.now(Clock.systemUTC()))
@@ -194,31 +197,38 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
 
                     postProcessQueue(requestBatch.parameter, it)
                 }
-                .onErrorResumeNext { error ->
+                .onErrorResumeNext { throwable ->
+                    var error = throwable
+                    if (error is RuntimeException) {
+                        if (error.cause != null) {
+                            error = error.cause
+                        }
+                    }
                     if (error is ThrottlerRateLimitReachedException) {
+                        myCallHistory.addExecutionCall(error.requestSequenceLength)
                         taskCompletionResultNotifier.notifyRateLimitReached(error.retryAfterTimeoutInSeconds)
 
                         val taskLiveTime = LocalDateTime.now(Clock.systemUTC()).toEpochSecond(ZoneOffset.UTC) - requestBatch.getMinCreatedDate().toEpochSecond(ZoneOffset.UTC)
                         if (taskLiveTime >= getMaxTaskLiveTimeInSeconds()) {
                             val throttlerError = ThrottlerMaxTaskLiveException("Task $taskId has not been executed for $taskLiveTime sec", error)
-                            LOG.debug(throttlerError)
+                            LOG.warnAndDebugDetails("[$name] Task $taskId has not been executed for $taskLiveTime sec", throttlerError)
                             return@onErrorResumeNext Single.error<AzureThrottlerAdapterResult<T>>(throttlerError)
                         } else if (requestBatch.getMaxAttempNo() >= getMaxRetryCount()) {
                             val throttlerError = ThrottlerMaxRetryCountException("Attempt count for task $taskId exceeded", error)
-                            LOG.debug(throttlerError)
+                            LOG.warnAndDebugDetails("[$name] Attempt count for task $taskId exceeded", throttlerError)
                             return@onErrorResumeNext Single.error<AzureThrottlerAdapterResult<T>>(throttlerError)
                         } else {
                             if (task is AzureThrottlerCacheableTask<A, P, T>) {
-                                LOG.debug("Trying to get data from cache for task $taskId, mode ${AzureThrottlerFlow.Suspended}.")
+                                LOG.debug("[$name] Trying to get data from cache for task $taskId, mode ${AzureThrottlerFlow.Suspended}.")
                                 val cacheValue = task.getFromCache(requestBatch.parameter)
                                 if (cacheValue != null) {
-                                    LOG.debug("Returning value from cache for task $taskId, mode ${AzureThrottlerFlow.Suspended}.")
+                                    LOG.debug("[$name] Returning value from cache for task $taskId, mode ${AzureThrottlerFlow.Suspended}.")
                                     return@onErrorResumeNext Single.just<AzureThrottlerAdapterResult<T>>(AzureThrottlerAdapterResult(cacheValue, null, true))
                                 }
                             }
 
                             val timeToStart = LocalDateTime.now(Clock.systemUTC()).plusSeconds(error.retryAfterTimeoutInSeconds)
-                            LOG.debug("Retry task $taskId due to Rate limit exception. Attempt no: ${requestBatch.getMaxAttempNo() + 1}. Time to start: $timeToStart")
+                            LOG.warn("[$name] Retry task $taskId due to Rate limit exception. Attempt no: ${requestBatch.getMaxAttempNo() + 1}. Time to start: $timeToStart")
                             requestQueue.addRequest(
                                     timeToStart,
                                     requestBatch.parameter,
@@ -244,7 +254,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     private fun postProcessQueue(parameter: P, result: AzureThrottlerAdapterResult<T>) {
         val requestBatch = requestQueue.extractBatchFor(parameter)
         if (requestBatch.count() > 0) {
-            LOG.debug("Post-processing queue items for task $taskId. Count: ${requestBatch.count()}")
+            LOG.debug("[$name] Post-processing queue items for task $taskId. Count: ${requestBatch.count()}")
 
             var source = Observable
                     .just<AzureThrottlerAdapterResult<T>>(result)

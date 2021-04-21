@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
+import com.microsoft.azure.CloudException
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import rx.Observable
 import rx.Scheduler
@@ -198,8 +199,9 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
                     postProcessQueue(requestBatch.parameter, it)
                 }
                 .onErrorResumeNext { throwable ->
+                    LOG.warnAndDebugDetails("[$name] [$taskId] Received error:", throwable)
                     var error = throwable
-                    if (error is RuntimeException) {
+                    if (error !is CloudException && error is RuntimeException) {
                         if (error.cause != null) {
                             error = error.cause
                         }

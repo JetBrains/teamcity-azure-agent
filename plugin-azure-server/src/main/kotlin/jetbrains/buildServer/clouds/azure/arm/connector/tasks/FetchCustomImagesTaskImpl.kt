@@ -26,8 +26,8 @@ data class CustomImageTaskImageDescriptor(
         val id: String,
         val name: String,
         val regionName: String,
-        val osState: OperatingSystemStateTypes,
-        val osType: OperatingSystemTypes)
+        val osState: OperatingSystemStateTypes?,
+        val osType: OperatingSystemTypes?)
 
 class FetchCustomImagesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<CustomImageTaskImageDescriptor>>() {
     override fun createQuery(api: Azure, parameter: Unit): Single<List<CustomImageTaskImageDescriptor>> {
@@ -39,11 +39,11 @@ class FetchCustomImagesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List
                             it.id(),
                             it.name(),
                             it.regionName(),
-                            it.osDiskImage().osState(),
-                            it.osDiskImage().osType()
+                            it.osDiskImage()?.osState(),
+                            it.osDiskImage()?.osType()
                     )
                 }
-                   .toList()
+                .toList()
                 .last()
                 .toSingle()
     }

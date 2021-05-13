@@ -247,8 +247,9 @@ class AzureApiConnectorImpl(params: Map<String, String>)
      * @return image name.
      */
     override suspend fun getImageName(imageId: String): String = coroutineScope {
+        var images = emptyList<CustomImageTaskImageDescriptor>()
         try {
-            val images = withContext(Dispatchers.IO) {
+            images = withContext(Dispatchers.IO) {
                 myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchCustomImages, Unit)
                         .awaitOne()
             }
@@ -261,6 +262,10 @@ class AzureApiConnectorImpl(params: Map<String, String>)
         } catch (e: Throwable) {
             val message = "Failed to get image $imageId: ${e.message}"
             LOG.debug(message, e)
+
+            val listOfImages = "List of custom images: ${images.map { it.id }.joinToString()}"
+            LOG.debug(listOfImages)
+
             throw CloudException(message, e)
         }
     }
@@ -279,7 +284,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
 
             list.asSequence()
                     .filter { it.regionName.equals(region, ignoreCase = true) }
-                    .filter { it.osState == OperatingSystemStateTypes.GENERALIZED }
+                    .filter { it.osState == OperatingSystemStateTypes.GENERALIZED && it.osType != null }
                     .toList()
                     .sortedBy { it.name }
                     .associateBy(

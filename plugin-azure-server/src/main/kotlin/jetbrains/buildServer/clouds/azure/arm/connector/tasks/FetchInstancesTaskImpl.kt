@@ -22,6 +22,7 @@ import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.compute.VirtualMachineInstanceView
 import com.microsoft.azure.management.containerinstance.ContainerGroup
+import com.microsoft.azure.management.containerregistry.ImageDescriptor
 import com.microsoft.azure.management.network.PublicIPAddress
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import com.microsoft.azure.management.resources.fluentcore.arm.models.HasId
@@ -131,6 +132,12 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
             api
                     .virtualMachines()
                     .listAsync()
+                    .materialize()
+                    .filter {
+                        if (it.isOnError) LOG.warnAndDebugDetails("Could not read VM state:", it.throwable)
+                        !it.isOnError
+                    }
+                    .dematerialize<VirtualMachine>()
                     .flatMap {
                         val cachedInstance = getLiveInstanceFromSnapshot(cacheSnapshot, it)
                         if (cachedInstance != null)
@@ -143,6 +150,12 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
             api
                     .containerGroups()
                     .listAsync()
+                    .materialize()
+                    .filter {
+                        if (it.isOnError) LOG.warnAndDebugDetails("Could not read container state:", it.throwable)
+                        !it.isOnError
+                    }
+                    .dematerialize<ContainerGroup>()
                     .map { getLiveInstanceFromSnapshot(cacheSnapshot, it) ?: fetchContainer(it) }
 
         return machineInstances

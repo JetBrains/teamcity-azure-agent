@@ -40,7 +40,7 @@ class FetchStorageAccountsTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, L
                             storageAccount.regionName(),
                             storageAccount.resourceGroupName(),
                             storageAccount.skuType().name().toString(),
-                            storageAccount.keys.map { it.value() }
+                            try {storageAccount.keys.map { it.value() }}catch(t: Throwable) { listOf("")}
                     )
                 }
                 .toList()

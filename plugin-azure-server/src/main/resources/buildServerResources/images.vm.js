@@ -253,7 +253,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }).extend({
       validation: {
         validator: function (value) {
-          var namePattern = self.osType() === osTypes.linux ? /^[a-z0-9]([\.-a-z0-9]*[a-z0-9])?$/i : /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/i;
+          var namePattern = self.osType() === osTypes.linux ? /^[a-z0-9][\.-a-z0-9]*?$/i : /^[a-z0-9][-a-z0-9]*?$/i;
           return ko.validation.rules['pattern'].validator(value, namePattern) && self.imageType() !== imageTypes.container ||
             self.imageType() === imageTypes.container;
         },
@@ -647,7 +647,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.customEnvironmentVariables(image.customEnvironmentVariables);
     model.spotVm(image.spotVm);
     model.enableSpotPrice(image.enableSpotPrice);
-    model.spotPrice(image.spotPrice !== null ? image.spotPrice/priceDivider : null);
+    model.spotPrice(image.spotPrice != null ? image.spotPrice/priceDivider : null);
     model.enableAcceleratedNetworking(image.enableAcceleratedNetworking);
 
     var key = image.vmNamePrefix;

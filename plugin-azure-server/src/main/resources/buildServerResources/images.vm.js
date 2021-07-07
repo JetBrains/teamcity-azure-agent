@@ -647,7 +647,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.customEnvironmentVariables(image.customEnvironmentVariables);
     model.spotVm(image.spotVm);
     model.enableSpotPrice(image.enableSpotPrice);
-    model.spotPrice(image.spotPrice != null ? image.spotPrice/priceDivider : null);
+    model.spotPrice(image.spotPrice != null ? image.spotPrice/priceDivider : undefined);
     model.enableAcceleratedNetworking(image.enableAcceleratedNetworking);
 
     var key = image.vmNamePrefix;
@@ -701,7 +701,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       customEnvironmentVariables: model.customEnvironmentVariables(),
       spotVm: model.spotVm(),
       enableSpotPrice: model.enableSpotPrice(),
-      spotPrice: Math.trunc(parseFloat(model.spotPrice())*priceDivider),
+      spotPrice: model.spotPrice() != null ? Math.trunc(parseFloat(model.spotPrice())*priceDivider) : undefined,
       enableAcceleratedNetworking: model.enableAcceleratedNetworking()
     };
 

@@ -89,14 +89,13 @@ interface AzureThrottlerStrategyTaskContainer<I> {
     fun getTaskList(): List<AzureThrottlerStrategyTask<I>>
 }
 
-interface AzureThrottlerStrategyTask<I> {
+interface AzureThrottlerStrategyTask<I> : AzureThrottlerTaskCompletionResultNotifier {
     val taskId: I
     val lastUpdatedDateTime : LocalDateTime
     val timeExecutionType : AzureThrottlerTaskTimeExecutionType
     fun getStatistics(startDateTime: LocalDateTime): AzureThrottlerTaskQueueCallHistoryStatistics
     fun setCacheTimeout(timeoutInSeconds: Long, source: AzureThrottlingSource)
     fun getCacheTimeout() : Long
-    fun resetCache(source: AzureThrottlingSource)
     fun enableRetryOnThrottle()
 }
 

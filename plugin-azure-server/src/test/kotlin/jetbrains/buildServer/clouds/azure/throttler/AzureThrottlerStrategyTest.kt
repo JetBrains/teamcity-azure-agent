@@ -127,7 +127,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         mockery.checking(
                 object : Expectations() {
                     init {
-                        oneOf(task).resetCache(AzureThrottlingSource.Throttler)
+                        oneOf(task).notifyCompleted(true)
                         oneOf(task).enableRetryOnThrottle()
                     }
                 }
@@ -161,7 +161,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         mockery.checking(
                 object : Expectations() {
                     init {
-                        oneOf(task).setCacheTimeout(123 + 5, AzureThrottlingSource.Adapter)
+                        oneOf(task).notifyRateLimitReached(123 + 5)
                     }
                 }
         )
@@ -224,8 +224,8 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         mockery.checking(
                 object : Expectations() {
                     init {
-                        oneOf(task).setCacheTimeout(0 + 5, AzureThrottlingSource.Adapter)
-                        oneOf(task).setCacheTimeout(123 + 5, AzureThrottlingSource.Adapter)
+                        oneOf(task).notifyRateLimitReached(0 + 5)
+                        oneOf(task).notifyRateLimitReached(123 + 5)
                     }
                 }
         )

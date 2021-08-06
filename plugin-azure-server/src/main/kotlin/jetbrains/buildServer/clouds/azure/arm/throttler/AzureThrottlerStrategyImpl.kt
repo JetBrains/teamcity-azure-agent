@@ -132,7 +132,7 @@ class AzureThrottlerStrategyImpl<A, I>(
 
                 val taskList = taskContainer.getTaskList()
                 for (task in taskList) {
-                    task.resetCache(AzureThrottlingSource.Throttler)
+                    task.notifyCompleted(performedRequests)
                 }
             }
         }
@@ -151,7 +151,7 @@ class AzureThrottlerStrategyImpl<A, I>(
             val timeout = retryAfterTimeoutInSeconds + RETRY_AFTER_TIMEOUT_DELTA
             val taskList = taskContainer.getTaskList()
             for (task in taskList) {
-                task.setCacheTimeout(timeout, AzureThrottlingSource.Adapter)
+                task.notifyRateLimitReached(timeout)
             }
         }
         finally {

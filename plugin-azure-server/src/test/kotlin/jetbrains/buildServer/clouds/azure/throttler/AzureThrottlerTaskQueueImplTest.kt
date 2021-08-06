@@ -149,7 +149,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         val instance = createInstance()
         instance.enableRetryOnThrottle()
         every { requestQueue.addRequest(any(), any(), any(), any(), any(), any(), any()) } returns Unit
-        var localDate = LocalDateTime.now(Clock.systemUTC()).plusSeconds(defaultCacheTimeoutInSeconds)
+        var localDate = LocalDateTime.now(Clock.systemUTC())
 
         // When
         instance.requestTask(AzureThrottlerFlow.Suspended, "Test parameter")

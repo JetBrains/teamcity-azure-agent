@@ -49,6 +49,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     private var myTaskTimeExecutionType = AtomicReference(taskExecutionTimeType)
     private val myEnableRetryOnThrottle = AtomicBoolean(false)
     private val mySubscriptions = SubscriptionList()
+    private val myRetryAfterTime = AtomicReference<LocalDateTime?>(null)
 
     private val name: String
         get() = adapter.name
@@ -66,6 +67,10 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         get() = myLastUpdatedDateTime.get()
 
     override fun executeNext(): Boolean {
+        val retryAfterTime = myRetryAfterTime.get()
+        if (retryAfterTime != null && retryAfterTime.isAfter(LocalDateTime.now(Clock.systemUTC())))
+            return false
+
         var batch = requestQueue.extractNextBatch()
         if (batch.count() > 0) {
             execute(batch)
@@ -78,10 +83,6 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         myCallHistory.addRequestCall()
 
         var timeToStart = LocalDateTime.now(Clock.systemUTC())
-        if (flow == AzureThrottlerFlow.Suspended && myEnableRetryOnThrottle.get()) {
-            timeToStart = timeToStart.plusSeconds(myCacheTimeoutInSeconds.get())
-        }
-
         if (task is AzureThrottlerCacheableTask<A, P, T>) {
             LOG.debug("[$name] Trying to get data from cache for task $taskId, mode $flow.")
             val cacheValue = task.getFromCache(parameters)
@@ -123,14 +124,6 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         return subject.toSingle()
     }
 
-    override fun resetCache(source: AzureThrottlingSource) {
-        if (task is AzureThrottlerCacheableTask<A, P, T>) {
-            LOG.debug("[$name] Invalidating cache for $taskId task with timeout: $defaultCacheTimeoutInSeconds sec")
-            task.invalidateCache()
-            task.setCacheTimeout(defaultCacheTimeoutInSeconds)
-        }
-    }
-
     override fun setCacheTimeout(timeoutInSeconds: Long, source: AzureThrottlingSource) {
         val timeout = max(defaultCacheTimeoutInSeconds, timeoutInSeconds)
         if (myCacheTimeoutInSeconds.get() == timeout) {
@@ -156,6 +149,14 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
 
     override fun enableRetryOnThrottle() {
         myEnableRetryOnThrottle.set(true)
+    }
+
+    override fun notifyRateLimitReached(retryAfterTimeoutInSeconds: Long) {
+        myRetryAfterTime.set(LocalDateTime.now(Clock.systemUTC()).plusSeconds(retryAfterTimeoutInSeconds));
+    }
+
+    override fun notifyCompleted(performedRequests: Boolean) {
+        myRetryAfterTime.set(null)
     }
 
     private fun execute(requestBatch: AzureThrottlerRequestBatch<P, T>) {

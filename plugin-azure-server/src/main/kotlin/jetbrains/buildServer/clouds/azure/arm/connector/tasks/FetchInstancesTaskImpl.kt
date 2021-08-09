@@ -21,17 +21,16 @@ import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.compute.VirtualMachineInstanceView
+import com.microsoft.azure.management.compute.implementation.*
 import com.microsoft.azure.management.containerinstance.ContainerGroup
 import com.microsoft.azure.management.containerregistry.ImageDescriptor
 import com.microsoft.azure.management.network.PublicIPAddress
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
+import com.microsoft.azure.management.resources.fluentcore.arm.collection.implementation.TopLevelModifiableResourcesImpl
 import com.microsoft.azure.management.resources.fluentcore.arm.models.HasId
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTask
-import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC
-import jetbrains.buildServer.clouds.azure.arm.throttler.register
+import jetbrains.buildServer.clouds.azure.arm.throttler.*
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.util.StringUtil
@@ -128,6 +127,14 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         val ipAddresses =
                 fetchIPAddresses(api)
 
+        val machineInstancesImpl =
+                if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_FULLSTATEAPI_DISABLE))
+                    Observable.just(emptyMap())
+                else api.virtualMachines().inner()
+                    .listAsync("true")
+                    .flatMap { x -> Observable.from(x.items()) }
+                    .toMap { vm -> vm.id() }
+
         val machineInstances =
             api
                     .virtualMachines()
@@ -138,12 +145,11 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                         !it.isOnError
                     }
                     .dematerialize<VirtualMachine>()
-                    .flatMap {
-                        val cachedInstance = getLiveInstanceFromSnapshot(cacheSnapshot, it)
-                        if (cachedInstance != null)
-                            Observable.just(cachedInstance)
-                        else
-                            fetchVirtualMachine(it)
+                    .withLatestFrom(machineInstancesImpl) { vm, vmStatusesMap ->
+                        vm to vmStatusesMap[vm.id()]
+                    }
+                    .flatMap { (vm, vmStatus) ->
+                        fetchVirtualMachine(vm, vmStatus, cacheSnapshot)
                     }
 
         val containerInstances =
@@ -239,6 +245,36 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         return instance
     }
 
+    private fun fetchVirtualMachine(vm: VirtualMachine, vmStatus: VirtualMachineInner?, cacheSnapshot: Map<String, InstanceDescriptor>): Observable<InstanceDescriptor> {
+        if (vmStatus?.instanceView() == null) {
+            val cachedInstance = getLiveInstanceFromSnapshot(cacheSnapshot, vm)
+            if (cachedInstance != null)
+                return Observable.just(cachedInstance)
+            else
+                return fetchVirtualMachine(vm)
+        }
+        return fetchVirtualMachine(vm, vmStatus.instanceView())
+    }
+
+    private fun fetchVirtualMachine(vm: VirtualMachine, instanceView: VirtualMachineInstanceViewInner): Observable<InstanceDescriptor> {
+        val tags = vm.tags()
+        val name = vm.name()
+        val instanceState = getInstanceState(instanceView, tags, name)
+
+        LOG.debug("Reading state of virtual machine '$name' using full state API")
+
+        return Observable.just(InstanceDescriptor(
+                vm.id(),
+                vm.name(),
+                vm.tags(),
+                instanceState.provisioningState,
+                instanceState.startDate,
+                instanceState.powerState,
+                null,
+                vm.primaryNetworkInterfaceId(),
+                getCurrentUTC()
+        ))
+    }
 
     private fun fetchVirtualMachine(vm: VirtualMachine): Observable<InstanceDescriptor> {
         val tags = vm.tags()
@@ -247,7 +283,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         LOG.debug("Reading state of virtual machine '$name'")
 
         return vm.refreshInstanceViewAsync()
-                .map { getInstanceState(it, tags, name) }
+                .map { getInstanceState(it.inner(), tags, name) }
                 .onErrorReturn {
                     LOG.debug("Failed to get status of virtual machine '$name': $it.message", it)
                     InstanceViewState(null, null, null, it)
@@ -388,7 +424,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         myIpAddresses.set(emptyArray())
     }
 
-    private fun getInstanceState(instanceView: VirtualMachineInstanceView, tags: Map<String, String>, name: String): InstanceViewState {
+    private fun getInstanceState(instanceView: VirtualMachineInstanceViewInner, tags: Map<String, String>, name: String): InstanceViewState {
         var provisioningState: String? = null
         var startDate: Date? = null
         var powerState: String? = null

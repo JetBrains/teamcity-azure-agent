@@ -121,7 +121,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      * @return created instance.
      */
     private fun createInstance(userData: CloudInstanceUserData): AzureCloudInstance {
-        val name = getInstanceName()
+        val dateInString = getCurrentDateTime("yyyy/MM/dd")
+        val name = getInstanceName() + "_" + dateInString
         val instance = AzureCloudInstance(this, name)
         instance.status = InstanceStatus.SCHEDULED_TO_START
         val data = AzureUtils.setVmNameForTag(userData, name)
@@ -365,6 +366,12 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         while (keys.contains(sourceName + i)) i++
 
         return sourceName + i
+    }
+
+    fun getCurrentDateTime(format: String, locale: Locale = Locale.getDefault()): String {
+        val date = Calendar.getInstance().time
+        val formatter = SimpleDateFormat(format, locale)
+        return formatter.format(date)
     }
 
     /**

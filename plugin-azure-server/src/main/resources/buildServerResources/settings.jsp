@@ -213,12 +213,12 @@
                     <span class="error option-error" data-bind="validationMessage: image().imageUrl"></span>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() == 'Image'">
+            <tr data-bind="if: image().imageType() == 'Image' || image().imageType() == 'GalleryImage'">
                 <th class="noBorder"><label for="${cons.imageId}">Source Image: <l:star/></label></th>
                 <td>
-                    <div data-bind="if: sourceImages().length > 0">
+                    <div data-bind="if: filteredSourceImages().length > 0">
                         <select name="${cons.imageId}" class="longField ignoreModified"
-                                data-bind="options: sourceImages, optionsText: 'text', optionsValue: 'id',
+                                data-bind="options: filteredSourceImages, optionsText: 'text', optionsValue: 'id',
                                     optionsCaption: '<Select>', value: image().imageId"></select>
                         <span class="osIcon osIconSmall"
                               data-bind="attr: {title: image().osType}, css: {invisible: !image().osType()},
@@ -226,7 +226,7 @@
                         </span>
                         <span class="error option-error" data-bind="validationMessage: image().imageId"></span>
                     </div>
-                    <div data-bind="if: sourceImages().length == 0">
+                    <div data-bind="if: filteredSourceImages().length == 0">
                       <span class="error option-error">
                           No images found in <span data-bind="text: regionName"></span> region
                       </span>
@@ -317,7 +317,7 @@
                     <!-- /ko -->
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() == 'Image' && image().imageType() != 'Container'">
+            <tr data-bind="if: (image().imageType() == 'Image' || image().imageType() == 'GalleryImage') && image().imageType() != 'Container'">
                 <th class="noBorder"><label for="${cons.storageAccountType}">Disk Type: <l:star/></label></th>
                 <td>
                     <select name="${cons.storageAccountType}" class="longField ignoreModified"
@@ -345,7 +345,7 @@
                     </div>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() == 'Image'">
+            <tr data-bind="if: image().imageType() == 'Image' || image().imageType() == 'GalleryImage'">
                 <th><label for="${cons.spotVm}">Spot instance:</label></th>
                 <td>
                     <input type="checkbox" name="${cons.spotVm}" data-bind="checked: image().spotVm"/>
@@ -357,7 +357,7 @@
                     </span>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() == 'Image' && image().spotVm()">
+            <tr data-bind="if: (image().imageType() == 'Image' || image().imageType() == 'GalleryImage') && image().spotVm()">
                 <th class="noBorder"></th>
                 <td>
                     <input type="checkbox" name="${cons.enableSpotPrice}" data-bind="checked: image().enableSpotPrice"/>
@@ -370,7 +370,7 @@
                     </span>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() == 'Image' && image().spotVm() && image().enableSpotPrice()">
+            <tr data-bind="if: (image().imageType() == 'Image' || image().imageType() == 'GalleryImage') && image().spotVm() && image().enableSpotPrice()">
                 <th class="noBorder"><label for="${cons.spotPrice}">Max price: <l:star/></label></th>
                 <td>
                     <div>
@@ -608,6 +608,9 @@
                             <!-- /ko -->
                             <!-- ko if: imageType === 'Image' -->
                             <span data-bind="text: $parent.getFileName(imageId)"></span>
+                            <!-- /ko -->
+                            <!-- ko if: imageType === 'GalleryImage' -->
+                            <span data-bind="text: $parent.getGalleryImageName(imageId)"></span>
                             <!-- /ko -->
                             <!-- ko if: imageType === 'Container' -->
                             <span data-bind="text: imageId"></span>

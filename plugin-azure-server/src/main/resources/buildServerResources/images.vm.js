@@ -79,7 +79,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
     container: 'Container',
     image: 'Image',
     template: 'Template',
-    vhd: 'Vhd'
+    vhd: 'Vhd',
+    galleryImage: 'GalleryImage',
   };
   var osTypes = {
     linux: 'Linux',
@@ -122,7 +123,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       required: {
         onlyIf: function () {
           return self.deployTarget() !== deployTargets.instance &&
-            (self.imageType() === imageTypes.image || self.imageType() === imageTypes.container);
+            (self.imageType() === imageTypes.image || self.imageType() === imageTypes.galleryImage || self.imageType() === imageTypes.container);
         }
       }
     }),
@@ -232,7 +233,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       required: {
         onlyIf: function () {
           return self.imageType() !== imageTypes.image ||
-            (self.imageType() === imageTypes.image && self.osType() != null)
+            ((self.imageType() === imageTypes.image || self.imageType() === imageTypes.galleryImage) && self.osType() != null)
         }
       }
     }).extend({
@@ -316,7 +317,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     spotPrice: ko.observable().extend({
       required: {
         onlyIf: function () {
-          return self.imageType() === imageTypes.image && self.spotVm() && self.enableSpotPrice()
+          return (self.imageType() === imageTypes.image || self.imageType() === imageTypes.galleryImage) && self.spotVm() && self.enableSpotPrice()
         }
       }
     })
@@ -361,9 +362,16 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.imageTypes = ko.observableArray([
     {id: imageTypes.container, text: "Container"},
     {id: imageTypes.image, text: "Image"},
+    {id: imageTypes.galleryImage, text: "Shared Image Gallery"},
     {id: imageTypes.template, text: "Template"},
     {id: imageTypes.vhd, text: "VHD"}
   ]);
+
+  self.filteredSourceImages = ko.pureComputed(function() {
+    return ko.utils.arrayFilter(self.sourceImages(), function(sourceImage) {
+      return sourceImage.isGalleryImage === (self.imageType() === imageTypes.galleryImage);
+    });
+  });
 
   // Hidden fields for serialized values
   self.images_data = ko.observable();
@@ -877,6 +885,21 @@ function ArmImagesViewModel($, ko, dialog, config) {
     return "";
   };
 
+  self.getGalleryImageName = function(imageId) {
+    if (!imageId) return "N/A";
+    var parts = imageId.split("/");
+    var getPart = function(partName) {
+      partName = partName.toUpperCase();
+
+      for(var index = 0; index < parts.length; index++) {
+        var part = parts[index];
+        if (partName === part.toUpperCase()) return (index + 1) < parts.length ? parts[index + 1] : null;
+      }
+      return null;
+    };
+    return getPart("galleries") + "/" + getPart("images") + "/" + (getPart("versions") || "latest");
+  };
+
   self.setDefaultTemplate = function () {
     self.image().template('{\n' +
       '  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",\n' +
@@ -1108,7 +1131,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   function getImages($response) {
     return $response.find("images:eq(0) image").map(function () {
-      return {id: $(this).attr("id"), osType: $(this).attr("osType"), text: $(this).text()};
+      return {
+        id: $(this).attr("id"),
+        osType: $(this).attr("osType"),
+        isGalleryImage: JSON.parse($(this).attr("isGalleryImage")),
+        text: $(this).text()
+      };
     }).get();
   }
 

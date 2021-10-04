@@ -20,5 +20,6 @@ enum class AzureCloudImageType {
     Vhd,
     Image,
     Template,
-    Container
+    Container,
+    GalleryImage
 }

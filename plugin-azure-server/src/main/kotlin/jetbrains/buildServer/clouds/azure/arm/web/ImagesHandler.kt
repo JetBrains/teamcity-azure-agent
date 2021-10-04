@@ -34,6 +34,7 @@ internal class ImagesHandler : AzureResourceHandler() {
             imagesElement.addContent(Element("image").apply {
                 setAttribute("id", id)
                 setAttribute("osType", props[1])
+                setAttribute("isGalleryImage", props[2])
                 text = props[0]
             })
         }

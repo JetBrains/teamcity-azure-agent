@@ -289,7 +289,7 @@ class AzureApiConnectorImpl(params: Map<String, String>)
                     .sortedBy { it.name }
                     .associateBy(
                             { it.id },
-                            { listOf(it.name, it.osType.toString()) }
+                            { listOf(it.name, it.osType.toString(), (it.galleryImageDescriptor != null).toString()) }
                     )
         } catch (e: ThrottlerExecutionTaskException) {
             throw e

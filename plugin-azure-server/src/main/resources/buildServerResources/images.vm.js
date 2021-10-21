@@ -525,6 +525,27 @@ function ArmImagesViewModel($, ko, dialog, config) {
     self.subNetworks(subNetworks);
   });
 
+  ko.pureComputed(function() {
+    self.filteredSourceImages();
+    return self.imageType();
+  })
+  .extend({deferred : true, notify: 'always'})
+  .subscribe(function (imageType) {
+    if (imageType === imageTypes.image || imageType === imageTypes.galleryImage) {
+      try {
+        var jImageId = $j("#" + config.imageListControlId);
+        if (!jImageId.length) return;
+        if (jImageId.ufd("instance") === undefined) {
+          BS.enableJQueryDropDownFilter(jImageId, {addEmphasis: true});
+        } else {
+          BS.jQueryDropdown(jImageId, {addEmphasis: true});
+        }
+      } catch(e) {
+        BS.Log.warn(e);
+      }
+    }
+  });
+
   self.images_data.subscribe(function (data) {
     var images = ko.utils.parseJson(data || "[]");
     var saveValue = false;
@@ -597,10 +618,17 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
     // Pre-fill collections while loading resources
     var imageId = image.imageId;
-    if (imageId && !ko.utils.arrayFirst(self.sourceImages(), function (item) {
+    if (imageId
+      && (image.imageType === imageTypes.image || image.imageType === imageTypes.galleryImage)
+      && !ko.utils.arrayFirst(self.sourceImages(), function (item) {
         return item.id === imageId;
       })) {
-      self.sourceImages([{id: imageId, text: self.getFileName(imageId), osType: image.osType}]);
+      self.sourceImages([{
+        id: imageId,
+        text: image.imageType === imageTypes.image ? self.getFileName(imageId) : self.getGalleryImageName(imageId),
+        osType: image.osType,
+        isGalleryImage: image.imageType === imageTypes.galleryImage
+      }]);
     }
 
     var instanceId = image.instanceId;

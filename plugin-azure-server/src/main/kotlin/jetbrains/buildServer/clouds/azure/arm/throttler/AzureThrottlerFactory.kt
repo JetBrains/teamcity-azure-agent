@@ -72,7 +72,7 @@ object AzureThrottlerFactory {
                         periodicalTaskCacheTimeout)
                 .registerTask(AzureThrottlerReadTasks.FetchCustomImages,
                         AzureThrottlerTaskTimeExecutionType.Periodical,
-                        randomTaskCacheTimeout)
+                        periodicalTaskCacheTimeout)
                 .registerTask(AzureThrottlerReadTasks.FetchStorageAccounts,
                         AzureThrottlerTaskTimeExecutionType.Random,
                         randomTaskCacheTimeout)

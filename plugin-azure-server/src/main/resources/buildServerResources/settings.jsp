@@ -217,9 +217,12 @@
                 <th class="noBorder"><label for="${cons.imageId}">Source Image: <l:star/></label></th>
                 <td>
                     <div data-bind="if: filteredSourceImages().length > 0">
-                        <select name="${cons.imageId}" class="longField ignoreModified"
+                        <select name="${cons.imageId}" id="${cons.imageId}" class="longField ignoreModified"
                                 data-bind="options: filteredSourceImages, optionsText: 'text', optionsValue: 'id',
                                     optionsCaption: '<Select>', value: image().imageId"></select>
+                        <!-- ko if: loadingResources -->
+                        <i class="icon-refresh icon-spin"></i>
+                        <!-- /ko -->
                         <span class="osIcon osIconSmall"
                               data-bind="attr: {title: image().osType}, css: {invisible: !image().osType()},
                             style: {backgroundImage: getOsImage(image())}"/>
@@ -681,7 +684,8 @@
           ko.applyBindings(new ArmImagesViewModel($j, ko, BS.ArmImageDialog, {
               baseUrl: "<c:url value='${basePath}'/>",
               projectId: "${projectId}",
-              contextPath: "${contextPath}"
+              contextPath: "${contextPath}",
+              imageListControlId: "${cons.imageId}"
           }), dialog);
       });
     });

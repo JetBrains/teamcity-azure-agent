@@ -18,6 +18,7 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
+import com.microsoft.azure.management.compute.DiskCreateOptionTypes
 import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
@@ -110,7 +111,17 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                                             .virtualMachines()
                                             .getByIdAsync(targetResource.id())
                                             .filter { it != null && it.isManagedDiskEnabled }
-                                            .map { it.osDiskId() }
+                                            .flatMap {
+                                                Observable
+                                                        .just(it.osDiskId())
+                                                        .concatWith(Observable.from(
+                                                                it
+                                                                .dataDisks()
+                                                                .values
+                                                                .filter { d -> d.creationMethod() == DiskCreateOptionTypes.FROM_IMAGE }
+                                                                .map { d -> d.id() }
+                                                        ))
+                                            }
                                             .concatMap {
                                                 result.concatWith(Observable.just(it to DISKS_RESOURCE_TYPE))
                                             }

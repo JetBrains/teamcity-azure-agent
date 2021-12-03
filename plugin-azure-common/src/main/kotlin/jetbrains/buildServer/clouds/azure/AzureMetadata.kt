@@ -64,7 +64,7 @@ object AzureMetadata {
         throw IOException("Unable to connect to $INSTANCE_METADATA_URL in $PING_MAX_TRIES attempts")
     }
 
-    fun readScheduledEventsMetadata(): ScheduledEventsMetadata {
+    fun readScheduledEventsMetadata(): ScheduledEventsMetadata? {
         val requestConfig = RequestConfig.custom()
                 .setConnectTimeout(CONNECTION_TIMEOUT_MS)
                 .build()
@@ -83,7 +83,7 @@ object AzureMetadata {
 
                     val statusCode = response.statusLine.statusCode
                     if (statusCode == 200) {
-                        val entity = EntityUtils.toString(response.entity)
+                        val entity : String? = EntityUtils.toString(response.entity)
                         LOG.debug("Metadata service returned: $entity")
                         return deserializeScheduledEventsMetadata(entity)
                     } else {
@@ -124,10 +124,14 @@ object AzureMetadata {
         throw IOException("Invalid instance metadata ${e.message}", e)
     }
 
-    fun deserializeScheduledEventsMetadata(json: String): ScheduledEventsMetadata = try {
-        GSON.fromJson<ScheduledEventsMetadata>(json, ScheduledEventsMetadata::class.java)
-    } catch (e: Exception) {
-        throw IOException("Invalid instance metadata ${e.message}", e)
+    fun deserializeScheduledEventsMetadata(json: String?): ScheduledEventsMetadata? {
+        return json?.let {
+            try {
+                GSON.fromJson<ScheduledEventsMetadata>(json, ScheduledEventsMetadata::class.java)
+            } catch (e: Exception) {
+                throw IOException("Invalid instance metadata ${e.message}", e)
+            }
+        }
     }
 
     data class Metadata(

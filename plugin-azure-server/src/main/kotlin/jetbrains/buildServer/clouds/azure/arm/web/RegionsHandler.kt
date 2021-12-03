@@ -18,15 +18,16 @@ package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import kotlinx.coroutines.coroutineScope
+import org.jdom.Content
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
 /**
  * Handles region request.
  */
-internal class RegionsHandler : AzureResourceHandler() {
-    override suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest) = coroutineScope {
-        val regions = connector.getRegions()
+internal class RegionsHandler : ResourceHandler {
+    override suspend fun handle(request: HttpServletRequest, context: ResourceHandlerContext) = coroutineScope {
+        val regions = context.apiConnector.getRegions()
         val regionsElement = Element("regions")
 
         for ((id, displayName) in regions) {

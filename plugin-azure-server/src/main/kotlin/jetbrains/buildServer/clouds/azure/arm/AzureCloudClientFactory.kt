@@ -23,7 +23,7 @@ import jetbrains.buildServer.clouds.CloudState
 import jetbrains.buildServer.clouds.azure.AzureCloudImagesHolder
 import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.AzureUtils
-import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorFactory
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.AgentDescription
@@ -37,7 +37,8 @@ import jetbrains.buildServer.web.openapi.PluginDescriptor
 class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                               private val myPluginDescriptor: PluginDescriptor,
                               private val mySettings: ServerSettings,
-                              private val myImagesHolder: AzureCloudImagesHolder)
+                              private val myImagesHolder: AzureCloudImagesHolder,
+                              private val myApiConnectorFactory: AzureApiConnectorFactory)
     : AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudClient>(cloudRegistrar) {
 
     override fun createNewClient(state: CloudState,
@@ -55,9 +56,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
             it to params.getParameter(it)!!
         }.toMap()
 
-        val apiConnector = AzureApiConnectorImpl(parameters)
-        apiConnector.setServerId(mySettings.serverUUID)
-        apiConnector.setProfileId(state.profileId)
+        val apiConnector = myApiConnectorFactory.create(parameters, state.profileId)
 
         val azureCloudClient = AzureCloudClient(params, apiConnector, myImagesHolder)
         azureCloudClient.updateErrors(*errors)

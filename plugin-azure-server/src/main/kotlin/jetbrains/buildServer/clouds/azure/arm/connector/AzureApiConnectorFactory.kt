@@ -14,18 +14,8 @@
  * limitations under the License.
  */
 
-package jetbrains.buildServer.clouds.azure.arm.web
+package jetbrains.buildServer.clouds.azure.arm.connector
 
-import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import jetbrains.buildServer.controllers.BasePropertiesBean
-import org.jdom.Content
-import javax.servlet.http.HttpServletRequest
-
-/**
- * Request handler.
- */
-internal interface ResourceHandler {
-    suspend fun handle(request: HttpServletRequest, context: ResourceHandlerContext): Content
+interface AzureApiConnectorFactory {
+    fun create(parameters: Map<String, String>, profileId: String?): AzureApiConnector
 }
-
-internal data class ResourceHandlerContext(val apiConnector: AzureApiConnector, val propertiesBean: BasePropertiesBean)

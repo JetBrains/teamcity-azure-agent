@@ -314,8 +314,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
         return AzureThrottlerImpl(
                 adapter,
                 throttlerStrategy,
-                scheduler,
-                timeoutScheduler,
+                AzureThrottlerSchedulers(scheduler, timeoutScheduler),
                 scheduledExecutorFactory,
                 taskNotifications
         )

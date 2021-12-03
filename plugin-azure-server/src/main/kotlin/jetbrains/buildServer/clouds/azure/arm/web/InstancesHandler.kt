@@ -18,15 +18,16 @@ package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import kotlinx.coroutines.coroutineScope
+import org.jdom.Content
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
 /**
  * Handles instances request.
  */
-internal class InstancesHandler : AzureResourceHandler() {
-    override suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest) = coroutineScope {
-        val instances = connector.getInstances()
+internal class InstancesHandler : ResourceHandler {
+    override suspend fun handle(request: HttpServletRequest, context: ResourceHandlerContext) = coroutineScope {
+        val instances = context.apiConnector.getInstances()
 
         val instancesElement = Element("instances")
         for ((id, description, osType) in instances) {

@@ -46,4 +46,24 @@ const val TEAMCITY_CLOUDS_AZURE_THROTTLER_PRINT_DIAGNOSTIC_INTERVAL_SEC = "teamc
 
 const val TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_FULLSTATEAPI_DISABLE = "teamcity.clouds.azure.tasks.fetchinstances.fullstateapi.disable"
 
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_USE_OLD_SCHEDULERS = "teamcity.clouds.azure.throttler.use.old.schedulers"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_COMPUTATION_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.computation.pool.max.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_COMPUTATION_POOL_MIN_SIZE = "teamcity.clouds.azure.throttler.computation.pool.min.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_COMPUTATION_POOL_QUEUE_MAX_SIZE = "teamcity.clouds.azure.throttler.computation.pool.queue.max.size"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.io.pool.max.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_MIN_SIZE = "teamcity.clouds.azure.throttler.io.pool.min.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_QUEUE_MAX_SIZE = "teamcity.clouds.azure.throttler.io.pool.queue.max.size"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_NEW_THREAD_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.new.thread.pool.max.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_NEW_THREAD_POOL_MIN_SIZE = "teamcity.clouds.azure.throttler.new.thread.pool.min.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_NEW_THREAD_POOL_QUEUE_MAX_SIZE = "teamcity.clouds.azure.throttler.new.thread.pool.queue.max.size"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.dispatcher.pool.max.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MIN_SIZE = "teamcity.clouds.azure.throttler.dispatcher.pool.min.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_QUEUE_MAX_SIZE = "teamcity.clouds.azure.throttler.dispatcher.pool.queue.max.size"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_SCHEDULER_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.scheduler.pool.max.size"
+
 const val DEFAULT_REMAINING_READS_PER_HOUR = 12000L

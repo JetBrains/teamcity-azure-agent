@@ -33,8 +33,7 @@ import kotlin.concurrent.write
 class AzureThrottlerImpl<A, I>(
         private val adapter: AzureThrottlerAdapter<A>,
         private val throttlerStrategy: AzureThrottlerStrategy<I>,
-        private val requestScheduler: Scheduler,
-        private val timeoutScheduler: Scheduler,
+        private val schedulers: AzureThrottlerSchedulers,
         private val scheduledExecutorFactory: AzureThrottlerScheduledExecutorFactorty,
         private val taskNotifications: AzureTaskNotifications
 ) : AzureThrottler<A, I>, AzureThrottlerStrategyTaskContainer<I>, AzureThrottlerTaskCompletionResultNotifier {
@@ -88,7 +87,7 @@ class AzureThrottlerImpl<A, I>(
                 taskTimeExecutionType,
                 defaultTimeoutInSeconds,
                 this,
-                requestScheduler
+                schedulers.requestScheduler
         )
         return this
     }
@@ -114,7 +113,7 @@ class AzureThrottlerImpl<A, I>(
 
         return executeTask<P, T>(taskDescriptor.taskId, parameters)
                 .doOnEach { LOG.debug("[${taskDescriptor.taskId}-$executionId] Single On Each Value of task. Kind: ${it.kind}") }
-                .timeout(getTaskExecutionTimeout(), TimeUnit.SECONDS, timeoutScheduler)
+                .timeout(getTaskExecutionTimeout(), TimeUnit.SECONDS, schedulers.timeoutScheduler)
                 .onErrorResumeNext { error ->
                     LOG.debug("[${taskDescriptor.taskId}-$executionId] Error occured: ${error}")
                     if (error is TimeoutException) {

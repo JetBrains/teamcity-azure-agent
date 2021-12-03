@@ -20,4 +20,9 @@
     <bean class="jetbrains.buildServer.clouds.azure.arm.AzureCloudClientFactory"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.web.SettingsController"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.health.AzureCloudProfileReport"/>
+
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFactoryImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottlerCacheImpl" />
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerSchedulersProviderImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorFactoryImpl"/>
 </beans>

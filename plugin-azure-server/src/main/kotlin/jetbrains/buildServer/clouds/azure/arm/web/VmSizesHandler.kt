@@ -18,16 +18,17 @@ package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import kotlinx.coroutines.coroutineScope
+import org.jdom.Content
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
 /**
  * Handles vm sizes request.
  */
-internal class VmSizesHandler : AzureResourceHandler() {
-    override suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest) = coroutineScope {
+internal class VmSizesHandler : ResourceHandler {
+    override suspend fun handle(request: HttpServletRequest, context: ResourceHandlerContext) = coroutineScope {
         val region = request.getParameter("region")
-        val sizes = connector.getVmSizes(region)
+        val sizes = context.apiConnector.getVmSizes(region)
 
         val sizesElement = Element("vmSizes")
         for (size in sizes) {

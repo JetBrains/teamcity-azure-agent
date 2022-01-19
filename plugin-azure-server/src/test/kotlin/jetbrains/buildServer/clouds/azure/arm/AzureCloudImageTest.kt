@@ -165,8 +165,8 @@ class AzureCloudImageTest : MockObjectTestCase() {
         val barrier = CyclicBarrier(3)
 
         // When
-        val thread1 = thread(start = true) { barrier.await(); instance.startNewInstance(userData) }
-        val thread2 = thread(start = true) { barrier.await(); instance.startNewInstance(userData) }
+        val thread1 = thread(start = true) { barrier.await(); runBlocking { instance.startNewInstance(userData) } }
+        val thread2 = thread(start = true) { barrier.await(); runBlocking { instance.startNewInstance(userData) } }
 
         barrier.await()
 
@@ -219,9 +219,9 @@ class AzureCloudImageTest : MockObjectTestCase() {
         val barrier = CyclicBarrier(4)
 
         // When
-        val thread1 = thread(start = true) { barrier.await(); instance.startNewInstance(userData) }
-        val thread2 = thread(start = true) { barrier.await(); instance.startNewInstance(userData) }
-        val thread3 = thread(start = true) { barrier.await(); instance.startNewInstance(userData) }
+        val thread1 = thread(start = true) { barrier.await(); runBlocking { instance.startNewInstance(userData) } }
+        val thread2 = thread(start = true) { barrier.await(); runBlocking { instance.startNewInstance(userData) } }
+        val thread3 = thread(start = true) { barrier.await(); runBlocking { instance.startNewInstance(userData) } }
 
         barrier.await()
 

@@ -87,6 +87,12 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
     myInstances.put(instance.getInstanceId(), instance);
   }
 
+  public boolean addInstanceIfAbsent(@NotNull final T instance) {
+    instance.setImage(this);
+    T result = myInstances.putIfAbsent(instance.getInstanceId(), instance);
+    return result == null;
+  }
+
   public abstract boolean canStartNewInstance();
 
   public abstract void terminateInstance(@NotNull final T instance);

@@ -21,12 +21,14 @@ import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerActionTasks
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerReadTasks
 import rx.Single
+import java.util.concurrent.TimeUnit
 
 interface AzureRequestThrottler {
     val subscriptionId : String?
 
     fun <P, T> executeReadTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P) : Single<T>;
     fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P) : Single<T>;
+    fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P, timeout: Long, timeUnit: TimeUnit) : Single<T>;
     fun <P, T> executeUpdateTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerActionTasks.Values, P, T>, parameters: P) : Single<T>;
 
     fun start()

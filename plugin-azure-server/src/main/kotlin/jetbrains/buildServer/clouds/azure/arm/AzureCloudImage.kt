@@ -32,6 +32,7 @@ import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.*
 import java.lang.StringBuilder
 import java.util.*
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Azure cloud image.
@@ -60,6 +61,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
     )
 
     private var azureCpuQuotaExceeded: Set<String>? = null
+
+    private val overlimitInstanceToDelete = AtomicReference<AzureCloudInstance?>(null)
 
     override fun getImageDetails(): AzureCloudImageDetails = myImageDetails
 
@@ -122,10 +125,8 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
      * @return created instance.
      */
     private fun createInstance(userData: CloudInstanceUserData): AzureCloudInstance {
-        val name = getInstanceName()
-        val instance = AzureCloudInstance(this, name)
-        instance.status = InstanceStatus.SCHEDULED_TO_START
-        val data = AzureUtils.setVmNameForTag(userData, name)
+        val instance = createAzureCloudInstance()
+        val data = AzureUtils.setVmNameForTag(userData, instance.name)
         val image = this
 
         GlobalScope.launch {
@@ -162,10 +163,29 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
                 }
             }
         }
-
-        addInstance(instance)
-
         return instance
+    }
+
+    private fun createAzureCloudInstance(): AzureCloudInstance {
+        do {
+            val instance = AzureCloudInstance(this, getInstanceName())
+            instance.status = InstanceStatus.SCHEDULED_TO_START
+
+            if (addInstanceIfAbsent(instance)) {
+                while(activeInstances.size > myImageDetails.maxInstances) {
+                    val lastStartingInstance = instances.filter { it.status == InstanceStatus.SCHEDULED_TO_START }.sortedBy { it.name }.lastOrNull()
+                    if (lastStartingInstance == null) {
+                        throw QuotaException("Unable to start more instances. Limit has reached")
+                    }
+                    if (overlimitInstanceToDelete.compareAndSet(null, instance)) {
+                        removeInstance(instance.instanceId)
+                        overlimitInstanceToDelete.set(null)
+                        throw QuotaException("Unable to start more instances. Limit has reached")
+                    }
+                }
+                return instance
+            };
+        } while (true);
     }
 
     /**

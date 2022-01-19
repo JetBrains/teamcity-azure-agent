@@ -24,6 +24,7 @@ import rx.internal.util.SubscriptionList
 import rx.subjects.Subject
 import java.time.Clock
 import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 
 enum class AzureThrottlerTaskTimeExecutionType {
     Periodical,
@@ -69,6 +70,7 @@ interface AzureThrottler<A, I> {
     fun <P, T> executeTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P) : Single<T>
 
     fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P) : Single<T>
+    fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P, timeout: Long, timeUnit: TimeUnit) : Single<T>
 
     fun isSuspended() : Boolean
 

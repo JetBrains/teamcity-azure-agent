@@ -27,6 +27,7 @@ import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerRead
 import rx.Single
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
+import java.util.concurrent.TimeUnit
 
 class AzureRequestThrottlerCacheImpl(
         private val mySchedulersProvider: AzureThrottlerSchedulersProvider,
@@ -92,6 +93,10 @@ class AzureRequestThrottlerCacheImpl(
 
         override fun <P, T> executeReadTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {
             return myReadsThrottler.executeTask(taskDescriptor, parameters);
+        }
+
+        override fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P, timeout: Long, timeUnit: TimeUnit): Single<T> {
+            return myReadsThrottler.executeTaskWithTimeout(taskDescriptor, parameters, timeout, timeUnit)
         }
 
         override fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {

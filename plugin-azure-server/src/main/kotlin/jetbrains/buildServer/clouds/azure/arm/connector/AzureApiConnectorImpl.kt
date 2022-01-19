@@ -30,6 +30,7 @@ import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.*
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottler
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottlerCache
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_THROTTLER_TIMEOUT_SEC
 import jetbrains.buildServer.clouds.azure.arm.throttler.ThrottlerExecutionTaskException
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
@@ -40,14 +41,18 @@ import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
-import jetbrains.buildServer.serverSide.ServerSettings
-import kotlinx.coroutines.*
+import jetbrains.buildServer.serverSide.TeamCityProperties
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.apache.commons.codec.binary.Base64
 import java.net.URI
 import java.net.URISyntaxException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /**
  * Provides azure arm management capabilities.
@@ -107,7 +112,11 @@ class AzureApiConnectorImpl(
 
         try {
             val instanceDescriptorMap = withContext(myDispatcher) {
-                myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchInstances, parameter)
+                myAzureRequestsThrottler.executeReadTaskWithTimeout(
+                        AzureThrottlerReadTasks.FetchInstances,
+                        parameter,
+                        TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_TASKS_THROTTLER_TIMEOUT_SEC, 60L),
+                        TimeUnit.SECONDS)
                         .awaitOne()
                         .groupBy { it.imageId }
             }
@@ -130,7 +139,6 @@ class AzureApiConnectorImpl(
                 }
                 image.updateErrors(*errors.toTypedArray())
             }
-        } catch (e: ThrottlerExecutionTaskException) {
         } catch (t: Throwable) {
             val message = "Failed to get list of virtual machines: " + t.message
             LOG.debug(message, t)

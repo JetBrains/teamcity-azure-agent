@@ -22,6 +22,7 @@ import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
+import kotlinx.coroutines.runBlocking
 import org.jmock.MockObjectTestCase
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.BeforeTest
@@ -90,7 +91,9 @@ class AzureCloudImageTest : MockObjectTestCase() {
         )
 
         // When
-        instance.startNewInstance(userData)
+        runBlocking {
+            instance.startNewInstance(userData)
+        }
 
         // Then
         coVerify { myApiConnector.createInstance(
@@ -121,10 +124,14 @@ class AzureCloudImageTest : MockObjectTestCase() {
                 "profileDescr",
                 emptyMap()
         )
-        instance.startNewInstance(userData)
+        runBlocking {
+            instance.startNewInstance(userData)
+        }
 
         // When
-        instance.startNewInstance(userData)
+        runBlocking {
+            instance.startNewInstance(userData)
+        }
 
         // Then
         coVerify { myApiConnector.createInstance(

@@ -37,8 +37,9 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * Azure cloud image.
  */
-class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDetails,
-                                  private val myApiConnector: AzureApiConnector)
+class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
+                      private val myApiConnector: AzureApiConnector,
+                      private val myScope: CoroutineScope)
     : AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails>(myImageDetails.sourceId, myImageDetails.sourceId) {
 
     private val myImageHandlers = mapOf(
@@ -129,7 +130,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val data = AzureUtils.setVmNameForTag(userData, instance.name)
         val image = this
 
-        GlobalScope.launch {
+        myScope.launch {
             val hash = handler!!.getImageHash(imageDetails)
 
             instance.properties[AzureConstants.TAG_PROFILE] = userData.profileId
@@ -221,7 +222,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
 
                 instance?.status = InstanceStatus.SCHEDULED_TO_START
 
-                GlobalScope.launch {
+                myScope.launch {
                     invalidInstances.forEach {
                         try {
                             LOG.info("Removing virtual machine ${it.name}")
@@ -269,7 +270,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         instance.status = InstanceStatus.SCHEDULED_TO_START
 
         val image = this
-        GlobalScope.launch {
+        myScope.launch {
             try {
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Starting virtual machine ${instance.name}")
@@ -320,7 +321,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         instance.status = InstanceStatus.RESTARTING
 
         val image = this
-        GlobalScope.launch {
+        myScope.launch {
             try {
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Restarting virtual machine ${instance.name}")
@@ -343,7 +344,7 @@ class AzureCloudImage constructor(private val myImageDetails: AzureCloudImageDet
         val image = this
         instance.status = InstanceStatus.SCHEDULED_TO_STOP
 
-        GlobalScope.launch {
+        myScope.launch {
             try {
                 val sameVhdImage = isSameImageInstance(instance)
                 if (myImageDetails.behaviour.isDeleteAfterStop) {

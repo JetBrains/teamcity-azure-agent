@@ -14,32 +14,33 @@
  * limitations under the License.
  */
 
-import com.google.gson.annotations.SerializedName
 import io.mockk.*
-import jetbrains.buildServer.clouds.CloudImageParameters
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import org.jmock.MockObjectTestCase
 import org.testng.annotations.BeforeMethod
-import org.testng.annotations.BeforeTest
 import org.testng.annotations.Test
 import java.util.concurrent.CyclicBarrier
 import kotlin.concurrent.thread
 
 class AzureCloudImageTest : MockObjectTestCase() {
+    private lateinit var myJob: CompletableJob
     private lateinit var myImageDetails: AzureCloudImageDetails
     private lateinit var myApiConnector: AzureApiConnector
+    private lateinit var myScope: CoroutineScope
 
     @BeforeMethod
     fun beforeMethod() {
         MockKAnnotations.init(this)
 
         myApiConnector = mockk();
-        coEvery { myApiConnector.createInstance(any(), any()) } returns Unit
+        coEvery { myApiConnector.createInstance(any(), any()) } answers {
+            Unit
+        }
         every { myApiConnector.fetchInstances<AzureInstance>(any<AzureCloudImage>()) } returns emptyMap()
 
         myImageDetails = AzureCloudImageDetails(
@@ -74,11 +75,15 @@ class AzureCloudImageTest : MockObjectTestCase() {
             spotPrice = null,
             enableAcceleratedNetworking = null
         )
+
+        myJob = SupervisorJob()
+        myScope = CoroutineScope(myJob + Dispatchers.IO)
     }
 
     @Test
     fun shouldCreateNewInstance() {
         // Given
+        myScope = CoroutineScope(Dispatchers.Unconfined)
         val instance = createInstance()
         val userData = CloudInstanceUserData(
                 "agentName",
@@ -91,9 +96,7 @@ class AzureCloudImageTest : MockObjectTestCase() {
         )
 
         // When
-        runBlocking {
-            instance.startNewInstance(userData)
-        }
+        instance.startNewInstance(userData)
 
         // Then
         coVerify { myApiConnector.createInstance(
@@ -114,6 +117,7 @@ class AzureCloudImageTest : MockObjectTestCase() {
     @Test
     fun shouldCreateSecondInstance() {
         // Given
+        myScope = CoroutineScope(Dispatchers.Unconfined)
         val instance = createInstance()
         val userData = CloudInstanceUserData(
                 "agentName",
@@ -124,14 +128,11 @@ class AzureCloudImageTest : MockObjectTestCase() {
                 "profileDescr",
                 emptyMap()
         )
-        runBlocking {
-            instance.startNewInstance(userData)
-        }
+
+        instance.startNewInstance(userData)
 
         // When
-        runBlocking {
-            instance.startNewInstance(userData)
-        }
+        instance.startNewInstance(userData)
 
         // Then
         coVerify { myApiConnector.createInstance(
@@ -165,13 +166,16 @@ class AzureCloudImageTest : MockObjectTestCase() {
         val barrier = CyclicBarrier(3)
 
         // When
-        val thread1 = thread(start = true) { barrier.await(); runBlocking { instance.startNewInstance(userData) } }
-        val thread2 = thread(start = true) { barrier.await(); runBlocking { instance.startNewInstance(userData) } }
+        val thread1 = thread(start = true) { barrier.await(); instance.startNewInstance(userData) }
+        val thread2 = thread(start = true) { barrier.await(); instance.startNewInstance(userData) }
 
         barrier.await()
 
         thread1.join()
         thread2.join()
+
+        myJob.complete()
+        runBlocking { myJob.join() }
 
         // Then
         coVerify { myApiConnector.createInstance(
@@ -229,6 +233,9 @@ class AzureCloudImageTest : MockObjectTestCase() {
         thread2.join()
         thread3.join()
 
+        myJob.complete()
+        runBlocking { myJob.join() }
+
         // Then
         coVerify { myApiConnector.createInstance(
                 match { i ->
@@ -274,6 +281,6 @@ class AzureCloudImageTest : MockObjectTestCase() {
     }
 
     private fun createInstance() : AzureCloudImage {
-        return AzureCloudImage(myImageDetails, myApiConnector)
+        return AzureCloudImage(myImageDetails, myApiConnector, myScope)
     }
 }

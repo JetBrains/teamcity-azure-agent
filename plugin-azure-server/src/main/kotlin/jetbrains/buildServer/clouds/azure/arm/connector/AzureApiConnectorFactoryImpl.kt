@@ -22,11 +22,10 @@ import jetbrains.buildServer.serverSide.ServerSettings
 
 class AzureApiConnectorFactoryImpl(
         private val myAzureRequestThrottlerCache: AzureRequestThrottlerCache,
-        private val mySettings: ServerSettings,
-        private val mySchedulersProvider: AzureThrottlerSchedulersProvider
+        private val mySettings: ServerSettings
 ) : AzureApiConnectorFactory {
     override fun create(parameters: Map<String, String>, profileId: String?): AzureApiConnector {
-        return AzureApiConnectorImpl(parameters, myAzureRequestThrottlerCache, mySettings.serverUUID, mySchedulersProvider.getDispatcher())
+        return AzureApiConnectorImpl(parameters, myAzureRequestThrottlerCache, mySettings.serverUUID)
                 .also { connector -> profileId?.let { connector.setProfileId(it) } }
     }
 }

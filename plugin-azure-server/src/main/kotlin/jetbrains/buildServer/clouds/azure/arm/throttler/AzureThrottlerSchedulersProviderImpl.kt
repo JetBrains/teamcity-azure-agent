@@ -70,7 +70,7 @@ class AzureThrottlerSchedulersProviderImpl(serverDispatcher: EventDispatcher<Bui
         private var myNewThreadSchedulerService: CloseableExecutorService<ExecutorService>
         private var myComputationSchedulerService: CloseableExecutorService<ExecutorService>
         private var myIOSchedulerService: CloseableExecutorService<ExecutorService>
-        private val myDispatcerExecutorService: CloseableExecutorService<ExecutorService>
+        private val myDispatcherExecutorService: CloseableExecutorService<ExecutorService>
         private var myScheduledExecutorService: CloseableExecutorService<ScheduledExecutorService>
 
         init {
@@ -107,12 +107,12 @@ class AzureThrottlerSchedulersProviderImpl(serverDispatcher: EventDispatcher<Bui
                             "Azure Rx schedulers pool",
                             TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_SCHEDULER_POOL_MAX_SIZE, 3))
             )
-            myDispatcerExecutorService = CloseableExecutorService(
+            myDispatcherExecutorService = CloseableExecutorService(
                     serverDispatcher,
                     ServiceFactory(
                             "Azure Dispatcher pool",
                             TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MIN_SIZE, 0),
-                            TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MAX_SIZE, 4),
+                            TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MAX_SIZE, 8),
                             TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_QUEUE_MAX_SIZE, 50)
                     )
             )
@@ -130,7 +130,7 @@ class AzureThrottlerSchedulersProviderImpl(serverDispatcher: EventDispatcher<Bui
 
             SdkContext.setRxScheduler(myIOScheduler)
 
-            myDispatcher = myDispatcerExecutorService.executor.asCoroutineDispatcher()
+            myDispatcher = myDispatcherExecutorService.executor.asCoroutineDispatcher()
         }
 
         override fun getReadRequestsSchedulers(): AzureThrottlerSchedulers =
@@ -147,7 +147,7 @@ class AzureThrottlerSchedulersProviderImpl(serverDispatcher: EventDispatcher<Bui
             myNewThreadSchedulerService.close()
             myScheduledExecutorService.close()
             myDispatcher.close()
-            myDispatcerExecutorService.close()
+            myDispatcherExecutorService.close()
         }
 
         private class CloseableScheduledExecutorService(serverDispatcher: EventDispatcher<BuildServerListener>, poolName: String, poolSize: Int) : Closeable {

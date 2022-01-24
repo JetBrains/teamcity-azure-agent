@@ -339,7 +339,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
 
     override fun getFromCache(parameter: FetchInstancesTaskParameter): List<FetchInstancesTaskInstanceDescriptor>? {
-        return if (myLastUpdatedDate.get() != LocalDateTime.MIN) getFilteredResources(parameter) else null
+        return if (needUpdate(myLastUpdatedDate.get())) null else getFilteredResources(parameter)
     }
 
     override fun needCacheUpdate(parameter: FetchInstancesTaskParameter): Boolean {

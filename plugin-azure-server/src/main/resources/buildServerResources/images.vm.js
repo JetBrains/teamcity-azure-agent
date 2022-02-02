@@ -421,6 +421,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
     if (deployTarget !== deployTargets.specificGroup) {
       self.image().groupId(null);
     }
+    if (deployTarget === deployTargets.instance) {
+      self.image().registryUsername(null);
+      self.image().registryPassword(null);
+      self.image().vmPassword(null);
+      self.image().vmUsername(null);
+    }
   });
 
   self.image().groupId.subscribe(function (groupId) {
@@ -686,12 +692,16 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.spotPrice(image.spotPrice != null ? image.spotPrice/priceDivider : undefined);
     model.enableAcceleratedNetworking(image.enableAcceleratedNetworking);
 
-    var key = image.vmNamePrefix;
-    var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
-    if (image.imageType === imageTypes.container) {
-      model.registryPassword(password);
-    } else {
-      model.vmPassword(password);
+    model.registryPassword(null);
+    model.vmPassword(null);
+    if (image.deployTarget !== deployTargets.instance) {
+      var key = image.vmNamePrefix;
+      var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
+      if (image.imageType === imageTypes.container) {
+        model.registryPassword(password);
+      } else {
+        model.vmPassword(password);
+      }
     }
 
     self.image.errors.showAllMessages(false);

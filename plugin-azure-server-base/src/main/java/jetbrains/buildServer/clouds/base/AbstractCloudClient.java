@@ -93,7 +93,7 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
   }
 
   public void populateImagesData(@NotNull final Collection<D> imageDetails) {
-    populateImagesData(imageDetails, 60 * 1000, 60 * 1000);
+    populateImagesData(imageDetails, 60 * 1000, 20 * 1000);
   }
 
   public void populateImagesData(@NotNull final Collection<D> imageDetails, final long initialDelayMs, final long delayMs) {

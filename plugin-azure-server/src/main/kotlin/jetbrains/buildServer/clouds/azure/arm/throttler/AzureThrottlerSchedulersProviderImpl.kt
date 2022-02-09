@@ -89,7 +89,7 @@ class AzureThrottlerSchedulersProviderImpl(serverDispatcher: EventDispatcher<Bui
                         "Azure Rx io pool",
                         TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_MIN_SIZE, 1),
                         TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_MAX_SIZE, 10),
-                        TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_QUEUE_MAX_SIZE, 50)
+                        TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_QUEUE_MAX_SIZE, 200)
                     )
             )
             myNewThreadSchedulerService = CloseableExecutorService(
@@ -113,7 +113,7 @@ class AzureThrottlerSchedulersProviderImpl(serverDispatcher: EventDispatcher<Bui
                             "Azure Dispatcher pool",
                             TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MIN_SIZE, 0),
                             TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MAX_SIZE, 8),
-                            TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_QUEUE_MAX_SIZE, 50)
+                            TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_QUEUE_MAX_SIZE, 200)
                     )
             )
 

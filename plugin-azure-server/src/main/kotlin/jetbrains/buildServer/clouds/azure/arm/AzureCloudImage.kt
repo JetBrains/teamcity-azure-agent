@@ -225,9 +225,10 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
                 myScope.launch {
                     invalidInstances.forEach {
                         try {
+                            it.status = InstanceStatus.STOPPING
                             LOG.info("Removing virtual machine ${it.name}")
                             myApiConnector.deleteInstance(it)
-                            removeInstance(it.instanceId)
+                            it.status = InstanceStatus.STOPPED
                         } catch (e: Throwable) {
                             LOG.warnAndDebugDetails(e.message, e)
                             it.status = InstanceStatus.ERROR
@@ -346,15 +347,16 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
 
         myScope.launch {
             try {
+                instance.status = InstanceStatus.STOPPING
                 val sameVhdImage = isSameImageInstance(instance)
                 if (myImageDetails.behaviour.isDeleteAfterStop) {
                     LOG.info("Removing virtual machine ${instance.name} due to cloud image settings")
                     myApiConnector.deleteInstance(instance)
-                    removeInstance(instance.instanceId)
+                    instance.status = InstanceStatus.STOPPED
                 } else if (!sameVhdImage) {
                     LOG.info("Removing virtual machine ${instance.name} due to cloud image retention policy")
                     myApiConnector.deleteInstance(instance)
-                    removeInstance(instance.instanceId)
+                    instance.status = InstanceStatus.STOPPED
                 } else {
                     LOG.info("Stopping virtual machine ${instance.name}")
                     myApiConnector.stopInstance(instance)

@@ -31,6 +31,7 @@ import com.microsoft.azure.management.resources.fluentcore.arm.models.HasId
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
+import jetbrains.buildServer.clouds.azure.arm.utils.awaitOne
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.util.StringUtil
@@ -92,8 +93,12 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         myNotifications.register<AzureTaskDeploymentStatusChangedEventArgs> { args ->
             val dependency = args.deployment.dependencies().firstOrNull { it.resourceType() == VIRTUAL_MACHINES_RESOURCE_TYPE }
             if (dependency != null) {
-                if (args.deployment.provisioningState() == PROVISIONING_STATE_SUCCEEDED) {
-                    updateVirtualMachine(args.api, dependency.id())
+                if (args.isDeleting) {
+                    updateVirtualMachine(args.api, dependency.id(), args.isDeleting)
+                } else {
+                    if (args.deployment.provisioningState() == PROVISIONING_STATE_SUCCEEDED) {
+                        updateVirtualMachine(args.api, dependency.id(), args.isDeleting)
+                    }
                 }
                 return@register
             }
@@ -110,7 +115,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                         CONTAINER_GROUPS_RESOURCE_TYPE,
                         name,
                         "")
-                updateContainer(args.api, containerId)
+
+                updateContainer(args.api, containerId, args.isDeleting)
             }
         }
     }
@@ -211,7 +217,11 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 }
     }
 
-    private fun updateContainer(api: Azure, containerId: String) {
+    private fun updateContainer(api: Azure, containerId: String, isDeleting: Boolean) {
+        if (isDeleting) {
+            myInstancesCache.invalidate(containerId.toLowerCase())
+            return
+        }
         api.containerGroups()
                 .getByIdAsync(containerId)
                 .map { it?.let { fetchContainer(it) } }
@@ -225,7 +235,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     }
                 }
                 .take(1)
-                .subscribe()
+                .toCompletable()
+                .await()
     }
 
     private fun fetchContainer(containerGroup: ContainerGroup): InstanceDescriptor {
@@ -313,7 +324,11 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 .subscribe()
     }
 
-    private fun updateVirtualMachine(api: Azure, virtualMachineId: String) {
+    private fun updateVirtualMachine(api: Azure, virtualMachineId: String, isDeleting: Boolean) {
+        if (isDeleting) {
+            myInstancesCache.invalidate(virtualMachineId.toLowerCase())
+            return
+        }
         api.virtualMachines()
                 .getByIdAsync(virtualMachineId)
                 .flatMap { if (it != null) fetchVirtualMachine(it) else Observable.just(null) }
@@ -327,7 +342,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     }
                 }
                 .take(1)
-                .subscribe()
+                .toCompletable()
+                .await()
     }
 
     private fun getAssignedNetworkInterfaceId(publicIpAddress: PublicIPAddress?): String? {

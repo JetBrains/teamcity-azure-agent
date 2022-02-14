@@ -37,7 +37,7 @@ class FetchInstancesTaskImplTest : MockObjectTestCase() {
         val instance = createInstance()
 
         // When
-        val result = instance.getFromCache(FetchInstancesTaskParameter(null, null, emptyArray()))
+        val result = instance.getFromCache(FetchInstancesTaskParameter("serverId"))
 
         // Then
         Assert.assertNull(result)

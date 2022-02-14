@@ -25,7 +25,7 @@ class AzureApiConnectorFactoryImpl(
         private val mySettings: ServerSettings
 ) : AzureApiConnectorFactory {
     override fun create(parameters: Map<String, String>, profileId: String?): AzureApiConnector {
-        return AzureApiConnectorImpl(parameters, myAzureRequestThrottlerCache, mySettings.serverUUID)
+        return AzureApiConnectorImpl(parameters, myAzureRequestThrottlerCache, { mySettings.serverUUID!! })
                 .also { connector -> profileId?.let { connector.setProfileId(it) } }
     }
 }

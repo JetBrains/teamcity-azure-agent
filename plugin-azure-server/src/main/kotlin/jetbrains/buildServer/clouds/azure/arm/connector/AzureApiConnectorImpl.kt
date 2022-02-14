@@ -60,7 +60,7 @@ import java.util.concurrent.TimeUnit
 class AzureApiConnectorImpl(
         params: Map<String, String>,
         private val myAzureRequestThrottlerCache: AzureRequestThrottlerCache,
-        private val myServerId: String?)
+        private val myServerIdFunc: () -> String)
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
     private var myAzureRequestsThrottler: AzureRequestThrottler
@@ -90,30 +90,15 @@ class AzureApiConnectorImpl(
 
     override fun <R : AbstractInstance> fetchInstances(images: Collection<AzureCloudImage>) = runBlocking {
         val imageMap = hashMapOf<AzureCloudImage, Map<String, R>>()
-
-        val parameter = FetchInstancesTaskParameter(
-                myServerId,
-                myProfileId,
-                images.map {
-                    val imageDetails = it.imageDetails
-                    FetchInstancesTaskImageDescriptor(it.id,
-                            FetchInstancesTaskCloudImageDetails(
-                                    imageDetails.vmPublicIp,
-                                    imageDetails.instanceId,
-                                    imageDetails.sourceId,
-                                    imageDetails.target,
-                                    imageDetails.isVmInstance(),
-                                    getResourceGroup(imageDetails, "")))
-                }.sortedBy { it.imageId }.toTypedArray())
-
         try {
-            val instanceDescriptorMap = myAzureRequestsThrottler.executeReadTaskWithTimeout(
+            val instanceDescriptorList = myAzureRequestsThrottler.executeReadTaskWithTimeout(
                 AzureThrottlerReadTasks.FetchInstances,
-                parameter,
+                FetchInstancesTaskParameter(myServerIdFunc()),
                 TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_TASKS_THROTTLER_TIMEOUT_SEC, 60L),
                 TimeUnit.SECONDS)
                 .awaitOne()
-                .groupBy { it.imageId }
+
+            val instanceDescriptorMap = mapInstancesToImages(instanceDescriptorList, images)
 
             LOG.debug("Received list of instances")
             for (image in images) {
@@ -140,6 +125,48 @@ class AzureApiConnectorImpl(
             throw CheckedCloudException(message, t)
         }
         imageMap
+    }
+
+    private fun mapInstancesToImages(instances: List<FetchInstancesTaskInstanceDescriptor>, images: Collection<AzureCloudImage>): Map<String, List<FetchInstancesTaskInstanceDescriptor>> {
+        return instances
+                .map { it to images.find { image -> !isNotInstanceOfImage(it, image) }}
+                .filter { (_, image) -> image != null }
+                .groupBy( { (_, image) -> image!!.id }, { (instance, _) -> instance } )
+    }
+
+    private fun isNotInstanceOfImage(instance: FetchInstancesTaskInstanceDescriptor, image: AzureCloudImage): Boolean {
+        val details = image.imageDetails
+        val isVm = details.isVmInstance()
+        val name = instance.name
+        val tags = instance.tags
+        val id = instance.id
+        val resourceTypeLogName = if (isVm) "vm" else "container"
+
+        if (isVm && details.target == AzureCloudDeployTarget.Instance) {
+            if (id != details.instanceId!!) {
+                return true
+            }
+            return false
+        }
+
+        if (!name.startsWith(details.sourceId, true)) {
+            LOG.debug("Ignore $resourceTypeLogName with name $name for sourceId ${details.sourceId}")
+            return true
+        }
+
+        val sourceName = tags[AzureConstants.TAG_SOURCE]
+        if (!sourceName.equals(details.sourceId, true)) {
+            LOG.debug("Ignore $resourceTypeLogName with invalid source tag $sourceName")
+            return true
+        }
+
+        val resourceProfileId = tags[AzureConstants.TAG_PROFILE]
+        if (!resourceProfileId.equals(myProfileId, true)) {
+            LOG.debug("Ignore resource with invalid profile tag $resourceProfileId")
+            return true
+        }
+
+        return false
     }
 
     private fun updateInstanceByDescriptor(instance: AzureInstance, instanceDescriptor: FetchInstancesTaskInstanceDescriptor) {
@@ -213,26 +240,15 @@ class AzureApiConnectorImpl(
      * Checks whether virtual machine exists.
      */
     override suspend fun hasInstance(image: AzureCloudImage): Boolean {
-        val imageDetails = image.imageDetails
-        val descriptor = FetchInstancesTaskImageDescriptor(image.id,
-                FetchInstancesTaskCloudImageDetails(
-                        imageDetails.vmPublicIp,
-                        imageDetails.instanceId,
-                        imageDetails.sourceId,
-                        imageDetails.target,
-                        imageDetails.isVmInstance(),
-                        getResourceGroup(imageDetails, "")))
-        val parameter = FetchInstancesTaskParameter(
-                myServerId,
-                myProfileId,
-                arrayOf(descriptor))
-
         try {
-            val instanceDescriptorMap = myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchInstances, parameter)
+            val instanceDescriptorList = myAzureRequestsThrottler.executeReadTaskWithTimeout(
+                    AzureThrottlerReadTasks.FetchInstances,
+                    FetchInstancesTaskParameter(myServerIdFunc()))
                 .awaitOne()
-                .groupBy { it.id }
 
-            val instanceExists = instanceDescriptorMap.containsKey(imageDetails.instanceId)
+            val instanceDescriptorMap = mapInstancesToImages(instanceDescriptorList, listOf(image))
+
+            val instanceExists = instanceDescriptorMap.containsKey(image.imageDetails.instanceId)
             LOG.debug("Received instance information for image ${image.id}. Instance exists: $instanceExists ")
             return instanceExists
         } catch (e: ThrottlerExecutionTaskException) {
@@ -347,7 +363,7 @@ class AzureApiConnectorImpl(
      * @return promise.
      */
     override suspend fun createInstance(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
-        instance.properties[AzureConstants.TAG_SERVER] = myServerId!!
+        instance.properties[AzureConstants.TAG_SERVER] = myServerIdFunc()
         if (!instance.image.imageDetails.isVmInstance()) {
             createContainer(instance, userData)
         } else {

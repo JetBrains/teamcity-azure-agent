@@ -43,7 +43,6 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.collections.HashSet
 
 data class FetchInstancesTaskInstanceDescriptor (
-        val imageId: String,
         val id: String,
         val name: String,
         val tags: Map<String, String>,
@@ -54,29 +53,7 @@ data class FetchInstancesTaskInstanceDescriptor (
         val error: TypedCloudErrorInfo?
         )
 
-data class FetchInstancesTaskParameter(val serverId: String?, val profileId: String?, val images: Array<FetchInstancesTaskImageDescriptor>) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as FetchInstancesTaskParameter
-
-        if (serverId != other.serverId) return false
-        if (profileId != other.profileId) return false
-        if (!images.contentDeepEquals(other.images)) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        var result = serverId?.hashCode() ?: 0
-        result = 31 * result + (profileId?.hashCode() ?: 0)
-        result = 31 * result + images.contentDeepHashCode()
-        return result
-    }
-}
-data class FetchInstancesTaskImageDescriptor(val imageId: String, val imageDetails: FetchInstancesTaskCloudImageDetails)
-data class FetchInstancesTaskCloudImageDetails(val vmPublicIp: Boolean?, val instanceId: String?, val sourceId: String, val target: AzureCloudDeployTarget, val isVmInstance: Boolean, val resourceGroup: String)
+data class FetchInstancesTaskParameter(val serverId: String)
 
 class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerCacheableTask<Azure, FetchInstancesTaskParameter, List<FetchInstancesTaskInstanceDescriptor>> {
     private val myTimeoutInSeconds = AtomicLong(60)
@@ -324,7 +301,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     myInstancesCache.put(instance.id.toLowerCase(), instance)
                 }
                 .take(1)
-                .subscribe()
+                .toCompletable()
+                .await()
     }
 
     private fun updateVirtualMachine(api: Azure, virtualMachineId: String, isDeleting: Boolean) {
@@ -374,7 +352,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
     }
 
     override fun areParametersEqual(parameter: FetchInstancesTaskParameter, other: FetchInstancesTaskParameter): Boolean {
-        return parameter.serverId == other.serverId
+        return parameter == other
     }
 
     private fun getTaskThrottleTime(): Long {
@@ -383,15 +361,18 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
     private fun getFilteredResources(filter: FetchInstancesTaskParameter): List<FetchInstancesTaskInstanceDescriptor> {
         return myInstancesCache.asMap().values
-                .map { it to filter.images.find { image -> !isNotInstanceOfImage(it, image, filter.serverId, filter.profileId) } }
-                .filter { (_, image) -> image != null }
-                .map { (instance, image) ->
+                .filter {
+                    val resourceServerId = it.tags[AzureConstants.TAG_SERVER]
+                    filter.serverId.equals(resourceServerId, true).also {
+                        if (!it) LOG.debug("Ignore resource with invalid server tag $resourceServerId")
+                    }
+                }
+                .map { instance ->
                     FetchInstancesTaskInstanceDescriptor(
-                        image!!.imageId,
                         instance.id,
                         instance.name,
                         instance.tags,
-                        getPublicIPAddressOrDefault(image.imageDetails, instance),
+                        getPublicIPAddressOrDefault(instance),
                         instance.provisioningState,
                         instance.startDate,
                         instance.powerState,
@@ -400,50 +381,10 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 .toList()
     }
 
-    private fun isNotInstanceOfImage(instance: InstanceDescriptor, image: FetchInstancesTaskImageDescriptor, serverId: String?, profileId: String?): Boolean {
-        val details = image.imageDetails
-        val isVm = details.isVmInstance
-        val name = instance.name
-        val tags = instance.tags
-        val id = instance.id
-        val resourceTypeLogName = if (isVm) "vm" else "container"
-
-        if (isVm && details.target == AzureCloudDeployTarget.Instance) {
-            if (id != details.instanceId!!) {
-                return true
-            }
-            return false
-        }
-
-        if (!name.startsWith(details.sourceId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with name $name for sourceId ${details.sourceId}")
-            return true
-        }
-
-        val sourceName = tags[AzureConstants.TAG_SOURCE]
-        if (!sourceName.equals(details.sourceId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with invalid source tag $sourceName")
-            return true
-        }
-
-        val resourceServerId = tags[AzureConstants.TAG_SERVER]
-        if (!resourceServerId.equals(serverId, true)) {
-            LOG.debug("Ignore resource with invalid server tag $resourceServerId")
-            return true
-        }
-
-        val resourceProfileId = tags[AzureConstants.TAG_PROFILE]
-        if (!resourceProfileId.equals(profileId, true)) {
-            LOG.debug("Ignore resource with invalid profile tag $resourceProfileId")
-            return true
-        }
-
-        return false
-    }
-
     override fun invalidateCache() {
         myInstancesCache.invalidateAll()
         myIpAddresses.set(emptyArray())
+        myNotifiedInstances.clear()
     }
 
     private fun getInstanceState(instanceView: VirtualMachineInstanceViewInner, tags: Map<String, String>, name: String): InstanceViewState {
@@ -477,21 +418,18 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         myTimeoutInSeconds.set(timeoutInSeconds)
     }
 
-    private fun getPublicIPAddressOrDefault(details: FetchInstancesTaskCloudImageDetails, instance: InstanceDescriptor): String? {
+    private fun getPublicIPAddressOrDefault(instance: InstanceDescriptor): String? {
         var ipAddresses = myIpAddresses.get()
         if (ipAddresses.isEmpty()) return null
 
         val name = instance.name
-        val groupId = if (details.target == AzureCloudDeployTarget.NewGroup) name else details.resourceGroup
-        val pipName = name + PUBLIC_IP_SUFFIX
         val ips = ipAddresses.filter {
-            (it.resourceGroupName == groupId && it.name == pipName)
-            || (instance.primaryNetworkInterfaceId != null && it.assignedNetworkInterfaceId == instance.primaryNetworkInterfaceId)
+            instance.primaryNetworkInterfaceId != null && it.assignedNetworkInterfaceId == instance.primaryNetworkInterfaceId
         }
 
         if (ips.isNotEmpty()) {
             for (ip in ips) {
-                LOG.debug("Received public ip ${ip.ipAddress} ($ip) for virtual machine $name, pip $pipName")
+                LOG.debug("Received public ip ${ip.ipAddress} for virtual machine $name, assignedNetworkInterfaceId ${ip.assignedNetworkInterfaceId}")
             }
 
             val ip = ips.first().ipAddress

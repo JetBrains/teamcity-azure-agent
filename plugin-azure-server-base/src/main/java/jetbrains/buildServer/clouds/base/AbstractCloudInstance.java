@@ -162,6 +162,8 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
     return myNetworkIdentify.get();
   }
 
+  public abstract boolean canBeCollected();
+
   @Override
   public String toString() {
     return getClass().getSimpleName() + "{" + "myName='" + getInstanceId() + '\'' + '}';

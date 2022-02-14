@@ -78,8 +78,9 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
     return myInstances.get(instanceId);
   }
 
-  public void removeInstance(@NotNull final String instanceId) {
-    myInstances.remove(instanceId);
+  @Nullable
+  public T removeInstance(@NotNull final String instanceId) {
+    return myInstances.remove(instanceId);
   }
 
   public void addInstance(@NotNull final T instance) {

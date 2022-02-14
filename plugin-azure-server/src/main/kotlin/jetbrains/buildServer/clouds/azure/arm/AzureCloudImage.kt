@@ -139,6 +139,7 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
             instance.properties[AzureConstants.TAG_IMAGE_HASH] = hash
 
             try {
+                instance.provisioningInProgress = true
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Creating new virtual machine ${instance.name}")
                 myApiConnector.createInstance(instance, data)
@@ -162,6 +163,8 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
                 } else {
                     LOG.info("Allocated resources for virtual machine ${instance.name} would not be deleted. Cleanup them manually.")
                 }
+            } finally {
+                instance.provisioningInProgress = false
             }
         }
         return instance
@@ -197,65 +200,67 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
     private suspend fun tryToStartStoppedInstance(userData: CloudInstanceUserData): AzureCloudInstance? {
         val image = this
         return coroutineScope {
+            if (myImageDetails.behaviour.isDeleteAfterStop) return@coroutineScope null
+            if (stoppedInstances.isEmpty()) return@coroutineScope null
+
             val instances = stoppedInstances
-            if (instances.isNotEmpty()) {
-                val validInstances = if (myImageDetails.behaviour.isDeleteAfterStop) {
-                    LOG.info("Will remove all virtual machines due to cloud image settings")
-                    emptyList()
-                } else {
-                    instances.filter {
-                        if (!isSameImageInstance(it)) {
-                            LOG.info("Will remove virtual machine ${it.name} due to changes in image source")
-                            return@filter false
-                        }
-                        val data = AzureUtils.setVmNameForTag(userData, it.name)
-                        if (it.properties[AzureConstants.TAG_DATA_HASH] != getDataHash(data)) {
-                            LOG.info("Will remove virtual machine ${it.name} due to changes in cloud profile")
-                            return@filter false
-                        }
-                        return@filter true
+            val validInstances =
+                instances.filter {
+                    if (!isSameImageInstance(it)) {
+                        LOG.info("Will remove virtual machine ${it.name} due to changes in image source")
+                        return@filter false
                     }
+                    val data = AzureUtils.setVmNameForTag(userData, it.name)
+                    if (it.properties[AzureConstants.TAG_DATA_HASH] != getDataHash(data)) {
+                        LOG.info("Will remove virtual machine ${it.name} due to changes in cloud profile")
+                        return@filter false
+                    }
+                    return@filter true
                 }
 
-                val invalidInstances = instances - validInstances
-                val instance = validInstances.firstOrNull()
+            val invalidInstances = instances - validInstances
+            val instance = validInstances.firstOrNull()
 
-                instance?.status = InstanceStatus.SCHEDULED_TO_START
+            instance?.status = InstanceStatus.SCHEDULED_TO_START
 
-                myScope.launch {
-                    invalidInstances.forEach {
+            myScope.launch {
+                invalidInstances.forEach {
+                    val instanceToRemove = removeInstance(it.instanceId)
+                    if (instanceToRemove != null) {
                         try {
-                            it.status = InstanceStatus.STOPPING
                             LOG.info("Removing virtual machine ${it.name}")
+                            it.provisioningInProgress = true
                             myApiConnector.deleteInstance(it)
-                            it.status = InstanceStatus.STOPPED
                         } catch (e: Throwable) {
                             LOG.warnAndDebugDetails(e.message, e)
                             it.status = InstanceStatus.ERROR
                             it.updateErrors(TypedCloudErrorInfo.fromException(e))
-                        }
-                    }
-
-                    instance?.let {
-                        try {
-                            instance.status = InstanceStatus.STARTING
-                            LOG.info("Starting stopped virtual machine ${it.name}")
-                            myApiConnector.startInstance(it)
-                            updateInstanceStatus(image, it)
-                        } catch (e: Throwable) {
-                            LOG.warnAndDebugDetails(e.message, e)
-                            handleDeploymentError(e)
-
-                            it.status = InstanceStatus.ERROR
-                            it.updateErrors(TypedCloudErrorInfo.fromException(e))
+                            addInstance(instanceToRemove)
+                        } finally {
+                            it.provisioningInProgress = false
                         }
                     }
                 }
 
-                return@coroutineScope instance
-            }
+                instance?.let {
+                    try {
+                        instance.provisioningInProgress = true
+                        it.status = InstanceStatus.STARTING
+                        LOG.info("Starting stopped virtual machine ${it.name}")
+                        myApiConnector.startInstance(it)
+                        updateInstanceStatus(image, it)
+                    } catch (e: Throwable) {
+                        LOG.warnAndDebugDetails(e.message, e)
+                        handleDeploymentError(e)
 
-            null
+                        it.status = InstanceStatus.ERROR
+                        it.updateErrors(TypedCloudErrorInfo.fromException(e))
+                    } finally {
+                        instance.provisioningInProgress = false
+                    }
+                }
+            }
+            return@coroutineScope instance
         }
     }
 
@@ -273,6 +278,7 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
         val image = this
         myScope.launch {
             try {
+                instance.provisioningInProgress = true
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Starting virtual machine ${instance.name}")
                 myApiConnector.startInstance(instance)
@@ -283,6 +289,8 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
 
                 instance.status = InstanceStatus.ERROR
                 instance.updateErrors(TypedCloudErrorInfo.fromException(e))
+            } finally {
+                instance.provisioningInProgress = false
             }
         }
 
@@ -324,6 +332,7 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
         val image = this
         myScope.launch {
             try {
+                instance.provisioningInProgress = true
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Restarting virtual machine ${instance.name}")
                 myApiConnector.restartInstance(instance)
@@ -332,6 +341,8 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
                 LOG.warnAndDebugDetails(e.message, e)
                 instance.status = InstanceStatus.ERROR
                 instance.updateErrors(TypedCloudErrorInfo.fromException(e))
+            } finally {
+                instance.provisioningInProgress = false
             }
         }
     }
@@ -347,6 +358,7 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
 
         myScope.launch {
             try {
+                instance.provisioningInProgress = true
                 instance.status = InstanceStatus.STOPPING
                 val sameVhdImage = isSameImageInstance(instance)
                 if (myImageDetails.behaviour.isDeleteAfterStop) {
@@ -368,6 +380,8 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
                 LOG.warnAndDebugDetails(e.message, e)
                 instance.status = InstanceStatus.ERROR
                 instance.updateErrors(TypedCloudErrorInfo.fromException(e))
+            } finally {
+                instance.provisioningInProgress = false
             }
         }
     }

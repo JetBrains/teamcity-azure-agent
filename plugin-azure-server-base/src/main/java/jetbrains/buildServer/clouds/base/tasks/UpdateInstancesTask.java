@@ -42,7 +42,6 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>,
   private static final Logger LOG = Logger.getInstance(UpdateInstancesTask.class.getName());
 
   private static final long STUCK_STATUS_TIME = 10 * 60 * 1000l; // 2 minutes;
-  private static final long STATUS_UPDATE_DELAY = 20 * 1000l; // 20 sec;
 
   @NotNull
   protected final CloudApiConnector<T, G> myConnector;
@@ -120,10 +119,9 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>,
             final String instanceName = cloudInstance.getName();
             final AbstractInstance instance = realInstances.get(instanceName);
             if (instance == null) {
-              if (cloudInstance.getStatus() != InstanceStatus.SCHEDULED_TO_START && cloudInstance.getStatus() != InstanceStatus.STARTING) {
-                if (cloudInstance.getStatusUpdateTime().getTime() + STATUS_UPDATE_DELAY < System.currentTimeMillis()) {
-                  image.removeInstance(cloudInstance.getInstanceId());
-                }
+              if (cloudInstance.canBeCollected()) {
+                image.removeInstance(cloudInstance.getInstanceId());
+                LOG.info(String.format("Removed instance %s(%x) with status %s", cloudInstance.getName(), cloudInstance.hashCode(), cloudInstance.getStatus()));
               }
               continue;
             }
@@ -136,7 +134,7 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>,
               cloudInstance.setNetworkIdentify(instance.getIpAddress());
             }
           } catch (Exception ex) {
-            LOG.debug("Error processing VM " + cloudInstance.getName() + ": " + ex.toString());
+            LOG.warnAndDebugDetails("Error processing VM " + cloudInstance.getName() + ": " + ex.toString(), ex);
           }
         }
         image.detectNewInstances(realInstances);

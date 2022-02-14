@@ -32,8 +32,6 @@ public abstract class AbstractInstance {
   @NotNull
   public abstract String getName();
 
-  public abstract boolean isInitialized();
-
   public abstract Date getStartDate();
 
   public abstract String getIpAddress();

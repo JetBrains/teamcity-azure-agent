@@ -36,10 +36,6 @@ class AzureInstance internal constructor(private val myName: String) : AbstractI
         return myName
     }
 
-    override fun isInitialized(): Boolean {
-        return true
-    }
-
     override fun getStartDate(): Date? {
         return myStartDate
     }
@@ -97,9 +93,8 @@ class AzureInstance internal constructor(private val myName: String) : AbstractI
         private var POWER_STATES: MutableMap<String, InstanceStatus> = TreeMap(String.CASE_INSENSITIVE_ORDER)
 
         init {
-            PROVISIONING_STATES["InProgress"] = InstanceStatus.SCHEDULED_TO_START
-            PROVISIONING_STATES["Creating"] = InstanceStatus.SCHEDULED_TO_START
-            PROVISIONING_STATES["Deleting"] = InstanceStatus.SCHEDULED_TO_STOP
+            PROVISIONING_STATES["Creating"] = InstanceStatus.STARTING
+            PROVISIONING_STATES["Deleting"] = InstanceStatus.STOPPING
             PROVISIONING_STATES["Failed"] = InstanceStatus.ERROR
             PROVISIONING_STATES["Canceled"] = InstanceStatus.ERROR
             PROVISIONING_STATES["Investigation"] = InstanceStatus.STOPPED

@@ -132,6 +132,7 @@ class AzureApiConnectorImpl(
                     instanceDescriptor.error?.let { errors.add(it) }
                 }
                 image.updateErrors(*errors.toTypedArray())
+                LOG.debug("Instances for [${image.id}]: [${map.values.map { "${it.name}:${it.instanceStatus}" }.joinToString(",")}]" )
             }
         } catch (t: Throwable) {
             val message = "Failed to get list of virtual machines: " + t.message

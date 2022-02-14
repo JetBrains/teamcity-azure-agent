@@ -20,18 +20,14 @@ import com.google.common.cache.CacheBuilder
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.VirtualMachine
-import com.microsoft.azure.management.compute.VirtualMachineInstanceView
 import com.microsoft.azure.management.compute.implementation.*
 import com.microsoft.azure.management.containerinstance.ContainerGroup
-import com.microsoft.azure.management.containerregistry.ImageDescriptor
 import com.microsoft.azure.management.network.PublicIPAddress
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
-import com.microsoft.azure.management.resources.fluentcore.arm.collection.implementation.TopLevelModifiableResourcesImpl
 import com.microsoft.azure.management.resources.fluentcore.arm.models.HasId
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
-import jetbrains.buildServer.clouds.azure.arm.utils.awaitOne
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.util.StringUtil
@@ -40,9 +36,11 @@ import rx.Single
 import java.time.Clock
 import java.time.LocalDateTime
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.collections.HashSet
 
 data class FetchInstancesTaskInstanceDescriptor (
         val imageId: String,
@@ -84,6 +82,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
     private val myTimeoutInSeconds = AtomicLong(60)
     private val myIpAddresses = AtomicReference<Array<IPAddressDescriptor>>(emptyArray())
     private val myInstancesCache = createCache()
+    private val myNotifiedInstances = ConcurrentHashMap.newKeySet<String>()
     private val myLastUpdatedDate = AtomicReference<LocalDateTime>(LocalDateTime.MIN)
 
     init {
@@ -128,8 +127,6 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     .just(emptyList<FetchInstancesTaskInstanceDescriptor>());
         }
 
-        val cacheSnapshot = myInstancesCache.asMap();
-
         val ipAddresses =
                 fetchIPAddresses(api)
 
@@ -155,7 +152,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                         vm to vmStatusesMap[vm.id()]
                     }
                     .flatMap { (vm, vmStatus) ->
-                        fetchVirtualMachine(vm, vmStatus, cacheSnapshot)
+                        fetchVirtualMachineWithCache(vm, vmStatus)
                     }
 
         val containerInstances =
@@ -168,7 +165,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                         !it.isOnError
                     }
                     .dematerialize<ContainerGroup>()
-                    .map { getLiveInstanceFromSnapshot(cacheSnapshot, it) ?: fetchContainer(it) }
+                    .map { getLiveInstanceFromSnapshot(it) ?: fetchContainer(it) }
 
         return machineInstances
                 .mergeWith(containerInstances)
@@ -178,10 +175,13 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     myLastUpdatedDate.set(getCurrentUTC())
                     myIpAddresses.set(ipList.toTypedArray())
 
-                    val keysInCache = cacheSnapshot.keys.toSet()
                     val newInstances = instances.associateBy { it.id.toLowerCase() }
                     myInstancesCache.putAll(newInstances)
-                    myInstancesCache.invalidateAll(keysInCache.minus(newInstances.keys))
+
+                    val keysInCache = myInstancesCache.asMap().keys.toSet()
+                    val notifiedInstances = HashSet(myNotifiedInstances)
+                    myInstancesCache.invalidateAll(keysInCache.minus(newInstances.keys.plus(notifiedInstances)))
+                    myNotifiedInstances.removeAll(notifiedInstances)
 
                     Unit
                 }
@@ -189,10 +189,10 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 .toSingle()
     }
 
-    private fun getLiveInstanceFromSnapshot(snapshot: Map<String, FetchInstancesTaskImpl.InstanceDescriptor>, resource: HasId?): InstanceDescriptor? {
+    private fun getLiveInstanceFromSnapshot(resource: HasId?): InstanceDescriptor? {
         if (resource?.id() == null) return null
 
-        val instance = snapshot.get(resource.id().toLowerCase())
+        val instance = myInstancesCache.getIfPresent(resource.id().toLowerCase())
         if (instance == null) return null
 
         if (needUpdate(instance.lastUpdatedDate)) return null
@@ -219,6 +219,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
     private fun updateContainer(api: Azure, containerId: String, isDeleting: Boolean) {
         if (isDeleting) {
+            myNotifiedInstances.remove(containerId.toLowerCase())
             myInstancesCache.invalidate(containerId.toLowerCase())
             return
         }
@@ -229,8 +230,10 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     instance, ipList ->
                     myIpAddresses.set(ipList.toTypedArray())
                     if (instance != null) {
+                        myNotifiedInstances.add(instance.id.toLowerCase())
                         myInstancesCache.put(instance.id.toLowerCase(), instance)
                     } else {
+                        myNotifiedInstances.remove(containerId.toLowerCase())
                         myInstancesCache.invalidate(containerId.toLowerCase())
                     }
                 }
@@ -256,9 +259,9 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         return instance
     }
 
-    private fun fetchVirtualMachine(vm: VirtualMachine, vmStatus: VirtualMachineInner?, cacheSnapshot: Map<String, InstanceDescriptor>): Observable<InstanceDescriptor> {
+    private fun fetchVirtualMachineWithCache(vm: VirtualMachine, vmStatus: VirtualMachineInner?): Observable<InstanceDescriptor> {
         if (vmStatus?.instanceView() == null) {
-            val cachedInstance = getLiveInstanceFromSnapshot(cacheSnapshot, vm)
+            val cachedInstance = getLiveInstanceFromSnapshot(vm)
             if (cachedInstance != null)
                 return Observable.just(cachedInstance)
             else
@@ -326,6 +329,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
     private fun updateVirtualMachine(api: Azure, virtualMachineId: String, isDeleting: Boolean) {
         if (isDeleting) {
+            myNotifiedInstances.remove(virtualMachineId.toLowerCase())
             myInstancesCache.invalidate(virtualMachineId.toLowerCase())
             return
         }
@@ -336,8 +340,10 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     instance, ipList ->
                     myIpAddresses.set(ipList.toTypedArray())
                     if (instance != null) {
+                        myNotifiedInstances.add(instance.id.toLowerCase())
                         myInstancesCache.put(instance.id.toLowerCase(), instance)
                     } else {
+                        myNotifiedInstances.remove(virtualMachineId.toLowerCase())
                         myInstancesCache.invalidate(virtualMachineId.toLowerCase())
                     }
                 }
@@ -410,7 +416,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         }
 
         if (!name.startsWith(details.sourceId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with name $name")
+            LOG.debug("Ignore $resourceTypeLogName with name $name for sourceId ${details.sourceId}")
             return true
         }
 

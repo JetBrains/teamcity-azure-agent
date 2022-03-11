@@ -36,6 +36,7 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
         details.checkRegion(exceptions)
         details.checkOsType(exceptions)
         details.checkNetworkId(exceptions)
+        details.checkCustomTags(exceptions)
         details.checkResourceGroup(connector, exceptions)
         details.checkServiceExistence("Microsoft.Compute", connector, exceptions)
 

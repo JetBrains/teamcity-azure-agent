@@ -442,10 +442,10 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
         fun parseCustomTags(rawString: String?): List<Pair<String, String>> {
             return if (rawString != null && rawString.isNotEmpty()) {
                 rawString.lines().map { it.trim() }.filter { it.isNotEmpty() }.mapNotNull {
-                    val envVar = it
-                    val equalsSignIndex = envVar.indexOf("=")
+                    val tag = it
+                    val equalsSignIndex = tag.indexOf("=")
                     if (equalsSignIndex > 1) {
-                        Pair(envVar.substring(0, equalsSignIndex), envVar.substring(equalsSignIndex + 1))
+                        Pair(tag.substring(0, equalsSignIndex), tag.substring(equalsSignIndex + 1))
                     } else {
                         null
                     }

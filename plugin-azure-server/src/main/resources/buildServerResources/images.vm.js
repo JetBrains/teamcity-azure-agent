@@ -315,7 +315,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     customTags: ko.observable('').extend({
       pattern: {
         message: 'Incorrect custom tags format',
-        params: /^(((([a-z_][a-z0-9_]*?)=.*?)|\s*))*$/i
+        params: /^(((([^<>%&\\\\?/]*?)=.*?)|\s*))*$/i
       }
     }),
     spotVm: self.spotVm,
@@ -753,6 +753,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       agentPoolId: model.agentPoolId(),
       profileId: model.profileId(),
       customEnvironmentVariables: model.customEnvironmentVariables(),
+      customTags: model.customTags(),
       spotVm: model.spotVm(),
       enableSpotPrice: model.enableSpotPrice(),
       spotPrice: model.spotPrice() != null ? Math.trunc(parseFloat(model.spotPrice())*priceDivider) : undefined,

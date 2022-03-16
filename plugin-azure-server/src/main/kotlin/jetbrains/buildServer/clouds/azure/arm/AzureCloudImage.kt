@@ -137,6 +137,9 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
             instance.properties[AzureConstants.TAG_SOURCE] = imageDetails.sourceId
             instance.properties[AzureConstants.TAG_DATA_HASH] = getDataHash(data)
             instance.properties[AzureConstants.TAG_IMAGE_HASH] = hash
+            parseCustomTags(myImageDetails.customTags).forEach {
+                instance.properties[it.first] = it.second
+            }
 
             try {
                 instance.provisioningInProgress = true
@@ -436,5 +439,20 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
     companion object {
         private val LOG = Logger.getInstance(AzureCloudImage::class.java.name)
         private val AZURE_CPU_QUOTA_EXCEEDED = Regex("Operation results in exceeding quota limits of Core\\. Maximum allowed: \\d+, Current in use: \\d+, Additional requested: \\d+\\.")
+        fun parseCustomTags(rawString: String?): List<Pair<String, String>> {
+            return if (rawString != null && rawString.isNotEmpty()) {
+                rawString.lines().map { it.trim() }.filter { it.isNotEmpty() }.mapNotNull {
+                    val envVar = it
+                    val equalsSignIndex = envVar.indexOf("=")
+                    if (equalsSignIndex > 1) {
+                        Pair(envVar.substring(0, equalsSignIndex), envVar.substring(equalsSignIndex + 1))
+                    } else {
+                        null
+                    }
+                }
+            } else {
+                Collections.emptyList()
+            }
+        }
     }
 }

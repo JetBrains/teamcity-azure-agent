@@ -36,7 +36,7 @@ import java.io.IOException
 object AzureUtils {
     private val INVALID_TENANT = Regex("AADSTS90002: No service namespace named '([\\w-]+)' was found in the data store\\.")
     private val ENVIRONMENT_VARIABLE_REGEX = Regex("^([a-z_][a-z0-9_]*?)=.*?\$", RegexOption.IGNORE_CASE)
-    private val CUSTOM_TAG_REGEX = Regex("^([a-z_][a-z0-9_]*?)=.*?\$", RegexOption.IGNORE_CASE)
+    private val CUSTOM_TAG_REGEX = Regex("^([^<>%&\\\\?/]*?)=.*?\$", RegexOption.IGNORE_CASE)
 
     internal val mapper = ObjectMapper()
 

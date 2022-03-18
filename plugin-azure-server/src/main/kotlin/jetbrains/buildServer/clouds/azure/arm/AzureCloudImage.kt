@@ -200,7 +200,7 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
     private suspend fun tryToStartStoppedInstance(userData: CloudInstanceUserData): AzureCloudInstance? {
         val image = this
         return coroutineScope {
-            if (myImageDetails.behaviour.isDeleteAfterStop) return@coroutineScope null
+            if (myImageDetails.behaviour.isDeleteAfterStop && myImageDetails.spotVm != true) return@coroutineScope null
             if (stoppedInstances.isEmpty()) return@coroutineScope null
 
             val instances = stoppedInstances

@@ -26,6 +26,7 @@ import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
 import rx.Observable
 import rx.Observer
+import rx.Scheduler
 import rx.Single
 import rx.internal.util.SubscriptionList
 import rx.schedulers.Schedulers
@@ -33,6 +34,7 @@ import rx.schedulers.TestScheduler
 import rx.subjects.Subject
 import java.time.Clock
 import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 
 class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
@@ -41,7 +43,8 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     private lateinit var adapter: AzureThrottlerAdapter<Unit>
     private var defaultCacheTimeoutInSeconds: Long = 123
     private lateinit var taskCompletionResultNotifier: AzureThrottlerTaskCompletionResultNotifier
-    private lateinit var requestScheduler: TestScheduler
+    private lateinit var testScheduler : TestScheduler
+    private lateinit var requestScheduler: Scheduler
     private lateinit var requestQueue: AzureThrottlerRequestQueue<Unit, String, String>
     private lateinit var emptyBatch: AzureThrottlerRequestBatch<String, String>
 
@@ -69,7 +72,8 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         taskCompletionResultNotifier = mockk()
 
-        requestScheduler = Schedulers.test()
+        testScheduler = Schedulers.test()
+        requestScheduler = testScheduler
     }
 
     @Test
@@ -280,7 +284,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         instance.executeNext()
 
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         every { cacheableTask.getFromCache(any()) } returns "Cached value"
 
@@ -329,7 +333,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify(timeout = 100) {
@@ -410,7 +414,58 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
+
+        // Then
+        verify(timeout = 100) {
+            observer.onNext(match {
+                r -> r.value == "Test response" && r.fromCache == false && r.requestsCount == null
+            } )
+        }
+    }
+
+    @Test(invocationCount = 10)
+    fun shouldPostProcessQueueWhenExecutingWithDelayedSuscription() {
+        // Given
+        task = cacheableTask
+        every { cacheableTask.setCacheTimeout(any()) } returns Unit
+        every { cacheableTask.getFromCache(any()) } returns null
+        every { cacheableTask.needCacheUpdate("Test parameter") } returns false
+        every { cacheableTask.create(Unit, "Test parameter") } returns Observable.just("Test response").delaySubscription(10, TimeUnit.SECONDS, Schedulers.immediate()).toSingle()
+
+        requestScheduler = Schedulers.immediate()
+        val instance = createInstance()
+
+        val tmpObservableSlot = CapturingSlot<Observable<AzureThrottlerAdapterResult<String>>>()
+        every { requestQueue.extractNextBatch() } returns mockk {
+            every { parameter } returns "Test parameter"
+            every { canBeCombined() } returns true
+            every { getMaxAttempNo() } returns 0
+            every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
+            every { count() } returns 1
+            every { hasForceRequest() } returns false
+            every {subscribeTo(capture(tmpObservableSlot), any()) } answers { tmpObservableSlot.captured.subscribe({}) }
+        }
+
+        every { taskCompletionResultNotifier.notifyCompleted(false) } returns Unit
+
+        val observer = mockk<Observer<AzureThrottlerAdapterResult<String>>>()
+        every { observer.onNext(any()) } returns Unit
+        every { observer.onCompleted() } returns Unit
+
+        val observableSlot = CapturingSlot<Observable<AzureThrottlerAdapterResult<String>>>()
+        every { requestQueue.extractBatchFor("Test parameter") } returns mockk {
+            every { parameter } returns "Test parameter"
+            every { canBeCombined() } returns true
+            every { getMaxAttempNo() } returns 0
+            every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
+            every { count() } returns 10
+            every { hasForceRequest() } returns false
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
+        }
+
+        // When
+        instance.executeNext()
 
         // Then
         verify(timeout = 100) {
@@ -450,7 +505,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -492,7 +547,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -534,7 +589,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -575,7 +630,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -618,7 +673,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -672,7 +727,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
         retrySubject.captured.onNext(AzureThrottlerAdapterResult("Value from retry", null, false))
 
         // Then

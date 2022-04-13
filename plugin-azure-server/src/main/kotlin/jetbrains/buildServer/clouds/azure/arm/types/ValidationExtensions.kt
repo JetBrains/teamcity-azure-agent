@@ -65,6 +65,14 @@ fun AzureCloudImageDetails.checkCustomEnvironmentVariables(errors: MutableList<T
     }
 }
 
+fun AzureCloudImageDetails.checkCustomTags(errors: MutableList<Throwable>) {
+    customTags?.let { tags ->
+        if (tags.lines().map { it.trim() }.filter { it.isNotEmpty() }.any { !AzureUtils.customTagSyntaxIsValid(it) }) {
+            errors.add(CheckedCloudException("Invalid custom tags"))
+        }
+    }
+}
+
 fun AzureCloudImageDetails.checkTemplate(exceptions: ArrayList<Throwable>) {
     if (template == null || template.isNullOrEmpty()) {
         exceptions.add(CheckedCloudException("Template is empty"))

@@ -312,6 +312,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
         params: /^(((([a-z_][a-z0-9_]*?)=.*?)|\s*))*$/i
       }
     }),
+    customTags: ko.observable('').extend({
+      pattern: {
+        message: 'Incorrect custom tags format',
+        params: /^(((([^<>%&\\\\?/]*?)=.*?)|\s*))*$/i
+      }
+    }),
     spotVm: self.spotVm,
     enableSpotPrice: self.enableSpotPrice,
     spotPrice: ko.observable().extend({
@@ -617,6 +623,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       numberCores: 2,
       memory: 2,
       customEnvironmentVariables: "",
+      customTags: "",
       spotVm: false,
       enableSpotPrice: false,
       spotPrice: spotPriceDefault * priceDivider
@@ -687,6 +694,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.agentPoolId(image.agentPoolId);
     model.profileId(image.profileId);
     model.customEnvironmentVariables(image.customEnvironmentVariables);
+    model.customTags(image.customTags);
     model.spotVm(image.spotVm);
     model.enableSpotPrice(image.enableSpotPrice);
     model.spotPrice(image.spotPrice != null ? image.spotPrice/priceDivider : undefined);
@@ -745,6 +753,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       agentPoolId: model.agentPoolId(),
       profileId: model.profileId(),
       customEnvironmentVariables: model.customEnvironmentVariables(),
+      customTags: model.customTags(),
       spotVm: model.spotVm(),
       enableSpotPrice: model.enableSpotPrice(),
       spotPrice: model.spotPrice() != null ? Math.trunc(parseFloat(model.spotPrice())*priceDivider) : undefined,

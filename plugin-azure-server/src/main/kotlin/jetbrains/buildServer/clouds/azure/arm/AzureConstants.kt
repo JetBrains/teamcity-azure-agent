@@ -128,6 +128,9 @@ class AzureConstants {
     val customEnvironmentVariables: String
         get() = CUSTOM_ENVIRONMENT_VARIABLES
 
+    val customTags: String
+        get() = CUSTOM_TAGS
+
     val spotVm: String
         get() = SPOT_VM
 
@@ -177,6 +180,7 @@ class AzureConstants {
         const val REGISTRY_PASSWORD = "registryPassword"
         const val PROFILE_ID = "profileId"
         const val CUSTOM_ENVIRONMENT_VARIABLES = "customEnvironmentVariables"
+        const val CUSTOM_TAGS = "customTags"
         const val SPOT_VM = "spotVm"
         const val ENABLE_SPOT_PRICE = "enableSpotPrice"
         const val SPOT_PRICE = "spotPrice"

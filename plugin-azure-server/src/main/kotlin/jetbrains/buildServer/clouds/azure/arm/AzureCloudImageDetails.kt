@@ -77,6 +77,8 @@ class AzureCloudImageDetails(
         private val myReuseVm: Boolean,
         @SerializedName(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES)
         val customEnvironmentVariables: String? = null,
+        @SerializedName(AzureConstants.CUSTOM_TAGS)
+        val customTags: String? = null,
         @SerializedName(AzureConstants.SPOT_VM)
         val spotVm: Boolean?,
         @SerializedName(AzureConstants.ENABLE_SPOT_PRICE)

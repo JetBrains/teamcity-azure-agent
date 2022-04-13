@@ -34,6 +34,7 @@ class AzureTemplateHandler(private val connector: AzureApiConnector) : AzureHand
         details.checkRegion(exceptions)
         details.checkResourceGroup(connector, exceptions)
         details.checkTemplate(exceptions)
+        details.checkCustomTags(exceptions)
         exceptions
     }
 

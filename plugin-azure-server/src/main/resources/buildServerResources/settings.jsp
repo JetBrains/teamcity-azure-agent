@@ -531,6 +531,19 @@
                     </span>
                 </td>
             </tr>
+            <tr data-bind="if: image().imageType() != 'Template'" class="advancedSetting">
+                <th><label for="${cons.customTags}">Tags:</label></th>
+                <td>
+                    <div>
+                        <textarea name="${cons.customTags}" class="longField ignoreModified"
+                                  data-bind="textInput: image().customTags">
+                        </textarea>
+                        <span class="smallNote">Newline separated tags in the form of <kbd>KEY=VALUE</kbd> to add to the Azure resources
+                        </span>
+                        <span class="error option-error" data-bind="validationMessage: image().customTags"></span>
+                    </div>
+                </td>
+            </tr>
             <tr data-bind="if: image().imageType() == 'Container'" class="advancedSetting">
                 <th><label for="${cons.customEnvironmentVariables}">Environment Variables:</label></th>
                 <td>

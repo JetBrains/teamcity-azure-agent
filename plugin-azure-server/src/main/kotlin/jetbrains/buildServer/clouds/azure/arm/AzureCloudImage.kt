@@ -444,7 +444,7 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
                 rawString.lines().map { it.trim() }.filter { it.isNotEmpty() }.mapNotNull {
                     val tag = it
                     val equalsSignIndex = tag.indexOf("=")
-                    if (equalsSignIndex > 1) {
+                    if (equalsSignIndex >= 1) {
                         Pair(tag.substring(0, equalsSignIndex), tag.substring(equalsSignIndex + 1))
                     } else {
                         null

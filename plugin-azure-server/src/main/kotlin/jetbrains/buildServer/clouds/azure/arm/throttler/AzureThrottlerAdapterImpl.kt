@@ -117,7 +117,7 @@ class AzureThrottlerAdapterImpl (
     }
 
     override fun logDiagnosticInfo() {
-        LOG.info("[${name}] info: " +
+        LOG.debug("[${name}] info: " +
                 "Default reads: ${getDefaultReads()}, " +
                 "Remaining reads: ${getRemainingReads()}, " +
                 "Window start time: ${getWindowStartDateTime()}, " +

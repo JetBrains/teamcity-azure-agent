@@ -162,6 +162,9 @@ class AzureThrottlerImpl<A, I>(
     }
 
     private fun logDiagnosticInfo() {
+        if (!LOG.isDebugEnabled){
+            return
+        }
         val nextCheckTime = myLastLogDiagnosticTime.get().plusSeconds(getPrintDiagnosticInterval())
         var now = LocalDateTime.now(Clock.systemUTC())
 
@@ -180,7 +183,7 @@ class AzureThrottlerImpl<A, I>(
                     "ResourceRequestsCount: ${statistics.resourceRequestsCount}" +
                     ";")
         }
-        LOG.info(result.toString())
+        LOG.debug(result.toString())
 
         adapter.logDiagnosticInfo()
     }

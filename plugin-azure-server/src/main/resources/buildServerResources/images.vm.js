@@ -428,10 +428,10 @@ function ArmImagesViewModel($, ko, dialog, config) {
       self.image().groupId(null);
     }
     if (deployTarget === deployTargets.instance) {
-      self.image().registryUsername(null);
-      self.image().registryPassword(null);
-      self.image().vmPassword(null);
-      self.image().vmUsername(null);
+      self.image().registryUsername("");
+      self.image().registryPassword("");
+      self.image().vmPassword("");
+      self.image().vmUsername("");
     }
   });
 
@@ -700,8 +700,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.spotPrice(image.spotPrice != null ? image.spotPrice/priceDivider : undefined);
     model.enableAcceleratedNetworking(image.enableAcceleratedNetworking);
 
-    model.registryPassword(null);
-    model.vmPassword(null);
+    model.registryPassword("");
+    model.vmPassword("");
     if (image.deployTarget !== deployTargets.instance) {
       var key = image.vmNamePrefix;
       var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;

@@ -42,7 +42,6 @@ import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -242,15 +241,10 @@ class AzureApiConnectorImpl(
     override suspend fun hasInstance(image: AzureCloudImage): Boolean {
         try {
             val instanceDescriptorList = myAzureRequestsThrottler.executeReadTaskWithTimeout(
-                    AzureThrottlerReadTasks.FetchInstances,
-                    FetchInstancesTaskParameter(myServerIdFunc()))
+                    AzureThrottlerReadTasks.FetchVirtualMachines, Unit)
                 .awaitOne()
 
-            val instanceDescriptorMap = mapInstancesToImages(instanceDescriptorList, listOf(image))
-
-            val instanceExists = instanceDescriptorMap.containsKey(image.imageDetails.instanceId)
-            LOG.debug("Received instance information for image ${image.id}. Instance exists: $instanceExists ")
-            return instanceExists
+            return instanceDescriptorList.filter { it.id == image.imageDetails.instanceId }.any()
         } catch (e: ThrottlerExecutionTaskException) {
             throw e
         } catch (t: Throwable) {

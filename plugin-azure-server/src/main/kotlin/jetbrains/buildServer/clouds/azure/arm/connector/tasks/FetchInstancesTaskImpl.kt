@@ -363,7 +363,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         return myInstancesCache.asMap().values
                 .filter {
                     val resourceServerId = it.tags[AzureConstants.TAG_SERVER]
-                    filter.serverId.equals(resourceServerId, true).also {
+                    resourceServerId.isNullOrEmpty() || filter.serverId.equals(resourceServerId, true).also {
                         if (!it) LOG.debug("Ignore resource with invalid server tag $resourceServerId")
                     }
                 }

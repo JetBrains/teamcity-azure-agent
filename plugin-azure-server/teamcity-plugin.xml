@@ -28,5 +28,5 @@
     </vendor>
   </info>
   <requirements min-build="40000" />
-  <deployment use-separate-classloader="true" />
+  <deployment use-separate-classloader="true"  node-responsibilities-aware="true"/>
 </teamcity-plugin>

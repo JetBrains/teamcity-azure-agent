@@ -23,6 +23,7 @@ import jetbrains.buildServer.controllers.ActionErrors
 import jetbrains.buildServer.controllers.BaseController
 import jetbrains.buildServer.controllers.BasePropertiesBean
 import jetbrains.buildServer.controllers.XmlResponseUtil
+import jetbrains.buildServer.serverSide.IOGuard
 import jetbrains.buildServer.serverSide.SBuildServer
 import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
 import jetbrains.buildServer.web.openapi.PluginDescriptor
@@ -31,6 +32,7 @@ import jetbrains.buildServer.web.util.WebUtil
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
+import org.jdom.Content
 import org.jdom.Element
 import org.springframework.web.servlet.ModelAndView
 import java.io.IOException
@@ -73,7 +75,7 @@ class SettingsController(server: SBuildServer,
 
         try {
             if (isPost(request)) {
-                doPost(request, response)
+                IOGuard.allowNetworkCall<Unit,Exception>{doPost(request, response)}
                 return null
             }
 

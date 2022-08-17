@@ -121,11 +121,11 @@ class AzureThrottlerRequestQueueImpl<I, P, T>(
         }
 
         override fun getMaxAttempNo(): Int {
-            return items.maxBy { it.attemptNo }!!.attemptNo
+            return items.maxByOrNull  { it.attemptNo }!!.attemptNo
         }
 
         override fun getMinCreatedDate(): LocalDateTime {
-            return items.minBy { it.createdDate }!!.createdDate
+            return items.minByOrNull { it.createdDate }!!.createdDate
         }
 
         override fun count(): Int {

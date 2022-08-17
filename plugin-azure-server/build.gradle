@@ -15,7 +15,7 @@
  */
 
 plugins {
-    id 'com.github.rodm.teamcity-server' version "1.0"
+    id 'com.github.rodm.teamcity-server' version "1.4.1"
 }
 
 ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.41.1'

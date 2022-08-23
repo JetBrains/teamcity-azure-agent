@@ -102,12 +102,12 @@ class AzureCloudImageTest : MockObjectTestCase() {
         coVerify { myApiConnector.createInstance(
                 match { i ->
                     i.imageId == instance.id &&
-                    i.name == myImageDetails.vmNamePrefix!!.toLowerCase() + "1" &&
+                    i.name == myImageDetails.vmNamePrefix!!.lowercase() + "1" &&
                     i.image == instance &&
                     i.status == InstanceStatus.STARTING
                 },
                 match { userData ->
-                    userData.agentName == myImageDetails.vmNamePrefix!!.toLowerCase() + "1" &&
+                    userData.agentName == myImageDetails.vmNamePrefix!!.lowercase() + "1" &&
                     userData.profileId == "profileId" &&
                     userData.profileDescription == "profileDescr"
                 })
@@ -138,12 +138,12 @@ class AzureCloudImageTest : MockObjectTestCase() {
         coVerify { myApiConnector.createInstance(
                 match { i ->
                     i.imageId == instance.id &&
-                            i.name == myImageDetails.vmNamePrefix!!.toLowerCase() + "2" &&
+                            i.name == myImageDetails.vmNamePrefix!!.lowercase() + "2" &&
                             i.image == instance &&
                             i.status == InstanceStatus.STARTING
                 },
                 match { userData ->
-                    userData.agentName == myImageDetails.vmNamePrefix!!.toLowerCase() + "2" &&
+                    userData.agentName == myImageDetails.vmNamePrefix!!.lowercase() + "2" &&
                             userData.profileId == "profileId" &&
                             userData.profileDescription == "profileDescr"
                 })
@@ -181,12 +181,12 @@ class AzureCloudImageTest : MockObjectTestCase() {
         coVerify { myApiConnector.createInstance(
                 match { i ->
                     i.imageId == instance.id &&
-                            i.name == myImageDetails.vmNamePrefix!!.toLowerCase() + "1" &&
+                            i.name == myImageDetails.vmNamePrefix!!.lowercase() + "1" &&
                             i.image == instance &&
                             i.status == InstanceStatus.STARTING
                 },
                 match { userData ->
-                    userData.agentName == myImageDetails.vmNamePrefix!!.toLowerCase() + "1" &&
+                    userData.agentName == myImageDetails.vmNamePrefix!!.lowercase() + "1" &&
                             userData.profileId == "profileId" &&
                             userData.profileDescription == "profileDescr"
                 })
@@ -195,12 +195,12 @@ class AzureCloudImageTest : MockObjectTestCase() {
         coVerify { myApiConnector.createInstance(
                 match { i ->
                     i.imageId == instance.id &&
-                            i.name == myImageDetails.vmNamePrefix!!.toLowerCase() + "2" &&
+                            i.name == myImageDetails.vmNamePrefix!!.lowercase() + "2" &&
                             i.image == instance &&
                             i.status == InstanceStatus.STARTING
                 },
                 match { userData ->
-                    userData.agentName == myImageDetails.vmNamePrefix!!.toLowerCase() + "2" &&
+                    userData.agentName == myImageDetails.vmNamePrefix!!.lowercase() + "2" &&
                             userData.profileId == "profileId" &&
                             userData.profileDescription == "profileDescr"
                 })
@@ -240,12 +240,12 @@ class AzureCloudImageTest : MockObjectTestCase() {
         coVerify { myApiConnector.createInstance(
                 match { i ->
                     i.imageId == instance.id &&
-                            i.name == myImageDetails.vmNamePrefix!!.toLowerCase() + "1" &&
+                            i.name == myImageDetails.vmNamePrefix!!.lowercase() + "1" &&
                             i.image == instance &&
                             i.status == InstanceStatus.STARTING
                 },
                 match { userData ->
-                    userData.agentName == myImageDetails.vmNamePrefix!!.toLowerCase() + "1" &&
+                    userData.agentName == myImageDetails.vmNamePrefix!!.lowercase() + "1" &&
                             userData.profileId == "profileId" &&
                             userData.profileDescription == "profileDescr"
                 })
@@ -254,12 +254,12 @@ class AzureCloudImageTest : MockObjectTestCase() {
         coVerify { myApiConnector.createInstance(
                 match { i ->
                     i.imageId == instance.id &&
-                            i.name == myImageDetails.vmNamePrefix!!.toLowerCase() + "2" &&
+                            i.name == myImageDetails.vmNamePrefix!!.lowercase() + "2" &&
                             i.image == instance &&
                             i.status == InstanceStatus.STARTING
                 },
                 match { userData ->
-                    userData.agentName == myImageDetails.vmNamePrefix!!.toLowerCase() + "2" &&
+                    userData.agentName == myImageDetails.vmNamePrefix!!.lowercase() + "2" &&
                             userData.profileId == "profileId" &&
                             userData.profileDescription == "profileDescr"
                 })
@@ -268,12 +268,12 @@ class AzureCloudImageTest : MockObjectTestCase() {
         coVerify(exactly = 0) { myApiConnector.createInstance(
                 match { i ->
                     i.imageId == instance.id &&
-                            i.name == myImageDetails.vmNamePrefix!!.toLowerCase() + "3" &&
+                            i.name == myImageDetails.vmNamePrefix!!.lowercase() + "3" &&
                             i.image == instance &&
                             i.status == InstanceStatus.STARTING
                 },
                 match { userData ->
-                    userData.agentName == myImageDetails.vmNamePrefix!!.toLowerCase() + "3" &&
+                    userData.agentName == myImageDetails.vmNamePrefix!!.lowercase() + "3" &&
                             userData.profileId == "profileId" &&
                             userData.profileDescription == "profileDescr"
                 })

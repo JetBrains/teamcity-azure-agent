@@ -17,9 +17,7 @@
 package jetbrains.buildServer.clouds.azure.throttler
 
 import io.mockk.*
-import jdk.nashorn.internal.objects.NativeArray
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
-import jetbrains.buildServer.serverSide.TeamCityProperties
 import org.jmock.MockObjectTestCase
 import org.testng.Assert
 import org.testng.annotations.BeforeMethod
@@ -28,7 +26,6 @@ import rx.Observable
 import rx.Observer
 import rx.Scheduler
 import rx.Single
-import rx.internal.util.SubscriptionList
 import rx.schedulers.Schedulers
 import rx.schedulers.TestScheduler
 import rx.subjects.Subject

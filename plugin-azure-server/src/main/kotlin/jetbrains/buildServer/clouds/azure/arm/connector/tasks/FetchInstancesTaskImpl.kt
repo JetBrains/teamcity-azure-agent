@@ -152,7 +152,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     myLastUpdatedDate.set(getCurrentUTC())
                     myIpAddresses.set(ipList.toTypedArray())
 
-                    val newInstances = instances.associateBy { it.id.toLowerCase() }
+                    val newInstances = instances.associateBy { it.id.lowercase() }
                     myInstancesCache.putAll(newInstances)
 
                     val keysInCache = myInstancesCache.asMap().keys.toSet()
@@ -169,7 +169,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
     private fun getLiveInstanceFromSnapshot(resource: HasId?): InstanceDescriptor? {
         if (resource?.id() == null) return null
 
-        val instance = myInstancesCache.getIfPresent(resource.id().toLowerCase())
+        val instance = myInstancesCache.getIfPresent(resource.id().lowercase())
         if (instance == null) return null
 
         if (needUpdate(instance.lastUpdatedDate)) return null
@@ -196,8 +196,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
     private fun updateContainer(api: Azure, containerId: String, isDeleting: Boolean) {
         if (isDeleting) {
-            myNotifiedInstances.remove(containerId.toLowerCase())
-            myInstancesCache.invalidate(containerId.toLowerCase())
+            myNotifiedInstances.remove(containerId.lowercase())
+            myInstancesCache.invalidate(containerId.lowercase())
             return
         }
         api.containerGroups()
@@ -207,11 +207,11 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     instance, ipList ->
                     myIpAddresses.set(ipList.toTypedArray())
                     if (instance != null) {
-                        myNotifiedInstances.add(instance.id.toLowerCase())
-                        myInstancesCache.put(instance.id.toLowerCase(), instance)
+                        myNotifiedInstances.add(instance.id.lowercase())
+                        myInstancesCache.put(instance.id.lowercase(), instance)
                     } else {
-                        myNotifiedInstances.remove(containerId.toLowerCase())
-                        myInstancesCache.invalidate(containerId.toLowerCase())
+                        myNotifiedInstances.remove(containerId.lowercase())
+                        myInstancesCache.invalidate(containerId.lowercase())
                     }
                 }
                 .take(1)
@@ -298,7 +298,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         fetchVirtualMachine(virtualMachine)
                 .withLatestFrom(fetchIPAddresses(api)) { instance, ipList ->
                     myIpAddresses.set(ipList.toTypedArray())
-                    myInstancesCache.put(instance.id.toLowerCase(), instance)
+                    myInstancesCache.put(instance.id.lowercase(), instance)
                 }
                 .take(1)
                 .toCompletable()
@@ -307,8 +307,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
     private fun updateVirtualMachine(api: Azure, virtualMachineId: String, isDeleting: Boolean) {
         if (isDeleting) {
-            myNotifiedInstances.remove(virtualMachineId.toLowerCase())
-            myInstancesCache.invalidate(virtualMachineId.toLowerCase())
+            myNotifiedInstances.remove(virtualMachineId.lowercase())
+            myInstancesCache.invalidate(virtualMachineId.lowercase())
             return
         }
         api.virtualMachines()
@@ -318,11 +318,11 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     instance, ipList ->
                     myIpAddresses.set(ipList.toTypedArray())
                     if (instance != null) {
-                        myNotifiedInstances.add(instance.id.toLowerCase())
-                        myInstancesCache.put(instance.id.toLowerCase(), instance)
+                        myNotifiedInstances.add(instance.id.lowercase())
+                        myInstancesCache.put(instance.id.lowercase(), instance)
                     } else {
-                        myNotifiedInstances.remove(virtualMachineId.toLowerCase())
-                        myInstancesCache.invalidate(virtualMachineId.toLowerCase())
+                        myNotifiedInstances.remove(virtualMachineId.lowercase())
+                        myInstancesCache.invalidate(virtualMachineId.lowercase())
                     }
                 }
                 .take(1)

@@ -24,11 +24,12 @@ teamcity {
 
 dependencies {
     compile 'com.google.code.gson:gson:2.5'
+    compile 'javax.xml.bind:jaxb-api:2.3.1'
     compile "org.jetbrains.kotlin:kotlin-stdlib"
     compile "org.apache.httpcomponents:httpclient:4.3.6"
 }
 
 compileKotlin {
-    sourceCompatibility = JavaVersion.VERSION_1_6
-    targetCompatibility = JavaVersion.VERSION_1_6
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }

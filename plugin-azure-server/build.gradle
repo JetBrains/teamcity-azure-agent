@@ -29,6 +29,9 @@ teamcity {
     }
 }
 
+configurations.compile {
+    exclude group: 'org.slf4j', module: 'slf4j-api'
+}
 dependencies {
     agent project(path: ':plugin-azure-agent', configuration: 'plugin')
     compile project(':plugin-azure-server-base')
@@ -43,7 +46,7 @@ dependencies {
     provided "org.jetbrains.teamcity.internal:server:$teamcityVersion"
     provided 'com.google.code.gson:gson:2.5'
     provided 'org.apache.taglibs:taglibs-standard-impl:1.2.3'
-    provided 'org.slf4j:slf4j-api:1.7.24'
+    compileOnly 'org.slf4j:slf4j-api:1.7.24'
     provided 'net.jcip:jcip-annotations:1.0'
     provided 'javax.mail:mail:1.4.7'
     provided 'org.bouncycastle:bcprov-jdk15on:1.60'

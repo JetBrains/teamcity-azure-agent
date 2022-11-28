@@ -62,7 +62,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
   });
 
   // Image details
-  var maxLength = 12;
+  var maxLength = 50;
 
   // Note container can create a storage share with folders like <container-name>-plugins, etc. Max length of such name should be less than 63 characters
   var containerVmPrefixMaxLength = 50;

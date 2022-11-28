@@ -16,14 +16,14 @@
 
 package jetbrains.buildServer.clouds.azure;
 
-import java.util.*;
-import jetbrains.buildServer.clouds.CloudClientParameters;
 import jetbrains.buildServer.clouds.CloudImageParameters;
+import jetbrains.buildServer.clouds.models.FakeCloudClientParameters;
 import jetbrains.buildServer.clouds.models.FakeCloudImageDetails;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 import org.testng.Assert;
 import org.testng.annotations.Test;
+
+import java.util.Collection;
+import java.util.Iterator;
 
 /**
  * @author Dmitry.Tretyakov
@@ -31,84 +31,40 @@ import org.testng.annotations.Test;
  * Time: 2:27 PM
  */
 public class AzureUtilsTest {
-  @Test
-  public void parseImageDataTest() {
+    @Test
+    public void parseImageDataTest() {
+        final FakeCloudClientParameters parameters = new FakeCloudClientParameters();
+        parameters.setParameter("images_data", "[{\"data\":\"data\"}]");
+        parameters.setParameter("secure:passwords_data", "{\"name\":\"password\"}");
 
-    Map<String, String> paramsMap = new HashMap<>();
-    paramsMap.put("images_data", "[{\"data\":\"data\"}]");
-    paramsMap.put("secure:passwords_data", "{\"name\":\"password\"}");
-    final CloudClientParameters parameters = new MockCloudClientParameters(paramsMap);
-    final Collection<FakeCloudImageDetails> images = AzureUtils.parseImageData(FakeCloudImageDetails.class, parameters);
-    Assert.assertNotNull(images);
+        final Collection<FakeCloudImageDetails> images = AzureUtils.parseImageData(FakeCloudImageDetails.class, parameters);
+        Assert.assertNotNull(images);
 
-    final Iterator<FakeCloudImageDetails> iterator = images.iterator();
-    Assert.assertTrue(iterator.hasNext());
-    final FakeCloudImageDetails details = iterator.next();
-    Assert.assertFalse(iterator.hasNext());
-    Assert.assertNotNull(details);
-    Assert.assertEquals(details.getData(), "data");
-    Assert.assertEquals(details.getPassword(), "password");
-  }
-
-  @Test
-  public void parseNewImageDataTest() {
-    Map<String, String> paramsMap = new HashMap<>();
-    paramsMap.put(CloudImageParameters.SOURCE_IMAGES_JSON, "[{\"data\":\"data\"}]");
-    paramsMap.put("secure:passwords_data", "{\"name\":\"password\"}");
-    final CloudClientParameters parameters = new MockCloudClientParameters(paramsMap);
-    final Collection<FakeCloudImageDetails> images = AzureUtils.parseImageData(FakeCloudImageDetails.class, parameters);
-    Assert.assertNotNull(images);
-
-    final Iterator<FakeCloudImageDetails> iterator = images.iterator();
-    Assert.assertTrue(iterator.hasNext());
-    final FakeCloudImageDetails details = iterator.next();
-    Assert.assertFalse(iterator.hasNext());
-    Assert.assertNotNull(details);
-    Assert.assertEquals(details.getData(), "data");
-    Assert.assertEquals(details.getPassword(), "password");
-  }
-
-  private class MockCloudClientParameters extends CloudClientParameters {
-    private final Map<String, String> myParameters;
-
-    public MockCloudClientParameters(Map<String, String> parameters) {
-      myParameters = parameters;
+        final Iterator<FakeCloudImageDetails> iterator = images.iterator();
+        Assert.assertTrue(iterator.hasNext());
+        final FakeCloudImageDetails details = iterator.next();
+        Assert.assertFalse(iterator.hasNext());
+        Assert.assertNotNull(details);
+        Assert.assertEquals(details.getData(), "data");
+        Assert.assertEquals(details.getPassword(), "password");
     }
 
-    @Nullable
-    @Override
-    public String getParameter(@NotNull String s) {
-      return myParameters.get(s);
+    @Test
+    public void parseNewImageDataTest() {
+        final FakeCloudClientParameters parameters = new FakeCloudClientParameters();
+        parameters.setParameter(CloudImageParameters.SOURCE_IMAGES_JSON, "[{\"data\":\"data\"}]");
+        parameters.setParameter("secure:passwords_data", "{\"name\":\"password\"}");
+
+        final Collection<FakeCloudImageDetails> images = AzureUtils.parseImageData(FakeCloudImageDetails.class, parameters);
+        Assert.assertNotNull(images);
+
+        final Iterator<FakeCloudImageDetails> iterator = images.iterator();
+        Assert.assertTrue(iterator.hasNext());
+        final FakeCloudImageDetails details = iterator.next();
+        Assert.assertFalse(iterator.hasNext());
+        Assert.assertNotNull(details);
+        Assert.assertEquals(details.getData(), "data");
+        Assert.assertEquals(details.getPassword(), "password");
     }
 
-    @NotNull
-    @Override
-    public Collection<String> listParameterNames() {
-      return myParameters.keySet();
-    }
-
-    @NotNull
-    @Override
-    public Collection<CloudImageParameters> getCloudImages() {
-      return null;
-    }
-
-    @NotNull
-    @Override
-    public Map<String, String> getParameters() {
-      return Collections.unmodifiableMap(myParameters);
-    }
-
-    @NotNull
-    @Override
-    public String getProfileId() {
-      return null;
-    }
-
-    @NotNull
-    @Override
-    public String getProfileDescription() {
-      return null;
-    }
-  }
 }

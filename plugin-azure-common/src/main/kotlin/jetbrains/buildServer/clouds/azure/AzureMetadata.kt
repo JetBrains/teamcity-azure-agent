@@ -103,31 +103,31 @@ object AzureMetadata {
                 .useSystemProperties()
                 .setDefaultRequestConfig(requestConfig)
                 .build().use {
-                    val response = try {
+                    try {
                         it.execute(HttpPost(SCHEDULED_EVENTS_METADATA_URL).apply {
                             val approval = ScheduledRequestApproval(documentIncarnation, listOf(StartRequest(eventId)))
-                            entity = StringEntity(serializeApprovelRequest(approval), ContentType.APPLICATION_JSON)
+                            entity = StringEntity(serializeApprovalRequest(approval), ContentType.APPLICATION_JSON)
                         })
                     } catch (e: Exception) {
                         throw IOException("Failed to connect to $SCHEDULED_EVENTS_METADATA_URL: ${e.message}")
                     }
-                }
+            }
     }
 
-    private fun serializeApprovelRequest(approval: ScheduledRequestApproval): String {
-        return GSON.toJson(approval);
+    private fun serializeApprovalRequest(approval: ScheduledRequestApproval): String {
+        return GSON.toJson(approval)
     }
 
     fun deserializeInstanceMetadata(json: String): Metadata = try {
-        GSON.fromJson<Metadata>(json, Metadata::class.java)
+        GSON.fromJson(json, Metadata::class.java)
     } catch (e: Exception) {
         throw IOException("Invalid instance metadata ${e.message}", e)
     }
 
-    fun deserializeScheduledEventsMetadata(json: String?): ScheduledEventsMetadata? {
+    private fun deserializeScheduledEventsMetadata(json: String?): ScheduledEventsMetadata? {
         return json?.let {
             try {
-                GSON.fromJson<ScheduledEventsMetadata>(json, ScheduledEventsMetadata::class.java)
+                GSON.fromJson(json, ScheduledEventsMetadata::class.java)
             } catch (e: Exception) {
                 throw IOException("Invalid instance metadata ${e.message}", e)
             }

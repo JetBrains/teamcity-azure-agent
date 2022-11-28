@@ -18,7 +18,6 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.serverSide.TeamCityProperties
-import rx.Scheduler
 import rx.Single
 import rx.internal.util.SubscriptionList
 import java.time.Clock
@@ -42,17 +41,17 @@ class AzureThrottlerImpl<A, I>(
     private val mySubscriptions = SubscriptionList()
     private val myStartStopLock = ReentrantReadWriteLock()
     private var myScheduledExecutor: AzureThrottlerScheduledExecutor? = null
-    private val myLastLogDiagnosticTime = AtomicReference<LocalDateTime>(LocalDateTime.MIN)
+    private val myLastLogDiagnosticTime = AtomicReference(LocalDateTime.MIN)
 
     init {
         throttlerStrategy.setContainer(this)
     }
 
     override fun start(): Boolean {
-        if (myStartStopLock.read { return@read myScheduledExecutor != null }) return false
+        if (myStartStopLock.read { myScheduledExecutor != null }) return false
 
         return myStartStopLock.write {
-            if (myScheduledExecutor != null) return false
+            if (myScheduledExecutor != null) return@write false
 
             val executor = scheduledExecutorFactory.create {
                 executeNextTask()
@@ -61,7 +60,7 @@ class AzureThrottlerImpl<A, I>(
 
             myScheduledExecutor = executor
 
-            return true
+            return@write true
         }
     }
 
@@ -80,14 +79,14 @@ class AzureThrottlerImpl<A, I>(
     override fun <P, T> registerTask(taskId: I, task: AzureThrottlerTask<A, P, T>, taskTimeExecutionType: AzureThrottlerTaskTimeExecutionType, defaultTimeoutInSeconds: Long): AzureThrottler<A, I> {
         if (myTaskQueues.contains(taskId)) throw Exception("Task with Id $taskId has already been registered")
         myTaskQueues[taskId] = AzureThrottlerTaskQueueImpl(
-                taskId,
-                AzureThrottlerRequestQueueImpl<I, P, T>(task),
-                task,
-                adapter,
-                taskTimeExecutionType,
-                defaultTimeoutInSeconds,
-                this,
-                schedulers.requestScheduler
+            taskId,
+            AzureThrottlerRequestQueueImpl(task),
+            task,
+            adapter,
+            taskTimeExecutionType,
+            defaultTimeoutInSeconds,
+            this,
+            schedulers.requestScheduler
         )
         return this
     }
@@ -104,7 +103,7 @@ class AzureThrottlerImpl<A, I>(
     }
 
     override fun <P, T> executeTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P): Single<T> {
-        return executeTask<P, T>(taskDescriptor.taskId, parameters)
+        return executeTask(taskDescriptor.taskId, parameters)
     }
 
     override fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P, timeout: Long, timeUnit: TimeUnit): Single<T> {
@@ -115,7 +114,7 @@ class AzureThrottlerImpl<A, I>(
                 .doOnEach { LOG.debug("[${taskDescriptor.taskId}-$executionId] Single On Each Value of task. Kind: ${it.kind}") }
                 .timeout(timeout, timeUnit, schedulers.timeoutScheduler)
                 .onErrorResumeNext { error ->
-                    LOG.debug("[${taskDescriptor.taskId}-$executionId] Error occured: ${error}")
+                    LOG.debug("[${taskDescriptor.taskId}-$executionId] Error occurred: $error")
                     if (error is TimeoutException) {
                         LOG.debug("[${taskDescriptor.taskId}-$executionId] Task could not be executed for requested time")
                         return@onErrorResumeNext Single.error<T>(ThrottlerTimeoutException("Task ${taskDescriptor.taskId} could not be executed for requested time", error))
@@ -127,7 +126,7 @@ class AzureThrottlerImpl<A, I>(
     }
 
     override fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P): Single<T> {
-        return executeTaskWithTimeout<P, T>(taskDescriptor, parameters, getTaskExecutionTimeout(), TimeUnit.SECONDS)
+        return executeTaskWithTimeout(taskDescriptor, parameters, getTaskExecutionTimeout(), TimeUnit.SECONDS)
     }
 
     override fun notifyCompleted(performedRequests: Boolean) {
@@ -166,12 +165,12 @@ class AzureThrottlerImpl<A, I>(
             return
         }
         val nextCheckTime = myLastLogDiagnosticTime.get().plusSeconds(getPrintDiagnosticInterval())
-        var now = LocalDateTime.now(Clock.systemUTC())
+        val now = LocalDateTime.now(Clock.systemUTC())
 
         if (nextCheckTime >= now) return
         myLastLogDiagnosticTime.set(now)
 
-        var result = StringBuilder()
+        val result = StringBuilder()
         result.append("Tasks statistics: Now: ${now}; Flow: ${throttlerStrategy.getFlow()}; ")
         for(taskEntry in myTaskQueues) {
             val statistics = taskEntry.value.getStatistics(now.minusHours(1))

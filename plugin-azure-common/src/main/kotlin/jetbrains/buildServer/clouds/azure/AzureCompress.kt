@@ -29,7 +29,7 @@ object AzureCompress {
         GZIPOutputStream(byteStream).use { stream ->
             stream.bufferedWriter().use { writer ->
                 env.forEach {
-                    writer.appendln("${it.key}=${it.value}")
+                    writer.appendLine("${it.key}=${it.value}")
                 }
             }
         }

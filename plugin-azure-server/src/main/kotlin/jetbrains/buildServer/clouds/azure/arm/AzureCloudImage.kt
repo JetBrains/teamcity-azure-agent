@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm
 
 import com.intellij.openapi.diagnostic.Logger
+import jetbrains.buildServer.clouds.CanStartNewInstanceResult
 import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.InstanceStatus
@@ -95,31 +96,28 @@ class AzureCloudImage(
         }
     }
 
-    override fun canStartNewInstance(): Boolean {
+    override fun canStartNewInstance(): CanStartNewInstanceResult {
         if (activeInstances.size >= myImageDetails.maxInstances) {
-            LOG.warn("ActiveInstances count reached MaxInstances value: ${myImageDetails.maxInstances}")
-            return false
+            return CanStartNewInstanceResult.no("Quota exceeded: ActiveInstances count reached MaxInstances value of ${myImageDetails.maxInstances}")
         }
         // Check Azure CPU quota state
         azureCpuQuotaExceeded?.let { instances ->
             if (instances == getInstanceIds()) {
-                LOG.warn("Azure CPU quota exceeded at some point. Lookup logs above for detailed info message.")
-                return false
+                return CanStartNewInstanceResult.no("Azure CPU quota exceeded")
             } else {
                 azureCpuQuotaExceeded = null
                 LOG.info("Azure CPU quota limit has been reset due to change in the number of active instances for image ${imageDetails.sourceId}.")
             }
         }
         if (imageDetails.deployTarget == AzureCloudDeployTarget.Instance && stoppedInstances.isEmpty()) {
-            LOG.warn("Stopped Instances pool is empty, but we trying to run yet another instance. Check inactive agents for errors.")
-            return false
+            return CanStartNewInstanceResult.no("Stopped Instances pool is empty, but we trying to run yet another instance. Check inactive agents for errors")
         }
-        return true
+        return CanStartNewInstanceResult.yes()
     }
 
     override fun startNewInstance(userData: CloudInstanceUserData) = runBlocking {
-        if (!canStartNewInstance()) {
-            throw QuotaException("Unable to start more instances. Limit has reached. See WARN message above for details.")
+        if (!canStartNewInstance().isPositive) {
+            throw QuotaException("Unable to start more instances. Limit has reached")
         }
 
         val instance = if (myImageDetails.deployTarget == AzureCloudDeployTarget.Instance) {

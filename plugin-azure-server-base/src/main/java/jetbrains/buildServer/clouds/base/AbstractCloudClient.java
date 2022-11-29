@@ -88,17 +88,14 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
 
     public boolean canStartNewInstance(@NotNull final CloudImage baseImage) {
         final T image = (T) baseImage;
-        return image.canStartNewInstance();
+        return image.canStartNewInstance().isPositive();
     }
 
     @NotNull
     @Override
     public CanStartNewInstanceResult canStartNewInstanceWithDetails(@NotNull CloudImage image) {
         final T img = (T) image;
-        if (img.canStartNewInstance()) {
-            return CanStartNewInstanceResult.yes();
-        }
-        return CanStartNewInstanceResult.no("Quota exceeded");
+        return img.canStartNewInstance();
     }
 
     public void populateImagesData(@NotNull final Collection<D> imageDetails, final long initialDelayMs, final long delayMs) {

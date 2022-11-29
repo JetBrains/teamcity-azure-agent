@@ -24,7 +24,8 @@ class AzureTaskNotificationsImpl : AzureTaskNotifications {
     private val myHandlers: MutableMap<KClass<out AzureTaskEventArgs>, MutableList<AzureTaskEventHandler<AzureTaskEventArgs>>> = ConcurrentHashMap()
 
     override fun <TArgs : AzureTaskEventArgs> registerHandler(eventClass: KClass<out TArgs>, handler: AzureTaskEventHandler<TArgs>) {
-        var handlers = myHandlers.getOrPut(eventClass) { CopyOnWriteArrayList<AzureTaskEventHandler<AzureTaskEventArgs>>() }
+        val handlers: MutableList<AzureTaskEventHandler<AzureTaskEventArgs>> =
+            myHandlers.getOrPut(eventClass) { CopyOnWriteArrayList() }
         handlers.add(handler as AzureTaskEventHandler<AzureTaskEventArgs>)
     }
 

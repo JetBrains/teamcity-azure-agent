@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm
 
 import com.intellij.openapi.diagnostic.Logger
+import jetbrains.buildServer.clouds.CanStartNewInstanceResult
 import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.InstanceStatus
@@ -24,30 +25,38 @@ import jetbrains.buildServer.clouds.QuotaException
 import jetbrains.buildServer.clouds.azure.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
-import jetbrains.buildServer.clouds.azure.arm.types.*
+import jetbrains.buildServer.clouds.azure.arm.types.AzureContainerHandler
+import jetbrains.buildServer.clouds.azure.arm.types.AzureHandler
+import jetbrains.buildServer.clouds.azure.arm.types.AzureImageHandler
+import jetbrains.buildServer.clouds.azure.arm.types.AzureInstanceHandler
+import jetbrains.buildServer.clouds.azure.arm.types.AzureTemplateHandler
+import jetbrains.buildServer.clouds.azure.arm.types.AzureVhdHandler
 import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
-import kotlinx.coroutines.*
-import java.lang.StringBuilder
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Azure cloud image.
  */
-class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
-                      private val myApiConnector: AzureApiConnector,
-                      private val myScope: CoroutineScope)
-    : AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails>(myImageDetails.sourceId, myImageDetails.sourceId) {
+class AzureCloudImage(
+    private val myImageDetails: AzureCloudImageDetails,
+    private val myApiConnector: AzureApiConnector,
+    private val myScope: CoroutineScope
+) : AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails>(myImageDetails.sourceId, myImageDetails.sourceId) {
 
     private val myImageHandlers = mapOf(
-            AzureCloudImageType.Vhd to AzureVhdHandler(myApiConnector),
-            AzureCloudImageType.Image to AzureImageHandler(myApiConnector),
-            AzureCloudImageType.GalleryImage to AzureImageHandler(myApiConnector),
-            AzureCloudImageType.Template to AzureTemplateHandler(myApiConnector),
-            AzureCloudImageType.Container to AzureContainerHandler(myApiConnector)
+        AzureCloudImageType.Vhd to AzureVhdHandler(myApiConnector),
+        AzureCloudImageType.Image to AzureImageHandler(myApiConnector),
+        AzureCloudImageType.GalleryImage to AzureImageHandler(myApiConnector),
+        AzureCloudImageType.Template to AzureTemplateHandler(myApiConnector),
+        AzureCloudImageType.Container to AzureContainerHandler(myApiConnector)
     )
     private val myInstanceHandler = AzureInstanceHandler(myApiConnector)
 
@@ -87,25 +96,27 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
         }
     }
 
-    override fun canStartNewInstance(): Boolean {
-        if (activeInstances.size >= myImageDetails.maxInstances) return false
+    override fun canStartNewInstance(): CanStartNewInstanceResult {
+        if (activeInstances.size >= myImageDetails.maxInstances) {
+            return CanStartNewInstanceResult.no("Quota exceeded: ActiveInstances count reached MaxInstances value of ${myImageDetails.maxInstances}")
+        }
         // Check Azure CPU quota state
         azureCpuQuotaExceeded?.let { instances ->
             if (instances == getInstanceIds()) {
-                return false
+                return CanStartNewInstanceResult.no("Azure CPU quota exceeded")
             } else {
                 azureCpuQuotaExceeded = null
                 LOG.info("Azure CPU quota limit has been reset due to change in the number of active instances for image ${imageDetails.sourceId}.")
             }
         }
         if (imageDetails.deployTarget == AzureCloudDeployTarget.Instance && stoppedInstances.isEmpty()) {
-            return false
+            return CanStartNewInstanceResult.no("Stopped Instances pool is empty, but we trying to run yet another instance. Check inactive agents for errors")
         }
-        return true
+        return CanStartNewInstanceResult.yes()
     }
 
     override fun startNewInstance(userData: CloudInstanceUserData) = runBlocking {
-        if (!canStartNewInstance()) {
+        if (!canStartNewInstance().isPositive) {
             throw QuotaException("Unable to start more instances. Limit has reached")
         }
 
@@ -180,10 +191,9 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
 
             if (addInstanceIfAbsent(instance)) {
                 while(activeInstances.size > myImageDetails.maxInstances) {
-                    val lastStartingInstance = instances.filter { it.status == InstanceStatus.SCHEDULED_TO_START }.sortedBy { it.name }.lastOrNull()
-                    if (lastStartingInstance == null) {
-                        throw QuotaException("Unable to start more instances. Limit has reached")
-                    }
+                    instances.filter { it.status == InstanceStatus.SCHEDULED_TO_START }.maxByOrNull { it.name }
+                        ?: throw QuotaException("Unable to start more instances. Limit has reached")
+
                     if (overlimitInstanceToDelete.compareAndSet(null, instance)) {
                         removeInstance(instance.instanceId)
                         overlimitInstanceToDelete.set(null)
@@ -191,8 +201,8 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
                     }
                 }
                 return instance
-            };
-        } while (true);
+            }
+        } while (true)
     }
 
     /**
@@ -221,7 +231,7 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
                     return@filter true
                 }
 
-            val invalidInstances = instances - validInstances
+            val invalidInstances = instances - validInstances.toSet()
             val instance = validInstances.firstOrNull()
 
             instance?.status = InstanceStatus.SCHEDULED_TO_START
@@ -302,10 +312,11 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
 
     private fun updateInstanceStatus(image: AzureCloudImage, instance: AzureCloudInstance) {
         val instances = myApiConnector.fetchInstances<AzureInstance>(image)
-        instances.get(instance.name)?.let {
-            it.startDate?.let { instance.setStartDate(it) }
-            it.ipAddress?.let { instance.setNetworkIdentify(it) }
-            instance.status = it.instanceStatus
+
+        instances[instance.name]?.let { azureInstance ->
+            azureInstance.startDate?.let { instance.setStartDate(it) }
+            azureInstance.ipAddress?.let { instance.setNetworkIdentify(it) }
+            instance.status = azureInstance.instanceStatus
         }
     }
 
@@ -399,8 +410,8 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
         }
 
     private fun getInstanceName(): String {
-        val keys = instances.map { it.instanceId.toLowerCase() }
-        val sourceName = myImageDetails.sourceId.toLowerCase()
+        val keys = instances.map { it.instanceId.lowercase(Locale.getDefault()) }
+        val sourceName = myImageDetails.sourceId.lowercase(Locale.getDefault())
         var i = 1
 
         while (keys.contains(sourceName + i)) i++
@@ -439,8 +450,9 @@ class AzureCloudImage(private val myImageDetails: AzureCloudImageDetails,
     companion object {
         private val LOG = Logger.getInstance(AzureCloudImage::class.java.name)
         private val AZURE_CPU_QUOTA_EXCEEDED = Regex("Operation results in exceeding quota limits of Core\\. Maximum allowed: \\d+, Current in use: \\d+, Additional requested: \\d+\\.")
+
         fun parseCustomTags(rawString: String?): List<Pair<String, String>> {
-            return if (rawString != null && rawString.isNotEmpty()) {
+            return if (!rawString.isNullOrEmpty()) {
                 rawString.lines().map { it.trim() }.filter { it.isNotEmpty() }.mapNotNull {
                     val tag = it
                     val equalsSignIndex = tag.indexOf("=")

@@ -21,13 +21,11 @@ import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.util.io.StreamUtil
 import com.microsoft.aad.adal4j.AuthenticationException
-import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageType
 import jetbrains.buildServer.util.ExceptionUtil
 import jetbrains.buildServer.util.StringUtil
-import org.apache.commons.lang3.StringUtils
 import java.io.IOException
 
 /**
@@ -59,8 +57,8 @@ object AzureUtils {
     }
 
     fun getExceptionDetails(e: com.microsoft.azure.CloudException): String {
-        e.body()?.let {
-            return it.message() + " " + it.details().joinToString("\n", transform = {
+        e.body()?.let { error ->
+            return error.message() + " " + error.details().joinToString("\n", transform = {
                 deserializeAzureError(it.message()) + " (${it.code()})"
             })
         }
@@ -68,7 +66,7 @@ object AzureUtils {
     }
 
     internal fun deserializeAzureError(json: String) = try {
-        mapper.readValue<CloudErrorDetails>(json, CloudErrorDetails::class.java)?.error?.let {
+        mapper.readValue(json, CloudErrorDetails::class.java)?.error?.let {
             "${it.message} (${it.code})"
         } ?: json
     } catch (e: JsonProcessingException) {
@@ -85,10 +83,10 @@ object AzureUtils {
     }
 
     internal fun deserializeAuthError(json: String) = try {
-        mapper.readValue<CloudAuthError>(json, CloudAuthError::class.java)?.error_description?.let {
+        mapper.readValue(json, CloudAuthError::class.java)?.error_description?.let {
             val error = StringUtil.splitByLines(it).firstOrNull() ?: it
-            INVALID_TENANT.matchEntire(error)?.let {
-                val (id) = it.destructured
+            INVALID_TENANT.matchEntire(error)?.let { matchResult ->
+                val (id) = matchResult.destructured
                 "Application with identifier '$id' was not found in specified tenant or environment."
             } ?: error
         } ?: json
@@ -96,21 +94,6 @@ object AzureUtils {
         json
     }
 
-    internal fun getResourceGroup(details: AzureCloudImageDetails, instanceName: String): String {
-        return when (details.target) {
-            AzureCloudDeployTarget.NewGroup -> instanceName
-            AzureCloudDeployTarget.SpecificGroup -> details.groupId!!
-            AzureCloudDeployTarget.Instance -> {
-                RESOURCE_GROUP_PATTERN.find(details.instanceId!!)?.let {
-                    val (groupId) = it.destructured
-                    return groupId
-                }
-                throw CloudException("Invalid instance ID ${details.instanceId}")
-            }
-        }
-    }
-
-    private val RESOURCE_GROUP_PATTERN = Regex("resourceGroups/([^/]+)/providers/")
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)

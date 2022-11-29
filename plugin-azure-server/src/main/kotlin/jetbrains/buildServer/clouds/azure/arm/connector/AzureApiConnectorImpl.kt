@@ -49,17 +49,18 @@ import kotlinx.coroutines.sync.withLock
 import org.apache.commons.codec.binary.Base64
 import java.net.URI
 import java.net.URISyntaxException
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 /**
  * Provides azure arm management capabilities.
  */
-@Suppress("UNUSED_DESTRUCTURED_PARAMETER_ENTRY")
 class AzureApiConnectorImpl(
-        params: Map<String, String>,
-        private val myAzureRequestThrottlerCache: AzureRequestThrottlerCache,
-        private val myServerIdFunc: () -> String)
+    params: Map<String, String>,
+    myAzureRequestThrottlerCache: AzureRequestThrottlerCache,
+    private val myServerIdFunc: () -> String
+)
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
     private var myAzureRequestsThrottler: AzureRequestThrottler
@@ -76,10 +77,10 @@ class AzureApiConnectorImpl(
 
     override fun test() = runBlocking {
         try {
-            myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchSubscriptions, Unit).awaitOne()
+            myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchSubscriptions, Unit)
+                .awaitOne()
             Unit
-        } catch (e: ThrottlerExecutionTaskException) {
-            Unit
+        } catch (_: ThrottlerExecutionTaskException) {
         } catch (e: Exception) {
             val message = "Failed to get list of groups: " + e.message
             LOG.debug(message, e)
@@ -116,7 +117,7 @@ class AzureApiConnectorImpl(
                     instanceDescriptor.error?.let { errors.add(it) }
                 }
                 image.updateErrors(*errors.toTypedArray())
-                LOG.debug("Instances for [${image.id}]: [${map.values.map { "${it.name}:${it.instanceStatus}" }.joinToString(",")}]" )
+                LOG.debug("Instances for [${image.id}]: [${map.values.joinToString(",") { "${it.name}:${it.instanceStatus}" }}]")
             }
         } catch (t: Throwable) {
             val message = "Failed to get list of virtual machines: " + t.message
@@ -176,7 +177,6 @@ class AzureApiConnectorImpl(
         instanceDescriptor.publicIpAddress?.let { instance.setIpAddress(it) }
     }
 
-    @Suppress("UselessCallOnNotNull")
     override fun checkImage(image: AzureCloudImage) = runBlocking {
         image.handler?.let { handler ->
             return@runBlocking handler.checkImage(image)
@@ -220,7 +220,7 @@ class AzureApiConnectorImpl(
                 .awaitOne()
                 .asSequence()
                 .map {
-                    AzureApiVMInstance(it.id, "${it.groupName}/${it.name}".toLowerCase(), it.osType)
+                    AzureApiVMInstance(it.id, "${it.groupName}/${it.name}".lowercase(Locale.getDefault()), it.osType)
                 }
                 .sortedBy {
                     it.description
@@ -244,7 +244,7 @@ class AzureApiConnectorImpl(
                     AzureThrottlerReadTasks.FetchVirtualMachines, Unit)
                 .awaitOne()
 
-            return instanceDescriptorList.filter { it.id == image.imageDetails.instanceId }.any()
+            return instanceDescriptorList.any { it.id == image.imageDetails.instanceId }
         } catch (e: ThrottlerExecutionTaskException) {
             throw e
         } catch (t: Throwable) {
@@ -273,7 +273,7 @@ class AzureApiConnectorImpl(
             val message = "Failed to get image $imageId: ${e.message}"
             LOG.debug(message, e)
 
-            val listOfImages = "List of custom images: ${images.map { it.id }.joinToString()}"
+            val listOfImages = "List of custom images: ${images.joinToString { it.id }}"
             LOG.debug(listOfImages)
 
             throw CloudException(message, e)
@@ -532,7 +532,7 @@ class AzureApiConnectorImpl(
         val name = instance.name
         val groupId = getResourceGroup(details, name)
 
-        var virtualMachine : FetchVirtualMachinesTaskVirtualMachineDescriptor?
+        val virtualMachine: FetchVirtualMachinesTaskVirtualMachineDescriptor?
         try {
             virtualMachine = myAzureRequestsThrottler
                 .executeReadTask(AzureThrottlerReadTasks.FetchVirtualMachines, Unit)
@@ -580,7 +580,8 @@ class AzureApiConnectorImpl(
     override suspend fun deleteVmBlobs(instance: AzureCloudInstance) = coroutineScope {
         val name = instance.name
         val details = instance.image.imageDetails
-        val url = details.imageUrl
+        val url = details.imageUrl ?: throw CloudException("VHD image URL is not defined (null)")
+
         val storageBlobs: URI
         try {
             val imageUrl = URI(url)
@@ -753,8 +754,7 @@ class AzureApiConnectorImpl(
      * @return OS type (Linux, Windows).
      */
     override suspend fun getVhdOsType(imageUrl: String, region: String) = coroutineScope {
-        val metadata = getVhdMetadata(imageUrl, region)
-        when (metadata) {
+        when (val metadata = getVhdMetadata(imageUrl, region)) {
             null -> null
             else -> {
                 if ("OSDisk" != metadata["MicrosoftAzureCompute_ImageType"]) {
@@ -1011,7 +1011,7 @@ class AzureApiConnectorImpl(
             val result = ConcurrentHashMap<String, Set<String>>()
             for (service in services) {
                 SERVICE_TYPES[service.namespace]?.let {
-                    val resourceTypeSet = it.intersect(service.resourceTypes)
+                    val resourceTypeSet = it.intersect(service.resourceTypes.toSet())
                     if (resourceTypeSet.isNotEmpty()) {
                         result[service.namespace] = resourceTypeSet
                     }

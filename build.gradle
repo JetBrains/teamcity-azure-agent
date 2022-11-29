@@ -22,7 +22,7 @@ ext {
     def correctVersion = project.hasProperty('versionNumber') && property('versionNumber') ==~ /\d+\.\d+\.\d+.*/
     versionNumber = correctVersion ? property('versionNumber') : 'SNAPSHOT-' + new Date().format('yyyyMMddHHmmss')
     projectIds = ['group': 'teamcity-azure-plugin', 'version': versionNumber]
-    teamcityVersion = findProperty('teamcityVersion') ?: '2022.10'
+    teamcityVersion = findProperty('teamcityVersion') ?: '2020.2'
 }
 
 group = projectIds.group

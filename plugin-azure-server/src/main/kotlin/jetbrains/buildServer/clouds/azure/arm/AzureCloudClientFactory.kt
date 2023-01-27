@@ -53,11 +53,9 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
     override fun createNewClient(state: CloudState,
                                  params: CloudClientParameters,
                                  errors: Array<TypedCloudErrorInfo>): AzureCloudClient {
-
-
-        val parameters = params.listParameterNames().map {
-            it to params.getParameter(it)!!
-        }.toMap()
+        val parameters = params.listParameterNames().associateWith {
+            params.getParameter(it)!!
+        }
 
         val apiConnector = myApiConnectorFactory.create(parameters, state.profileId)
 
@@ -112,7 +110,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         }
     }
 
-    override fun checkClientParams(params: CloudClientParameters): Array<TypedCloudErrorInfo>? {
+    override fun checkClientParams(params: CloudClientParameters): Array<TypedCloudErrorInfo> {
         return emptyArray()
     }
 
@@ -122,7 +120,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         return "Azure Resource Manager"
     }
 
-    override fun getEditProfileUrl(): String? {
+    override fun getEditProfileUrl(): String {
         return myPluginDescriptor.getPluginResourcesPath("settings.html")
     }
 

@@ -29,7 +29,6 @@ import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.AgentDescription
 import jetbrains.buildServer.serverSide.PropertiesProcessor
-import jetbrains.buildServer.serverSide.ServerSettings
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 
 /**
@@ -37,7 +36,6 @@ import jetbrains.buildServer.web.openapi.PluginDescriptor
  */
 class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                               private val myPluginDescriptor: PluginDescriptor,
-                              private val mySettings: ServerSettings,
                               private val myImagesHolder: AzureCloudImagesHolder,
                               private val myApiConnectorFactory: AzureApiConnectorFactory,
                               private val mySchedulersProvider: AzureThrottlerSchedulersProvider

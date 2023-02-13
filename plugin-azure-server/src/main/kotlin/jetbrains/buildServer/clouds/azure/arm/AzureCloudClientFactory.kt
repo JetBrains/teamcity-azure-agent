@@ -99,6 +99,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                     param.agentPoolId,
                     param.getParameter(AzureConstants.PROFILE_ID),
                     (param.getParameter(AzureConstants.REUSE_VM) ?: "").toBoolean(),
+                    (param.getParameter(AzureConstants.TEMPLATE_TAGS_AS_PARAMETERS) ?: "").toBoolean(),
                     param.getParameter(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES))
         }.apply {
             AzureUtils.setPasswords(AzureCloudImageDetails::class.java, params, this)

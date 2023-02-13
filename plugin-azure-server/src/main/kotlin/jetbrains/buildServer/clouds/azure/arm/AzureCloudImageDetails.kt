@@ -75,6 +75,8 @@ class AzureCloudImageDetails(
         val profileId: String?,
         @SerializedName(AzureConstants.REUSE_VM)
         private val myReuseVm: Boolean,
+        @SerializedName(AzureConstants.TEMPLATE_TAGS_AS_PARAMETERS)
+        val templateTagsAsParameters: Boolean,
         @SerializedName(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES)
         val customEnvironmentVariables: String? = null) : CloudImagePasswordDetails {
 

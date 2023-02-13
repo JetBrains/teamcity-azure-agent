@@ -423,6 +423,14 @@
                     <span class="error option-error" data-bind="validationMessage: image().template"></span>
                 </td>
             </tr>
+            <tr data-bind="if: image().imageType() == 'Template'">
+                <th class="noBorder"></th>
+                <td>
+                    <input type="checkbox" name="${cons.templateTagsAsParameters}" data-bind="checked: image().templateTagsAsParameters"/>
+                    <label for="${cons.templateTagsAsParameters}">Pass ARM VM tags as parameters</label>
+                    <span class="smallNote">TODO</span>
+                </td>
+            </tr>
             <tr data-bind="if: image().imageType() == 'Container' && image().osType() == 'Linux'">
                 <th class="noBorder"><label for="${cons.storageAccount}">Storage account: </label></th>
                 <td>

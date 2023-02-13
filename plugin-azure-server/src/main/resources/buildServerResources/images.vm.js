@@ -262,6 +262,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     })
       .extend({minLength: 8}),
     reuseVm: ko.observable(false),
+    templateTagsAsParameters: ko.observable(false),
     agentPoolId: ko.observable().extend({required: true}),
     profileId: ko.observable(),
     customEnvironmentVariables: ko.observable('').extend({
@@ -482,6 +483,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
         saveValue = true;
       }
       image.reuseVm = JSON.parse(image.reuseVm || "false");
+      image.templateTagsAsParameters = JSON.parse(image.templateTagsAsParameters || "false");
       image.vmPublicIp = JSON.parse(image.vmPublicIp || "false");
       image.deployTarget = image.deployTarget || deployTargets.newGroup;
       if (image.deployTarget === deployTargets.newGroup) {
@@ -577,6 +579,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.storageAccount(storageAccount);
     model.storageAccountType(image.storageAccountType);
     model.template(image.template);
+    model.templateTagsAsParameters(image.templateTagsAsParameters);
     model.agentPoolId(image.agentPoolId);
     model.profileId(image.profileId);
     model.customEnvironmentVariables(image.customEnvironmentVariables);
@@ -625,6 +628,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       storageAccount: model.storageAccount(),
       storageAccountType: model.storageAccountType(),
       template: model.template(),
+      templateTagsAsParameters: model.templateTagsAsParameters(),
       agentPoolId: model.agentPoolId(),
       profileId: model.profileId(),
       customEnvironmentVariables: model.customEnvironmentVariables()

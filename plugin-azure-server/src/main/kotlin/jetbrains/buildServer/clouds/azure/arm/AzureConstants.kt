@@ -128,6 +128,9 @@ class AzureConstants {
     val customEnvironmentVariables: String
         get() = CUSTOM_ENVIRONMENT_VARIABLES
 
+    val templateTagsAsParameters: String
+        get() = TEMPLATE_TAGS_AS_PARAMETERS
+
     companion object {
         const val CLOUD_CODE = "arm"
 
@@ -165,6 +168,7 @@ class AzureConstants {
         const val REGISTRY_PASSWORD = "registryPassword"
         const val PROFILE_ID = "profileId"
         const val CUSTOM_ENVIRONMENT_VARIABLES = "customEnvironmentVariables"
+        const val TEMPLATE_TAGS_AS_PARAMETERS = "templateTagsAsParameters"
 
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"

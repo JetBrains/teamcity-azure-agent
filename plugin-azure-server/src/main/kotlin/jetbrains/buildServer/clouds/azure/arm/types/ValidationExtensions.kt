@@ -95,11 +95,12 @@ fun AzureCloudImageDetails.checkTemplate(exceptions: ArrayList<Throwable>) {
                 val resources = root["resources"] as ArrayNode
                 resources.filterIsInstance<ObjectNode>()
                         .first {
-                            it["type"].asText() == "Microsoft.Compute/virtualMachines" &&
+                            (it["type"].asText() == "Microsoft.Compute/virtualMachines" ||
+                             it["type"].asText() == "Microsoft.Resources/deployments") &&
                                     it["name"].asText() == "[parameters('vmName')]"
                         }
             } catch (e: Exception) {
-                throw CheckedCloudException("No virtual machine resource with name set to 'vmName' parameter", e)
+                throw CheckedCloudException("No virtual machine or deployment resource with name set to 'vmName' parameter", e)
             }
         } catch (e: Throwable) {
             AzureTemplateHandler.LOG.infoAndDebugDetails("Invalid template", e)

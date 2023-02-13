@@ -505,11 +505,39 @@
                     <span class="smallNote">Specify the ARM template.
                         <bs:help
                             urlPrefix="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authoring-templates"
-                            file=""/>
+                            file=""/><br/>
                         In it you must have "vmName" parameter and<br/>
-                        virtual machine with name set to "[parameters('vmName')]".
+                        virtual machine or deployment<br/>
+                        with name set to "[parameters('vmName')]".
                     </span>
                     <span class="error option-error" data-bind="validationMessage: image().template"></span>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Template'">
+                <th class="noBorder"></th>
+                <td>
+                    <input type="checkbox" name="${cons.templateTagsAsParameters}" data-bind="checked: image().templateTagsAsParameters"/>
+                    <label for="${cons.templateTagsAsParameters}">Pass ARM VM tags as parameters</label>
+                    <span class="smallNote">
+                        TeamCity uses resource tags to manage ARM resources.<br/>
+                        When the template represents a virtual machine,<br/>
+                        the tags are added automatically.<br/>
+                        When using linked ARM templates <bs:help
+                            urlPrefix="https://learn.microsoft.com/en-us/azure/azure-resource-manager/templates/linked-templates"
+                            file=""/>, where the template<br/>
+                        provided above represents a deployment,<br/>
+                        the tags need to be provided as parameters<br/>
+                        and assigned in the linked tamplate to the VM like this:<br/>
+                        <code>
+                            "tags": {
+                                "teamcity-profile": "[parameters('teamcity-profile')]",
+                                "teamcity-image-hash": "[parameters('teamcity-image-hash')]",
+                                "teamcity-data-hash": "[parameters('teamcity-data-hash')]",
+                                "teamcity-server": "[parameters('teamcity-server')]",
+                                "teamcity-source": "[parameters('teamcity-source')]"
+                            }
+                        </code>
+                    </span>
                 </td>
             </tr>
             <tr data-bind="if: image().imageType() == 'Container' && image().osType() == 'Linux'">

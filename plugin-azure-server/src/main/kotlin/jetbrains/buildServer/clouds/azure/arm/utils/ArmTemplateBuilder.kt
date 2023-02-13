@@ -30,11 +30,12 @@ import java.util.*
 /**
  * Allows to customize ARM template.
  */
-class ArmTemplateBuilder(template: String) {
+class ArmTemplateBuilder(template: String, tagsAsParameters: Boolean = false) {
 
     private val mapper = ObjectMapper()
     private var root: ObjectNode
     private val parameters = linkedMapOf<String, JsonValue>()
+    private val tagsAsParameters = tagsAsParameters
 
     init {
         mapper.enable(JsonParser.Feature.ALLOW_COMMENTS)
@@ -56,13 +57,23 @@ class ArmTemplateBuilder(template: String) {
     }
 
     fun setTags(resourceName: String, tags: Map<String, String>): ArmTemplateBuilder {
-        val resources = root["resources"] as ArrayNode
-        val resource = resources.filterIsInstance<ObjectNode>()
-                .first { it["name"].asText() == resourceName }
-        val element = (resource["tags"] as? ObjectNode) ?: resource.putObject("tags")
-        element.apply {
+        if (tagsAsParameters)
+        {
+            // Moved to parameters because of incremental ARM templates
             for ((key, value) in tags) {
-                this.put(key, value)
+                this.setParameterValue(key, value);
+            }
+        }
+        else
+        {
+            val resources = root["resources"] as ArrayNode
+            val resource = resources.filterIsInstance<ObjectNode>()
+                    .first { it["name"].asText() == resourceName }
+            val element = (resource["tags"] as? ObjectNode) ?: resource.putObject("tags")
+            element.apply {
+                for ((key, value) in tags) {
+                    this.put(key, value)
+                }
             }
         }
         return this
@@ -154,7 +165,14 @@ class ArmTemplateBuilder(template: String) {
     }
 
     fun setCustomData(customData: String): ArmTemplateBuilder {
-        (root["resources"] as ArrayNode).apply {
+        if (tagsAsParameters)
+        {
+            // Moved to parameters because of incremental ARM templates
+            this.setParameterValue("customData", customData);
+        }
+        else
+        {
+            (root["resources"] as ArrayNode).apply {
             this.filterIsInstance<ObjectNode>()
                     .first { it["name"].asText() == "[parameters('vmName')]" }
                     .apply {
@@ -162,6 +180,7 @@ class ArmTemplateBuilder(template: String) {
                         val osProfile = (properties["osProfile"] as? ObjectNode) ?: properties.putObject("osProfile")
                         osProfile.put("customData", customData)
                     }
+            }
         }
         return this
     }

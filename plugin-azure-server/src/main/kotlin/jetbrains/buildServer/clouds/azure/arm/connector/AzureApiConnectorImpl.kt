@@ -388,7 +388,9 @@ class AzureApiConnectorImpl(
         val template = builder.toString()
         val parameters = builder.serializeParameters()
 
-        createDeployment(groupId, name, template, parameters)
+        val deploymentId = "template-$name"
+
+        createDeployment(groupId, deploymentId, template, parameters)
     }
 
     private suspend fun createContainer(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {

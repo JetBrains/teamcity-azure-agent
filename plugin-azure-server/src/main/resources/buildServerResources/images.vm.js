@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
   });
 
   // Image details
-  var maxLength = 12;
+  var maxLength = 50;
+
+  // Note container can create a storage share with folders like <container-name>-plugins, etc. Max length of such name should be less than 63 characters
+  var containerVmPrefixMaxLength = 50;
+
+  var priceDivider = 100000;
+  var spotPriceDefault = 0.00001;
+
   var deployTargets = {
     specificGroup: 'SpecificGroup',
     newGroup: 'NewGroup',
@@ -72,7 +79,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
     container: 'Container',
     image: 'Image',
     template: 'Template',
-    vhd: 'Vhd'
+    vhd: 'Vhd',
+    galleryImage: 'GalleryImage',
   };
   var osTypes = {
     linux: 'Linux',
@@ -81,6 +89,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   self.deployTarget = ko.observable();
   self.imageType = ko.observable();
+  self.osType = ko.observable();
+  self.spotVm = ko.observable(false);
+  self.enableSpotPrice = ko.observable(false);
 
   var requiredForDeployment = {
     required: {
@@ -112,7 +123,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       required: {
         onlyIf: function () {
           return self.deployTarget() !== deployTargets.instance &&
-            (self.imageType() === imageTypes.image || self.imageType() === imageTypes.container);
+            (self.imageType() === imageTypes.image || self.imageType() === imageTypes.galleryImage || self.imageType() === imageTypes.container);
         }
       }
     }),
@@ -182,7 +193,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
         }
       }
     }),
-    osType: ko.observable().extend({
+    osType: self.osType.extend({
       required: {
         onlyIf: function () {
           return self.imageType() !== imageTypes.template &&
@@ -218,7 +229,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
     registryPassword: ko.observable(),
     storageAccount: ko.observable(),
     storageAccountType: ko.observable(),
-    vmNamePrefix: ko.observable('').trimmed().extend({required: true}).extend({
+    vmNamePrefix: ko.observable('').trimmed().extend({
+      required: {
+        onlyIf: function () {
+          return self.imageType() !== imageTypes.image ||
+            ((self.imageType() === imageTypes.image || self.imageType() === imageTypes.galleryImage) && self.osType() != null)
+        }
+      }
+    }).extend({
       validation: {
         validator: function (value) {
           return self.originalImage && self.originalImage.vmNamePrefix === value || !self.passwords[value];
@@ -226,9 +244,25 @@ function ArmImagesViewModel($, ko, dialog, config) {
         message: 'Name prefix should be unique within subscription'
       }
     }).extend({
-      pattern: {
-        message: 'Name can contain alphanumeric characters, underscore and hyphen',
-        params: /^[a-z][a-z0-9_-]*$/i
+      validation: {
+        validator: function (value) {
+          return ko.validation.rules['pattern'].validator(value, /^[a-z0-9]([-a-z0-9]*[a-z0-9])?$/i) && self.imageType() === imageTypes.container ||
+            self.imageType() !== imageTypes.container;
+        },
+        message: 'Name can contain alphanumeric characters and hyphen'
+      }
+    }).extend({
+      validation: {
+        validator: function (value) {
+          var namePattern = self.osType() === osTypes.linux ? /^[a-z0-9][\.-a-z0-9]*?$/i : /^[a-z0-9][-a-z0-9]*?$/i;
+          return ko.validation.rules['pattern'].validator(value, namePattern) && self.imageType() !== imageTypes.container ||
+            self.imageType() === imageTypes.container;
+        },
+        message: function(params, observable) {
+          return self.osType() === osTypes.linux
+                 ? 'Name can contain alphanumeric characters, hyphen and period'
+                 : 'Name can contain alphanumeric characters and hyphen';
+        }
       }
     }).extend({
       validation: {
@@ -238,6 +272,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
             self.imageType() === imageTypes.container;
         },
         message: 'Please enter no more than ' + maxLength + ' characters.'
+      }
+    }).extend({
+      validation: {
+        validator: function (value) {
+          return !value || value.length <= containerVmPrefixMaxLength ||
+            self.imageType() != imageTypes.container;
+        },
+        message: 'Please enter no more than ' + containerVmPrefixMaxLength + ' characters.'
       }
     }),
     vmPublicIp: ko.observable(false),
@@ -270,7 +312,24 @@ function ArmImagesViewModel($, ko, dialog, config) {
         message: 'Incorrect environment variables format',
         params: /^(((([a-z_][a-z0-9_]*?)=.*?)|\s*))*$/i
       }
+    }),
+    customTags: ko.observable('').extend({
+      pattern: {
+        message: 'Incorrect custom tags format',
+        params: /^(((([^<>%&\\\\?/]*?)=.*?)|\s*))*$/i
+      }
+    }),
+    spotVm: self.spotVm,
+    enableSpotPrice: self.enableSpotPrice,
+    spotPrice: ko.observable().extend({
+      required: {
+        onlyIf: function () {
+          return (self.imageType() === imageTypes.image || self.imageType() === imageTypes.galleryImage) && self.spotVm() && self.enableSpotPrice()
+        }
+      }
     })
+    .extend({min: 0.00001, max: 20000}),
+    enableAcceleratedNetworking: ko.observable(false)
   });
 
   // Data from Azure APIs
@@ -286,7 +345,6 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.storageAccounts = ko.observableArray([]);
   self.agentPools = ko.observableArray([]);
   self.osTypes = ko.observableArray([osTypes.linux, osTypes.windows]);
-  self.osType = ko.observable();
   self.osTypeImage = {
     "Linux": "/img/os/lin-small-bw.png",
     "Windows": "/img/os/win-small-bw.png"
@@ -309,11 +367,18 @@ function ArmImagesViewModel($, ko, dialog, config) {
   ]);
 
   self.imageTypes = ko.observableArray([
-    {id: imageTypes.container, text: "Container (preview)"},
+    {id: imageTypes.container, text: "Container"},
     {id: imageTypes.image, text: "Image"},
+    {id: imageTypes.galleryImage, text: "Shared Image Gallery"},
     {id: imageTypes.template, text: "Template"},
     {id: imageTypes.vhd, text: "VHD"}
   ]);
+
+  self.filteredSourceImages = ko.pureComputed(function() {
+    return ko.utils.arrayFilter(self.sourceImages(), function(sourceImage) {
+      return sourceImage.isGalleryImage === (self.imageType() === imageTypes.galleryImage);
+    });
+  });
 
   // Hidden fields for serialized values
   self.images_data = ko.observable();
@@ -362,6 +427,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.image().deployTarget.subscribe(function (deployTarget) {
     if (deployTarget !== deployTargets.specificGroup) {
       self.image().groupId(null);
+    }
+    if (deployTarget === deployTargets.instance) {
+      self.image().registryUsername("");
+      self.image().registryPassword("");
+      self.image().vmPassword("");
+      self.image().vmUsername("");
     }
   });
 
@@ -467,6 +538,27 @@ function ArmImagesViewModel($, ko, dialog, config) {
     self.subNetworks(subNetworks);
   });
 
+  ko.pureComputed(function() {
+    self.filteredSourceImages();
+    return self.imageType();
+  })
+  .extend({deferred : true, notify: 'always'})
+  .subscribe(function (imageType) {
+    if (imageType === imageTypes.image || imageType === imageTypes.galleryImage) {
+      try {
+        var jImageId = $j("#" + config.imageListControlId);
+        if (!jImageId.length) return;
+        if (jImageId.ufd("instance") === undefined) {
+          BS.enableJQueryDropDownFilter(jImageId, {addEmphasis: true});
+        } else {
+          BS.jQueryDropdown(jImageId, {addEmphasis: true});
+        }
+      } catch(e) {
+        BS.Log.warn(e);
+      }
+    }
+  });
+
   self.images_data.subscribe(function (data) {
     var images = ko.utils.parseJson(data || "[]");
     var saveValue = false;
@@ -490,6 +582,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
         image.region = image.region || self.credentials().region();
       }
       image.imageType = image.imageType || imageTypes.vhd;
+      image.spotVm = JSON.parse(image.spotVm || "false");
+      image.enableSpotPrice = JSON.parse(image.enableSpotPrice || "false");
+      image.enableAcceleratedNetworking = JSON.parse(image.enableAcceleratedNetworking || "false");
     });
 
     self.images(images);
@@ -498,6 +593,14 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   self.passwords_data.subscribe(function (data) {
     self.passwords = ko.utils.parseJson(data || "{}");
+  });
+
+  self.enableSpotPrice.subscribe(function(data) {
+    self.image().spotPrice(spotPriceDefault);
+  });
+
+  self.spotVm.subscribe(function(data) {
+    self.image().enableSpotPrice(false);
   });
 
   // Dialogs
@@ -516,20 +619,31 @@ function ArmImagesViewModel($, ko, dialog, config) {
       groupId: self.getResourceGroup(),
       imageType: imageTypes.container,
       imageId: "jetbrains/teamcity-agent",
-      vmNamePrefix: "teamcity-agent",
+      vmNamePrefix: "tc-agent",
       osType: osTypes.linux,
       maxInstances: 1,
       numberCores: 2,
       memory: 2,
-      customEnvironmentVariables: ""
+      customEnvironmentVariables: "",
+      customTags: "",
+      spotVm: false,
+      enableSpotPrice: false,
+      spotPrice: spotPriceDefault * priceDivider
     };
 
     // Pre-fill collections while loading resources
     var imageId = image.imageId;
-    if (imageId && !ko.utils.arrayFirst(self.sourceImages(), function (item) {
+    if (imageId
+      && (image.imageType === imageTypes.image || image.imageType === imageTypes.galleryImage)
+      && !ko.utils.arrayFirst(self.sourceImages(), function (item) {
         return item.id === imageId;
       })) {
-      self.sourceImages([{id: imageId, text: self.getFileName(imageId), osType: image.osType}]);
+      self.sourceImages([{
+        id: imageId,
+        text: image.imageType === imageTypes.image ? self.getFileName(imageId) : self.getGalleryImageName(imageId),
+        osType: image.osType,
+        isGalleryImage: image.imageType === imageTypes.galleryImage
+      }]);
     }
 
     var instanceId = image.instanceId;
@@ -583,16 +697,27 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.agentPoolId(image.agentPoolId);
     model.profileId(image.profileId);
     model.customEnvironmentVariables(image.customEnvironmentVariables);
+    model.customTags(image.customTags);
+    model.spotVm(image.spotVm);
+    model.enableSpotPrice(image.enableSpotPrice);
+    model.spotPrice(image.spotPrice != null ? image.spotPrice/priceDivider : undefined);
+    model.enableAcceleratedNetworking(image.enableAcceleratedNetworking);
 
-    var key = image.vmNamePrefix;
-    var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
-    if (image.imageType === imageTypes.container) {
-      model.registryPassword(password);
-    } else {
-      model.vmPassword(password);
+    model.registryPassword("");
+    model.vmPassword("");
+    if (image.deployTarget !== deployTargets.instance) {
+      var key = image.vmNamePrefix;
+      var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
+      if (image.imageType === imageTypes.container) {
+        model.registryPassword(password);
+      } else {
+        model.vmPassword(password);
+      }
     }
 
     self.image.errors.showAllMessages(false);
+    ko.validation.group(self.image().vmNamePrefix).showAllMessages();
+
     dialog.showDialog(!self.originalImage);
 
     return false;
@@ -631,7 +756,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
       templateTagsAsParameters: model.templateTagsAsParameters(),
       agentPoolId: model.agentPoolId(),
       profileId: model.profileId(),
-      customEnvironmentVariables: model.customEnvironmentVariables()
+      customEnvironmentVariables: model.customEnvironmentVariables(),
+      customTags: model.customTags(),
+      spotVm: model.spotVm(),
+      enableSpotPrice: model.enableSpotPrice(),
+      spotPrice: model.spotPrice() != null ? Math.trunc(parseFloat(model.spotPrice())*priceDivider) : undefined,
+      enableAcceleratedNetworking: model.enableAcceleratedNetworking()
     };
 
     var originalImage = self.originalImage;
@@ -804,6 +934,21 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }
 
     return "";
+  };
+
+  self.getGalleryImageName = function(imageId) {
+    if (!imageId) return "N/A";
+    var parts = imageId.split("/");
+    var getPart = function(partName) {
+      partName = partName.toUpperCase();
+
+      for(var index = 0; index < parts.length; index++) {
+        var part = parts[index];
+        if (partName === part.toUpperCase()) return (index + 1) < parts.length ? parts[index + 1] : null;
+      }
+      return null;
+    };
+    return getPart("galleries") + "/" + getPart("images") + "/" + (getPart("versions") || "latest");
   };
 
   self.setDefaultTemplate = function () {
@@ -1037,7 +1182,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   function getImages($response) {
     return $response.find("images:eq(0) image").map(function () {
-      return {id: $(this).attr("id"), osType: $(this).attr("osType"), text: $(this).text()};
+      return {
+        id: $(this).attr("id"),
+        osType: $(this).attr("osType"),
+        isGalleryImage: JSON.parse($(this).attr("isGalleryImage")),
+        text: $(this).text()
+      };
     }).get();
   }
 

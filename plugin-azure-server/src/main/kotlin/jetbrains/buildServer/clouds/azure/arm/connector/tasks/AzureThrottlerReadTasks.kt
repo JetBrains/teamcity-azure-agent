@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ class AzureThrottlerReadTasks {
     companion object {
         val FetchResourceGroups = AzureTaskDescriptorImpl(Values.FetchResourceGroups, { FetchResourceGroupsMapTaskImpl() })
         val FetchVirtualMachines = AzureTaskDescriptorImpl(Values.FetchVirtualMachines, { FetchVirtualMachinesTaskImpl() })
-        val FetchInstances = AzureTaskDescriptorImpl(Values.FetchInstances, { FetchInstancesTaskImpl() })
+        val FetchInstances = AzureTaskDescriptorImpl(Values.FetchInstances, { notifications -> FetchInstancesTaskImpl(notifications) })
         val FetchCustomImages = AzureTaskDescriptorImpl(Values.FetchCustomImages, { FetchCustomImagesTaskImpl() })
         val FetchStorageAccounts = AzureTaskDescriptorImpl(Values.FetchStorageAccounts, { FetchStorageAccountsTaskImpl() })
         val FetchVirtualMachineSizes = AzureTaskDescriptorImpl(Values.FetchVirtualMachineSizes, { FetchVirtualMachineSizesTaskImpl() })

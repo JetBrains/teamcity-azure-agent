@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,19 @@ class AzureCloudImageDetails(
         @SerializedName(AzureConstants.TEMPLATE_TAGS_AS_PARAMETERS)
         val templateTagsAsParameters: Boolean,
         @SerializedName(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES)
-        val customEnvironmentVariables: String? = null) : CloudImagePasswordDetails {
+        val customEnvironmentVariables: String? = null,
+        @SerializedName(AzureConstants.CUSTOM_TAGS)
+        val customTags: String? = null,
+        @SerializedName(AzureConstants.SPOT_VM)
+        val spotVm: Boolean?,
+        @SerializedName(AzureConstants.ENABLE_SPOT_PRICE)
+        val enableSpotPrice: Boolean?,
+        @SerializedName(AzureConstants.SPOT_PRICE)
+        val spotPrice: Int?,
+        @SerializedName(AzureConstants.ENABLE_ACCELERATED_NETWORKING)
+        val enableAcceleratedNetworking: Boolean?
+
+) : CloudImagePasswordDetails {
 
     private var myPassword: String? = null
 

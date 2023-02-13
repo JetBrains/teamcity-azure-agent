@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.utils
 
+import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.core.JsonProcessingException
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ArrayNode
@@ -37,6 +38,8 @@ class ArmTemplateBuilder(template: String, tagsAsParameters: Boolean = false) {
     private val tagsAsParameters = tagsAsParameters
 
     init {
+        mapper.enable(JsonParser.Feature.ALLOW_COMMENTS)
+
         val reader = mapper.reader()
         root = reader.readTree(template) as ObjectNode
     }
@@ -244,6 +247,57 @@ class ArmTemplateBuilder(template: String, tagsAsParameters: Boolean = false) {
         return this
     }
 
+    fun addContainerNetwork(): ArmTemplateBuilder {
+        addParameter("networkId", "String", "Virtual Network name for the container.")
+        addParameter("subnetName", "String", "Sub network name for the container.")
+
+        (root["variables"] as ObjectNode).apply {
+            this.put("netProfileName", "[concat(parameters('containerName'), '-net-profile')]")
+            this.put("netConfigName", "[concat(parameters('containerName'), '-net-config')]")
+            this.put("netIPConfigName", "[concat(parameters('containerName'), '-net-ip-config')]")
+            this.put("subnetRef", "[concat(parameters('networkId'), '/subnets/', parameters('subnetName'))]")
+        }
+
+        (root["resources"] as ArrayNode).apply {
+            this.addPOJO(object {
+                val apiVersion = "2019-11-01"
+                val type = "Microsoft.Network/networkProfiles"
+                val name = "[variables('netProfileName')]"
+                val location = "[variables('location')]"
+                val properties = object {
+                    val containerNetworkInterfaceConfigurations = arrayOf(
+                            object {
+                                val name = "[variables('netConfigName')]"
+                                val properties = object {
+                                    val ipConfigurations = arrayOf(
+                                            object {
+                                                val name = "[variables('netIPConfigName')]"
+                                                val properties = object {
+                                                    val subnet = object {
+                                                        val id = "[variables('subnetRef')]"
+                                                    }
+                                                }
+                                            })
+                                }
+                            }
+                    )
+                }
+            })
+        }
+
+        val container = (root["resources"].filterIsInstance<ObjectNode>().first { it["type"].asText() == "Microsoft.ContainerInstance/containerGroups" })
+        container
+                .putArray("dependsOn")
+                .add("[resourceId('Microsoft.Network/networkProfiles', variables('netProfileName'))]")
+
+        val containerNetworkProfileRef = container["properties"] as ObjectNode
+        containerNetworkProfileRef
+                .putObject("networkProfile")
+                .put("id", "[resourceId('Microsoft.Network/networkProfiles', variables('netProfileName'))]")
+
+        return this
+    }
+
     @Suppress("unused", "MayBeConstant")
     fun addContainerVolumes(resourceName: String, name: String): ArmTemplateBuilder {
         val properties = getPropertiesOfResource(resourceName)
@@ -322,6 +376,14 @@ class ArmTemplateBuilder(template: String, tagsAsParameters: Boolean = false) {
         return this
     }
 
+    @Suppress("unused", "MayBeConstant")
+    fun enableAcceleratedNerworking(): ArmTemplateBuilder {
+        val properties = getPropertiesOfResource("type", "Microsoft.Network/networkInterfaces")
+        properties.put("enableAcceleratedNetworking", true)
+
+        return this
+    }
+
     fun serializeParameters(): String {
         return try {
             mapper.writeValueAsString(parameters)
@@ -359,7 +421,23 @@ class ArmTemplateBuilder(template: String, tagsAsParameters: Boolean = false) {
         LOG.debug(deploymentParameters)
     }
 
+    fun setupSpotInstance(enableSpotPrice: Boolean?, spotPrice: Int?): ArmTemplateBuilder {
+        val properties = getPropertiesOfResource("type", "Microsoft.Compute/virtualMachines")
+        properties.put("priority", "Spot")
+        properties.put("evictionPolicy", "Deallocate")
+
+        val billingProfile = properties.putObject("billingProfile")
+        if (enableSpotPrice == true && spotPrice != null) {
+            billingProfile.put("maxPrice", spotPrice / PRICE_DIVIDER)
+        } else {
+            billingProfile.put("maxPrice", -1)
+        }
+
+        return this
+    }
+
     companion object {
         private val LOG = Logger.getInstance(ArmTemplateBuilder::class.java.name)
+        private val PRICE_DIVIDER = 100000F
     }
 }

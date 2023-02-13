@@ -6,7 +6,7 @@
 <%@ taglib prefix="util" uri="/WEB-INF/functions/util" %>
 <%@ taglib prefix="bs" tagdir="/WEB-INF/tags" %>
 <%--
-  ~ Copyright 2000-2020 JetBrains s.r.o.
+  ~ Copyright 2000-2021 JetBrains s.r.o.
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -213,20 +213,23 @@
                     <span class="error option-error" data-bind="validationMessage: image().imageUrl"></span>
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() == 'Image'">
+            <tr data-bind="if: image().imageType() == 'Image' || image().imageType() == 'GalleryImage'">
                 <th class="noBorder"><label for="${cons.imageId}">Source Image: <l:star/></label></th>
                 <td>
-                    <div data-bind="if: sourceImages().length > 0">
-                        <select name="${cons.imageId}" class="longField ignoreModified"
-                                data-bind="options: sourceImages, optionsText: 'text', optionsValue: 'id',
+                    <div data-bind="if: filteredSourceImages().length > 0">
+                        <select name="${cons.imageId}" id="${cons.imageId}" class="longField ignoreModified"
+                                data-bind="options: filteredSourceImages, optionsText: 'text', optionsValue: 'id',
                                     optionsCaption: '<Select>', value: image().imageId"></select>
+                        <!-- ko if: loadingResources -->
+                        <i class="icon-refresh icon-spin"></i>
+                        <!-- /ko -->
                         <span class="osIcon osIconSmall"
                               data-bind="attr: {title: image().osType}, css: {invisible: !image().osType()},
                             style: {backgroundImage: getOsImage(image())}"/>
                         </span>
                         <span class="error option-error" data-bind="validationMessage: image().imageId"></span>
                     </div>
-                    <div data-bind="if: sourceImages().length == 0">
+                    <div data-bind="if: filteredSourceImages().length == 0">
                       <span class="error option-error">
                           No images found in <span data-bind="text: regionName"></span> region
                       </span>
@@ -317,7 +320,7 @@
                     <!-- /ko -->
                 </td>
             </tr>
-            <tr data-bind="if: image().imageType() == 'Image' && image().imageType() != 'Container'">
+            <tr data-bind="if: (image().imageType() == 'Image' || image().imageType() == 'GalleryImage') && image().imageType() != 'Container'">
                 <th class="noBorder"><label for="${cons.storageAccountType}">Disk Type: <l:star/></label></th>
                 <td>
                     <select name="${cons.storageAccountType}" class="longField ignoreModified"
@@ -345,6 +348,47 @@
                     </div>
                 </td>
             </tr>
+            <tr data-bind="if: image().imageType() == 'Image' || image().imageType() == 'GalleryImage'">
+                <th><label for="${cons.spotVm}">Spot instance:</label></th>
+                <td>
+                    <input type="checkbox" name="${cons.spotVm}" data-bind="checked: image().spotVm"/>
+                    <span class="smallNote">
+                        Use Azure capacity at a discounted rate.
+                        <bs:help
+                            urlPrefix="https://docs.microsoft.com/en-us/azure/virtual-machines/spot-vms"
+                            file=""/>
+                    </span>
+                </td>
+            </tr>
+            <tr data-bind="if: (image().imageType() == 'Image' || image().imageType() == 'GalleryImage') && image().spotVm()">
+                <th class="noBorder"></th>
+                <td>
+                    <input type="checkbox" name="${cons.enableSpotPrice}" data-bind="checked: image().enableSpotPrice"/>
+                    <label for="${cons.spotVm}">Evict by price</label>
+                    <span class="smallNote">
+                        Allow evicting virtual machine when the cost of the instance is greater than your max price.
+                        <bs:help
+                            urlPrefix="https://docs.microsoft.com/en-us/azure/virtual-machines/spot-vms#eviction-policy"
+                            file=""/>
+                    </span>
+                </td>
+            </tr>
+            <tr data-bind="if: (image().imageType() == 'Image' || image().imageType() == 'GalleryImage') && image().spotVm() && image().enableSpotPrice()">
+                <th class="noBorder"><label for="${cons.spotPrice}">Max price: <l:star/></label></th>
+                <td>
+                    <div>
+                        <input type="text" name="${cons.spotPrice}" class="longField ignoreModified"
+                               data-bind="textInput: image().spotPrice"/>
+                        <span class="smallNote">
+                            Choose the maximum price per hour you are willing to pay for a single instance of the selected virtual machine size. Prices are in USD ($).
+                            <bs:help
+                                urlPrefix="https://docs.microsoft.com/en-us/azure/virtual-machines/spot-vms#pricing"
+                                file=""/>
+                        </span>
+                        <span class="error option-error" data-bind="validationMessage: image().spotPrice"></span>
+                    </div>
+                </td>
+            </tr>
             <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th><label for="${cons.networkId}">Virtual Network: <l:star/></label></th>
                 <td>
@@ -360,6 +404,44 @@
                     <!-- ko if: loadingResources -->
                     <i class="icon-refresh icon-spin"></i>
                     <!-- /ko -->
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() === 'Container'">
+                <th><label for="${cons.networkId}">Virtual Network: </label></th>
+                <td>
+                    <select name="${cons.networkId}" class="longField ignoreModified"
+                            data-bind="options: networks, optionsText: function (item) {
+                                return item.substring(item.lastIndexOf('/') + 1);
+                            }, optionsCaption: '<Not specified>', value: image().networkId, css: {hidden: networks().length == 0}"></select>
+                    <div class="longField inline-block" data-bind="css: {hidden: networks().length > 0}">
+                        No virtual networks found in <span data-bind="text: regionName"></span> region
+                    </div>
+                    <!-- ko if: loadingResources -->
+                    <i class="icon-refresh icon-spin"></i>
+                    <!-- /ko -->
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() === 'Container'">
+                <th class="noBorder"><label for="${cons.subnetId}">Sub Network: </label></th>
+                <td>
+                    <select name="${cons.subnetId}" class="longField ignoreModified"
+                            data-bind="options: subNetworks, value: image().subnetId, css: {hidden: subNetworks().length == 0}"></select>
+                    <div class="longField inline-block" data-bind="css: {hidden: subNetworks().length > 0 || !image().networkId() }">
+                        <span class="error option-error">
+                            No sub networks found in <span data-bind="text: regionName"></span> region
+                        </span>
+                    </div>
+                    <div class="longField inline-block" data-bind="css: {hidden: image().networkId()}">
+                        Not specified
+                    </div>
+                    <!-- ko if: loadingResources -->
+                    <i class="icon-refresh icon-spin"></i>
+                    <!-- /ko -->
+                    <span class="smallNote" data-bind="css: {smallNote_hidden: !image().networkId()}">Specify subnet which can be used by the dedicated service Microsoft.ContainerInstance/containerGroups.
+                        <bs:help
+                            urlPrefix="https://docs.microsoft.com/en-us/azure/virtual-network/manage-subnet-delegation#delegate-a-subnet-to-an-azure-service"
+                            file=""/>
+                    </span>
                 </td>
             </tr>
             <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
@@ -382,6 +464,13 @@
                 <td>
                     <input type="checkbox" name="${cons.vmPublicIp}" data-bind="checked: image().vmPublicIp"/>
                     <label for="${cons.vmPublicIp}">Create public IP address</label>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
+                <th class="noBorder"></th>
+                <td>
+                  <input type="checkbox" name="${cons.enableAcceleratedNetworking}" data-bind="checked: image().enableAcceleratedNetworking"/>
+                  <label for="${cons.enableAcceleratedNetworking}">Enable accelerated networking</label>
                 </td>
             </tr>
             <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
@@ -452,7 +541,7 @@
                 </td>
             </tr>
             <tr data-bind="if: image().imageType() == 'Container' && image().osType() == 'Linux'">
-                <th class="noBorder"><label for="${cons.storageAccount}">Storage account: </label></th>
+                <th><label for="${cons.storageAccount}">Storage account: </label></th>
                 <td>
                     <select name="${cons.storageAccount}" class="longField ignoreModified"
                             data-bind="options: storageAccounts, value: image().storageAccount,
@@ -470,8 +559,21 @@
                     </span>
                 </td>
             </tr>
+            <tr data-bind="if: image().imageType() != 'Template'" class="advancedSetting">
+                <th><label for="${cons.customTags}">Tags:</label></th>
+                <td>
+                    <div>
+                        <textarea name="${cons.customTags}" class="longField ignoreModified"
+                                  data-bind="textInput: image().customTags">
+                        </textarea>
+                        <span class="smallNote">Newline separated tags in the form of <kbd>KEY=VALUE</kbd> to add to the Azure resources
+                        </span>
+                        <span class="error option-error" data-bind="validationMessage: image().customTags"></span>
+                    </div>
+                </td>
+            </tr>
             <tr data-bind="if: image().imageType() == 'Container'" class="advancedSetting">
-                <th class="noBorder"><label for="${cons.customEnvironmentVariables}">Environment Variables:</label></th>
+                <th><label for="${cons.customEnvironmentVariables}">Environment Variables:</label></th>
                 <td>
                     <div>
                         <textarea name="${cons.customEnvironmentVariables}" class="longField ignoreModified"
@@ -551,6 +653,9 @@
                             <!-- ko if: imageType === 'Image' -->
                             <span data-bind="text: $parent.getFileName(imageId)"></span>
                             <!-- /ko -->
+                            <!-- ko if: imageType === 'GalleryImage' -->
+                            <span data-bind="text: $parent.getGalleryImageName(imageId)"></span>
+                            <!-- /ko -->
                             <!-- ko if: imageType === 'Container' -->
                             <span data-bind="text: imageId"></span>
                             <!-- /ko -->
@@ -597,30 +702,33 @@
 </div>
 
 <script type="text/javascript">
-    BS.ArmImageDialog = OO.extend(BS.AbstractModalDialog, {
-        getContainer: function () {
-            return $('ArmImageDialog');
-        },
-        showDialog: function (addImage) {
-            var action = addImage ? "Add" : "Edit";
-            $j("#ArmImageDialogTitle").text(action + " Image");
-            this.showCentered();
-        }
-    });
+    $j(function () {
+      BS.ArmImageDialog = OO.extend(BS.AbstractModalDialog, {
+          getContainer: function () {
+              return $('ArmImageDialog');
+          },
+          showDialog: function (addImage) {
+              var action = addImage ? "Add" : "Edit";
+              $j("#ArmImageDialogTitle").text(action + " Image");
+              this.showCentered();
+          }
+      });
 
-    $j.when($j.getScript("<c:url value="${resPath}knockout-3.4.0.js"/>").then(function () {
-                return $j.when($j.getScript("<c:url value="${resPath}knockout.validation-2.0.3.js"/>"),
-                        $j.getScript("<c:url value="${resPath}knockout.extenders.js"/>"));
-            }),
-            $j.getScript("<c:url value="${resPath}images.vm.js"/>")
-    ).then(function () {
-        var dialog = document.getElementById("arm-setting");
-        ko.validation.init({insertMessages: false});
-        ko.applyBindings(new ArmImagesViewModel($j, ko, BS.ArmImageDialog, {
-            baseUrl: "<c:url value='${basePath}'/>",
-            projectId: "${projectId}",
-            contextPath: "${contextPath}"
-        }), dialog);
+      $j.when($j.getScript("<c:url value="${resPath}knockout-3.4.0.js"/>").then(function () {
+                  return $j.when($j.getScript("<c:url value="${resPath}knockout.validation-2.0.3.js"/>"),
+                          $j.getScript("<c:url value="${resPath}knockout.extenders.js"/>"));
+              }),
+              $j.getScript("<c:url value="${resPath}images.vm.js"/>")
+      ).then(function () {
+          var dialog = document.getElementById("arm-setting");
+          ko.validation.init({insertMessages: false});
+          ko.applyBindings(new ArmImagesViewModel($j, ko, BS.ArmImageDialog, {
+              baseUrl: "<c:url value='${basePath}'/>",
+              projectId: "${projectId}",
+              contextPath: "${contextPath}",
+              imageListControlId: "${cons.imageId}"
+          }), dialog);
+      });
     });
 </script>
 <table class="runnerFormTable">

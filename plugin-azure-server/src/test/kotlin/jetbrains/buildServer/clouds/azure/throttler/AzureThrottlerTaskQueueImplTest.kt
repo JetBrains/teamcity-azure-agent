@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,21 @@
 package jetbrains.buildServer.clouds.azure.throttler
 
 import io.mockk.*
-import jdk.nashorn.internal.objects.NativeArray
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
-import jetbrains.buildServer.serverSide.TeamCityProperties
 import org.jmock.MockObjectTestCase
 import org.testng.Assert
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
 import rx.Observable
 import rx.Observer
+import rx.Scheduler
 import rx.Single
-import rx.internal.util.SubscriptionList
 import rx.schedulers.Schedulers
 import rx.schedulers.TestScheduler
 import rx.subjects.Subject
 import java.time.Clock
 import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 
 class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
@@ -41,7 +40,8 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     private lateinit var adapter: AzureThrottlerAdapter<Unit>
     private var defaultCacheTimeoutInSeconds: Long = 123
     private lateinit var taskCompletionResultNotifier: AzureThrottlerTaskCompletionResultNotifier
-    private lateinit var requestScheduler: TestScheduler
+    private lateinit var testScheduler : TestScheduler
+    private lateinit var requestScheduler: Scheduler
     private lateinit var requestQueue: AzureThrottlerRequestQueue<Unit, String, String>
     private lateinit var emptyBatch: AzureThrottlerRequestBatch<String, String>
 
@@ -60,6 +60,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         adapter = mockk()
         every { adapter.api } returns Unit
+        every { adapter.name } returns "Adapter"
         every {
             adapter.execute<String>(captureLambda())
         } answers {
@@ -68,7 +69,8 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         taskCompletionResultNotifier = mockk()
 
-        requestScheduler = Schedulers.test()
+        testScheduler = Schedulers.test()
+        requestScheduler = testScheduler
     }
 
     @Test
@@ -148,7 +150,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         val instance = createInstance()
         instance.enableRetryOnThrottle()
         every { requestQueue.addRequest(any(), any(), any(), any(), any(), any(), any()) } returns Unit
-        var localDate = LocalDateTime.now(Clock.systemUTC()).plusSeconds(defaultCacheTimeoutInSeconds)
+        var localDate = LocalDateTime.now(Clock.systemUTC())
 
         // When
         instance.requestTask(AzureThrottlerFlow.Suspended, "Test parameter")
@@ -279,7 +281,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         instance.executeNext()
 
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         every { cacheableTask.getFromCache(any()) } returns "Cached value"
 
@@ -328,7 +330,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify(timeout = 100) {
@@ -409,7 +411,58 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
+
+        // Then
+        verify(timeout = 100) {
+            observer.onNext(match {
+                r -> r.value == "Test response" && r.fromCache == false && r.requestsCount == null
+            } )
+        }
+    }
+
+    @Test(invocationCount = 10)
+    fun shouldPostProcessQueueWhenExecutingWithDelayedSuscription() {
+        // Given
+        task = cacheableTask
+        every { cacheableTask.setCacheTimeout(any()) } returns Unit
+        every { cacheableTask.getFromCache(any()) } returns null
+        every { cacheableTask.needCacheUpdate("Test parameter") } returns false
+        every { cacheableTask.create(Unit, "Test parameter") } returns Observable.just("Test response").delaySubscription(10, TimeUnit.SECONDS, Schedulers.immediate()).toSingle()
+
+        requestScheduler = Schedulers.immediate()
+        val instance = createInstance()
+
+        val tmpObservableSlot = CapturingSlot<Observable<AzureThrottlerAdapterResult<String>>>()
+        every { requestQueue.extractNextBatch() } returns mockk {
+            every { parameter } returns "Test parameter"
+            every { canBeCombined() } returns true
+            every { getMaxAttempNo() } returns 0
+            every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
+            every { count() } returns 1
+            every { hasForceRequest() } returns false
+            every {subscribeTo(capture(tmpObservableSlot), any()) } answers { tmpObservableSlot.captured.subscribe({}) }
+        }
+
+        every { taskCompletionResultNotifier.notifyCompleted(false) } returns Unit
+
+        val observer = mockk<Observer<AzureThrottlerAdapterResult<String>>>()
+        every { observer.onNext(any()) } returns Unit
+        every { observer.onCompleted() } returns Unit
+
+        val observableSlot = CapturingSlot<Observable<AzureThrottlerAdapterResult<String>>>()
+        every { requestQueue.extractBatchFor("Test parameter") } returns mockk {
+            every { parameter } returns "Test parameter"
+            every { canBeCombined() } returns true
+            every { getMaxAttempNo() } returns 0
+            every { getMinCreatedDate() } returns LocalDateTime.of(2020, 2, 11, 0,0,0)
+            every { count() } returns 10
+            every { hasForceRequest() } returns false
+            every {subscribeTo(capture(observableSlot), any()) } answers { observableSlot.captured.subscribe(observer) }
+        }
+
+        // When
+        instance.executeNext()
 
         // Then
         verify(timeout = 100) {
@@ -449,7 +502,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -460,7 +513,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldRespectMaxTaskLiveTimeWhenERetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
@@ -491,7 +544,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -502,7 +555,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldRespectMaxRetryCountWhenRetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
@@ -533,7 +586,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -544,7 +597,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldGetFromCacheWhenRetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
@@ -574,7 +627,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -587,7 +640,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldRetryWhenRetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
@@ -617,7 +670,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
 
         // Then
         verify {
@@ -636,7 +689,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     @Test
     fun shouldDeliverMessageWhenRetrying() {
         // Given
-        val error = ThrottlerRateLimitReachedException(10, "Test error")
+        val error = ThrottlerRateLimitReachedException(10, 1, "Test error")
 
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
@@ -671,7 +724,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // When
         instance.executeNext()
-        requestScheduler.triggerActions()
+        testScheduler.triggerActions()
         retrySubject.captured.onNext(AzureThrottlerAdapterResult("Value from retry", null, false))
 
         // Then

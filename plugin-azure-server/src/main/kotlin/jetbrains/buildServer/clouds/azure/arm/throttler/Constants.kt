@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_RESERVATION = "teamci
 const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_TASK_RESERVATION = "teamcity.clouds.azure.read.throttler.task.reservation"
 const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT = "teamcity.clouds.azure.read.throttler.aggressive.throttler.limit"
 const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_DEFAULT_DELAY_IN_MS = "teamcity.clouds.azure.read.throttler.default.delay"
+const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_MAX_DELAY_IN_MS = "teamcity.clouds.azure.read.throttler.max.delay"
 
 const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT = "teamcity.clouds.azure.action.throttler.random.task.cache.timeout"
 
@@ -32,13 +33,38 @@ const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_RESERVATION = "team
 const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_TASK_RESERVATION = "teamcity.clouds.azure.action.throttler.task.reservation"
 const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT = "teamcity.clouds.azure.action.throttler.aggressive.throttler.limit"
 const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_DEFAULT_DELAY_IN_MS = "teamcity.clouds.azure.action.throttler.default.delay"
+const val TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_MAX_DELAY_IN_MS = "teamcity.clouds.azure.action.throttler.max.delay"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_PERIOD = "teamcity.clouds.azure.throttler.queue.period"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_MAX_RETRY_COUNT = "teamcity.clouds.azure.throttler.queue.max.retry.count"
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_QUEUE_MAX_TASK_LIVE_IN_SEC = "teamcity.clouds.azure.throttler.queue.max.task.live"
+const val TEAMCITY_CLOUDS_AZURE_TASKS_THROTTLER_TIMEOUT_SEC = "teamcity.clouds.azure.tasks.fetchinstances.throttler.timeout"
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_TIMEOUT_SEC = "teamcity.clouds.azure.throttler.task.timeout"
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_CACHE_TIMEOUT_SEC = "teamcity.clouds.azure.throttler.task.cache.timeout"
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC = "teamcity.clouds.azure.throttler.task.throttle.timeout"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_PRINT_DIAGNOSTIC_INTERVAL_SEC = "teamcity.clouds.azure.throttler.print.diagnostic.interval"
+
+const val TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_FULLSTATEAPI_DISABLE = "teamcity.clouds.azure.tasks.fetchinstances.fullstateapi.disable"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_USE_OLD_SCHEDULERS = "teamcity.clouds.azure.throttler.use.old.schedulers"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_COMPUTATION_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.computation.pool.max.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_COMPUTATION_POOL_MIN_SIZE = "teamcity.clouds.azure.throttler.computation.pool.min.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_COMPUTATION_POOL_QUEUE_MAX_SIZE = "teamcity.clouds.azure.throttler.computation.pool.queue.max.size"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.io.pool.max.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_MIN_SIZE = "teamcity.clouds.azure.throttler.io.pool.min.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_IO_POOL_QUEUE_MAX_SIZE = "teamcity.clouds.azure.throttler.io.pool.queue.max.size"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_NEW_THREAD_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.new.thread.pool.max.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_NEW_THREAD_POOL_MIN_SIZE = "teamcity.clouds.azure.throttler.new.thread.pool.min.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_NEW_THREAD_POOL_QUEUE_MAX_SIZE = "teamcity.clouds.azure.throttler.new.thread.pool.queue.max.size"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.dispatcher.pool.max.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MIN_SIZE = "teamcity.clouds.azure.throttler.dispatcher.pool.min.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_QUEUE_MAX_SIZE = "teamcity.clouds.azure.throttler.dispatcher.pool.queue.max.size"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_SCHEDULER_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.scheduler.pool.max.size"
 
 const val DEFAULT_REMAINING_READS_PER_HOUR = 12000L

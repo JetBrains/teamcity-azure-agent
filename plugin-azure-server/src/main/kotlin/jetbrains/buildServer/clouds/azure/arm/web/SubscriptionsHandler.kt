@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,16 @@ package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import kotlinx.coroutines.coroutineScope
+import org.jdom.Content
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
 /**
  * Handles subscriptions request.
  */
-internal class SubscriptionsHandler : AzureResourceHandler() {
-    override suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest) = coroutineScope {
-        val subscriptions = connector.getSubscriptions()
+internal class SubscriptionsHandler : ResourceHandler {
+    override suspend fun handle(request: HttpServletRequest, context: ResourceHandlerContext) = coroutineScope {
+        val subscriptions = context.apiConnector.getSubscriptions()
         val subscriptionsElement = Element("subscriptions")
 
         for ((id, displayName) in subscriptions) {

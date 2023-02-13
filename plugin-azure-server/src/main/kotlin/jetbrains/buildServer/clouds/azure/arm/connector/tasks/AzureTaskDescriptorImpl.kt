@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,13 +18,14 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskDescriptor
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
 
 class AzureTaskDescriptorImpl<I, P, T>(
         override val taskId: I,
-        private val factory: () -> AzureThrottlerTask<Azure, P, T>
+        private val factory: (AzureTaskNotifications) -> AzureThrottlerTask<Azure, P, T>
 ) : AzureTaskDescriptor<Azure, I, P, T> {
-    override fun create(): AzureThrottlerTask<Azure, P, T> {
-        return factory()
+    override fun create(taskNotifications: AzureTaskNotifications): AzureThrottlerTask<Azure, P, T> {
+        return factory(taskNotifications)
     }
 }

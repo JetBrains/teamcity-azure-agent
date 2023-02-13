@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
         details.checkRegion(exceptions)
         details.checkOsType(exceptions)
         details.checkNetworkId(exceptions)
+        details.checkCustomTags(exceptions)
         details.checkResourceGroup(connector, exceptions)
         details.checkServiceExistence("Microsoft.Compute", connector, exceptions)
 
@@ -76,6 +77,13 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
                 .setParameterValue(AzureConstants.OS_TYPE, details.osType!!)
                 .setStorageAccountType(details.storageAccountType)
                 .setParameterValue("vmSize", details.vmSize!!)
+        if (details.spotVm == true) {
+            builder.setupSpotInstance(details.enableSpotPrice, details.spotPrice)
+        }
+        if (details.enableAcceleratedNetworking == true) {
+            builder.enableAcceleratedNerworking()
+        }
+        builder
     }
 
     override suspend fun getImageHash(details: AzureCloudImageDetails) = coroutineScope {

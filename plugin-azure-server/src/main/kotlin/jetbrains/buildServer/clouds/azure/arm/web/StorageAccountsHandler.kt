@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,17 @@ package jetbrains.buildServer.clouds.azure.arm.web
 
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import kotlinx.coroutines.coroutineScope
+import org.jdom.Content
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 
 /**
  * Handles storage accounts request.
  */
-internal class StorageAccountsHandler : AzureResourceHandler() {
-    override suspend fun handle(connector: AzureApiConnector, request: HttpServletRequest) = coroutineScope {
+internal class StorageAccountsHandler : ResourceHandler {
+    override suspend fun handle(request: HttpServletRequest, context: ResourceHandlerContext) = coroutineScope {
         val region = request.getParameter("region")
-        val accounts = connector.getStorageAccounts(region)
+        val accounts = context.apiConnector.getStorageAccounts(region)
 
         val storagesElement = Element("storageAccounts")
         for (account in accounts) {

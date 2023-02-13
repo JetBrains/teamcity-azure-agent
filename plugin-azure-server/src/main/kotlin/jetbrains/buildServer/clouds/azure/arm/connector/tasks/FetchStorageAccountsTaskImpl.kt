@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,11 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
+import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
+import com.microsoft.azure.management.compute.VirtualMachine
+import com.microsoft.azure.management.storage.StorageAccount
+import com.microsoft.azure.management.storage.StorageAccountKey
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
 import rx.Single
 
@@ -33,18 +37,36 @@ class FetchStorageAccountsTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, L
         return api
                 .storageAccounts()
                 .listAsync()
-                .map { storageAccount ->
+                .flatMap { storageAccount ->
+                    storageAccount
+                            .keysAsync
+                            .last()
+                            .materialize()
+                            .filter {
+                                if (it.isOnError) LOG.info("Could not read StorageAccount keys. StorageAccountId: ${storageAccount.id()}. Error: ", it.throwable)
+                                !it.isOnError
+                            }
+                            .dematerialize<List<StorageAccountKey>>()
+                            .map {
+                                storageAccount to it
+                            }
+                }
+                .map { (storageAccount, keys) ->
                     StorageAccountTaskAccountDescriptor(
                             storageAccount.id(),
                             storageAccount.name(),
                             storageAccount.regionName(),
                             storageAccount.resourceGroupName(),
                             storageAccount.skuType().name().toString(),
-                            storageAccount.keys.map { it.value() }
+                            keys.map { it.value() }
                     )
                 }
                 .toList()
                 .last()
                 .toSingle()
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(FetchStorageAccountsTaskImpl::class.java.name)
     }
 }

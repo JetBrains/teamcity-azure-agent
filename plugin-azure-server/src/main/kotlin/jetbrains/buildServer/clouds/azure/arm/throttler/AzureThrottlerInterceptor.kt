@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,6 @@ class AzureThrottlerInterceptor(
 ) : Interceptor {
     private val myThrottlerDelayInMilliseconds = AtomicLong(0)
     private val myRequestsSequenceLength = ThreadLocal<Long>()
-
     override fun intercept(chain: Interceptor.Chain): Response {
         val sleepTime = myThrottlerDelayInMilliseconds.get()
         if (sleepTime != 0L) {
@@ -57,12 +56,12 @@ class AzureThrottlerInterceptor(
 
         increaseRequestsSequenceLength()
 
-        remainingReadsNotifier.notifyRemainingReads(remainingReadsResult)
+        remainingReadsNotifier.notifyRemainingReads(remainingReadsResult, 1)
 
         if (response.code() == RETRY_AFTER_STATUS_CODE) {
             val retryAfterSeconds = getRetryAfterSeconds(response)
             LOG.info("[$name] Azure Resource Manager read/write per hour limit reached. Will retry in: $retryAfterSeconds seconds")
-            throw ThrottlerRateLimitReachedException(retryAfterSeconds ?: DEFAULT_RETRY_AFTER_SECONDS)
+            throw ThrottlerRateLimitReachedException(retryAfterSeconds ?: DEFAULT_RETRY_AFTER_SECONDS, getRequestsSequenceLength())
         }
         return response
     }
@@ -100,12 +99,16 @@ class AzureThrottlerInterceptor(
     private fun getRetryAfterSeconds(response: Response): Long? {
         try {
             val retryAfterHeader = response.header(RETRY_AFTER)
+            LOG.warn("[$name] Retry-After header: $retryAfterHeader")
+
             var retryAfter = 0L
             if (retryAfterHeader != null) {
                 retryAfter = Integer.parseInt(retryAfterHeader).toLong()
             }
             if (retryAfter <= 0) {
                 val bodyContent = content(response.body()) ?: ""
+                LOG.warn("[$name] Retry-After body: $bodyContent")
+
                 var pattern = Pattern.compile(TRY_AGAIN_AFTER_MINUTES_PATTERN, Pattern.CASE_INSENSITIVE)
                 var matcher = pattern.matcher(bodyContent)
                 if (matcher.find()) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import jetbrains.buildServer.BuildProject
 import jetbrains.buildServer.serverSide.agentPools.AgentPool
 import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
 import kotlinx.coroutines.coroutineScope
+import org.jdom.Content
 import org.jdom.Element
 import javax.servlet.http.HttpServletRequest
 import java.lang.reflect.Method
@@ -29,7 +30,7 @@ import java.lang.reflect.Method
  * Handles agent pools request.
  */
 internal class AgentPoolHandler(private val agentPoolManager: AgentPoolManager) : ResourceHandler {
-    override suspend fun handle(request: HttpServletRequest) = coroutineScope {
+    override suspend fun handle(request: HttpServletRequest, context: ResourceHandlerContext) = coroutineScope {
         val projectId: String? = request.getParameter("projectId")
         val agentPoolsElement = Element("agentPools")
 

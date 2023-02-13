@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ Copyright 2000-2020 JetBrains s.r.o.
+  ~ Copyright 2000-2021 JetBrains s.r.o.
   ~
   ~ Licensed under the Apache License, Version 2.0 (the "License");
   ~ you may not use this file except in compliance with the License.
@@ -20,4 +20,9 @@
     <bean class="jetbrains.buildServer.clouds.azure.arm.AzureCloudClientFactory"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.web.SettingsController"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.health.AzureCloudProfileReport"/>
+
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFactoryImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottlerCacheImpl" />
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerSchedulersProviderImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorFactoryImpl"/>
 </beans>

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.Azure
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Observable
 import rx.Single
@@ -27,14 +27,14 @@ data class RestartVirtualMachineTaskParameter(
         val groupId: String,
         val name: String)
 
-class RestartVirtualMachineTaskImpl : AzureThrottlerTaskBaseImpl<Azure, RestartVirtualMachineTaskParameter, Unit>() {
+class RestartVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<Azure, RestartVirtualMachineTaskParameter, Unit>() {
     override fun create(api: Azure, parameter: RestartVirtualMachineTaskParameter): Single<Unit> {
         return api
                 .virtualMachines()
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)
-                .flatMap {
-                    if (it != null) {
-                        it.restartAsync().toObservable<Unit>()
+                .flatMap { vm ->
+                    if (vm != null) {
+                        vm.restartAsync().toObservable<Unit>().doOnCompleted { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
                     } else {
                         LOG.warnAndDebugDetails("Could not find virtual machine to restart. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
                         Observable.just(Unit)

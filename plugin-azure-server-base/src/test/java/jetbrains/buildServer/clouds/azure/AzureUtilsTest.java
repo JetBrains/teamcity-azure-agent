@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 package jetbrains.buildServer.clouds.azure;
 
-import jetbrains.buildServer.clouds.CloudClientParameters;
 import jetbrains.buildServer.clouds.CloudImageParameters;
+import jetbrains.buildServer.clouds.models.FakeCloudClientParameters;
 import jetbrains.buildServer.clouds.models.FakeCloudImageDetails;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -27,13 +27,13 @@ import java.util.Iterator;
 
 /**
  * @author Dmitry.Tretyakov
- *         Date: 3/2/2016
- *         Time: 2:27 PM
+ * Date: 3/2/2016
+ * Time: 2:27 PM
  */
 public class AzureUtilsTest {
     @Test
     public void parseImageDataTest() {
-        final CloudClientParameters parameters = new CloudClientParameters();
+        final FakeCloudClientParameters parameters = new FakeCloudClientParameters();
         parameters.setParameter("images_data", "[{\"data\":\"data\"}]");
         parameters.setParameter("secure:passwords_data", "{\"name\":\"password\"}");
 
@@ -51,7 +51,7 @@ public class AzureUtilsTest {
 
     @Test
     public void parseNewImageDataTest() {
-        final CloudClientParameters parameters = new CloudClientParameters();
+        final FakeCloudClientParameters parameters = new FakeCloudClientParameters();
         parameters.setParameter(CloudImageParameters.SOURCE_IMAGES_JSON, "[{\"data\":\"data\"}]");
         parameters.setParameter("secure:passwords_data", "{\"name\":\"password\"}");
 
@@ -66,4 +66,5 @@ public class AzureUtilsTest {
         Assert.assertEquals(details.getData(), "data");
         Assert.assertEquals(details.getPassword(), "password");
     }
+
 }

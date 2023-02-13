@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -119,8 +119,9 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>,
             final String instanceName = cloudInstance.getName();
             final AbstractInstance instance = realInstances.get(instanceName);
             if (instance == null) {
-              if (cloudInstance.getStatus() != InstanceStatus.SCHEDULED_TO_START && cloudInstance.getStatus() != InstanceStatus.STARTING) {
+              if (cloudInstance.canBeCollected()) {
                 image.removeInstance(cloudInstance.getInstanceId());
+                LOG.info(String.format("Removed instance %s(%x) with status %s", cloudInstance.getName(), cloudInstance.hashCode(), cloudInstance.getStatus()));
               }
               continue;
             }
@@ -133,7 +134,7 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>,
               cloudInstance.setNetworkIdentify(instance.getIpAddress());
             }
           } catch (Exception ex) {
-            LOG.debug("Error processing VM " + cloudInstance.getName() + ": " + ex.toString());
+            LOG.warnAndDebugDetails("Error processing VM " + cloudInstance.getName() + ": " + ex.toString(), ex);
           }
         }
         image.detectNewInstances(realInstances);

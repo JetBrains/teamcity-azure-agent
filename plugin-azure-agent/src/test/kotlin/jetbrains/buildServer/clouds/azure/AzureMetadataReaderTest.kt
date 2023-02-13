@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ class AzureMetadataReaderTest {
     fun testReadMetadata() {
         val m = Mockery()
         val agentConfiguration = m.mock(BuildAgentConfigurationEx::class.java)
+        val spotTerminationChecker = m.mock(SpotInstanceTerminationChecker::class.java)
         val json = FileUtil.readText(File("src/test/resources/metadata.json"))
 
         m.checking(object : Expectations() {
@@ -41,8 +42,8 @@ class AzureMetadataReaderTest {
             }
         })
 
-        val metadata = AzureMetadata.deserializeMetadata(json)
-        AzureMetadataReader(agentConfiguration).updateConfiguration(metadata)
+        val metadata = AzureMetadata.deserializeInstanceMetadata(json)
+        AzureMetadataReader(agentConfiguration, spotTerminationChecker).updateConfiguration(metadata)
 
         m.assertIsSatisfied()
     }

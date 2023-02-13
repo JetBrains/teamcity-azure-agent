@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,14 @@
 
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
+import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.credentials.AzureTokenCredentials
 import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.version.ServerVersionHolder
 import rx.Single
 import java.time.Clock
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicLong
@@ -32,7 +34,7 @@ class AzureThrottlerAdapterImpl (
         azureConfigurable: AzureConfigurableWithNetworkInterceptors,
         credentials: AzureTokenCredentials,
         subscriptionId: String?,
-        name: String
+        override val name: String
 ) : AzureThrottlerAdapter<Azure> {
     @Suppress("JoinDeclarationAndAssignment")
     private var myInterceptor: AzureThrottlerInterceptor
@@ -40,7 +42,7 @@ class AzureThrottlerAdapterImpl (
     private val myAzure: Azure
 
     private val myRemainingReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
-    private val myWindowStartTime = AtomicReference<LocalDateTime>(LocalDateTime.now())
+    private val myWindowStartTime = AtomicReference<LocalDateTime>(LocalDateTime.now(Clock.systemUTC()))
     private val myDefaultReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
 
     init {
@@ -102,18 +104,29 @@ class AzureThrottlerAdapterImpl (
                 }
     }
 
-    override fun notifyRemainingReads(value: Long?) {
+    override fun notifyRemainingReads(value: Long?, requestCount: Long) {
         if (value == null) {
-            val sequenceLength = myInterceptor.getRequestsSequenceLength()
-            if (sequenceLength != null) {
-                myRemainingReads.getAndUpdate { max(0, it - sequenceLength) }
-            }
+            myRemainingReads.getAndUpdate { max(MIN_REMAINING_READS, it - requestCount) }
         } else {
             if (myRemainingReads.get() < value) {
                 myWindowStartTime.set(LocalDateTime.now(Clock.systemUTC()))
             }
-            myRemainingReads.set(value)
+            myRemainingReads.set(max(MIN_REMAINING_READS, value))
             myDefaultReads.getAndUpdate { max(it, myRemainingReads.get()) }
         }
+    }
+
+    override fun logDiagnosticInfo() {
+        LOG.debug("[${name}] info: " +
+                "Default reads: ${getDefaultReads()}, " +
+                "Remaining reads: ${getRemainingReads()}, " +
+                "Window start time: ${getWindowStartDateTime()}, " +
+                "Window width: ${Duration.ofMillis(getWindowWidthInMilliseconds())}, " +
+                "Throttler time: ${Duration.ofMillis(getThrottlerTime())}")
+    }
+
+    companion object {
+        private val LOG = Logger.getInstance(AzureThrottlerAdapterImpl::class.java.name)
+        private val MIN_REMAINING_READS = 1L
     }
 }

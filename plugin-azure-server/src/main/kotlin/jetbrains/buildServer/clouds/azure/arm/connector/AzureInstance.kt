@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,10 +34,6 @@ class AzureInstance internal constructor(private val myName: String) : AbstractI
 
     override fun getName(): String {
         return myName
-    }
-
-    override fun isInitialized(): Boolean {
-        return true
     }
 
     override fun getStartDate(): Date? {
@@ -97,9 +93,8 @@ class AzureInstance internal constructor(private val myName: String) : AbstractI
         private var POWER_STATES: MutableMap<String, InstanceStatus> = TreeMap(String.CASE_INSENSITIVE_ORDER)
 
         init {
-            PROVISIONING_STATES["InProgress"] = InstanceStatus.SCHEDULED_TO_START
-            PROVISIONING_STATES["Creating"] = InstanceStatus.SCHEDULED_TO_START
-            PROVISIONING_STATES["Deleting"] = InstanceStatus.SCHEDULED_TO_STOP
+            PROVISIONING_STATES["Creating"] = InstanceStatus.STARTING
+            PROVISIONING_STATES["Deleting"] = InstanceStatus.STOPPING
             PROVISIONING_STATES["Failed"] = InstanceStatus.ERROR
             PROVISIONING_STATES["Canceled"] = InstanceStatus.ERROR
             PROVISIONING_STATES["Investigation"] = InstanceStatus.STOPPED

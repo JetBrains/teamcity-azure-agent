@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,7 @@
 
 package jetbrains.buildServer.clouds.base;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-
+import jetbrains.buildServer.clouds.CanStartNewInstanceResult;
 import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudImage;
 import jetbrains.buildServer.clouds.CloudInstanceUserData;
@@ -32,6 +28,11 @@ import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.clouds.base.errors.UpdatableCloudErrorProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Sergey.Pak
@@ -78,8 +79,9 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
     return myInstances.get(instanceId);
   }
 
-  public void removeInstance(@NotNull final String instanceId) {
-    myInstances.remove(instanceId);
+  @Nullable
+  public T removeInstance(@NotNull final String instanceId) {
+    return myInstances.remove(instanceId);
   }
 
   public void addInstance(@NotNull final T instance) {
@@ -87,7 +89,13 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
     myInstances.put(instance.getInstanceId(), instance);
   }
 
-  public abstract boolean canStartNewInstance();
+  public boolean addInstanceIfAbsent(@NotNull final T instance) {
+    instance.setImage(this);
+    T result = myInstances.putIfAbsent(instance.getInstanceId(), instance);
+    return result == null;
+  }
+
+    public abstract CanStartNewInstanceResult canStartNewInstance();
 
   public abstract void terminateInstance(@NotNull final T instance);
 

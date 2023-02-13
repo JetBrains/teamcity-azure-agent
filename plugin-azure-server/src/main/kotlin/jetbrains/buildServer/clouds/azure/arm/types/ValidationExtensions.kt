@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,6 +61,14 @@ fun AzureCloudImageDetails.checkCustomEnvironmentVariables(errors: MutableList<T
     customEnvironmentVariables?.let { envVars ->
         if (envVars.lines().map { it.trim() }.filter { it.isNotEmpty() }.any { !AzureUtils.customEnvironmentVariableSyntaxIsValid(it) }) {
             errors.add(CheckedCloudException("Invalid custom environment variables"))
+        }
+    }
+}
+
+fun AzureCloudImageDetails.checkCustomTags(errors: MutableList<Throwable>) {
+    customTags?.let { tags ->
+        if (tags.lines().map { it.trim() }.filter { it.isNotEmpty() }.any { !AzureUtils.customTagSyntaxIsValid(it) }) {
+            errors.add(CheckedCloudException("Invalid custom tags"))
         }
     }
 }

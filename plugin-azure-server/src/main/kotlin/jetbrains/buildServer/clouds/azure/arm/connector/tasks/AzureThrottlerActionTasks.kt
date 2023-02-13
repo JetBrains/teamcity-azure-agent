@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,12 +28,12 @@ class AzureThrottlerActionTasks {
     }
 
     companion object {
-        val CreateDeployment = AzureTaskDescriptorImpl(Values.CreateDeployment, { CreateDeploymentTaskImpl() })
+        val CreateDeployment = AzureTaskDescriptorImpl(Values.CreateDeployment, { notifications -> CreateDeploymentTaskImpl(notifications) })
         val CreateResourceGroup = AzureTaskDescriptorImpl(Values.CreateResourceGroup, { CreateResourceGroupTaskImpl() })
         val DeleteResourceGroup = AzureTaskDescriptorImpl(Values.DeleteResourceGroup, { DeleteResourceGroupTaskImpl() })
-        val StopVirtualMachine = AzureTaskDescriptorImpl(Values.StopVirtualMachine, { StopVirtualMachineTaskImpl() })
-        val StartVirtualMachine = AzureTaskDescriptorImpl(Values.StartVirtualMachine, { StartVirtualMachineTaskImpl() })
-        val RestartVirtualMachine = AzureTaskDescriptorImpl(Values.RestartVirtualMachine, { RestartVirtualMachineTaskImpl() })
-        val DeleteDeployment = AzureTaskDescriptorImpl(Values.DeleteDeployment, { DeleteDeploymentTaskImpl() })
+        val StopVirtualMachine = AzureTaskDescriptorImpl(Values.StopVirtualMachine, { notifications -> StopVirtualMachineTaskImpl(notifications) })
+        val StartVirtualMachine = AzureTaskDescriptorImpl(Values.StartVirtualMachine, { notifications -> StartVirtualMachineTaskImpl(notifications) })
+        val RestartVirtualMachine = AzureTaskDescriptorImpl(Values.RestartVirtualMachine, { notifications -> RestartVirtualMachineTaskImpl(notifications) })
+        val DeleteDeployment = AzureTaskDescriptorImpl(Values.DeleteDeployment, { notifications -> DeleteDeploymentTaskImpl(notifications) })
     }
 }

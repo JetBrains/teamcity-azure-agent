@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -121,11 +121,11 @@ class AzureThrottlerRequestQueueImpl<I, P, T>(
         }
 
         override fun getMaxAttempNo(): Int {
-            return items.maxBy { it.attemptNo }!!.attemptNo
+            return items.maxByOrNull  { it.attemptNo }!!.attemptNo
         }
 
         override fun getMinCreatedDate(): LocalDateTime {
-            return items.minBy { it.createdDate }!!.createdDate
+            return items.minByOrNull { it.createdDate }!!.createdDate
         }
 
         override fun count(): Int {

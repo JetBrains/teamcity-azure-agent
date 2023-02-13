@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,16 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToLong
 
 class AzureThrottlerStrategyImpl<A, I>(
         private val adapter: AzureThrottlerAdapter<A>,
-        private val randomTasksResourceReservationInPercents: Int,
-        private val resourceReservationInPercents: Int,
-        private val enableAggressiveThrottlingWhenReachLimitInPercents: Int,
-        private val defaultAdapterThrottlerTimeInMs: Long
+        private val randomTasksResourceReservationInPercentsFunc: () -> Int,
+        private val resourceReservationInPercentsFunc: () -> Int,
+        private val enableAggressiveThrottlingWhenReachLimitInPercentsFunc: () -> Int,
+        private val defaultAdapterThrottlerTimeInMsFunc: () -> Long,
+        private val maxAdapterThrottlerTimeFunc: () -> Long
 ) : AzureThrottlerStrategy<I> {
     private val myFlow = AtomicReference(AzureThrottlerFlow.Normal)
     private lateinit var taskContainer: AzureThrottlerStrategyTaskContainer<I>
@@ -65,7 +67,7 @@ class AzureThrottlerStrategyImpl<A, I>(
                 val currentRandomResourceRequestsCount = randomTasksStatistics.map { it.resourceRequestsCount ?: 0 }.sum()
                 val totalRandomResourceRequestsReservation = max(
                         currentRandomResourceRequestsCount,
-                        operableResourceRequestsCount * randomTasksResourceReservationInPercents / 100)
+                        operableResourceRequestsCount * randomTasksResourceReservationInPercentsFunc() / 100)
                 val remainingRandomResourceRequestsReservation = max(totalRandomResourceRequestsReservation - currentRandomResourceRequestsCount, 0)
                 val remainingPeriodicalResourceRequestsCount = operableRemainingRequestsCount - remainingRandomResourceRequestsReservation
 
@@ -98,12 +100,12 @@ class AzureThrottlerStrategyImpl<A, I>(
             var adapterThrottlerTimeInMs = 0L
             if (currentRemainingRequestsCount > 0
                     && currentResourceRequestsCount > 0
-                    && currentRemainingRequestsCount * 100 / currentResourceRequestsCount <= 100 - enableAggressiveThrottlingWhenReachLimitInPercents) {
+                    && currentRemainingRequestsCount * 100 / currentResourceRequestsCount <= 100 - enableAggressiveThrottlingWhenReachLimitInPercentsFunc()) {
                 adapterThrottlerTimeInMs = windowWidthInMs / currentRemainingRequestsCount
             } else if (operableRemainingRequestsCount == 0L) {
                 adapterThrottlerTimeInMs = windowWidthInMs
             }
-            var resultAdaptherThrottlerTimeInMs = max(adapterThrottlerTimeInMs, defaultAdapterThrottlerTimeInMs)
+            var resultAdaptherThrottlerTimeInMs = min(max(adapterThrottlerTimeInMs, defaultAdapterThrottlerTimeInMsFunc()), maxAdapterThrottlerTimeFunc())
             adapter.setThrottlerTime(resultAdaptherThrottlerTimeInMs)
         }
         finally {
@@ -130,7 +132,7 @@ class AzureThrottlerStrategyImpl<A, I>(
 
                 val taskList = taskContainer.getTaskList()
                 for (task in taskList) {
-                    task.resetCache(AzureThrottlingSource.Throttler)
+                    task.notifyCompleted(performedRequests)
                 }
             }
         }
@@ -149,7 +151,7 @@ class AzureThrottlerStrategyImpl<A, I>(
             val timeout = retryAfterTimeoutInSeconds + RETRY_AFTER_TIMEOUT_DELTA
             val taskList = taskContainer.getTaskList()
             for (task in taskList) {
-                task.setCacheTimeout(timeout, AzureThrottlingSource.Adapter)
+                task.notifyRateLimitReached(timeout)
             }
         }
         finally {
@@ -162,7 +164,7 @@ class AzureThrottlerStrategyImpl<A, I>(
     }
 
     private fun afterReservation(value: Long) : Long {
-        return (value * (1 - resourceReservationInPercents/100.0)).roundToLong()
+        return (value * (1 - resourceReservationInPercentsFunc()/100.0)).roundToLong()
     }
 
     companion object {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,14 +20,26 @@ import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
 import com.microsoft.azure.management.compute.OperatingSystemTypes
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
+import rx.Observable
 import rx.Single
 
 data class CustomImageTaskImageDescriptor(
         val id: String,
         val name: String,
         val regionName: String,
-        val osState: OperatingSystemStateTypes,
-        val osType: OperatingSystemTypes)
+        val osState: OperatingSystemStateTypes?,
+        val osType: OperatingSystemTypes?,
+        val galleryImageDescriptor: GalleryImageDescriptor?
+)
+
+data class GalleryImageDescriptor (
+    val galleryId: String,
+    val galleryName: String,
+    val imageId: String,
+    val imageName: String,
+    val versionId: String?,
+    val versionName: String
+)
 
 class FetchCustomImagesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<CustomImageTaskImageDescriptor>>() {
     override fun createQuery(api: Azure, parameter: Unit): Single<List<CustomImageTaskImageDescriptor>> {
@@ -39,11 +51,61 @@ class FetchCustomImagesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List
                             it.id(),
                             it.name(),
                             it.regionName(),
-                            it.osDiskImage().osState(),
-                            it.osDiskImage().osType()
+                            it.osDiskImage()?.osState(),
+                            it.osDiskImage()?.osType(),
+                            null
                     )
                 }
-                   .toList()
+                .mergeWith(
+                        api
+                                .galleries()
+                                .listAsync()
+                                .flatMap { gallery -> gallery.listImagesAsync().map { image -> gallery to image } }
+                                .flatMap { (gallery, image) -> image.listVersionsAsync().toList().map { versionList -> Triple(gallery, image, versionList) } }
+                                .flatMap { (gallery, image, versions) ->
+                                    if (versions.isEmpty()) return@flatMap Observable.empty<CustomImageTaskImageDescriptor>()
+
+                                    val galleryName = AzureParsingHelper.getValueFromIdByName(image.id(), "galleries")
+                                    var imageName = galleryName + '/' + image.name()
+
+                                    Observable.from(
+                                            versions.map {
+                                                val name = imageName + '/' + it.name()
+                                                CustomImageTaskImageDescriptor(
+                                                        it.id(),
+                                                        name,
+                                                        image.location(),
+                                                        image.osState(),
+                                                        image.osType(),
+                                                        GalleryImageDescriptor(
+                                                                gallery.id(),
+                                                                gallery.name(),
+                                                                image.id(),
+                                                                image.name(),
+                                                                it.id(),
+                                                                it.name()
+                                                        )
+                                                )
+                                            }).concatWith(Observable.just(
+                                                CustomImageTaskImageDescriptor(
+                                                image.id(),
+                                                imageName + "/latest",
+                                                image.location(),
+                                                image.osState(),
+                                                image.osType(),
+                                                        GalleryImageDescriptor(
+                                                                gallery.id(),
+                                                                gallery.name(),
+                                                                image.id(),
+                                                                image.name(),
+                                                                null,
+                                                                "latest"
+                                                        )
+                                                )
+                                            ))
+                                }
+                )
+                .toList()
                 .last()
                 .toSingle()
     }

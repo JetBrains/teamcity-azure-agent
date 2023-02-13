@@ -40,14 +40,48 @@
       }
     }
   },
+  "variables": {
+      "location": "[resourceGroup().location]"
+  },
   "resources": [
+    /*{
+      "apiVersion": "2019-11-01",
+      "type": "Microsoft.Network/networkProfiles",
+      "name": "[variables('nicName')]",
+      "location": "[variables('location')]",
+      "properties": {
+        "containerNetworkInterfaceConfigurations": [
+          {
+            "name": "[concat(parameters('containerName'), '-config')]",
+            "properties": {
+              "ipConfigurations": [
+                {
+                  "name": "[concat(parameters('containerName'), '-ip-config')]",
+                  "properties": {
+                    "subnet": {
+                      "id": "[variables('subnetRef')]"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },*/
     {
       "name": "[parameters('containerName')]",
       "type": "Microsoft.ContainerInstance/containerGroups",
-      "apiVersion": "2017-08-01-preview",
+      "apiVersion": "2018-10-01",
       "location": "[resourceGroup().location]",
+      /*"dependsOn": [
+        "[resourceId('Microsoft.Network/networkProfiles', variables('nicName'))]"
+      ],*/
       "properties": {
-        "osType": "[parameters('osType')]"
+        "osType": "[parameters('osType')]"/*,
+        "networkProfile": {
+            "id": "[resourceId('Microsoft.Network/networkProfiles', variables('nicName'))]"
+        }*/
       }
     }
   ]

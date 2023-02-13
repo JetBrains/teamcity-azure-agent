@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -161,6 +161,8 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
   public String getNetworkIdentity() {
     return myNetworkIdentify.get();
   }
+
+  public abstract boolean canBeCollected();
 
   @Override
   public String toString() {

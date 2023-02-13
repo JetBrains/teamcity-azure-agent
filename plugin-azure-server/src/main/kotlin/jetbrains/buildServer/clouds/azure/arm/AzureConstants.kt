@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -128,6 +128,21 @@ class AzureConstants {
     val customEnvironmentVariables: String
         get() = CUSTOM_ENVIRONMENT_VARIABLES
 
+    val customTags: String
+        get() = CUSTOM_TAGS
+
+    val spotVm: String
+        get() = SPOT_VM
+
+    val enableSpotPrice: String
+        get() = ENABLE_SPOT_PRICE
+
+    val spotPrice: String
+        get() = SPOT_PRICE
+
+    val enableAcceleratedNetworking: String
+        get() = ENABLE_ACCELERATED_NETWORKING
+
     val templateTagsAsParameters: String
         get() = TEMPLATE_TAGS_AS_PARAMETERS
 
@@ -168,6 +183,11 @@ class AzureConstants {
         const val REGISTRY_PASSWORD = "registryPassword"
         const val PROFILE_ID = "profileId"
         const val CUSTOM_ENVIRONMENT_VARIABLES = "customEnvironmentVariables"
+        const val CUSTOM_TAGS = "customTags"
+        const val SPOT_VM = "spotVm"
+        const val ENABLE_SPOT_PRICE = "enableSpotPrice"
+        const val SPOT_PRICE = "spotPrice"
+        const val ENABLE_ACCELERATED_NETWORKING = "enableAcceleratedNetworking"
         const val TEMPLATE_TAGS_AS_PARAMETERS = "templateTagsAsParameters"
 
         const val TAG_SERVER = "teamcity-server"

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,8 @@
 
 package jetbrains.buildServer.clouds.azure.arm.web
 
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.controllers.BasePropertiesBean
 import org.jdom.Content
 import javax.servlet.http.HttpServletRequest
 
@@ -23,5 +25,7 @@ import javax.servlet.http.HttpServletRequest
  * Request handler.
  */
 internal interface ResourceHandler {
-    suspend fun handle(request: HttpServletRequest): Content
+    suspend fun handle(request: HttpServletRequest, context: ResourceHandlerContext): Content
 }
+
+internal data class ResourceHandlerContext(val apiConnector: AzureApiConnector, val propertiesBean: BasePropertiesBean)

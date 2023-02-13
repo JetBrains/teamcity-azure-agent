@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,13 @@
 package jetbrains.buildServer.clouds.azure.arm.web
 
 import com.intellij.openapi.diagnostic.Logger
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorFactory
+import jetbrains.buildServer.clouds.azure.utils.PluginPropertiesUtil
 import jetbrains.buildServer.controllers.ActionErrors
 import jetbrains.buildServer.controllers.BaseController
+import jetbrains.buildServer.controllers.BasePropertiesBean
 import jetbrains.buildServer.controllers.XmlResponseUtil
+import jetbrains.buildServer.serverSide.IOGuard
 import jetbrains.buildServer.serverSide.SBuildServer
 import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
 import jetbrains.buildServer.web.openapi.PluginDescriptor
@@ -28,6 +32,7 @@ import jetbrains.buildServer.web.util.WebUtil
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
+import org.jdom.Content
 import org.jdom.Element
 import org.springframework.web.servlet.ModelAndView
 import java.io.IOException
@@ -42,7 +47,9 @@ import javax.servlet.http.HttpServletResponse
 class SettingsController(server: SBuildServer,
                          private val myPluginDescriptor: PluginDescriptor,
                          manager: WebControllerManager,
-                         agentPoolManager: AgentPoolManager) : BaseController(server) {
+                         agentPoolManager: AgentPoolManager,
+                         private val myApiConnectorFactory: AzureApiConnectorFactory
+                        ) : BaseController(server) {
 
     private val myHandlers = TreeMap<String, ResourceHandler>(String.CASE_INSENSITIVE_ORDER)
     private val myJspPath: String = myPluginDescriptor.getPluginResourcesPath("settings.jsp")
@@ -68,7 +75,7 @@ class SettingsController(server: SBuildServer,
 
         try {
             if (isPost(request)) {
-                doPost(request, response)
+                IOGuard.allowNetworkCall<Unit,Exception>{doPost(request, response)}
                 return null
             }
 
@@ -93,13 +100,14 @@ class SettingsController(server: SBuildServer,
         val xmlResponse = XmlResponseUtil.newXmlResponse()
         val errors = ActionErrors()
         val resources = request.getParameterValues("resource")
-        val context = request.startAsync(request, response)
+        val asyncContext = request.startAsync(request, response)
+        val context = createContext(request)
 
         resources.filterNotNull().map { resource ->
             myHandlers[resource]?.let { handler ->
                 return@map async {
                     try {
-                        xmlResponse.addContent(handler.handle(request))
+                        xmlResponse.addContent(handler.handle(request, context))
                     } catch (e: Throwable) {
                         LOG.infoAndDebugDetails("Failed to process $resource request", e)
                         errors.addError(resource, e.message)
@@ -112,8 +120,18 @@ class SettingsController(server: SBuildServer,
             errors.serialize(xmlResponse)
         }
 
-        writeResponse(xmlResponse, context.response)
-        context.complete()
+        writeResponse(xmlResponse, asyncContext.response)
+        asyncContext.complete()
+    }
+
+    private fun createContext(request: HttpServletRequest): ResourceHandlerContext {
+        val propsBean = BasePropertiesBean(null)
+        PluginPropertiesUtil.bindPropertiesFromRequest(request, propsBean, true)
+
+        val apiConnector = myApiConnectorFactory.create(propsBean.properties, null)
+        apiConnector.start()
+
+        return ResourceHandlerContext(apiConnector, propsBean)
     }
 
     companion object {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,5 +140,19 @@ class ArmTemplateBuilderTest {
 
         Assert.assertEquals(builder.toString(),
                 """{"resources":[{"type":"Microsoft.ContainerInstance/containerGroups","name":"myName","properties":{"containers":[{"name":"myName","properties":{"environmentVariables":[{"name":"key","value":"value"}]}}]}}]}""")
+    }
+
+    fun testEnableAcceleratedNerworking() {
+        val builder = ArmTemplateBuilder("""{"resources": [
+      {
+        "type": "Microsoft.Network/networkInterfaces",
+        "name": "myName",
+        "properties": {
+        }
+      }
+    ]}""").enableAcceleratedNerworking()
+
+        Assert.assertEquals(builder.toString(),
+                "{\"resources\":[{\"type\":\"Microsoft.Network/networkInterfaces\",\"name\":\"myName\",\"properties\":{\"enableAcceleratedNetworking\":true}}]}")
     }
 }

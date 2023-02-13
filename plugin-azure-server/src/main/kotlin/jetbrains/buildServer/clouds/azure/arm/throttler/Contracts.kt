@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@ import rx.internal.util.SubscriptionList
 import rx.subjects.Subject
 import java.time.Clock
 import java.time.LocalDateTime
+import java.util.concurrent.TimeUnit
 
 enum class AzureThrottlerTaskTimeExecutionType {
     Periodical,
@@ -58,7 +59,7 @@ interface AzureThrottlerTaskParameterEqualityComparer<P> {
 
 interface AzureTaskDescriptor<A, I, P, T> {
     val taskId: I
-    fun create(): AzureThrottlerTask<A, P, T>
+    fun create(taskNotifications: AzureTaskNotifications): AzureThrottlerTask<A, P, T>
 }
 
 interface AzureThrottler<A, I> {
@@ -69,6 +70,7 @@ interface AzureThrottler<A, I> {
     fun <P, T> executeTask(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P) : Single<T>
 
     fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P) : Single<T>
+    fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P, timeout: Long, timeUnit: TimeUnit) : Single<T>
 
     fun isSuspended() : Boolean
 
@@ -89,13 +91,13 @@ interface AzureThrottlerStrategyTaskContainer<I> {
     fun getTaskList(): List<AzureThrottlerStrategyTask<I>>
 }
 
-interface AzureThrottlerStrategyTask<I> {
+interface AzureThrottlerStrategyTask<I> : AzureThrottlerTaskCompletionResultNotifier {
     val taskId: I
     val lastUpdatedDateTime : LocalDateTime
     val timeExecutionType : AzureThrottlerTaskTimeExecutionType
     fun getStatistics(startDateTime: LocalDateTime): AzureThrottlerTaskQueueCallHistoryStatistics
     fun setCacheTimeout(timeoutInSeconds: Long, source: AzureThrottlingSource)
-    fun resetCache(source: AzureThrottlingSource)
+    fun getCacheTimeout() : Long
     fun enableRetryOnThrottle()
 }
 
@@ -154,6 +156,7 @@ data class AzureThrottlerAdapterResult<T>(val value: T?, val requestsCount: Long
 
 interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier {
     val api: A
+    val name: String
     fun setThrottlerTime(milliseconds: Long)
     fun getThrottlerTime(): Long
     fun getWindowWidthInMilliseconds(): Long
@@ -161,10 +164,11 @@ interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier
     fun getRemainingReads(): Long
     fun getDefaultReads(): Long
     fun <T> execute(queryFactory: (A) -> Single<T>): Single<AzureThrottlerAdapterResult<T>>
+    fun logDiagnosticInfo()
 }
 
 interface AzureThrottlerAdapterRemainingReadsNotifier {
-    fun notifyRemainingReads(value: Long?)
+    fun notifyRemainingReads(value: Long?, requestCount: Long)
 }
 
 interface AzureThrottlerTaskCompletionResultNotifier {
@@ -172,7 +176,7 @@ interface AzureThrottlerTaskCompletionResultNotifier {
     fun notifyCompleted(performedRequests: Boolean)
 }
 
-class ThrottlerRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
+class ThrottlerRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, val requestSequenceLength: Long?, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
 
 open class ThrottlerExecutionTaskException(msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
 class ThrottlerMaxTaskLiveException(msg: String? = null, cause: Throwable? = null): ThrottlerExecutionTaskException(msg, cause)

@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
     private var resourceReservationInPercents: Int = 0
     private var randomTasksResourceReservationInPercents: Int = 0
     private var delay : Long = 100L
+    private var maxDelay : Long = 3000L
 
     private lateinit var mockery: Mockery
     private lateinit var adapter: AzureThrottlerAdapter<Unit>
@@ -126,7 +127,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         mockery.checking(
                 object : Expectations() {
                     init {
-                        oneOf(task).resetCache(AzureThrottlingSource.Throttler)
+                        oneOf(task).notifyCompleted(true)
                         oneOf(task).enableRetryOnThrottle()
                     }
                 }
@@ -160,7 +161,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         mockery.checking(
                 object : Expectations() {
                     init {
-                        oneOf(task).setCacheTimeout(123 + 5, AzureThrottlingSource.Adapter)
+                        oneOf(task).notifyRateLimitReached(123 + 5)
                     }
                 }
         )
@@ -223,8 +224,8 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         mockery.checking(
                 object : Expectations() {
                     init {
-                        oneOf(task).setCacheTimeout(0 + 5, AzureThrottlingSource.Adapter)
-                        oneOf(task).setCacheTimeout(123 + 5, AzureThrottlingSource.Adapter)
+                        oneOf(task).notifyRateLimitReached(0 + 5)
+                        oneOf(task).notifyRateLimitReached(123 + 5)
                     }
                 }
         )
@@ -398,10 +399,11 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
     private fun createInstance() : AzureThrottlerStrategyImpl<Unit, String> {
         return AzureThrottlerStrategyImpl(
                 adapter,
-                randomTasksResourceReservationInPercents,
-                resourceReservationInPercents,
-                enableAggressiveThrottlingWhenReachLimitInPercents,
-                delay)
+                { randomTasksResourceReservationInPercents },
+                { resourceReservationInPercents },
+                { enableAggressiveThrottlingWhenReachLimitInPercents },
+                { delay },
+                { maxDelay })
     }
 
     @DataProvider

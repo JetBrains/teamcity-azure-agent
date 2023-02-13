@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,12 +23,12 @@ import jetbrains.buildServer.clouds.CloudState
 import jetbrains.buildServer.clouds.azure.AzureCloudImagesHolder
 import jetbrains.buildServer.clouds.azure.AzureProperties
 import jetbrains.buildServer.clouds.azure.AzureUtils
-import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl
+import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorFactory
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerSchedulersProvider
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.AgentDescription
 import jetbrains.buildServer.serverSide.PropertiesProcessor
-import jetbrains.buildServer.serverSide.ServerSettings
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 
 /**
@@ -36,8 +36,10 @@ import jetbrains.buildServer.web.openapi.PluginDescriptor
  */
 class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                               private val myPluginDescriptor: PluginDescriptor,
-                              private val mySettings: ServerSettings,
-                              private val myImagesHolder: AzureCloudImagesHolder)
+                              private val myImagesHolder: AzureCloudImagesHolder,
+                              private val myApiConnectorFactory: AzureApiConnectorFactory,
+                              private val mySchedulersProvider: AzureThrottlerSchedulersProvider
+)
     : AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudClient>(cloudRegistrar) {
 
     override fun createNewClient(state: CloudState,
@@ -49,17 +51,13 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
     override fun createNewClient(state: CloudState,
                                  params: CloudClientParameters,
                                  errors: Array<TypedCloudErrorInfo>): AzureCloudClient {
+        val parameters = params.listParameterNames().associateWith {
+            params.getParameter(it)!!
+        }
 
+        val apiConnector = myApiConnectorFactory.create(parameters, state.profileId)
 
-        val parameters = params.listParameterNames().map {
-            it to params.getParameter(it)!!
-        }.toMap()
-
-        val apiConnector = AzureApiConnectorImpl(parameters)
-        apiConnector.setServerId(mySettings.serverUUID)
-        apiConnector.setProfileId(state.profileId)
-
-        val azureCloudClient = AzureCloudClient(params, apiConnector, myImagesHolder)
+        val azureCloudClient = AzureCloudClient(params, apiConnector, myImagesHolder, mySchedulersProvider)
         azureCloudClient.updateErrors(*errors)
 
         apiConnector.start()
@@ -100,13 +98,18 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
                     param.getParameter(AzureConstants.PROFILE_ID),
                     (param.getParameter(AzureConstants.REUSE_VM) ?: "").toBoolean(),
                     (param.getParameter(AzureConstants.TEMPLATE_TAGS_AS_PARAMETERS) ?: "").toBoolean(),
-                    param.getParameter(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES))
+                    param.getParameter(AzureConstants.CUSTOM_ENVIRONMENT_VARIABLES),
+                    param.getParameter(AzureConstants.CUSTOM_TAGS),
+                    param.getParameter(AzureConstants.SPOT_VM)?.toBoolean(),
+                    param.getParameter(AzureConstants.ENABLE_SPOT_PRICE)?.toBoolean(),
+                    param.getParameter(AzureConstants.SPOT_PRICE)?.toInt(),
+                    param.getParameter(AzureConstants.ENABLE_ACCELERATED_NETWORKING)?.toBoolean())
         }.apply {
             AzureUtils.setPasswords(AzureCloudImageDetails::class.java, params, this)
         }
     }
 
-    override fun checkClientParams(params: CloudClientParameters): Array<TypedCloudErrorInfo>? {
+    override fun checkClientParams(params: CloudClientParameters): Array<TypedCloudErrorInfo> {
         return emptyArray()
     }
 
@@ -116,7 +119,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
         return "Azure Resource Manager"
     }
 
-    override fun getEditProfileUrl(): String? {
+    override fun getEditProfileUrl(): String {
         return myPluginDescriptor.getPluginResourcesPath("settings.html")
     }
 

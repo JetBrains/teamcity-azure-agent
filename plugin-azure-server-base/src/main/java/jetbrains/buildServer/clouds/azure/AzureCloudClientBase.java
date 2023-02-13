@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 package jetbrains.buildServer.clouds.azure;
 
 import com.intellij.openapi.diagnostic.Logger;
-import java.util.Map;
 import jetbrains.buildServer.clouds.CloudClientParameters;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;
@@ -33,6 +32,8 @@ import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.util.CollectionUtils;
+
+import java.util.Map;
 
 /**
  * Azure cloud client base.
@@ -55,11 +56,6 @@ public abstract class AzureCloudClientBase<G extends AbstractCloudInstance<T>, T
   @Override
   protected UpdateInstancesTask<G, T, ?> createUpdateInstancesTask() {
     return new UpdateInstancesTask<>(myApiConnector, this);
-  }
-
-  @Override
-  public boolean isInitialized() {
-    return true;
   }
 
   @Nullable

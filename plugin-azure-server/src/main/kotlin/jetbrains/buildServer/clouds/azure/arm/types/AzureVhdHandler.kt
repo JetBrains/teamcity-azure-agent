@@ -1,5 +1,5 @@
 /*
- * Copyright 2000-2020 JetBrains s.r.o.
+ * Copyright 2000-2021 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
         details.checkRegion(exceptions)
         details.checkOsType(exceptions)
         details.checkNetworkId(exceptions)
+        details.checkCustomTags(exceptions)
         details.checkResourceGroup(connector, exceptions)
         details.checkServiceExistence("Microsoft.Compute", connector, exceptions)
 
@@ -75,6 +76,12 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
                 .setParameterValue("adminPassword", details.password!!)
                 .setParameterValue(AzureConstants.OS_TYPE, details.osType!!)
                 .setParameterValue("vmSize", details.vmSize!!)
+
+        if (details.enableAcceleratedNetworking == true) {
+            builder.enableAcceleratedNerworking()
+        }
+
+        builder
     }
 
     override suspend fun getImageHash(details: AzureCloudImageDetails) = coroutineScope {

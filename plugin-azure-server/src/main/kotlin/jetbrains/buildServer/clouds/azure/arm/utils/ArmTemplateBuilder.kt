@@ -30,7 +30,7 @@ import java.util.*
 /**
  * Allows to customize ARM template.
  */
-class ArmTemplateBuilder(template: String) {
+class ArmTemplateBuilder(template: String, private val disableTemplateModification: Boolean = false) {
 
     private val mapper = ObjectMapper()
     private var root: ObjectNode
@@ -65,6 +65,14 @@ class ArmTemplateBuilder(template: String) {
                 this.put(key, value)
             }
         }
+        return this
+    }
+
+    fun setVMTags(tags: Map<String, String>): ArmTemplateBuilder {
+        if (!disableTemplateModification) {
+            return setTags("[parameters('vmName')]", tags)
+        }
+        tags.entries.forEach { (name, value) -> setParameterValue(name, value) }
         return this
     }
 
@@ -154,16 +162,19 @@ class ArmTemplateBuilder(template: String) {
     }
 
     fun setCustomData(customData: String): ArmTemplateBuilder {
-        (root["resources"] as ArrayNode).apply {
-            this.filterIsInstance<ObjectNode>()
+        if (!disableTemplateModification) {
+            (root["resources"] as ArrayNode).apply {
+                this.filterIsInstance<ObjectNode>()
                     .first { it["name"].asText() == "[parameters('vmName')]" }
                     .apply {
                         val properties = (this["properties"] as? ObjectNode) ?: this.putObject("properties")
                         val osProfile = (properties["osProfile"] as? ObjectNode) ?: properties.putObject("osProfile")
                         osProfile.put("customData", customData)
                     }
+            }
+            return this
         }
-        return this
+        return setParameterValue("customData", customData)
     }
 
     fun setParameterValue(name: String, value: String): ArmTemplateBuilder {

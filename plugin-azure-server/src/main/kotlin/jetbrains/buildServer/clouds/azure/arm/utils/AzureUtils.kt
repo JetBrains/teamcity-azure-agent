@@ -18,6 +18,7 @@ package jetbrains.buildServer.clouds.azure.arm.utils
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.core.JsonProcessingException
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.util.io.StreamUtil
 import com.microsoft.aad.adal4j.AuthenticationException
@@ -26,6 +27,7 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageType
 import jetbrains.buildServer.util.ExceptionUtil
 import jetbrains.buildServer.util.StringUtil
+import org.springframework.util.StringUtils
 import java.io.IOException
 
 /**
@@ -35,6 +37,18 @@ object AzureUtils {
     private val INVALID_TENANT = Regex("AADSTS90002: No service namespace named '([\\w-]+)' was found in the data store\\.")
     private val ENVIRONMENT_VARIABLE_REGEX = Regex("^([a-z_][a-z0-9_]*?)=.*?\$", RegexOption.IGNORE_CASE)
     private val CUSTOM_TAG_REGEX = Regex("^([^<>%&\\\\?/]*?)=.*?\$", RegexOption.IGNORE_CASE)
+    private val SIMPLE_TEMPLATE_PARAMETERS = listOf(
+        TemplateParameterDescriptor("vmName", "string", true)
+    )
+    private val FULL_TEMPLATE_PARAMETERS = listOf(
+        TemplateParameterDescriptor("vmName", "string", true),
+        TemplateParameterDescriptor("customData", "string", true),
+        TemplateParameterDescriptor("teamcity-profile", "string", true),
+        TemplateParameterDescriptor("teamcity-image-hash", "string", true),
+        TemplateParameterDescriptor("teamcity-data-hash", "string", true),
+        TemplateParameterDescriptor("teamcity-server", "string", true),
+        TemplateParameterDescriptor("teamcity-source", "string", true),
+    )
 
     internal val mapper = ObjectMapper()
 
@@ -94,6 +108,71 @@ object AzureUtils {
         json
     }
 
+    internal fun getTemplateParameters(templateJson: String) : List<TemplateParameterDescriptor> {
+        if (StringUtils.isEmpty(templateJson)) {
+            throw TemplateParameterException("Template is empty")
+        }
+
+        try {
+            val reader = mapper.reader()
+            val template = reader.readTree(templateJson)
+
+            return getTemplateParameters(template)
+        }
+        catch(e: TemplateParameterException) {
+            throw e;
+        }
+        catch(e: Exception) {
+            throw TemplateParameterException("Incorrect template format", e)
+        }
+    }
+
+    internal fun getTemplateParameters(template: JsonNode) : List<TemplateParameterDescriptor> {
+        val parameters = template["parameters"]
+        if (parameters == null) {
+            throw TemplateParameterException("Incorrect tenplate format. No 'paramaters' section")
+        }
+        try {
+            return parameters
+                .fields()
+                .asSequence()
+                .map { (fieldName, value) ->
+                    val type = value.get("type").asText()
+                    val hasValue = value.has("defaultValue")
+                    TemplateParameterDescriptor(fieldName, type, hasValue)
+                }
+                .toList()
+        }
+        catch(e: TemplateParameterException) {
+            throw e;
+        }
+        catch(e: Exception) {
+            throw TemplateParameterException("Incorrect template format", e)
+        }
+    }
+
+    internal fun getProvidedTemplateParameters(disableTemplateModification: Boolean?): List<TemplateParameterDescriptor> =
+        if (disableTemplateModification == true) FULL_TEMPLATE_PARAMETERS else SIMPLE_TEMPLATE_PARAMETERS
+
+    internal fun getMatchedTemplateParameters(
+        providedParameters: List<TemplateParameterDescriptor>,
+        templateParameters: List<TemplateParameterDescriptor>
+    ): List<MatchedTemplateParameterDescriptior> {
+        val parametersMap = providedParameters
+            .map { it.name to MatchedTemplateParameterDescriptior(it, true, false) }
+            .toMap()
+            .toMutableMap()
+
+        templateParameters.forEach {
+            val parameter = parametersMap[it.name]
+            parametersMap[it.name] =  if (parameter != null) {
+                MatchedTemplateParameterDescriptior(parameter, parameter.isProvided, true)
+            } else {
+                MatchedTemplateParameterDescriptior(it, false, false)
+            }
+        }
+        return parametersMap.values.toList()
+    }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -109,4 +188,22 @@ private data class CloudAuthError(val error: String? = null,
 
 fun AzureCloudImageDetails.isVmInstance(): Boolean {
     return deployTarget == AzureCloudDeployTarget.Instance || type != AzureCloudImageType.Container
+}
+
+internal open class TemplateParameterDescriptor(
+    val name: String,
+    val type: String,
+    val hasValue: Boolean
+) {
+}
+
+internal class MatchedTemplateParameterDescriptior(
+    value: TemplateParameterDescriptor,
+    val isProvided: Boolean,
+    val isMatched: Boolean
+) : TemplateParameterDescriptor(value.name, value.type, value.hasValue) {
+}
+class TemplateParameterException : Exception {
+    constructor(message: String) : super(message) { }
+    constructor(message: String, rootCause: Throwable) : super(message, rootCause) { }
 }

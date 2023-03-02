@@ -143,6 +143,9 @@ class AzureConstants {
     val enableAcceleratedNetworking: String
         get() = ENABLE_ACCELERATED_NETWORKING
 
+    val disableTemplateModification: String
+        get() = DISABLE_TEMPLATE_MODIFICATION
+
     companion object {
         const val CLOUD_CODE = "arm"
 
@@ -185,6 +188,7 @@ class AzureConstants {
         const val ENABLE_SPOT_PRICE = "enableSpotPrice"
         const val SPOT_PRICE = "spotPrice"
         const val ENABLE_ACCELERATED_NETWORKING = "enableAcceleratedNetworking"
+        const val DISABLE_TEMPLATE_MODIFICATION = "disableTemplateModification"
 
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"

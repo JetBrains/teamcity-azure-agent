@@ -372,7 +372,7 @@ class AzureApiConnectorImpl(
         val handler = instance.image.handler
         val builder = handler!!.prepareBuilder(instance)
                 .setCustomData(customData)
-                .setTags(VM_RESOURCE_NAME, instance.properties)
+                .setVMTags(instance.properties)
 
         val details = instance.image.imageDetails
         val groupId = when (details.target) {
@@ -1055,9 +1055,7 @@ class AzureApiConnectorImpl(
     companion object {
         private val LOG = Logger.getInstance(AzureApiConnectorImpl::class.java.name)
         private val RESOURCE_GROUP_PATTERN = Regex("resourceGroups/([^/]+)/providers/")
-
         private const val CONTAINER_RESOURCE_NAME = "[parameters('containerName')]"
-        private const val VM_RESOURCE_NAME = "[parameters('vmName')]"
         private val SERVICE_TYPES = mapOf(
                 "Microsoft.ContainerInstance" to listOf("containerGroups"),
                 "Microsoft.Compute" to listOf("virtualMachines")

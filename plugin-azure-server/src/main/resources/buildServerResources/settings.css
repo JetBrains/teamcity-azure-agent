@@ -119,3 +119,70 @@ table.arm-settings .nowrap {
 .AzureImageDialog div.longField {
     width: 30.5em;
 }
+
+.vmTemplateSection {
+  border: 1px solid;
+  border-color: var(--ring-borders-color);
+  border-radius: var(--ring-border-radius);
+}
+
+.vmTemplateSection:hover {
+  border-color: var(--ring-border-hover-color);
+}
+
+.vmTemplateSection:focus {
+  border-color: var(--ring-main-color);
+}
+
+.vmTemplate {
+  border-top: none;
+  border-left: none;
+  border-right: none;
+  min-width: 30em;
+}
+
+.vmTemplate:hover, .vmTemplate:focus-within {
+  border-color: var(--ring-borders-color);
+}
+
+.vmParamsTitle {
+  display: flex;
+  justify-content: space-between;
+
+  font-size: 90%;
+  color: var(--ring-secondary-color);
+  margin: 0 0.5em;
+}
+
+.vmParamsContainer {
+  display: flex;
+  gap: 0.25em;
+  flex-flow: row;
+  flex-wrap: wrap;
+  font-size: 90%;
+  max-width: 28em;
+  margin: 0.25em 0.5em 0.5em;
+}
+
+.vmParam {
+  cursor: default;
+}
+
+.vmParamText {
+  padding: 0 0.25em;
+  white-space: nowrap;
+  color: var(--ring-text-color);
+  background-color: var(--ring-tag-background-color);
+}
+
+.vmParamRed {
+  background-color: var(--ring-error-color);
+  padding-left: 0.5em;
+  border-radius: 5px;
+}
+
+.vmParamGreen {
+  background-color: var(--ring-success-color);
+  padding-left: 0.5em;
+  border-radius: 5px;
+}

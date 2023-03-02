@@ -73,7 +73,8 @@ class AzureCloudImageTest : MockObjectTestCase() {
             spotVm = null,
             enableSpotPrice = null,
             spotPrice = null,
-            enableAcceleratedNetworking = null
+            enableAcceleratedNetworking = null,
+            disableTemplateModification = null
         )
 
         myJob = SupervisorJob()

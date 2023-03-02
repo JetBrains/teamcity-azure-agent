@@ -35,6 +35,32 @@ class ArmTemplateBuilderTest {
                 """{"resources":[{"name":"[parameters('vmName')]","tags":{"teamcity-profile":"profile"}},{"vm":"vm"}]}""")
     }
 
+    fun testSetTemplateVMTags() {
+        val builder = ArmTemplateBuilder("""{
+        "resources": [
+            {"name": "[parameters('vmName')]"},
+            {"vm": "vm"}
+        ]}""").setVMTags(mapOf(AzureConstants.TAG_PROFILE to "profile"))
+
+        Assert.assertEquals(builder.toString(),
+            """{"resources":[{"name":"[parameters('vmName')]","tags":{"teamcity-profile":"profile"}},{"vm":"vm"}]}""")
+    }
+
+    fun testSetTemplateVMTagsWithoutTemplateModification() {
+        val builder = ArmTemplateBuilder("""{
+        "resources": [
+            {"name": "[parameters('vmName')]"},
+            {"vm": "vm"}
+        ]}""",
+        true
+        ).setVMTags(mapOf(AzureConstants.TAG_PROFILE to "profile"))
+
+        Assert.assertEquals(builder.toString(),
+            """{"resources":[{"name":"[parameters('vmName')]"},{"vm":"vm"}]}""")
+        Assert.assertEquals(builder.serializeParameters(),
+            """{"teamcity-profile":{"value":"profile"}}""");
+    }
+
     fun testSetPublicIp() {
         val builder = ArmTemplateBuilder("""{"variables": {}, "resources": [{
       "name": "[variables('nicName')]",
@@ -75,6 +101,35 @@ class ArmTemplateBuilderTest {
         Assert.assertEquals(builder.toString(),
                 """{"resources":[{"name":"[parameters('vmName')]","properties":{"storageProfile":{""" +
                         """"imageReference":{"id":"[parameters('imageId')]"}}}}]}""")
+    }
+
+    fun testSetCustomData() {
+        val builder = ArmTemplateBuilder("""{"resources": [{
+      "name": "[parameters('vmName')]",
+      "properties": {
+        "osProfile": {}
+      }
+    }]}""").setCustomData("test data")
+
+        Assert.assertEquals(builder.toString(),
+            """{"resources":[{"name":"[parameters('vmName')]","properties":{"osProfile":{""" +
+                    """"customData":"test data"}}}]}""")
+    }
+
+    fun testSetCustomDataWithoutTemplateModification() {
+        val builder = ArmTemplateBuilder("""{"resources": [{
+          "name": "[parameters('vmName')]",
+          "properties": {
+            "osProfile": {}
+          }
+        }]}""",
+        true).setCustomData("test data")
+
+        Assert.assertEquals(builder.toString(),
+            """{"resources":[{"name":"[parameters('vmName')]","properties":{"osProfile":{""" +
+                    """}}}]}""")
+        Assert.assertEquals(builder.serializeParameters(),
+            """{"customData":{"value":"test data"}}""")
     }
 
     fun testSetVhdImage() {

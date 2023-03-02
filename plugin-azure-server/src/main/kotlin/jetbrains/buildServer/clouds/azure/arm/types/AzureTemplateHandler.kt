@@ -40,7 +40,7 @@ class AzureTemplateHandler(private val connector: AzureApiConnector) : AzureHand
 
     override suspend fun prepareBuilder(instance: AzureCloudInstance) = coroutineScope {
         val details = instance.image.imageDetails
-        ArmTemplateBuilder(details.template!!)
+        ArmTemplateBuilder(details.template!!, details.disableTemplateModification ?: false)
                 .setParameterValue("vmName", instance.name)
     }
 

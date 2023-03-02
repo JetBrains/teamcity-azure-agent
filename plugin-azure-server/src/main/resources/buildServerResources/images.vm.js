@@ -92,6 +92,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.osType = ko.observable();
   self.spotVm = ko.observable(false);
   self.enableSpotPrice = ko.observable(false);
+  self.template = ko.observable('');
+  self.disableTemplateModification = ko.observable(false);
 
   var requiredForDeployment = {
     required: {
@@ -100,6 +102,72 @@ function ArmImagesViewModel($, ko, dialog, config) {
       }
     }
   };
+
+  self.templateParameters = ko.observableArray([]);
+  ko.pureComputed(function () {
+    return {
+      disableTemplateModification: self.disableTemplateModification(),
+      template: self.template(),
+      type: self.imageType()
+    }
+  })
+  .extend({
+    rateLimit: 200
+  })
+  .subscribe(value => {
+    let requiredParameters =
+      ['vmName']
+      .map(name => Object.assign({}, {
+        name: name,
+        hasValue: true,
+        isProvided: true,
+        isMatched: false
+      }));
+    if (value.disableTemplateModification === true) {
+      ['customData', 'teamcity-profile', 'teamcity-image-hash', 'teamcity-data-hash', 'teamcity-server', 'teamcity-source']
+      .map(name => Object.assign({}, {
+        name: name,
+        hasValue: true,
+        isProvided: true,
+        isMatched: false
+      }))
+      .forEach(p => requiredParameters.push(p));
+    }
+
+    let template;
+    try {
+      template = JSON.parse(value.template);
+    } catch (error) {
+      self.templateParameters(requiredParameters);
+      return;
+    }
+
+    if (!template || !template.parameters) {
+      self.templateParameters(requiredParameters);
+      return;
+    }
+
+    let parametersMap = {};
+    requiredParameters.forEach(p => parametersMap[p.name] = p);
+
+    Object
+    .entries(template.parameters)
+    .forEach(([key, value]) => {
+      let originalParam = parametersMap[key];
+      if (!!originalParam) {
+        originalParam.isMatched = true;
+      } else {
+        parametersMap[key] = Object.assign( {}, {
+          name: key,
+          hasValue: !!value.defaultValue,
+          isProvided: false,
+          isMatched: false
+        });
+      }
+    });
+
+    self.templateParameters(Object.values(parametersMap).sort((a, b) => a.name.localeCompare(b.name)));
+  });
 
   self.image = ko.validatedObservable({
     deployTarget: self.deployTarget.extend(requiredForDeployment),
@@ -134,7 +202,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
         }
       }
     }),
-    template: ko.observable().extend({
+    template: self.template.extend({
       required: {
         onlyIf: function () {
           return self.deployTarget() !== deployTargets.instance &&
@@ -173,6 +241,24 @@ function ArmImagesViewModel($, ko, dialog, config) {
           return true;
         },
         message: "Invalid template value"
+      }
+    }),
+    templateParameters: self.templateParameters.extend({
+      required: {
+        onlyIf: function() {
+          return self.deployTarget() !== deployTargets.instance &&
+            self.imageType() === imageTypes.template;
+        }
+      }
+    }).extend({
+      validation: {
+        validator: function (value) {
+          if (self.imageType() !== imageTypes.template) return true;
+
+          let result = value.reduce((acc, current) => acc || !current.isMatched && (current.isProvided || !current.hasValue), false);
+          return !result;
+        },
+        message: "Invalid template parameters"
       }
     }),
     networkId: ko.observable().extend({
@@ -328,7 +414,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
       }
     })
     .extend({min: 0.00001, max: 20000}),
-    enableAcceleratedNetworking: ko.observable(false)
+    enableAcceleratedNetworking: ko.observable(false),
+    disableTemplateModification: self.disableTemplateModification,
   });
 
   // Data from Azure APIs
@@ -583,6 +670,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       image.spotVm = JSON.parse(image.spotVm || "false");
       image.enableSpotPrice = JSON.parse(image.enableSpotPrice || "false");
       image.enableAcceleratedNetworking = JSON.parse(image.enableAcceleratedNetworking || "false");
+      image.disableTemplateModification = JSON.parse(image.disableTemplateModification || "false");
     });
 
     self.images(images);
@@ -699,6 +787,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.enableSpotPrice(image.enableSpotPrice);
     model.spotPrice(image.spotPrice != null ? image.spotPrice/priceDivider : undefined);
     model.enableAcceleratedNetworking(image.enableAcceleratedNetworking);
+    model.disableTemplateModification(image.disableTemplateModification);
 
     model.registryPassword("");
     model.vmPassword("");
@@ -757,7 +846,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
       spotVm: model.spotVm(),
       enableSpotPrice: model.enableSpotPrice(),
       spotPrice: model.spotPrice() != null ? Math.trunc(parseFloat(model.spotPrice())*priceDivider) : undefined,
-      enableAcceleratedNetworking: model.enableAcceleratedNetworking()
+      enableAcceleratedNetworking: model.enableAcceleratedNetworking(),
+      disableTemplateModification: model.disableTemplateModification()
     };
 
     var originalImage = self.originalImage;
@@ -948,81 +1038,199 @@ function ArmImagesViewModel($, ko, dialog, config) {
   };
 
   self.setDefaultTemplate = function () {
-    self.image().template('{\n' +
-      '  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",\n' +
-      '  "contentVersion": "1.0.0.0",\n' +
-      '  "parameters": {\n' +
-      '    "vmName": {\n' +
-      '      "type": "string",\n' +
-      '      "metadata": {\n' +
-      '        "description": "This is the Virtual Machine name."\n' +
-      '      }\n' +
-      '    }\n' +
-      '  },\n' +
-      '  "variables": {\n' +
-      '    "location": "[resourceGroup().location]",\n' +
-      '    "nicName": "[concat(parameters(\'vmName\'), \'-net\')]",\n' +
-      '    "subnetRef": "..."\n' +
-      '  },\n' +
-      '  "resources": [\n' +
-      '    {\n' +
-      '      "apiVersion": "2016-09-01",\n' +
-      '      "type": "Microsoft.Network/networkInterfaces",\n' +
-      '      "name": "[variables(\'nicName\')]",\n' +
-      '      "location": "[variables(\'location\')]",\n' +
-      '      "properties": {\n' +
-      '        "ipConfigurations": [\n' +
-      '          {\n' +
-      '            "name": "[concat(parameters(\'vmName\'), \'-config\')]",\n' +
-      '            "properties": {\n' +
-      '              "privateIPAllocationMethod": "Dynamic",\n' +
-      '              "subnet": {\n' +
-      '                "id": "[variables(\'subnetRef\')]"\n' +
-      '              }\n' +
-      '            }\n' +
-      '          }\n' +
-      '        ]\n' +
-      '      }\n' +
-      '    },\n' +
-      '    {\n' +
-      '      "apiVersion": "2016-04-30-preview",\n' +
-      '      "type": "Microsoft.Compute/virtualMachines",\n' +
-      '      "name": "[parameters(\'vmName\')]",\n' +
-      '      "location": "[variables(\'location\')]",\n' +
-      '      "dependsOn": [\n' +
-      '        "[concat(\'Microsoft.Network/networkInterfaces/\', variables(\'nicName\'))]"\n' +
-      '      ],\n' +
-      '      "properties": {\n' +
-      '        "hardwareProfile": {\n' +
-      '          "vmSize": "Standard_A2"\n' +
-      '        },\n' +
-      '        "osProfile": {\n' +
-      '          "computerName": "[parameters(\'vmName\')]",\n' +
-      '          "adminUsername": "...",\n' +
-      '          "adminPassword": "..."\n' +
-      '        },\n' +
-      '        "storageProfile": {\n' +
-      '          "osDisk": {\n' +
-      '            "name": "[concat(parameters(\'vmName\'), \'-os\')]",\n' +
-      '            "osType": "...",\n' +
-      '            "caching": "ReadWrite",\n' +
-      '            "createOption": "FromImage"\n' +
-      '          },\n' +
-      '          "imageReference": {\n' +
-      '            "id": "..."\n' +
-      '          }\n' +
-      '        },\n' +
-      '        "networkProfile": {\n' +
-      '          "networkInterfaces": [\n' +
-      '            {\n' +
-      '              "id": "[resourceId(\'Microsoft.Network/networkInterfaces\', variables(\'nicName\'))]"\n' +
-      '            }\n' +
-      '          ]\n' +
-      '        }\n' +
-      '      }\n' +
-      '    }\n' +
-      '  ]\n' +
-      '}\n');
+    if (self.image().disableTemplateModification() !== true) {
+      self.image().template('{\n' +
+        '  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",\n' +
+        '  "contentVersion": "1.0.0.0",\n' +
+        '  "parameters": {\n' +
+        '    "vmName": {\n' +
+        '      "type": "string",\n' +
+        '      "metadata": {\n' +
+        '        "description": "This is the Virtual Machine name."\n' +
+        '      }\n' +
+        '    }\n' +
+        '  },\n' +
+        '  "variables": {\n' +
+        '    "location": "[resourceGroup().location]",\n' +
+        '    "nicName": "[concat(parameters(\'vmName\'), \'-net\')]",\n' +
+        '    "subnetRef": "..."\n' +
+        '  },\n' +
+        '  "resources": [\n' +
+        '    {\n' +
+        '      "apiVersion": "2016-09-01",\n' +
+        '      "type": "Microsoft.Network/networkInterfaces",\n' +
+        '      "name": "[variables(\'nicName\')]",\n' +
+        '      "location": "[variables(\'location\')]",\n' +
+        '      "properties": {\n' +
+        '        "ipConfigurations": [\n' +
+        '          {\n' +
+        '            "name": "[concat(parameters(\'vmName\'), \'-config\')]",\n' +
+        '            "properties": {\n' +
+        '              "privateIPAllocationMethod": "Dynamic",\n' +
+        '              "subnet": {\n' +
+        '                "id": "[variables(\'subnetRef\')]"\n' +
+        '              }\n' +
+        '            }\n' +
+        '          }\n' +
+        '        ]\n' +
+        '      }\n' +
+        '    },\n' +
+        '    {\n' +
+        '      "apiVersion": "2016-04-30-preview",\n' +
+        '      "type": "Microsoft.Compute/virtualMachines",\n' +
+        '      "name": "[parameters(\'vmName\')]",\n' +
+        '      "location": "[variables(\'location\')]",\n' +
+        '      "dependsOn": [\n' +
+        '        "[concat(\'Microsoft.Network/networkInterfaces/\', variables(\'nicName\'))]"\n' +
+        '      ],\n' +
+        '      "properties": {\n' +
+        '        "hardwareProfile": {\n' +
+        '          "vmSize": "Standard_A2"\n' +
+        '        },\n' +
+        '        "osProfile": {\n' +
+        '          "computerName": "[parameters(\'vmName\')]",\n' +
+        '          "adminUsername": "...",\n' +
+        '          "adminPassword": "..."\n' +
+        '        },\n' +
+        '        "storageProfile": {\n' +
+        '          "osDisk": {\n' +
+        '            "name": "[concat(parameters(\'vmName\'), \'-os\')]",\n' +
+        '            "osType": "...",\n' +
+        '            "caching": "ReadWrite",\n' +
+        '            "createOption": "FromImage"\n' +
+        '          },\n' +
+        '          "imageReference": {\n' +
+        '            "id": "..."\n' +
+        '          }\n' +
+        '        },\n' +
+        '        "networkProfile": {\n' +
+        '          "networkInterfaces": [\n' +
+        '            {\n' +
+        '              "id": "[resourceId(\'Microsoft.Network/networkInterfaces\', variables(\'nicName\'))]"\n' +
+        '            }\n' +
+        '          ]\n' +
+        '        }\n' +
+        '      }\n' +
+        '    }\n' +
+        '  ]\n' +
+        '}\n');
+    } else {
+      self.image().template('{\n' +
+        '  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",\n' +
+        '  "contentVersion": "1.0.0.0",\n' +
+        '  "parameters": {\n' +
+        '\t"vmName": {\n' +
+        '\t\t"type": "string"\n' +
+        '\t},\t\n' +
+        '\t"customData" : { \n' +
+        '\t\t"type" : "string"\n' +
+        '\t},\t\n' +
+        '\t"teamcity-profile": {\n' +
+        '\t\t"type": "string"\n' +
+        '\t},\n' +
+        '\t"teamcity-image-hash": {\n' +
+        '\t\t"type": "string"\n' +
+        '\t},\n' +
+        '\t"teamcity-data-hash": {\n' +
+        '\t\t"type": "string"\n' +
+        '\t},\n' +
+        '\t"teamcity-server": {\n' +
+        '\t\t"type": "string"\n' +
+        '\t},\n' +
+        '\t"teamcity-source": {\n' +
+        '\t\t"type": "string"\n' +
+        '\t}\n' +
+        '  },\n' +
+        '  "variables": {\n' +
+        '    "location": "[resourceGroup().location]",\n' +
+        '    "nicName": "[concat(parameters(\'vmName\'), \'-net\')]",\n' +
+        '    "subnetRef": "..."\n' +
+        '  },\n' +
+        '  "resources": [\n' +
+        '    {\n' +
+        '      "apiVersion": "2016-09-01",\n' +
+        '      "type": "Microsoft.Network/networkInterfaces",\n' +
+        '      "name": "[variables(\'nicName\')]",\n' +
+        '      "location": "[variables(\'location\')]",\n' +
+        '      "properties": {\n' +
+        '        "ipConfigurations": [\n' +
+        '          {\n' +
+        '            "name": "[concat(parameters(\'vmName\'), \'-config\')]",\n' +
+        '            "properties": {\n' +
+        '              "privateIPAllocationMethod": "Dynamic",\n' +
+        '              "subnet": {\n' +
+        '                "id": "[variables(\'subnetRef\')]"\n' +
+        '              }\n' +
+        '            }\n' +
+        '          }\n' +
+        '        ]\n' +
+        '      }\n' +
+        '    },\n' +
+        '    {\n' +
+        '      "apiVersion": "2022-03-01",\n' +
+        '      "type": "Microsoft.Compute/virtualMachines",\n' +
+        '      "name": "[parameters(\'vmName\')]",\n' +
+        '      "location": "[variables(\'location\')]",\n' +
+        '      "dependsOn": [\n' +
+        '        "[concat(\'Microsoft.Network/networkInterfaces/\', variables(\'nicName\'))]"\n' +
+        '      ],\n' +
+        '\t  "tags": {\n' +
+        '        "teamcity-profile": "[parameters(\'teamcity-profile\')]",\n' +
+        '        "teamcity-image-hash": "[parameters(\'teamcity-image-hash\')]",\n' +
+        '        "teamcity-data-hash": "[parameters(\'teamcity-data-hash\')]",\n' +
+        '        "teamcity-server": "[parameters(\'teamcity-server\')]",\n' +
+        '        "teamcity-source": "[parameters(\'teamcity-source\')]"\n' +
+        '      },\n' +
+        '      "properties": {\n' +
+        '        "hardwareProfile": {\n' +
+        '          "vmSize": "Standard_A2"\n' +
+        '        },\n' +
+        '        "osProfile": {\n' +
+        '          "computerName": "[parameters(\'vmName\')]",\n' +
+        '          "adminUsername": "...",\n' +
+        '          "adminPassword": "...",\n' +
+        '          "customData": "[parameters(\'customData\')]"\n' +
+        '        },\n' +
+        '        "storageProfile": {\n' +
+        '          "osDisk": {\n' +
+        '            "name": "[concat(parameters(\'vmName\'), \'-os\')]",\n' +
+        '            "osType": "Windows",\n' +
+        '            "caching": "ReadWrite",\n' +
+        '            "createOption": "FromImage"\n' +
+        '          },\n' +
+        '          "imageReference": {\n' +
+        '            "id": "...",\n' +
+        '            "exactVersion": "..."\n' +
+        '          }\n' +
+        '        },\n' +
+        '        "networkProfile": {\n' +
+        '          "networkInterfaces": [\n' +
+        '            {\n' +
+        '              "id": "[resourceId(\'Microsoft.Network/networkInterfaces\', variables(\'nicName\'))]"\n' +
+        '            }\n' +
+        '          ]\n' +
+        '        }\n' +
+        '      }\n' +
+        '    }\n' +
+        '  ]\n' +
+        '}');
+    }
+  };
+
+  self.getTemplatePartameterTooltipText = function(param) {
+    if (param.isProvided && !param.isMatched) {
+      return "Parameter is required but not declared in the template";
+    }
+
+    if (param.isProvided && param.isMatched) {
+      return "Parameter is required and is declared in the template";
+    }
+
+    if (!param.hasValue) {
+      return "Required parameter is declared in the template but is not provided by TeamCity";
+    }
+
+    return "Parameter has a default value";
   };
 
   function saveImages() {

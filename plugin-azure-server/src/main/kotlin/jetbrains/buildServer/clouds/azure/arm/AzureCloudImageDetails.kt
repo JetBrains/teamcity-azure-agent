@@ -86,7 +86,9 @@ class AzureCloudImageDetails(
         @SerializedName(AzureConstants.SPOT_PRICE)
         val spotPrice: Int?,
         @SerializedName(AzureConstants.ENABLE_ACCELERATED_NETWORKING)
-        val enableAcceleratedNetworking: Boolean?
+        val enableAcceleratedNetworking: Boolean?,
+        @SerializedName(AzureConstants.DISABLE_TEMPLATE_MODIFICATION)
+        val disableTemplateModification: Boolean?
 
 ) : CloudImagePasswordDetails {
 

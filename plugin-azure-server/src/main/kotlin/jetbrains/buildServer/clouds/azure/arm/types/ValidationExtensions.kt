@@ -85,21 +85,42 @@ fun AzureCloudImageDetails.checkTemplate(exceptions: ArrayList<Throwable>) {
                 throw CheckedCloudException("Invalid JSON template", e)
             }
 
-            try {
-                root["parameters"]["vmName"] as ObjectNode
+            val templateParameters = try {
+                AzureUtils.getTemplateParameters(root)
             } catch (e: Exception) {
-                throw CheckedCloudException("No 'vmName' parameter", e)
+                throw CheckedCloudException("Invalid JSON template", e)
             }
 
-            try {
-                val resources = root["resources"] as ArrayNode
-                resources.filterIsInstance<ObjectNode>()
+            val providedParameters = AzureUtils.getProvidedTemplateParameters(disableTemplateModification)
+            val matchingErrors = AzureUtils
+                .getMatchedTemplateParameters(providedParameters, templateParameters)
+                .filter {!it.isMatched && (it.isProvided || !it.hasValue) }
+
+            if (matchingErrors.any()) {
+                val message = matchingErrors
+                    .sortedBy { it.name }
+                    .map {
+                        when {
+                            it.isProvided -> "Parameter '${it.name}' is required but not declared in template"
+                            !it.hasValue -> "Parameter '${it.name}' is declared in template but cannot be resolved"
+                            else -> "Problem with '${it.name}' parameter"
+                        }
+                    }
+                    .joinToString(";${System::lineSeparator}")
+                throw CheckedCloudException(message);
+            }
+
+            if (disableTemplateModification != true) {
+                try {
+                    val resources = root["resources"] as ArrayNode
+                    resources.filterIsInstance<ObjectNode>()
                         .first {
                             it["type"].asText() == "Microsoft.Compute/virtualMachines" &&
                                     it["name"].asText() == "[parameters('vmName')]"
                         }
-            } catch (e: Exception) {
-                throw CheckedCloudException("No virtual machine resource with name set to 'vmName' parameter", e)
+                } catch (e: Exception) {
+                    throw CheckedCloudException("No virtual machine resource with name set to 'vmName' parameter", e)
+                }
             }
         } catch (e: Throwable) {
             AzureTemplateHandler.LOG.infoAndDebugDetails("Invalid template", e)

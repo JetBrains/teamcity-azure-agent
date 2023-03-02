@@ -53,7 +53,7 @@
         <c:set var="credentialsValue" value="${propertiesBean.properties[cons.credentialsType]}"/>
         <c:set var="credentialsType" value="${empty credentialsValue ? cons.credentialsService : credentialsValue}"/>
         <c:set var="azureLink">https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-create-service-principal-portal</c:set>
-        <c:set var="wikiLink">https://github.com/JetBrains/teamcity-azure-agent/wiki</c:set>
+          <c:set var="wikiLink">https://github.com/JetBrains/teamcity-azure-agent/wiki</c:set>
         <tr>
             <th><label for="${cons.credentialsType}">Credentials type: <l:star/></label></th>
             <td>
@@ -496,21 +496,42 @@
             <tr data-bind="if: image().imageType() == 'Template'">
                 <th class="noBorder"><label for="${cons.template}">ARM Template: <l:star/></label></th>
                 <td>
-                    <textarea name="${cons.template}" class="longField ignoreModified"
-                              rows="12" cols="49"
-                              data-bind="textInput: image().template"></textarea>
-                    <a href="#" title="Set default template" data-bind="click: setDefaultTemplate">
-                        <i class="icon-file-alt"></i>
-                    </a>
+                    <div class="vmTemplateSection">
+                      <textarea name="${cons.template}" class="longField ignoreModified vmTemplate"
+                                rows="12" cols="49"
+                                data-bind="textInput: image().template"></textarea>
+                      <div class="vmParamsTitle">
+                        Template parameters:
+                        <a href="#" title="Set default template" data-bind="click: setDefaultTemplate">
+                          <i class="icon-file-alt"></i>
+                        </a>
+                      </div>
+                      <div class="vmParamsContainer" data-bind="foreach: templateParameters">
+                        <div class="vmParam" data-bind="css: { vmParamRed: !$data.isMatched && ($data.isProvided || !$data.hasValue), vmParamGreen: $data.isMatched }, attr: {title: $parent.getTemplatePartameterTooltipText($data)}">
+                          <div class="vmParamText" data-bind="text: name"></div>
+                        </div>
+                      </div>
+                    </div>
                     <span class="smallNote">Specify the ARM template.
                         <bs:help
                             urlPrefix="https://docs.microsoft.com/en-us/azure/azure-resource-manager/resource-group-authoring-templates"
                             file=""/>
-                        In it you must have "vmName" parameter and<br/>
-                        virtual machine with name set to "[parameters('vmName')]".
                     </span>
                     <span class="error option-error" data-bind="validationMessage: image().template"></span>
+                    <span class="error option-error" data-bind="validationMessage: image().templateParameters"></span>
                 </td>
+            </tr>
+            <tr data-bind="if: image().imageType() == 'Template'">
+              <th class="noBorder"></th>
+              <td>
+                <input type="checkbox" name="${cons.disableTemplateModification}" data-bind="checked: image().disableTemplateModification"/>
+                <label for="${cons.disableTemplateModification}">Disable template modification</label>
+                <span class="smallNote">When checked TeamCity uses parameters instead of modifying the template.
+                  <bs:help
+                      urlPrefix="https://github.com/JetBrains/teamcity-azure-agent/wiki/Template-Image"
+                      file=""/>
+                </span>
+              </td>
             </tr>
             <tr data-bind="if: image().imageType() == 'Container' && image().osType() == 'Linux'">
                 <th><label for="${cons.storageAccount}">Storage account: </label></th>

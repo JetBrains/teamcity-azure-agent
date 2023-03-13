@@ -130,7 +130,7 @@ object AzureUtils {
     internal fun getTemplateParameters(template: JsonNode) : List<TemplateParameterDescriptor> {
         val parameters = template["parameters"]
         if (parameters == null) {
-            throw TemplateParameterException("Incorrect tenplate format. No 'paramaters' section")
+            throw TemplateParameterException("Incorrect template format. No 'paramaters' section")
         }
         try {
             return parameters

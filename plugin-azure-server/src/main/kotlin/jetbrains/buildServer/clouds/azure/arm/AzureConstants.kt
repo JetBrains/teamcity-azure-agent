@@ -146,6 +146,12 @@ class AzureConstants {
     val disableTemplateModification: String
         get() = DISABLE_TEMPLATE_MODIFICATION
 
+    val userAssignedIdentity: String
+        get() = USER_ASSIGNED_IDENTITY
+    
+    val enableSystemAssignedIdentity: String
+        get() = ENABLE_SYSTEM_ASSIGNED_IDENTITY
+    
     companion object {
         const val CLOUD_CODE = "arm"
 
@@ -189,6 +195,8 @@ class AzureConstants {
         const val SPOT_PRICE = "spotPrice"
         const val ENABLE_ACCELERATED_NETWORKING = "enableAcceleratedNetworking"
         const val DISABLE_TEMPLATE_MODIFICATION = "disableTemplateModification"
+        const val USER_ASSIGNED_IDENTITY = "userAssignedIdentity"
+        const val ENABLE_SYSTEM_ASSIGNED_IDENTITY = "enableSystemAssignedIdentity"
 
         const val TAG_SERVER = "teamcity-server"
         const val TAG_PROFILE = "teamcity-profile"

@@ -83,6 +83,8 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
         if (details.enableAcceleratedNetworking == true) {
             builder.enableAcceleratedNerworking()
         }
+
+        builder.setupIdentity(details.userAssignedIdentity, details.enableSystemAssignedIdentity)
         builder
     }
 

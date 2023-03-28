@@ -384,6 +384,12 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
         }
     }
 
+    private fun getFirstResourceOfType(type: String): ObjectNode {
+        val resources = root["resources"] as ArrayNode
+        val groups = resources.filterIsInstance<ObjectNode>().first { it["type"].asText() == type }
+        return groups
+    }
+
     private fun getPropertiesOfResource(resourceName: String): ObjectNode {
         return getPropertiesOfResource("name", resourceName)
     }
@@ -423,6 +429,26 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
             billingProfile.put("maxPrice", spotPrice / PRICE_DIVIDER)
         } else {
             billingProfile.put("maxPrice", -1)
+        }
+
+        return this
+    }
+
+    fun setupIdentity(userAssignedIdentity: String?, enableSystemAssignedIdentity: Boolean?): ArmTemplateBuilder {
+        val resource = getFirstResourceOfType("Microsoft.Compute/virtualMachines")
+        
+        val hasUserAssigned = !userAssignedIdentity.isNullOrEmpty();
+        val hasSystemAssigned = enableSystemAssignedIdentity == true;
+
+        if (hasUserAssigned || hasSystemAssigned) {
+            val identity = resource.putObject("identity")
+
+            val fullType = if (hasUserAssigned && hasSystemAssigned) "SystemAssigned, UserAssigned" else if (hasSystemAssigned) "SystemAssigned" else "UserAssigned"
+            identity.put("type", fullType)
+
+            if (hasUserAssigned) {
+                identity.putObject("userAssignedIdentities").putObject(userAssignedIdentity)
+            }
         }
 
         return this

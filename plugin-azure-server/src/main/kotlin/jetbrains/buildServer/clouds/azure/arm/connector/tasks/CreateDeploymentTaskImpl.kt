@@ -16,10 +16,8 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.DeploymentMode
-import com.microsoft.azure.management.resources.fluentcore.model.Indexable
 import com.microsoft.azure.management.resources.fluentcore.utils.Utils
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
@@ -31,8 +29,8 @@ data class CreateDeploymentTaskParameter(
         val template: String,
         val params: String)
 
-class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<Azure, CreateDeploymentTaskParameter, Unit>() {
-    override fun create(api: Azure, parameter: CreateDeploymentTaskParameter): Single<Unit> {
+class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, CreateDeploymentTaskParameter, Unit>() {
+    override fun create(api: AzureApi, parameter: CreateDeploymentTaskParameter): Single<Unit> {
         return Utils.rootResource<Deployment>(api
                 .deployments()
                 .define(parameter.deploymentName)

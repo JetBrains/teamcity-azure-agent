@@ -16,9 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.resources.fluentcore.model.Indexable
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Single
 
@@ -26,8 +24,8 @@ data class CreateResourceGroupTaskParameter(
         val groupName: String,
         val region: String)
 
-class CreateResourceGroupTaskImpl : AzureThrottlerTaskBaseImpl<Azure, CreateResourceGroupTaskParameter, Indexable>() {
-    override fun create(api: Azure, parameter: CreateResourceGroupTaskParameter): Single<Indexable> {
+class CreateResourceGroupTaskImpl : AzureThrottlerTaskBaseImpl<AzureApi, CreateResourceGroupTaskParameter, Indexable>() {
+    override fun create(api: AzureApi, parameter: CreateResourceGroupTaskParameter): Single<Indexable> {
         return api
                 .resourceGroups()
                 .define(parameter.groupName)

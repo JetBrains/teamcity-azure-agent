@@ -18,14 +18,13 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.google.common.cache.CacheBuilder
 import com.intellij.openapi.diagnostic.Logger
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.VirtualMachine
-import com.microsoft.azure.management.compute.implementation.*
+import com.microsoft.azure.management.compute.implementation.VirtualMachineInner
+import com.microsoft.azure.management.compute.implementation.VirtualMachineInstanceViewInner
 import com.microsoft.azure.management.containerinstance.ContainerGroup
 import com.microsoft.azure.management.network.PublicIPAddress
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import com.microsoft.azure.management.resources.fluentcore.arm.models.HasId
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
@@ -40,7 +39,6 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
-import kotlin.collections.HashSet
 
 data class FetchInstancesTaskInstanceDescriptor (
         val id: String,
@@ -55,7 +53,7 @@ data class FetchInstancesTaskInstanceDescriptor (
 
 data class FetchInstancesTaskParameter(val serverId: String)
 
-class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerCacheableTask<Azure, FetchInstancesTaskParameter, List<FetchInstancesTaskInstanceDescriptor>> {
+class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerCacheableTask<AzureApi, FetchInstancesTaskParameter, List<FetchInstancesTaskInstanceDescriptor>> {
     private val myTimeoutInSeconds = AtomicLong(60)
     private val myIpAddresses = AtomicReference<Array<IPAddressDescriptor>>(emptyArray())
     private val myInstancesCache = createCache()
@@ -97,7 +95,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         }
     }
 
-    override fun create(api: Azure, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
+    override fun create(api: AzureApi, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
         if (StringUtil.isEmptyOrSpaces(api.subscriptionId())) {
             LOG.debug("FetchInstancesTask returns empty list. Subscription is empty")
             return Single
@@ -176,7 +174,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         return instance
     }
 
-    private fun fetchIPAddresses(api: Azure): Observable<MutableList<IPAddressDescriptor>> {
+    private fun fetchIPAddresses(api: AzureApi): Observable<MutableList<IPAddressDescriptor>> {
         return api
                 .publicIPAddresses()
                 .listAsync()
@@ -194,7 +192,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 }
     }
 
-    private fun updateContainer(api: Azure, containerId: String, isDeleting: Boolean) {
+    private fun updateContainer(api: AzureApi, containerId: String, isDeleting: Boolean) {
         if (isDeleting) {
             myNotifiedInstances.remove(containerId.lowercase())
             myInstancesCache.invalidate(containerId.lowercase())
@@ -294,7 +292,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 }
     }
 
-    private fun updateVirtualMachine(api: Azure, virtualMachine: VirtualMachine) {
+    private fun updateVirtualMachine(api: AzureApi, virtualMachine: VirtualMachine) {
         fetchVirtualMachine(virtualMachine)
                 .withLatestFrom(fetchIPAddresses(api)) { instance, ipList ->
                     myIpAddresses.set(ipList.toTypedArray())
@@ -305,7 +303,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 .await()
     }
 
-    private fun updateVirtualMachine(api: Azure, virtualMachineId: String, isDeleting: Boolean) {
+    private fun updateVirtualMachine(api: AzureApi, virtualMachineId: String, isDeleting: Boolean) {
         if (isDeleting) {
             myNotifiedInstances.remove(virtualMachineId.lowercase())
             myInstancesCache.invalidate(virtualMachineId.lowercase())

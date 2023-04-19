@@ -19,6 +19,8 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.credentials.AzureTokenCredentials
 import com.microsoft.azure.management.Azure
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApiImpl
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.version.ServerVersionHolder
 import rx.Single
@@ -35,11 +37,11 @@ class AzureThrottlerAdapterImpl (
         credentials: AzureTokenCredentials,
         subscriptionId: String?,
         override val name: String
-) : AzureThrottlerAdapter<Azure> {
+) : AzureThrottlerAdapter<AzureApi> {
     @Suppress("JoinDeclarationAndAssignment")
     private var myInterceptor: AzureThrottlerInterceptor
 
-    private val myAzure: Azure
+    private val myAzure: AzureApi
 
     private val myRemainingReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
     private val myWindowStartTime = AtomicReference<LocalDateTime>(LocalDateTime.now(Clock.systemUTC()))
@@ -48,12 +50,13 @@ class AzureThrottlerAdapterImpl (
     init {
         myInterceptor = AzureThrottlerInterceptor(this, name)
 
-        myAzure = azureConfigurable
+        myAzure = AzureApiImpl(
+            azureConfigurable
                 .configureProxy()
                 .withNetworkInterceptor(myInterceptor)
                 .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}")
                 .authenticate(credentials)
-                .withSubscription(subscriptionId)
+                .withSubscription(subscriptionId))
 
         myAzure
                 .deployments()
@@ -62,7 +65,7 @@ class AzureThrottlerAdapterImpl (
                 .azureClient
                 .setLongRunningOperationRetryTimeout(TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_LONG_RUNNING_QUERY_RETRY_TIMEOUT, 30))
     }
-    override val api: Azure
+    override val api: AzureApi
         get() = myAzure
 
 
@@ -92,7 +95,7 @@ class AzureThrottlerAdapterImpl (
         return myRemainingReads.get()
     }
 
-    override fun <T> execute(queryFactory: (Azure) -> Single<T>): Single<AzureThrottlerAdapterResult<T>> {
+    override fun <T> execute(queryFactory: (AzureApi) -> Single<T>): Single<AzureThrottlerAdapterResult<T>> {
         return queryFactory(myAzure)
                 .doOnSubscribe { myInterceptor.onBeginRequestsSequence() }
                 .doOnUnsubscribe { myInterceptor.onEndRequestsSequence() }

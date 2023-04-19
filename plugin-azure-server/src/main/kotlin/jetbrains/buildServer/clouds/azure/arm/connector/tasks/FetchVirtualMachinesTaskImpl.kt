@@ -17,7 +17,6 @@
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.OperatingSystemTypes
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
 import rx.Single
@@ -31,7 +30,7 @@ data class FetchVirtualMachinesTaskVirtualMachineDescriptor(
         val osType: String?)
 
 class FetchVirtualMachinesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<FetchVirtualMachinesTaskVirtualMachineDescriptor>>() {
-    override fun createQuery(api: Azure, parameter: Unit): Single<List<FetchVirtualMachinesTaskVirtualMachineDescriptor>> {
+    override fun createQuery(api: AzureApi, parameter: Unit): Single<List<FetchVirtualMachinesTaskVirtualMachineDescriptor>> {
         return api
                 .virtualMachines()
                 .listAsync()

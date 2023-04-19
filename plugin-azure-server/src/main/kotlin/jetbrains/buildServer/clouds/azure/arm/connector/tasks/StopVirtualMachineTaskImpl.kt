@@ -17,7 +17,6 @@
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
-import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Observable
@@ -27,8 +26,8 @@ data class StopVirtualMachineTaskParameter(
         val groupId: String,
         val name: String)
 
-class StopVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<Azure, StopVirtualMachineTaskParameter, Unit>() {
-    override fun create(api: Azure, parameter: StopVirtualMachineTaskParameter): Single<Unit> {
+class StopVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, StopVirtualMachineTaskParameter, Unit>() {
+    override fun create(api: AzureApi, parameter: StopVirtualMachineTaskParameter): Single<Unit> {
         return api
                 .virtualMachines()
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)

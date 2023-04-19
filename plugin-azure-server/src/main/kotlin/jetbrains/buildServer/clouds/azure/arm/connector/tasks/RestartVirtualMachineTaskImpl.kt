@@ -17,7 +17,6 @@
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
-import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Observable
@@ -27,8 +26,8 @@ data class RestartVirtualMachineTaskParameter(
         val groupId: String,
         val name: String)
 
-class RestartVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<Azure, RestartVirtualMachineTaskParameter, Unit>() {
-    override fun create(api: Azure, parameter: RestartVirtualMachineTaskParameter): Single<Unit> {
+class RestartVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, RestartVirtualMachineTaskParameter, Unit>() {
+    override fun create(api: AzureApi, parameter: RestartVirtualMachineTaskParameter): Single<Unit> {
         return api
                 .virtualMachines()
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)

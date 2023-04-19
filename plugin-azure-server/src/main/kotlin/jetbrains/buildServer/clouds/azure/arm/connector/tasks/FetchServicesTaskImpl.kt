@@ -16,7 +16,6 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.resources.fluentcore.arm.Region
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
 import rx.Single
@@ -24,7 +23,7 @@ import rx.Single
 data class FetchServicesTaskServiceDescriptor(val namespace: String, val resourceTypes: List<String>)
 
 class FetchServicesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<String, List<FetchServicesTaskServiceDescriptor>>() {
-    override fun createQuery(api: Azure, parameter: String): Single<List<FetchServicesTaskServiceDescriptor>> {
+    override fun createQuery(api: AzureApi, parameter: String): Single<List<FetchServicesTaskServiceDescriptor>> {
         return api
                 .providers()
                 .listAsync()

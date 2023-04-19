@@ -16,7 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
-import com.microsoft.azure.management.Azure
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
 import kotlin.reflect.KClass
 
 interface AzureTaskNotifications {
@@ -38,7 +38,7 @@ inline fun <reified TArgs : AzureTaskEventArgs> AzureTaskNotifications.register(
 }
 
 interface AzureTaskEventArgs {
-    val api: Azure
+    val api: AzureApi
 }
 
 interface AzureTaskEventHandler<TArgs : AzureTaskEventArgs> {

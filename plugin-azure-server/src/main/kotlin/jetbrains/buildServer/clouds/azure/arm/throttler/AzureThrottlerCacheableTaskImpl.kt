@@ -17,17 +17,15 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.google.common.cache.CacheBuilder
-import com.microsoft.azure.management.Azure
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import rx.Single
 import java.time.Clock
 import java.time.LocalDateTime
-import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
 
-abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerTaskBaseImpl<Azure, P, T>(), AzureThrottlerCacheableTask<Azure, P, T> {
+abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerTaskBaseImpl<AzureApi, P, T>(), AzureThrottlerCacheableTask<AzureApi, P, T> {
     private val myTimeoutInSeconds = AtomicLong(60)
     private val myCache = createCache()
 
@@ -43,7 +41,7 @@ abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerTaskBas
         myTimeoutInSeconds.set(timeoutInSeconds)
     }
 
-    override fun create(api: Azure, parameter: P): Single<T> {
+    override fun create(api: AzureApi, parameter: P): Single<T> {
         return createQuery(api, parameter)
                 .doOnSuccess {
                     myCache.put(parameter, CacheValue(it, LocalDateTime.now(Clock.systemUTC())))
@@ -68,7 +66,7 @@ abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerTaskBas
         return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC, 5)
     }
 
-    protected abstract fun createQuery(api: Azure, parameter: P): Single<T>
+    protected abstract fun createQuery(api: AzureApi, parameter: P): Single<T>
 
     data class CacheValue<T>(val value: T, val lastUpdatedDateTime : LocalDateTime)
 

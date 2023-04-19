@@ -16,15 +16,13 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.resources.Deployment
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskEventArgs
-import kotlin.reflect.KClass
 
-class AzureTaskVirtualMachineStatusChangedEventArgs(override val api: Azure, val virtualMachine: VirtualMachine) : AzureTaskEventArgs {
+class AzureTaskVirtualMachineStatusChangedEventArgs(override val api: AzureApi, val virtualMachine: VirtualMachine) : AzureTaskEventArgs {
 }
 
-class AzureTaskDeploymentStatusChangedEventArgs(override val api: Azure, val deployment: Deployment, val isDeleting: Boolean = false) : AzureTaskEventArgs {
+class AzureTaskDeploymentStatusChangedEventArgs(override val api: AzureApi, val deployment: Deployment, val isDeleting: Boolean = false) : AzureTaskEventArgs {
 }
 

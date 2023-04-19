@@ -27,8 +27,8 @@ data class StartVirtualMachineTaskParameter(
         val groupId: String,
         val name: String)
 
-class StartVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<Azure, StartVirtualMachineTaskParameter, Unit>() {
-    override fun create(api: Azure, parameter: StartVirtualMachineTaskParameter): Single<Unit> {
+class StartVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, StartVirtualMachineTaskParameter, Unit>() {
+    override fun create(api: AzureApi, parameter: StartVirtualMachineTaskParameter): Single<Unit> {
         return api
                 .virtualMachines()
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)

@@ -23,7 +23,7 @@ import rx.Single
 data class FetchNetworksTaskNetworkDescriptor(val id: String, val regionName: String, val subnets: List<String>)
 
 class FetchNetworksTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<FetchNetworksTaskNetworkDescriptor>>() {
-    override fun createQuery(api: Azure, parameter: Unit): Single<List<FetchNetworksTaskNetworkDescriptor>> {
+    override fun createQuery(api: AzureApi, parameter: Unit): Single<List<FetchNetworksTaskNetworkDescriptor>> {
         return api
                 .networks()
                 .listAsync()

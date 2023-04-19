@@ -16,7 +16,6 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
 import com.microsoft.azure.management.compute.OperatingSystemTypes
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
@@ -42,7 +41,7 @@ data class GalleryImageDescriptor (
 )
 
 class FetchCustomImagesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<CustomImageTaskImageDescriptor>>() {
-    override fun createQuery(api: Azure, parameter: Unit): Single<List<CustomImageTaskImageDescriptor>> {
+    override fun createQuery(api: AzureApi, parameter: Unit): Single<List<CustomImageTaskImageDescriptor>> {
         return api
                 .virtualMachineCustomImages()
                 .listAsync()

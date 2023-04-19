@@ -16,13 +16,11 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
-import com.microsoft.azure.management.Azure
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
 import rx.Single
 
-class DeleteResourceGroupTaskImpl : AzureThrottlerTaskBaseImpl<Azure, String, Unit>() {
-    override fun create(api: Azure, parameter: String): Single<Unit> {
+class DeleteResourceGroupTaskImpl : AzureThrottlerTaskBaseImpl<AzureApi, String, Unit>() {
+    override fun create(api: AzureApi, parameter: String): Single<Unit> {
         return api
                 .resourceGroups()
                 .deleteByNameAsync(parameter)

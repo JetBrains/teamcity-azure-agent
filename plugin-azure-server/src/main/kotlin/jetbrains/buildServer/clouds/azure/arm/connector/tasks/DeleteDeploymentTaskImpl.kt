@@ -17,7 +17,6 @@
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.compute.DiskCreateOptionTypes
 import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId
@@ -32,8 +31,8 @@ data class DeleteDeploymentTaskParameter(
         val resourceGroupName: String,
         val name: String)
 
-class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<Azure, DeleteDeploymentTaskParameter, Unit>() {
-    override fun create(api: Azure, parameter: DeleteDeploymentTaskParameter): Single<Unit> {
+class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, DeleteDeploymentTaskParameter, Unit>() {
+    override fun create(api: AzureApi, parameter: DeleteDeploymentTaskParameter): Single<Unit> {
         return api
                 .deployments()
                 .getByResourceGroupAsync(parameter.resourceGroupName, parameter.name)
@@ -53,7 +52,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                 .toSingle()
     }
 
-    private fun deleteDeployment(deployment: Deployment, api: Azure): Observable<Unit> =
+    private fun deleteDeployment(deployment: Deployment, api: AzureApi): Observable<Unit> =
         cancelRunningDeployment(deployment)
             .flatMap { cancelledDeployment ->
                 getDeployedResources(cancelledDeployment, api)
@@ -71,7 +70,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                     }
             }
 
-    private fun getDeployedResources(deployment: Deployment, api: Azure): Observable<ResourceDescriptor> =
+    private fun getDeployedResources(deployment: Deployment, api: AzureApi): Observable<ResourceDescriptor> =
         deployment
             .deploymentOperations()
             .listAsync()
@@ -105,7 +104,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
             }
             .distinctUntilChanged()
 
-    private fun deleteResource(resourceDescriptor: ResourceDescriptor, api: Azure): Observable<Unit> {
+    private fun deleteResource(resourceDescriptor: ResourceDescriptor, api: AzureApi): Observable<Unit> {
         LOG.debug("Deleting resource ${resourceDescriptor.resourceId}")
 
         return when (resourceDescriptor.resourceType) {

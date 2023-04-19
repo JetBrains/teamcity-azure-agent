@@ -17,7 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.microsoft.azure.credentials.AzureTokenCredentials
-import com.microsoft.azure.management.Azure
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerActionTasks
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerReadTasks
 import kotlinx.coroutines.CoroutineDispatcher
@@ -25,8 +25,8 @@ import rx.Scheduler
 import java.io.Closeable
 
 interface AzureThrottlerFactory {
-    fun createReadRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<Azure, AzureThrottlerReadTasks.Values>
-    fun createActionRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<Azure, AzureThrottlerActionTasks.Values>
+    fun createReadRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<AzureApi, AzureThrottlerReadTasks.Values>
+    fun createActionRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<AzureApi, AzureThrottlerActionTasks.Values>
 }
 
 interface AzureThrottlerSchedulersProvider : Closeable {

@@ -21,7 +21,7 @@ import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableT
 import rx.Single
 
 class FetchResourceGroupsMapTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, Map<String, String>>() {
-    override fun createQuery(api: Azure, parameter: Unit): Single<Map<String, String>> {
+    override fun createQuery(api: AzureApi, parameter: Unit): Single<Map<String, String>> {
         return api
                 .resourceGroups()
                 .listAsync()

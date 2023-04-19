@@ -20,8 +20,8 @@ import com.microsoft.azure.AzureEnvironment
 import com.microsoft.azure.credentials.ApplicationTokenCredentials
 import com.microsoft.azure.credentials.AzureTokenCredentials
 import com.microsoft.azure.credentials.MSICredentials
-import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerActionTasks
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerReadTasks
 import rx.Single
@@ -82,8 +82,8 @@ class AzureRequestThrottlerCacheImpl(
             private val credentials: AzureTokenCredentials,
             private val myAzureThrottlerFactory: AzureThrottlerFactory
     ) : AzureRequestThrottler {
-        private var myReadsThrottler: AzureThrottler<Azure, AzureThrottlerReadTasks.Values>
-        private var myUpdatesThrottler: AzureThrottler<Azure, AzureThrottlerActionTasks.Values>
+        private var myReadsThrottler: AzureThrottler<AzureApi, AzureThrottlerReadTasks.Values>
+        private var myUpdatesThrottler: AzureThrottler<AzureApi, AzureThrottlerActionTasks.Values>
         private var myTaskNotifications = AzureTaskNotificationsImpl()
 
         init {
@@ -91,19 +91,19 @@ class AzureRequestThrottlerCacheImpl(
             myUpdatesThrottler = myAzureThrottlerFactory.createActionRequestsThrottler(credentials, subscriptionId, myTaskNotifications)
         }
 
-        override fun <P, T> executeReadTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {
+        override fun <P, T> executeReadTask(taskDescriptor: AzureTaskDescriptor<AzureApi, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {
             return myReadsThrottler.executeTask(taskDescriptor, parameters);
         }
 
-        override fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P, timeout: Long, timeUnit: TimeUnit): Single<T> {
+        override fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<AzureApi, AzureThrottlerReadTasks.Values, P, T>, parameters: P, timeout: Long, timeUnit: TimeUnit): Single<T> {
             return myReadsThrottler.executeTaskWithTimeout(taskDescriptor, parameters, timeout, timeUnit)
         }
 
-        override fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {
+        override fun <P, T> executeReadTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<AzureApi, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {
             return myReadsThrottler.executeTaskWithTimeout(taskDescriptor, parameters);
         }
 
-        override fun <P, T> executeUpdateTask(taskDescriptor: AzureTaskDescriptor<Azure, AzureThrottlerActionTasks.Values, P, T>, parameters: P): Single<T> {
+        override fun <P, T> executeUpdateTask(taskDescriptor: AzureTaskDescriptor<AzureApi, AzureThrottlerActionTasks.Values, P, T>, parameters: P): Single<T> {
             return myUpdatesThrottler.executeTask(taskDescriptor, parameters);
         }
 

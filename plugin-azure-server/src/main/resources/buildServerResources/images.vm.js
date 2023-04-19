@@ -226,16 +226,28 @@ function ArmImagesViewModel($, ko, dialog, config) {
             return false;
           }
 
-          if (!root.parameters || !root.parameters.vmName) {
-            console.log("No 'vmName' parameter defined");
-            return false;
-          }
+          if (self.disableTemplateModification() === true) {
+            if (!root.parameters) {
+              console.log("No parameters defined");
+              return false;
+            }
 
-          if (!root.resources || !ko.utils.arrayFirst(root.resources, function (resource) {
+            if (!root.resources) {
+              console.log("No resources defined");
+              return false;
+            }
+          } else {
+            if (!root.parameters || !root.parameters.vmName) {
+              console.log("No 'vmName' parameter defined");
+              return false;
+            }
+
+            if (!root.resources || !ko.utils.arrayFirst(root.resources, function (resource) {
               return resource.name === "[parameters('vmName')]";
             })) {
-            console.log("No virtual machine resource with name set to vmName parameter");
-            return false;
+              console.log("No virtual machine resource with name set to vmName parameter");
+              return false;
+            }
           }
 
           return true;

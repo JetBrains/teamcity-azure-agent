@@ -23,3 +23,4 @@ interface AzureConfigurableWithNetworkInterceptors : Azure.Configurable {
     fun withNetworkInterceptor(interceptor: Interceptor): AzureConfigurableWithNetworkInterceptors
     fun configureProxy(): AzureConfigurableWithNetworkInterceptors
 }
+

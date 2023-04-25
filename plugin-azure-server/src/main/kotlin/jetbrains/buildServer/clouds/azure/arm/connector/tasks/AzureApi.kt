@@ -8,6 +8,7 @@ import com.microsoft.azure.management.network.Networks
 import com.microsoft.azure.management.network.PublicIPAddresses
 import com.microsoft.azure.management.resources.*
 import com.microsoft.azure.management.storage.StorageAccounts
+import jetbrains.buildServer.clouds.azure.arm.resourceGraph.ResourceGraph
 
 interface AzureApi {
     fun subscriptionId(): String?
@@ -35,4 +36,6 @@ interface AzureApi {
     fun providers(): Providers
 
     fun storageAccounts(): StorageAccounts
+
+    fun resourceGraph(): ResourceGraph
 }

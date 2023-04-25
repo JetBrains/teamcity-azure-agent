@@ -46,6 +46,7 @@ const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC = "teamcity.
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_PRINT_DIAGNOSTIC_INTERVAL_SEC = "teamcity.clouds.azure.throttler.print.diagnostic.interval"
 
 const val TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_FULLSTATEAPI_DISABLE = "teamcity.clouds.azure.tasks.fetchinstances.fullstateapi.disable"
+const val TEAMCITY_CLOUDS_AZURE_TASKS_FETCHCUSTOMIMAGES_RESOURCEGRAPH_DISABLE = "teamcity.clouds.azure.tasks.fetchcustomimages.resourcegraph.disable"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_USE_OLD_SCHEDULERS = "teamcity.clouds.azure.throttler.use.old.schedulers"
 
@@ -66,5 +67,7 @@ const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_MIN_SIZE = "teamcity.c
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_QUEUE_MAX_SIZE = "teamcity.clouds.azure.throttler.dispatcher.pool.queue.max.size"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_SCHEDULER_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.scheduler.pool.max.size"
+
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_GLOBAL_SYNC_DISABLE = "teamcity.clouds.azure.throttler.global.sync.disable"
 
 const val DEFAULT_REMAINING_READS_PER_HOUR = 12000L

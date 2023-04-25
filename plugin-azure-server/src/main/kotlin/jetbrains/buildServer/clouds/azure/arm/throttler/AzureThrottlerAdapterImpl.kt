@@ -21,6 +21,7 @@ import com.microsoft.azure.credentials.AzureTokenCredentials
 import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApiImpl
+import jetbrains.buildServer.clouds.azure.arm.resourceGraph.ResourceGraph
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.version.ServerVersionHolder
 import rx.Single
@@ -34,8 +35,10 @@ import kotlin.math.max
 
 class AzureThrottlerAdapterImpl (
         azureConfigurable: AzureConfigurableWithNetworkInterceptors,
+        resourceGraphConfigurable: ResourceGraphConfigurableWithNetworkInterceptors,
         credentials: AzureTokenCredentials,
         subscriptionId: String?,
+        requestSync: AzureThrottlerRequestSync,
         override val name: String
 ) : AzureThrottlerAdapter<AzureApi> {
     @Suppress("JoinDeclarationAndAssignment")
@@ -48,10 +51,16 @@ class AzureThrottlerAdapterImpl (
     private val myDefaultReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
 
     init {
-        myInterceptor = AzureThrottlerInterceptor(this, name)
+        myInterceptor = AzureThrottlerInterceptor(this, name, requestSync)
 
         myAzure = AzureApiImpl(
             azureConfigurable
+                .configureProxy()
+                .withNetworkInterceptor(myInterceptor)
+                .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}")
+                .authenticate(credentials)
+                .withSubscription(subscriptionId),
+            resourceGraphConfigurable
                 .configureProxy()
                 .withNetworkInterceptor(myInterceptor)
                 .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}")

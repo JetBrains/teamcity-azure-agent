@@ -9,9 +9,11 @@ import com.microsoft.azure.management.network.Networks
 import com.microsoft.azure.management.network.PublicIPAddresses
 import com.microsoft.azure.management.resources.*
 import com.microsoft.azure.management.storage.StorageAccounts
+import jetbrains.buildServer.clouds.azure.arm.resourceGraph.ResourceGraph
 
 class AzureApiImpl(
-    private val api: Azure
+    private val api: Azure,
+    private val resourceGrapgApi: ResourceGraph
 ) : AzureApi {
     override fun subscriptionId(): String? = api.subscriptionId()
 
@@ -38,4 +40,6 @@ class AzureApiImpl(
     override fun providers(): Providers = api.providers()
 
     override fun storageAccounts(): StorageAccounts = api.storageAccounts()
+
+    override fun resourceGraph(): ResourceGraph = resourceGrapgApi
 }

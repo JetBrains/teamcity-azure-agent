@@ -23,6 +23,7 @@ import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.resources.fluentcore.arm.implementation.AzureConfigurableImpl
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl
 import jetbrains.buildServer.clouds.azure.arm.connector.CredentialsAuthenticator
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureProxyUtils.configureTeamCityProxy
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import okhttp3.Interceptor
 import java.io.File
@@ -50,38 +51,7 @@ class AzureThrottlerConfigurableImpl : AzureConfigurableImpl<Azure.Configurable>
      * Configures http proxy settings.
      */
     override fun configureProxy(): AzureConfigurableWithNetworkInterceptors {
-        val builder = StringBuilder()
-
-        // Set HTTP proxy
-        val httpProxyHost = TeamCityProperties.getProperty(HTTP_PROXY_HOST)
-        val httpProxyPort = TeamCityProperties.getInteger(HTTP_PROXY_PORT, 80)
-        if (httpProxyHost.isNotBlank()) {
-            this.withProxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpProxyHost, httpProxyPort)))
-            builder.append("$httpProxyHost:$httpProxyPort")
-        }
-
-        // Set HTTPS proxy
-        val httpsProxyHost = TeamCityProperties.getProperty(HTTPS_PROXY_HOST)
-        val httpsProxyPort = TeamCityProperties.getInteger(HTTPS_PROXY_PORT, 443)
-        if (httpsProxyHost.isNotBlank()) {
-            this.withProxy(Proxy(Proxy.Type.HTTP, InetSocketAddress(httpsProxyHost, httpsProxyPort)))
-            builder.setLength(0)
-            builder.append("$httpsProxyHost:$httpsProxyPort")
-        }
-
-        // Set proxy authentication
-        val httpProxyUser = TeamCityProperties.getProperty(HTTP_PROXY_USER)
-        val httpProxyPassword = TeamCityProperties.getProperty(HTTP_PROXY_PASSWORD)
-        if (httpProxyUser.isNotBlank() && httpProxyPassword.isNotBlank()) {
-            val authenticator = CredentialsAuthenticator(httpProxyUser, httpProxyPassword)
-            this.withProxyAuthenticator(authenticator)
-            builder.insert(0, "$httpProxyUser@")
-        }
-
-        if (builder.isNotEmpty()) {
-            LOG.debug("Using proxy server $builder for connection")
-        }
-
+        configureTeamCityProxy()
         return this
     }
 
@@ -95,3 +65,4 @@ class AzureThrottlerConfigurableImpl : AzureConfigurableImpl<Azure.Configurable>
         private const val HTTP_PROXY_PASSWORD = "http.proxyPassword"
     }
 }
+

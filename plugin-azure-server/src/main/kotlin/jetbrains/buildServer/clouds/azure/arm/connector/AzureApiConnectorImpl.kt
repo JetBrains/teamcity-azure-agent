@@ -140,7 +140,6 @@ class AzureApiConnectorImpl(
         val name = instance.name
         val tags = instance.tags
         val id = instance.id
-        val resourceTypeLogName = if (isVm) "vm" else "container"
 
         if (isVm && details.target == AzureCloudDeployTarget.Instance) {
             if (id != details.instanceId!!) {
@@ -150,19 +149,16 @@ class AzureApiConnectorImpl(
         }
 
         if (!name.startsWith(details.sourceId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with name $name for sourceId ${details.sourceId}")
             return true
         }
 
         val sourceName = tags[AzureConstants.TAG_SOURCE]
         if (!sourceName.equals(details.sourceId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with invalid source tag $sourceName")
             return true
         }
 
         val resourceProfileId = tags[AzureConstants.TAG_PROFILE]
         if (!resourceProfileId.equals(myProfileId, true)) {
-            LOG.debug("Ignore resource with invalid profile tag $resourceProfileId")
             return true
         }
 

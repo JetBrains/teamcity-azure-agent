@@ -17,9 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import rx.Observable
-import rx.Observer
 import rx.Single
-import rx.Subscription
 import rx.internal.util.SubscriptionList
 import rx.subjects.Subject
 import java.time.Clock
@@ -174,6 +172,10 @@ interface AzureThrottlerAdapterRemainingReadsNotifier {
 interface AzureThrottlerTaskCompletionResultNotifier {
     fun notifyRateLimitReached(retryAfterTimeoutInSeconds: Long)
     fun notifyCompleted(performedRequests: Boolean)
+}
+
+interface AzureThrottlerRequestSync {
+    fun waitForNextTimeSlot()
 }
 
 class ThrottlerRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, val requestSequenceLength: Long?, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)

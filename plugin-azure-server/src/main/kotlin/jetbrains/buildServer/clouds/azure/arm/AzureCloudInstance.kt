@@ -30,12 +30,17 @@ import java.util.concurrent.atomic.AtomicBoolean
 class AzureCloudInstance internal constructor(image: AzureCloudImage, name: String)
     : AbstractCloudInstance<AzureCloudImage>(image, name, name) {
     private val myProvisioningInProgress = AtomicBoolean(false)
+    private val myHasVmInstance = AtomicBoolean(false)
 
     var properties: MutableMap<String, String> = HashMap()
 
     public var provisioningInProgress
         get() = myProvisioningInProgress.get()
         set(value) = myProvisioningInProgress.set(value)
+
+    public var hasVmInstance
+        get() = myHasVmInstance.get()
+        set(value) = myHasVmInstance.set(value)
 
     override fun canBeCollected(): Boolean {
         if (provisioningInProgress) return false

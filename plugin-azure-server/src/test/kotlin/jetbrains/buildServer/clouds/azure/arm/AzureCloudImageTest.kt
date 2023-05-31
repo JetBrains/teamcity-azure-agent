@@ -20,6 +20,7 @@ import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
+import junit.framework.TestCase
 import kotlinx.coroutines.*
 import org.jmock.MockObjectTestCase
 import org.testng.annotations.BeforeMethod
@@ -38,10 +39,19 @@ class AzureCloudImageTest : MockObjectTestCase() {
         MockKAnnotations.init(this)
 
         myApiConnector = mockk();
-        coEvery { myApiConnector.createInstance(any(), any()) } answers {
+        coEvery { myApiConnector.createInstance(any(), any()) } coAnswers {
+            val instance = firstArg<AzureCloudInstance>()
+            instance.hasVmInstance = true
             Unit
         }
         every { myApiConnector.fetchInstances<AzureInstance>(any<AzureCloudImage>()) } returns emptyMap()
+        coEvery { myApiConnector.stopInstance(any()) } coAnswers {
+            val instance = firstArg<AzureCloudInstance>()
+            TestCase.assertEquals(instance.hasVmInstance, true)
+
+            instance.status = InstanceStatus.STOPPED
+            Unit
+        }
 
         myImageDetails = AzureCloudImageDetails(
             mySourceId = null,
@@ -279,6 +289,122 @@ class AzureCloudImageTest : MockObjectTestCase() {
                             userData.profileDescription == "profileDescr"
                 })
         }
+    }
+
+    @Test(invocationCount = 100)
+    fun shouldStartStoppedInstancesInParallel() {
+        // Given
+        myImageDetails = AzureCloudImageDetails(
+            mySourceId = null,
+            deployTarget = AzureCloudDeployTarget.SpecificGroup,
+            regionId = "regionId",
+            groupId = "groupId",
+            imageType = AzureCloudImageType.Image,
+            imageUrl = null,
+            imageId = "imageId",
+            instanceId = null,
+            osType = null,
+            networkId = null,
+            subnetId = null,
+            vmNamePrefix = "vm",
+            vmSize = null,
+            vmPublicIp = null,
+            myMaxInstances = 2,
+            username = null,
+            storageAccountType = null,
+            template = null,
+            numberCores = null,
+            memory = null,
+            storageAccount = null,
+            registryUsername = null,
+            agentPoolId = null,
+            profileId = null,
+            myReuseVm = true,
+            customEnvironmentVariables = null,
+            spotVm = null,
+            enableSpotPrice = null,
+            spotPrice = null,
+            enableAcceleratedNetworking = null,
+            disableTemplateModification = null
+        )
+
+        coEvery { myApiConnector.startInstance(any<AzureCloudInstance>()) } coAnswers {
+            val instance = firstArg<AzureCloudInstance>()
+            instance.status = InstanceStatus.RUNNING
+            Unit
+        }
+
+        val instance = createInstance()
+        val userData = CloudInstanceUserData(
+            "agentName",
+            "authToken",
+            "",
+            0,
+            "profileId",
+            "profileDescr",
+            emptyMap()
+        )
+
+        val stoppedInstance = runBlocking(myJob) {
+            instance.startNewInstance(userData)
+        }
+
+        runBlocking(myJob) {
+            instance.terminateInstance(stoppedInstance)
+        }
+
+        val barrier = CyclicBarrier(3)
+
+        // When
+        val thread1 = thread(start = true) { barrier.await(); instance.startNewInstance(userData); }
+        val thread2 = thread(start = true) { barrier.await(); instance.startNewInstance(userData); }
+
+        barrier.await()
+
+        thread1.join()
+        thread2.join()
+
+        myJob.complete()
+        runBlocking { myJob.join() }
+
+        // Then
+        coVerify(exactly = 1) {
+            myApiConnector.createInstance(
+                match { i ->
+                    i.imageId == instance.id &&
+                            i.name == myImageDetails.vmNamePrefix!!.lowercase() + "1" &&
+                            i.image == instance
+                },
+                match { userData ->
+                    userData.agentName == myImageDetails.vmNamePrefix!!.lowercase() + "1" &&
+                            userData.profileId == "profileId" &&
+                            userData.profileDescription == "profileDescr"
+                })
+        }
+
+        coVerify(exactly = 1) { myApiConnector.createInstance(
+            match { i ->
+                i.imageId == instance.id &&
+                        i.name == myImageDetails.vmNamePrefix!!.lowercase() + "2" &&
+                        i.image == instance
+            },
+            match { userData ->
+                userData.agentName == myImageDetails.vmNamePrefix!!.lowercase() + "2" &&
+                        userData.profileId == "profileId" &&
+                        userData.profileDescription == "profileDescr"
+            })
+        }
+
+        coVerify(exactly = 2) {myApiConnector.createInstance(any(), any()) }
+
+        coVerify { myApiConnector.startInstance(any()) }
+        coVerify(exactly = 1) { myApiConnector.startInstance(eq(stoppedInstance)) }
+    }
+
+    private fun<T> runBlocking(job : CompletableJob, action: () -> T) : T {
+        val result = action()
+        runBlocking { job.children.forEach { it.join() } }
+        return result
     }
 
     private fun createInstance() : AzureCloudImage {

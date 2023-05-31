@@ -520,6 +520,7 @@ class AzureApiConnectorImpl(
         } else {
             deleteDeployTarget(instance)
         }
+        instance.hasVmInstance = false
         Unit
     }
 

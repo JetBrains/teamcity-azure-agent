@@ -182,9 +182,6 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 .map { IPAddressDescriptor(it.name(), it.resourceGroupName(), it.ipAddress(), getAssignedNetworkInterfaceId(it)) }
                 .toList()
                 .takeLast(1)
-                .doOnNext {
-                    LOG.debug("Received list of ip addresses")
-                }
                 .onErrorReturn {
                     val message = "Failed to get list of public ip addresses: " + it.message
                     LOG.debug(message, it)
@@ -426,16 +423,10 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         }
 
         if (ips.isNotEmpty()) {
-            for (ip in ips) {
-                LOG.debug("Received public ip ${ip.ipAddress} for virtual machine $name, assignedNetworkInterfaceId ${ip.assignedNetworkInterfaceId}")
-            }
-
             val ip = ips.first().ipAddress
             if (!ip.isNullOrBlank()) {
                 return ip
             }
-        } else {
-            LOG.debug("No public ip received for virtual machine $name")
         }
         return null
     }

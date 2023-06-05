@@ -22,10 +22,17 @@ import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_CONTAINER_NIC_RETRY_DELAY_SEC
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_TYPES
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import rx.Notification
 import rx.Observable
+import rx.Scheduler
 import rx.Single
+import rx.schedulers.Schedulers
 import rx.subjects.BehaviorSubject
+import java.util.*
+import java.util.concurrent.TimeUnit
 
 data class DeleteDeploymentTaskParameter(
         val resourceGroupName: String,
@@ -47,7 +54,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                 }
                 .filter { it != null }
                 .flatMap { deleteDeployment(it, api) }
-                .concatWith(Observable.just(Unit))
+                .defaultIfEmpty(Unit)
                 .last()
                 .toSingle()
     }
@@ -57,6 +64,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
             .flatMap { cancelledDeployment ->
                 getDeployedResources(cancelledDeployment, api)
                     .concatMap { deleteResource(it, api) }
+                    .defaultIfEmpty(Unit)
                     .last()
                     .flatMap {
                         api.deployments()
@@ -103,6 +111,32 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                 }
             }
             .distinctUntilChanged()
+            .filter {
+                if (isKnownGenericResourceType(it.resourceType)) return@filter true
+
+                when(it.resourceType) {
+                    DEPLOYMENT_RESOURCE_TYPE,
+                    CONTAINER_GROUPS_RESOURCE_TYPE,
+                    NETWORK_PROFILE_RESOURCE_TYPE,
+                    VIRTUAL_MACHINES_RESOURCE_TYPE,
+                    DISKS_RESOURCE_TYPE,
+                    NETWORK_INTERFACES_RESOURCE_TYPE,
+                    NETWORK_PUBLIC_IP_RESOURCE_TYPE -> true
+                    else -> {
+                        LOG.debug("Skip deleting resource: ${it.resourceId}")
+                        false
+                    }
+                }
+            }
+
+    private fun isKnownGenericResourceType(resourceType: String): Boolean =
+        TeamCityProperties
+            .getPropertyOrNull(TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_TYPES)
+            ?.let {
+                it.split(',').map { it.trim().lowercase(Locale.getDefault()) }.filter { it.isNotEmpty() }.toSet()
+            }
+            ?.contains(resourceType.lowercase(Locale.getDefault()))
+            ?: false
 
     private fun deleteResource(resourceDescriptor: ResourceDescriptor, api: AzureApi): Observable<Unit> {
         LOG.debug("Deleting resource ${resourceDescriptor.resourceId}")
@@ -115,14 +149,33 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                 networkProfilesService
                     .getByResourceGroupAsync(id.resourceGroupName(), id.name())
                     .filter { it != null }
-                    .map { it.withContainerNetworkInterfaceConfigurations(emptyList()) }
-                    .flatMap { networkProfilesService.createOrUpdateAsync(id.resourceGroupName(), id.name(), it) }
-                    .flatMap { networkProfilesService.deleteAsync(id.resourceGroupName(), id.name()).map({ Unit }) }
+                    .concatMap { networkProfile ->
+                        networkProfile.containerNetworkInterfaces().clear()
+                        networkProfile.withContainerNetworkInterfaceConfigurations(emptyList())
+                        networkProfilesService
+                            .createOrUpdateAsync(id.resourceGroupName(), id.name(), networkProfile)
+                            .onErrorReturn {
+                                LOG.debug("Could not reset network profile ${resourceDescriptor.resourceId}. It will be removed. Error: ${it.message}")
+                                networkProfile
+                            }
+                    }
+                    .concatMap {
+                        networkProfilesService
+                            .deleteAsync(id.resourceGroupName(), id.name()).map({ Unit })
+                            .delaySubscription(TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_CONTAINER_NIC_RETRY_DELAY_SEC, 30), TimeUnit.SECONDS, Schedulers.io())
+                            .retry { attemptNo, throwable ->
+                                LOG.debug("Could not delete network profile ${resourceDescriptor.resourceId}. Attempt: ${attemptNo}. Error: ${throwable.message}")
+                                attemptNo <= 4
+                            }
+                    }
             }
             DEPLOYMENT_RESOURCE_TYPE -> api.deployments().getByIdAsync(resourceDescriptor.resourceId).flatMap { deleteDeployment(it, api) }
             else -> api.genericResources().deleteByIdAsync(resourceDescriptor.resourceId).toObservable<Unit>()
         }
-            .concatWith(Observable.just(Unit))
+            .defaultIfEmpty(Unit)
+            .doOnNext {
+                LOG.debug("Resource ${resourceDescriptor.resourceId} has been deleted")
+            }
             .onErrorReturn {
                 LOG.warnAndDebugDetails("Error occured during deletion of resource ${resourceDescriptor.resourceId} :", it)
                 Observable.just(Unit)
@@ -176,9 +229,16 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         private val LOG = Logger.getInstance(DeleteDeploymentTaskImpl::class.java.name)
         private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
         private const val CONTAINER_GROUPS_RESOURCE_TYPE = "Microsoft.ContainerInstance/containerGroups"
+
         private const val NETWORK_PROFILE_RESOURCE_TYPE = "Microsoft.Network/networkProfiles"
+        private const val NETWORK_INTERFACES_RESOURCE_TYPE = "Microsoft.Network/networkInterfaces"
+        private const val NETWORK_PUBLIC_IP_RESOURCE_TYPE = "Microsoft.Network/publicIPAddresses"
+
+        private const val VIRTUAL_MACHINE_EXTENSIONS_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines/extensions"
         private const val DISKS_RESOURCE_TYPE = "Microsoft.Compute/disks"
+
         private const val DEPLOYMENT_RESOURCE_TYPE ="Microsoft.Resources/deployments"
+
         private const val PROVISIONING_STATE_CANCELLED = "Canceled"
         private const val PROVISIONING_STATE_RUNNING = "Running"
     }

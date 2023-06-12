@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 const val TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_LONG_RUNNING_QUERY_RETRY_TIMEOUT = "teamcity.clouds.azure.deployment.lrq.timeout"
+const val TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_LONG_RUNNING_QUERY_RETRY_COUNT = "teamcity.clouds.azure.deployment.lrq.retry.count"
 
 const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_CACHE_TIMEOUT = "teamcity.clouds.azure.read.throttler.random.task.cache.timeout"
 const val TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_PERIODICAL_TASK_CACHE_TIMEOUT = "teamcity.clouds.azure.read.throttler.periodical.task.cache.timeout"
@@ -49,6 +50,8 @@ const val TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_FULLSTATEAPI_DISABLE = "tea
 const val TEAMCITY_CLOUDS_AZURE_TASKS_FETCHCUSTOMIMAGES_RESOURCEGRAPH_DISABLE = "teamcity.clouds.azure.tasks.fetchcustomimages.resourcegraph.disable"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_CONTAINER_NIC_RETRY_DELAY_SEC = "teamcity.clouds.azure.tasks.deletedeployment.container.nic.retry.delay"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_TYPES = "teamcity.clouds.azure.tasks.deletedeployment.knownGeneric.resourceTypes"
+const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_MILTITHREAD_POLLING = "teamcity.clouds.azure.tasks.deletedeployment.useMultitreadPolling"
+const val TEAMCITY_CLOUDS_AZURE_TASKS_CTREATEDEPLOYMENT_USE_MILTITHREAD_POLLING = "teamcity.clouds.azure.tasks.createdeployment.useMultitreadPolling"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_USE_OLD_SCHEDULERS = "teamcity.clouds.azure.throttler.use.old.schedulers"
 

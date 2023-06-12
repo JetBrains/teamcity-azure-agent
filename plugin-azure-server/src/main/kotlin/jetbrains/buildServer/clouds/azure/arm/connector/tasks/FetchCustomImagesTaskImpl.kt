@@ -21,6 +21,7 @@ import com.microsoft.azure.management.compute.OperatingSystemStateTypes
 import com.microsoft.azure.management.compute.OperatingSystemTypes
 import jetbrains.buildServer.clouds.azure.arm.resourceGraph.QueryRequest
 import jetbrains.buildServer.clouds.azure.arm.resourceGraph.QueryResponse
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskContext
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
 import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_FETCHCUSTOMIMAGES_RESOURCEGRAPH_DISABLE
 import jetbrains.buildServer.serverSide.TeamCityProperties
@@ -46,7 +47,7 @@ data class GalleryImageDescriptor (
 )
 
 class FetchCustomImagesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<CustomImageTaskImageDescriptor>>() {
-    override fun createQuery(api: AzureApi, parameter: Unit): Single<List<CustomImageTaskImageDescriptor>> {
+    override fun createQuery(api: AzureApi, taskContext: AzureTaskContext, parameter: Unit): Single<List<CustomImageTaskImageDescriptor>> {
         if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_TASKS_FETCHCUSTOMIMAGES_RESOURCEGRAPH_DISABLE)) {
             return api
                 .virtualMachineCustomImages()

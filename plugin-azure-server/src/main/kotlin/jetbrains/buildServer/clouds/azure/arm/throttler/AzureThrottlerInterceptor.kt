@@ -26,11 +26,11 @@ import java.util.regex.Pattern
 
 class AzureThrottlerInterceptor(
         private val remainingReadsNotifier: AzureThrottlerAdapterRemainingReadsNotifier,
+        private val tackContextProvider: AzureTaskContextProvider,
         private val name: String,
         private val sync: AzureThrottlerRequestSync
 ) : Interceptor {
-    private val myThrottlerDelayInMilliseconds = AtomicLong(0)
-    private val myRequestsSequenceLength = ThreadLocal<Long>()
+    private val myThrottlerDelayInMilliseconds = AtomicLong(300)
     override fun intercept(chain: Interceptor.Chain): Response {
         val sleepTime = myThrottlerDelayInMilliseconds.get()
         if (sleepTime != 0L) {
@@ -42,7 +42,11 @@ class AzureThrottlerInterceptor(
         val request = chain.request()
         val requestId = request.header(CLIENT_REQUEST_ID)
 
-        LOG.debug("[$name] [$requestId] Azure request starting")
+        val taskContext = tackContextProvider.getContext()
+        val corellationId = "[${taskContext?.corellationId ?: "-${requestId}"}/${taskContext?.getRequestSequenceLength().toString() ?: "---"}]"
+
+        LOG.debug("[$name] $corellationId Azure request starting")
+
         val response = chain.proceed(request)
 
         val remainingReads = getHeaderLongValue(response, SUBSCRIPTION_REMAINING_READS_HEADER);
@@ -54,26 +58,26 @@ class AzureThrottlerInterceptor(
 
         val remainingReadsResult = remainingReads ?: remainingTenantReads ?: remainingResourceReads ?: remainingTenantResourceReads;
 
-        LOG.debug("[$name] [$requestId] Azure request processed: Remaining reads: $remainingReadsResult, Url: ${request.url()}")
-        LOG.debug("[$name] [$requestId] Azure request processed: Requests sequence length: ${myRequestsSequenceLength.get()}")
-        LOG.debug("[$name] [$requestId] Azure request processed: Headers: $SUBSCRIPTION_REMAINING_READS_HEADER=$remainingReads, " +
+
+        LOG.debug("[$name] $corellationId Azure request processed: Remaining reads: $remainingReadsResult, Url: ${request.url()}")
+        LOG.debug("[$name] $corellationId Azure request processed: Headers: $SUBSCRIPTION_REMAINING_READS_HEADER=$remainingReads, " +
                 "$SUBSCRIPTION_RESOURCE_REMAINING_READS_HEADER=$remainingResourceReads, " +
                 "$TENANT_REMAINING_READS_HEADER=$remainingTenantReads, " +
                 "$TENANT_RESOURCE_REMAINING_READS_HEADER=$remainingTenantResourceReads, ")
 
         userQuotaRemaining?.let {
-            LOG.debug("[$name] [$requestId] Azure request processed: Headers: $USER_QUOTA_REMAINING=$it, " +
+            LOG.debug("[$name] $corellationId Azure request processed: Headers: $USER_QUOTA_REMAINING=$it, " +
                     "$USER_QUOTA_RESETS_AFTER=$userQuotaResetsAfter ")
         }
 
-        increaseRequestsSequenceLength()
+        taskContext?.increaseRequestsSequenceLength()
 
         remainingReadsNotifier.notifyRemainingReads(remainingReadsResult, 1)
 
         if (response.code() == RETRY_AFTER_STATUS_CODE) {
-            val retryAfterSeconds = getRetryAfterSeconds(response, requestId)
-            LOG.info("[$name] [$requestId] Azure Resource Manager read/write per hour limit reached. Will retry in: $retryAfterSeconds seconds")
-            throw ThrottlerRateLimitReachedException(retryAfterSeconds ?: DEFAULT_RETRY_AFTER_SECONDS, getRequestsSequenceLength())
+            val retryAfterSeconds = getRetryAfterSeconds(response, corellationId)
+            LOG.info("[$name] $corellationId Azure Resource Manager read/write per hour limit reached. Will retry in: $retryAfterSeconds seconds")
+            throw ThrottlerRateLimitReachedException(retryAfterSeconds ?: DEFAULT_RETRY_AFTER_SECONDS, taskContext?.getRequestSequenceLength() ?: 1)
         }
         return response
     }
@@ -90,28 +94,10 @@ class AzureThrottlerInterceptor(
         return myThrottlerDelayInMilliseconds.get()
     }
 
-    fun onBeginRequestsSequence() {
-        myRequestsSequenceLength.set(0)
-    }
-
-    fun onEndRequestsSequence() {
-        myRequestsSequenceLength.remove()
-    }
-
-    fun getRequestsSequenceLength() : Long? {
-        return myRequestsSequenceLength.get()
-    }
-
-    private fun increaseRequestsSequenceLength() {
-        myRequestsSequenceLength.get()?.let {
-            myRequestsSequenceLength.set(it + 1)
-        }
-    }
-
-    private fun getRetryAfterSeconds(response: Response, requestId: String?): Long? {
+    private fun getRetryAfterSeconds(response: Response, corellationId: String?): Long? {
         try {
             val retryAfterHeader = response.header(RETRY_AFTER)
-            LOG.warn("[$name] [$requestId] Retry-After header: $retryAfterHeader")
+            LOG.warn("[$name] $corellationId Retry-After header: $retryAfterHeader")
 
             var retryAfter = 0L
             if (retryAfterHeader != null) {
@@ -119,7 +105,7 @@ class AzureThrottlerInterceptor(
             }
             if (retryAfter <= 0) {
                 val bodyContent = content(response.body()) ?: ""
-                LOG.warn("[$name] [$requestId] Retry-After body: $bodyContent")
+                LOG.warn("[$name] $corellationId Retry-After body: $bodyContent")
 
                 var pattern = Pattern.compile(TRY_AGAIN_AFTER_MINUTES_PATTERN, Pattern.CASE_INSENSITIVE)
                 var matcher = pattern.matcher(bodyContent)
@@ -138,7 +124,7 @@ class AzureThrottlerInterceptor(
                 return retryAfter
         }
         catch(e: Throwable) {
-            LOG.warnAndDebugDetails("[$name] [$requestId] Exception occurred during read Retry After timeout value", e)
+            LOG.warnAndDebugDetails("[$name] $corellationId Exception occurred during read Retry After timeout value", e)
         }
         return null
     }
@@ -167,6 +153,8 @@ class AzureThrottlerInterceptor(
         private const val USER_QUOTA_REMAINING = "x-ms-user-quota-remaining"
         private const val USER_QUOTA_RESETS_AFTER = "x-ms-user-quota-resets-after"
         private const val CLIENT_REQUEST_ID = "x-ms-client-request-id"
+        private const val LOGGING_CONTEXT = "x-ms-logging-context"
+        private const val LOGGIN_CONTEXT_PREFIX = "#="
 
         private const val RETRY_AFTER = "Retry-After"
         private const val TRY_AGAIN_AFTER_MINUTES_PATTERN = "try again after '([0-9]*)' minutes"

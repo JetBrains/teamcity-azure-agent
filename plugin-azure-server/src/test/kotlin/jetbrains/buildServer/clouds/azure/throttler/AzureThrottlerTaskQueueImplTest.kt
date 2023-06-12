@@ -64,7 +64,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every {
             adapter.execute<String>(captureLambda())
         } answers {
-            lambda<(Unit) -> Single<String>>().captured.invoke(Unit).map { AzureThrottlerAdapterResult(it, null, false) }
+            lambda<(Unit, AzureTaskContext) -> Single<String>>().captured.invoke(Unit, mockk()).map { AzureThrottlerAdapterResult(it, null, false) }
         }
 
         taskCompletionResultNotifier = mockk()
@@ -264,7 +264,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns null
-        every { cacheableTask.create(Unit, "Test parameter") } returns Single.just("Test response")
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Single.just("Test response")
 
         val instance = createInstance()
         every { requestQueue.extractNextBatch() } returns mockk {
@@ -347,7 +347,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns "Cached value"
         every { cacheableTask.needCacheUpdate("Test parameter") } returns true
-        every { cacheableTask.create(Unit, "Test parameter") } returns Single.just("Test response")
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Single.just("Test response")
 
         val instance = createInstance()
 
@@ -366,7 +366,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
 
         // Then
         verify {
-            task.create(Unit, "Test parameter")
+            task.create(Unit, any(), "Test parameter")
         }
     }
 
@@ -377,7 +377,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns null
         every { cacheableTask.needCacheUpdate("Test parameter") } returns false
-        every { cacheableTask.create(Unit, "Test parameter") } returns Single.just("Test response")
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Single.just("Test response")
 
         val instance = createInstance()
 
@@ -428,7 +428,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns null
         every { cacheableTask.needCacheUpdate("Test parameter") } returns false
-        every { cacheableTask.create(Unit, "Test parameter") } returns Observable.just("Test response").delaySubscription(10, TimeUnit.SECONDS, Schedulers.immediate()).toSingle()
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Observable.just("Test response").delaySubscription(10, TimeUnit.SECONDS, Schedulers.immediate()).toSingle()
 
         requestScheduler = Schedulers.immediate()
         val instance = createInstance()
@@ -481,7 +481,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns "Cached value"
         every { cacheableTask.needCacheUpdate("Test parameter") } returns true
-        every { cacheableTask.create(Unit, "Test parameter") } returns Single.error(error)
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Single.error(error)
 
         val instance = createInstance()
 
@@ -519,7 +519,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns "Cached value"
         every { cacheableTask.needCacheUpdate("Test parameter") } returns true
-        every { cacheableTask.create(Unit, "Test parameter") } returns Single.error(error)
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Single.error(error)
 
         every { taskCompletionResultNotifier.notifyRateLimitReached(10) } returns Unit
 
@@ -561,7 +561,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns "Cached value"
         every { cacheableTask.needCacheUpdate("Test parameter") } returns true
-        every { cacheableTask.create(Unit, "Test parameter") } returns Single.error(error)
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Single.error(error)
 
         every { taskCompletionResultNotifier.notifyRateLimitReached(10) } returns Unit
 
@@ -603,7 +603,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns "Cached value"
         every { cacheableTask.needCacheUpdate("Test parameter") } returns true
-        every { cacheableTask.create(Unit, "Test parameter") } returns Single.error(error)
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Single.error(error)
 
         every { taskCompletionResultNotifier.notifyRateLimitReached(10) } returns Unit
 
@@ -646,7 +646,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns null
         every { cacheableTask.needCacheUpdate("Test parameter") } returns true
-        every { cacheableTask.create(Unit, "Test parameter") } returns Single.error(error)
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Single.error(error)
 
         every { taskCompletionResultNotifier.notifyRateLimitReached(10) } returns Unit
 
@@ -695,7 +695,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         every { cacheableTask.setCacheTimeout(any()) } returns Unit
         every { cacheableTask.getFromCache(any()) } returns null
         every { cacheableTask.needCacheUpdate("Test parameter") } returns true
-        every { cacheableTask.create(Unit, "Test parameter") } returns Single.error(error)
+        every { cacheableTask.create(Unit, any(),"Test parameter") } returns Single.error(error)
 
         every { taskCompletionResultNotifier.notifyRateLimitReached(10) } returns Unit
 

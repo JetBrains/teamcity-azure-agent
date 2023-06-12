@@ -17,11 +17,12 @@
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.microsoft.azure.management.Azure
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskContext
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
 import rx.Single
 
 class FetchResourceGroupsMapTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, Map<String, String>>() {
-    override fun createQuery(api: AzureApi, parameter: Unit): Single<Map<String, String>> {
+    override fun createQuery(api: AzureApi, taskContext: AzureTaskContext, parameter: Unit): Single<Map<String, String>> {
         return api
                 .resourceGroups()
                 .listAsync()

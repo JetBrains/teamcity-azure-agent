@@ -18,10 +18,8 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.credentials.AzureTokenCredentials
-import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApiImpl
-import jetbrains.buildServer.clouds.azure.arm.resourceGraph.ResourceGraph
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.version.ServerVersionHolder
 import rx.Single
@@ -29,6 +27,7 @@ import java.time.Clock
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
@@ -49,9 +48,10 @@ class AzureThrottlerAdapterImpl (
     private val myRemainingReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
     private val myWindowStartTime = AtomicReference<LocalDateTime>(LocalDateTime.now(Clock.systemUTC()))
     private val myDefaultReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
+    private var myTaskContext = ThreadLocal<TaskContext?>()
 
     init {
-        myInterceptor = AzureThrottlerInterceptor(this, name, requestSync)
+        myInterceptor = AzureThrottlerInterceptor(this, this, name, requestSync)
 
         myAzure = AzureApiImpl(
             azureConfigurable
@@ -104,14 +104,19 @@ class AzureThrottlerAdapterImpl (
         return myRemainingReads.get()
     }
 
-    override fun <T> execute(queryFactory: (AzureApi) -> Single<T>): Single<AzureThrottlerAdapterResult<T>> {
-        return queryFactory(myAzure)
-                .doOnSubscribe { myInterceptor.onBeginRequestsSequence() }
-                .doOnUnsubscribe { myInterceptor.onEndRequestsSequence() }
+    override fun <T> execute(queryFactory: (AzureApi, AzureTaskContext) -> Single<T>): Single<AzureThrottlerAdapterResult<T>> {
+        val taskContext = TaskContext(myTaskContext)
+        return queryFactory(myAzure, taskContext)
+                .doOnSubscribe {
+                    myTaskContext.set(taskContext)
+                }
+                .doOnUnsubscribe {
+                    myTaskContext.remove()
+                }
                 .map {
                     AzureThrottlerAdapterResult(
                             it,
-                            myInterceptor.getRequestsSequenceLength(),
+                            taskContext.getRequestSequenceLength(),
                             false)
                 }
     }
@@ -135,6 +140,25 @@ class AzureThrottlerAdapterImpl (
                 "Window start time: ${getWindowStartDateTime()}, " +
                 "Window width: ${Duration.ofMillis(getWindowWidthInMilliseconds())}, " +
                 "Throttler time: ${Duration.ofMillis(getThrottlerTime())}")
+    }
+
+    override fun getContext(): AzureTaskContext? = myTaskContext.get()
+
+    class TaskContext(private val storage: ThreadLocal<TaskContext?>) : AzureTaskContext {
+        private val myCorellationId: String
+        private val requestSequenceLength = AtomicLong(0)
+        override val corellationId: String
+            get() = myCorellationId
+
+        init {
+            myCorellationId = UUID.randomUUID().toString()
+        }
+
+        override fun apply() = storage.set(this)
+
+        override fun getRequestSequenceLength(): Long = requestSequenceLength.get()
+
+        override fun increaseRequestsSequenceLength() { requestSequenceLength.incrementAndGet() }
     }
 
     companion object {

@@ -48,7 +48,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
         every {
             adapter.execute<String>(captureLambda())
         } answers {
-            lambda<(Unit) -> Single<String>>().captured.invoke(Unit).map { AzureThrottlerAdapterResult(it, null, false) }
+            lambda<(Unit, AzureTaskContext) -> Single<String>>().captured.invoke(Unit, mockk()).map { AzureThrottlerAdapterResult(it, null, false) }
         }
         every { adapter.logDiagnosticInfo() } returns Unit
 
@@ -84,7 +84,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
 
         val task : AzureThrottlerTask<Unit, String, String> = mockk()
         val parameterSlot = CapturingSlot<String>()
-        every { task.create(Unit, capture(parameterSlot)) } answers { Single.just("Executed with ${parameterSlot.captured}") }
+        every { task.create(Unit, any(), capture(parameterSlot)) } answers { Single.just("Executed with ${parameterSlot.captured}") }
 
         instance.registerTask(Unit, task, AzureThrottlerTaskTimeExecutionType.Random, 10)
         instance.start()
@@ -114,7 +114,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
 
         val task : AzureThrottlerTask<Unit, String, String> = mockk()
         val error = Exception("Test error")
-        every { task.create(Unit, any()) } answers { Single.error(error) }
+        every { task.create(Unit, any(), any()) } answers { Single.error(error) }
 
         instance.registerTask(Unit, task, AzureThrottlerTaskTimeExecutionType.Random, 10)
         instance.start()
@@ -146,7 +146,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
 
         val task : AzureThrottlerTask<Unit, String, String> = mockk()
         val parameterSlot = CapturingSlot<String>()
-        every { task.create(Unit, capture(parameterSlot)) } answers { Single.just("Executed with ${parameterSlot.captured}") }
+        every { task.create(Unit, any(), capture(parameterSlot)) } answers { Single.just("Executed with ${parameterSlot.captured}") }
 
         val taskDescriptor: AzureTaskDescriptor<Unit, Unit, String, String> = mockk()
         every { taskDescriptor.create(taskNotifications) } returns task
@@ -183,7 +183,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
 
         val task : AzureThrottlerTask<Unit, String, String> = mockk()
         val error = Exception("Test error")
-        every { task.create(Unit, any()) } answers { Single.error(error) }
+        every { task.create(Unit, any(), any()) } answers { Single.error(error) }
 
         val taskDescriptor: AzureTaskDescriptor<Unit, Unit, String, String> = mockk()
         every { taskDescriptor.create(taskNotifications) } returns task
@@ -220,7 +220,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
 
         val task : AzureThrottlerTask<Unit, String, String> = mockk()
         val parameterSlot = CapturingSlot<String>()
-        every { task.create(Unit, capture(parameterSlot)) } answers { Single.just("Executed with ${parameterSlot.captured}") }
+        every { task.create(Unit, any(), capture(parameterSlot)) } answers { Single.just("Executed with ${parameterSlot.captured}") }
 
         val taskDescriptor: AzureTaskDescriptor<Unit, Unit, String, String> = mockk()
         every { taskDescriptor.create(taskNotifications) } returns task
@@ -260,7 +260,7 @@ class AzureThrottlerImplTest : MockObjectTestCase() {
         val delayScheduler = Schedulers.test()
         var state = "initial"
         every {
-            task.create(Unit, capture(parameterSlot))
+            task.create(Unit, any(), capture(parameterSlot))
         } answers {
             Single
                     .just("Executed with ${parameterSlot.captured}")

@@ -47,8 +47,20 @@ interface AzureThrottlerCacheableTask<A, P, T> : AzureThrottlerTask<A, P, T> {
     fun checkThrottleTime(parameter: P): Boolean
 }
 
+interface AzureTaskContext {
+    val corellationId: String
+
+    fun apply()
+    fun getRequestSequenceLength(): Long
+    fun increaseRequestsSequenceLength()
+}
+
+interface AzureTaskContextProvider {
+    fun getContext(): AzureTaskContext?
+}
+
 interface AzureThrottlerTask<A, P, T> :  AzureThrottlerTaskParameterEqualityComparer<P> {
-    fun create(api: A, parameter: P): Single<T>
+    fun create(api: A, taskContext: AzureTaskContext, parameter: P): Single<T>
 }
 
 interface AzureThrottlerTaskParameterEqualityComparer<P> {
@@ -152,7 +164,7 @@ data class AzureThrottlerTaskQueueCallHistoryStatistics(
 
 data class AzureThrottlerAdapterResult<T>(val value: T?, val requestsCount: Long?, val fromCache: Boolean)
 
-interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier {
+interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier, AzureTaskContextProvider {
     val api: A
     val name: String
     fun setThrottlerTime(milliseconds: Long)
@@ -161,7 +173,7 @@ interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier
     fun getWindowStartDateTime(): LocalDateTime
     fun getRemainingReads(): Long
     fun getDefaultReads(): Long
-    fun <T> execute(queryFactory: (A) -> Single<T>): Single<AzureThrottlerAdapterResult<T>>
+    fun <T> execute(queryFactory: (A, AzureTaskContext) -> Single<T>): Single<AzureThrottlerAdapterResult<T>>
     fun logDiagnosticInfo()
 }
 

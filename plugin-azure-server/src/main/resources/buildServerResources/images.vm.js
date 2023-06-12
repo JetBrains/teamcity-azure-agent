@@ -159,7 +159,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       } else {
         parametersMap[key] = Object.assign( {}, {
           name: key,
-          hasValue: !!value.defaultValue,
+          hasValue: value.defaultValue !== undefined && value.defaultValue !== null,
           isProvided: false,
           isMatched: false
         });

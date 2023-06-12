@@ -41,8 +41,8 @@ abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerTaskBas
         myTimeoutInSeconds.set(timeoutInSeconds)
     }
 
-    override fun create(api: AzureApi, parameter: P): Single<T> {
-        return createQuery(api, parameter)
+    override fun create(api: AzureApi, taskContext: AzureTaskContext, parameter: P): Single<T> {
+        return createQuery(api, taskContext, parameter)
                 .doOnSuccess {
                     myCache.put(parameter, CacheValue(it, LocalDateTime.now(Clock.systemUTC())))
                 }
@@ -66,7 +66,7 @@ abstract class AzureThrottlerCacheableTaskBaseImpl<P, T> : AzureThrottlerTaskBas
         return TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC, 5)
     }
 
-    protected abstract fun createQuery(api: AzureApi, parameter: P): Single<T>
+    protected abstract fun createQuery(api: AzureApi, taskContext: AzureTaskContext, parameter: P): Single<T>
 
     data class CacheValue<T>(val value: T, val lastUpdatedDateTime : LocalDateTime)
 

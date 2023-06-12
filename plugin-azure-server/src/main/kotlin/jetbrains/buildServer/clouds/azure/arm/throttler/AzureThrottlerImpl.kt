@@ -108,10 +108,7 @@ class AzureThrottlerImpl<A, I>(
 
     override fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P, timeout: Long, timeUnit: TimeUnit): Single<T> {
         val executionId = myNonBlockingTaskExecutionId.incrementAndGet()
-        LOG.debug("[${taskDescriptor.taskId}-$executionId] Starting non blocking task")
-
         return executeTask<P, T>(taskDescriptor.taskId, parameters)
-                .doOnEach { LOG.debug("[${taskDescriptor.taskId}-$executionId] Single On Each Value of task. Kind: ${it.kind}") }
                 .timeout(timeout, timeUnit, schedulers.timeoutScheduler)
                 .onErrorResumeNext { error ->
                     LOG.debug("[${taskDescriptor.taskId}-$executionId] Error occurred: $error")
@@ -121,8 +118,6 @@ class AzureThrottlerImpl<A, I>(
                     }
                     return@onErrorResumeNext Single.error<T>(error)
                 }
-                .doOnSubscribe { LOG.debug("[${taskDescriptor.taskId}-$executionId] Subscribing") }
-                .doOnUnsubscribe { LOG.debug("[${taskDescriptor.taskId}-$executionId] Unsubscribing") }
     }
 
     override fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P): Single<T> {

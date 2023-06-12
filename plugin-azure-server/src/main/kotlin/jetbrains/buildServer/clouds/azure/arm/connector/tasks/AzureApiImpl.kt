@@ -8,6 +8,7 @@ import com.microsoft.azure.management.containerinstance.ContainerGroups
 import com.microsoft.azure.management.network.Networks
 import com.microsoft.azure.management.network.PublicIPAddresses
 import com.microsoft.azure.management.resources.*
+import com.microsoft.azure.management.resources.implementation.ResourceManagementClientImpl
 import com.microsoft.azure.management.storage.StorageAccounts
 import jetbrains.buildServer.clouds.azure.arm.resourceGraph.ResourceGraph
 
@@ -42,4 +43,6 @@ class AzureApiImpl(
     override fun storageAccounts(): StorageAccounts = api.storageAccounts()
 
     override fun resourceGraph(): ResourceGraph = resourceGrapgApi
+
+    override fun deploymentsClient(): ResourceManagementClientImpl = deployments().manager().inner()
 }

@@ -23,6 +23,7 @@ import com.microsoft.azure.management.compute.implementation.VirtualMachineInner
 import com.microsoft.azure.management.compute.implementation.VirtualMachineInstanceViewInner
 import com.microsoft.azure.management.containerinstance.ContainerGroup
 import com.microsoft.azure.management.network.PublicIPAddress
+import com.microsoft.azure.management.resources.ProvisioningState
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import com.microsoft.azure.management.resources.fluentcore.arm.models.HasId
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
@@ -65,29 +66,22 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
             updateVirtualMachine(it.api, it.virtualMachine)
         }
         myNotifications.register<AzureTaskDeploymentStatusChangedEventArgs> { args ->
-            val dependency = args.deployment.dependencies().firstOrNull { it.resourceType() == VIRTUAL_MACHINES_RESOURCE_TYPE }
+            val dependency = args.dependencies.firstOrNull { it.resourceType() == VIRTUAL_MACHINES_RESOURCE_TYPE }
             if (dependency != null) {
-                if (args.isDeleting) {
+                if (args.isDeleting || args.provisioningState == ProvisioningState.SUCCEEDED) {
                     updateVirtualMachine(args.api, dependency.id(), args.isDeleting)
-                } else {
-                    if (args.deployment.provisioningState() == PROVISIONING_STATE_SUCCEEDED) {
-                        updateVirtualMachine(args.api, dependency.id(), args.isDeleting)
-                    }
                 }
                 return@register
             }
 
-            val containerProvider = args.deployment.providers().firstOrNull { it.namespace() == CONTAINER_INSTANCE_NAMESPACE }
+            val containerProvider = args.providers.firstOrNull { it.namespace() == CONTAINER_INSTANCE_NAMESPACE }
             if (containerProvider != null) {
-                val id = args.deployment.id()
-                val name = args.deployment.name()
-
                 val containerId = ResourceUtils.constructResourceId(
-                        ResourceUtils.subscriptionFromResourceId(id),
-                        ResourceUtils.groupFromResourceId(id),
+                        ResourceUtils.subscriptionFromResourceId(args.deploymentId),
+                        ResourceUtils.groupFromResourceId(args.deploymentId),
                         containerProvider.namespace(),
                         CONTAINER_GROUPS_RESOURCE_TYPE,
-                        name,
+                    args.deploymentName,
                         "")
 
                 updateContainer(args.api, containerId, args.isDeleting)
@@ -95,7 +89,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         }
     }
 
-    override fun create(api: AzureApi, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
+    override fun create(api: AzureApi, taskContext: AzureTaskContext, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
         if (StringUtil.isEmptyOrSpaces(api.subscriptionId())) {
             LOG.debug("FetchInstancesTask returns empty list. Subscription is empty")
             return Single

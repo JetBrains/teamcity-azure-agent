@@ -18,6 +18,7 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.storage.StorageAccountKey
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskContext
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
 import rx.Single
 
@@ -30,7 +31,7 @@ data class StorageAccountTaskAccountDescriptor(
         var keys: List<String>)
 
 class FetchStorageAccountsTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List<StorageAccountTaskAccountDescriptor>>() {
-    override fun createQuery(api: AzureApi, parameter: Unit): Single<List<StorageAccountTaskAccountDescriptor>> {
+    override fun createQuery(api: AzureApi, taskContext: AzureTaskContext, parameter: Unit): Single<List<StorageAccountTaskAccountDescriptor>> {
         return api
                 .storageAccounts()
                 .listAsync()

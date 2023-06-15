@@ -5,12 +5,17 @@ import com.microsoft.rest.ServiceCallback
 import com.microsoft.rest.ServiceFuture
 import com.microsoft.rest.ServiceResponse
 import com.microsoft.rest.Validator
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_LONG_RUNNING_QUERY_RETRY_TIMEOUT
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_RESOURCEGRAPH_LONG_RUNNING_QUERY_RETRY_TIMEOUT
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.*
 import rx.Observable
+import rx.schedulers.Schedulers
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 
 class ResourceProvidersInner(
     retrofit: Retrofit,
@@ -39,6 +44,56 @@ class ResourceProvidersInner(
 
     fun resourcesAsync(query: QueryRequest): Observable<QueryResponseInner> {
         return resourcesWithServiceResponseAsync(query).map { response -> response.body() }
+    }
+
+    fun poolResourcesAsync(query: QueryRequest): Observable<Table> {
+        return resourcesAsync(query)
+            .concatMap { response ->
+                if (response.skipToken.isNullOrEmpty())
+                    Observable.just(Table(response.data!!))
+                else
+                    Observable.timer(
+                        TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_RESOURCEGRAPH_LONG_RUNNING_QUERY_RETRY_TIMEOUT, 5),
+                        TimeUnit.SECONDS,
+                        Schedulers.immediate()
+                    )
+                    .flatMap {
+                        doPollResourcesAsync(query, response.skipToken!!)
+                    }
+            }
+    }
+
+    private fun doPollResourcesAsync(query: QueryRequest, skipToken: String): Observable<Table> {
+        val nextQuery = QueryRequest(query.query)
+        nextQuery.subscriptions = query.subscriptions
+
+        val options = QueryRequestOptions()
+        options.skipToken = skipToken
+        nextQuery.options = options
+
+        return Observable
+            .just(true)
+            .concatMap {
+                resourcesAsync(nextQuery)
+                    .doOnNext {
+                        options.skipToken = it.skipToken
+                    }
+            }
+            .repeatWhen {
+                it.flatMap {
+                    Observable.timer(
+                        TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_RESOURCEGRAPH_LONG_RUNNING_QUERY_RETRY_TIMEOUT, 5),
+                        TimeUnit.SECONDS,
+                        Schedulers.immediate()
+                    )
+                }
+            }
+            .takeUntil {
+                it.skipToken.isNullOrEmpty()
+            }
+            .map {
+                Table(it.data!!)
+            }
     }
 
     fun resourcesWithServiceResponseAsync(query: QueryRequest): Observable<ServiceResponse<QueryResponseInner>> {

@@ -158,7 +158,6 @@ class AzureCloudImage(
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Creating new virtual machine ${instance.describe()}")
                 myApiConnector.createInstance(instance, data)
-                updateInstanceStatus(image, instance)
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 handleDeploymentError(e)
@@ -282,7 +281,6 @@ class AzureCloudImage(
                         instanceToStart.status = InstanceStatus.STARTING
                         LOG.info("Starting stopped virtual machine ${instanceToStart.describe()}")
                         myApiConnector.startInstance(instanceToStart)
-                        updateInstanceStatus(image, instanceToStart)
                     } catch (e: Throwable) {
                         LOG.warnAndDebugDetails(e.message, e)
                         handleDeploymentError(e)
@@ -316,7 +314,6 @@ class AzureCloudImage(
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Starting virtual machine ${instance.describe()}")
                 myApiConnector.startInstance(instance)
-                updateInstanceStatus(image, instance)
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 handleDeploymentError(e)
@@ -329,17 +326,6 @@ class AzureCloudImage(
         }
 
         return instance
-    }
-
-    private fun updateInstanceStatus(image: AzureCloudImage, instance: AzureCloudInstance) {
-        val instances = myApiConnector.fetchInstances<AzureInstance>(image)
-
-        instances[instance.name]?.let { azureInstance ->
-            azureInstance.startDate?.let { instance.setStartDate(it) }
-            azureInstance.ipAddress?.let { instance.setNetworkIdentify(it) }
-            instance.hasVmInstance = true
-            instance.status = azureInstance.instanceStatus
-        }
     }
 
     private suspend fun isSameImageInstance(instance: AzureCloudInstance) = coroutineScope {
@@ -372,7 +358,6 @@ class AzureCloudImage(
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Restarting virtual machine ${instance.describe()}")
                 myApiConnector.restartInstance(instance)
-                updateInstanceStatus(image, instance)
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 instance.status = InstanceStatus.ERROR
@@ -408,7 +393,7 @@ class AzureCloudImage(
                 } else {
                     LOG.info("Stopping virtual machine ${instance.describe()}")
                     myApiConnector.stopInstance(instance)
-                    updateInstanceStatus(image, instance)
+                    instance.status = InstanceStatus.STOPPED
                 }
 
                 LOG.info("Virtual machine ${instance.describe()} has been successfully terminated")

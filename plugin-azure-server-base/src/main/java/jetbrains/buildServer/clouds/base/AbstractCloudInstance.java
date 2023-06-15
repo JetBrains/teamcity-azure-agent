@@ -112,6 +112,8 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
     return myState.get().getStatus();
   }
 
+  public Boolean getProvisioningInProgress() { return myState.get().getProvisioningInProgress(); }
+
   public void setStatus(@NotNull final InstanceStatus status) {
     myState.updateAndGet(state -> {
       if (state.getStatus() == status) {
@@ -170,6 +172,10 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
     myState.updateAndGet(state -> state.withNetworkIdentity(networkIdentify));
   }
 
+  public void setProvisioningInProgress(@NotNull final Boolean provisioningInProgress) {
+    myState.updateAndGet(state -> state.withProvisioningInProgress(provisioningInProgress));
+  }
+
   @Nullable
   public String getNetworkIdentity() {
     return myState.get().getNetworkIdentify();
@@ -197,6 +203,9 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
     @NotNull
     private InstanceStatus myStatus = InstanceStatus.UNKNOWN;
 
+    @NotNull
+    private Boolean myProvisioningInProgress = false;
+
     public InstanceState() {
     }
 
@@ -205,6 +214,7 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
       myStatusUpdateTime = state.myStatusUpdateTime;
       myNetworkIdentify = state.myNetworkIdentify;
       myStatus = state.myStatus;
+      myProvisioningInProgress = state.myProvisioningInProgress;
     }
 
     @NotNull
@@ -228,6 +238,9 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
     }
 
     @NotNull
+    public Boolean getProvisioningInProgress() { return myProvisioningInProgress; }
+
+    @NotNull
     public InstanceState withStatus(@NotNull final InstanceStatus status) {
       final InstanceState result = new InstanceState(this);
       result.myStatus = status;
@@ -246,6 +259,13 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
     public InstanceState withNetworkIdentity(@Nullable final String networkIdentity) {
       final InstanceState result = new InstanceState(this);
       result.myNetworkIdentify = networkIdentity;
+      return result;
+    }
+
+    @NotNull
+    public InstanceState withProvisioningInProgress(@Nullable final Boolean provisioningInProgress) {
+      final InstanceState result = new InstanceState(this);
+      result.myProvisioningInProgress = provisioningInProgress;
       return result;
     }
   }

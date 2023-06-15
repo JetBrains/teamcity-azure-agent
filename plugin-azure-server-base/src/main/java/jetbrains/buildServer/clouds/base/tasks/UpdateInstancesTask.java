@@ -107,7 +107,8 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>,
 
           if ((isStatusPermanent(instance.getStatus()) || isStuck(instance))
             && isStatusPermanent(realInstanceStatus)
-            && realInstanceStatus != instance.getStatus()) {
+            && realInstanceStatus != instance.getStatus()
+            && !instance.getProvisioningInProgress()) {
             LOG.info(String.format("Updated instance '%s' status to %s based on API information", realInstanceName, realInstanceStatus));
             instance.setStatus(realInstanceStatus);
           }

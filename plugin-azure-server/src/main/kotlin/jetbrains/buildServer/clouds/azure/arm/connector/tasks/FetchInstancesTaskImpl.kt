@@ -18,6 +18,8 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.google.common.cache.CacheBuilder
 import com.intellij.openapi.diagnostic.Logger
+import com.microsoft.azure.management.compute.OperatingSystemStateTypes
+import com.microsoft.azure.management.compute.OperatingSystemTypes
 import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.compute.implementation.VirtualMachineInner
 import com.microsoft.azure.management.compute.implementation.VirtualMachineInstanceViewInner
@@ -27,7 +29,11 @@ import com.microsoft.azure.management.resources.ProvisioningState
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import com.microsoft.azure.management.resources.fluentcore.arm.models.HasId
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
+import jetbrains.buildServer.clouds.azure.arm.resourceGraph.QueryRequest
+import jetbrains.buildServer.clouds.azure.arm.resourceGraph.QueryRequestOptions
+import jetbrains.buildServer.clouds.azure.arm.resourceGraph.QueryResponse
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
+import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.util.StringUtil
@@ -95,67 +101,149 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
             return Single
                     .just(emptyList<FetchInstancesTaskInstanceDescriptor>());
         }
+        LOG.debug("Start fetching instances. COrellationId: ${taskContext.corellationId}")
 
+
+        return if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_RESOURCEGRAPH_DISABLE))
+            createTask(api, taskContext, parameter)
+        else createResourceGraphTask(api, taskContext, parameter)
+    }
+
+    private fun createResourceGraphTask(api: AzureApi, taskContext: AzureTaskContext, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
+        val query = QueryRequest(
+            FETCH_INSTANCES_SCRIPT
+                .replace("@@TeamCityServer", parameter.serverId)
+        )
+        return api
+            .resourceGraph()
+            .resources()
+            .poolResourcesAsync(query)
+            .flatMapIterable { table ->
+                val descriptors = mutableListOf<InstanceDescriptor>()
+                table.rows.forEach {
+                    val resourceId = it.getStringValue("resourceId", isRequired = true)!!
+                    val resourceName = it.getStringValue("resourceName", isRequired = true)!!
+                    var provisioningState = it.getStringValue("provisioningState", isRequired = true)
+                    val startDate = it.getDateTimeValue("startDate", isRequired = false)?.toDate()
+                    val powerState = it.getStringValue("powerStateCode", isRequired = false)
+                    val resourceTags = it.getMapValue("resourceTags", isRequired = false) ?: emptyMap()
+                    val publicIpAddress = it.getStringValue("publicIpAddress", isRequired = false)
+                    val networkInterfaceId = it.getStringValue("nicId", isRequired = false)
+
+                    if (resourceTags.containsKey(AzureConstants.TAG_INVESTIGATION)) {
+                        LOG.debug("Virtual machine $resourceName is marked by ${AzureConstants.TAG_INVESTIGATION} tag")
+                        provisioningState = "Investigation"
+                    }
+
+                    val descriptor = InstanceDescriptor(
+                        resourceId,
+                        resourceName,
+                        resourceTags,
+                        provisioningState,
+                        startDate,
+                        powerState,
+                        null,
+                        networkInterfaceId,
+                        publicIpAddress,
+                        getCurrentUTC()
+                    )
+                    descriptors.add(descriptor)
+                }
+                descriptors.toList()
+            }
+            .toList()
+            .doOnNext { instances ->
+                LOG.debug("Fetched ${instances.count()} VMs and containers. CorellationId:${taskContext.corellationId}")
+
+                myLastUpdatedDate.set(getCurrentUTC())
+
+                val newInstances = instances.associateBy { it.id.lowercase() }
+                myInstancesCache.putAll(newInstances)
+
+                val keysInCache = myInstancesCache.asMap().keys.toSet()
+                val notifiedInstances = HashSet(myNotifiedInstances)
+                myInstancesCache.invalidateAll(keysInCache.minus(newInstances.keys.plus(notifiedInstances)))
+                myNotifiedInstances.removeAll(notifiedInstances)
+            }
+            .map {
+                it.map {descriptor ->
+                    FetchInstancesTaskInstanceDescriptor(
+                        descriptor.id,
+                        descriptor.name,
+                        descriptor.tags,
+                        descriptor.publicIpAddress,
+                        descriptor.provisioningState,
+                        descriptor.startDate,
+                        descriptor.powerState,
+                        descriptor.error
+                    )
+
+                }
+            }
+            .toSingle()
+    }
+
+    private fun createTask(api: AzureApi, taskContext: AzureTaskContext, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
         val ipAddresses =
-                fetchIPAddresses(api)
+            fetchIPAddresses(api)
 
         val machineInstancesImpl =
-                if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_FULLSTATEAPI_DISABLE))
-                    Observable.just(emptyMap())
-                else api.virtualMachines().inner()
-                    .listAsync("true")
-                    .flatMap { x -> Observable.from(x.items()) }
-                    .toMap { vm -> vm.id() }
+            if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_FULLSTATEAPI_DISABLE))
+                Observable.just(emptyMap())
+            else api.virtualMachines().inner()
+                .listAsync("true")
+                .flatMap { x -> Observable.from(x.items()) }
+                .toMap { vm -> vm.id() }
 
         val machineInstances =
             api
-                    .virtualMachines()
-                    .listAsync()
-                    .materialize()
-                    .filter {
-                        if (it.isOnError) LOG.warnAndDebugDetails("Could not read VM state:", it.throwable)
-                        !it.isOnError
-                    }
-                    .dematerialize<VirtualMachine>()
-                    .withLatestFrom(machineInstancesImpl) { vm, vmStatusesMap ->
-                        vm to vmStatusesMap[vm.id()]
-                    }
-                    .flatMap { (vm, vmStatus) ->
-                        fetchVirtualMachineWithCache(vm, vmStatus)
-                    }
+                .virtualMachines()
+                .listAsync()
+                .materialize()
+                .filter {
+                    if (it.isOnError) LOG.warnAndDebugDetails("Could not read VM state:", it.throwable)
+                    !it.isOnError
+                }
+                .dematerialize<VirtualMachine>()
+                .withLatestFrom(machineInstancesImpl) { vm, vmStatusesMap ->
+                    vm to vmStatusesMap[vm.id()]
+                }
+                .flatMap { (vm, vmStatus) ->
+                    fetchVirtualMachineWithCache(vm, vmStatus)
+                }
 
         val containerInstances =
             api
-                    .containerGroups()
-                    .listAsync()
-                    .materialize()
-                    .filter {
-                        if (it.isOnError) LOG.warnAndDebugDetails("Could not read container state:", it.throwable)
-                        !it.isOnError
-                    }
-                    .dematerialize<ContainerGroup>()
-                    .map { getLiveInstanceFromSnapshot(it) ?: fetchContainer(it) }
+                .containerGroups()
+                .listAsync()
+                .materialize()
+                .filter {
+                    if (it.isOnError) LOG.warnAndDebugDetails("Could not read container state:", it.throwable)
+                    !it.isOnError
+                }
+                .dematerialize<ContainerGroup>()
+                .map { getLiveInstanceFromSnapshot(it) ?: fetchContainer(it) }
 
         return machineInstances
-                .mergeWith(containerInstances)
-                .toList()
-                .takeLast(1)
-                .withLatestFrom(ipAddresses) { instances, ipList ->
-                    myLastUpdatedDate.set(getCurrentUTC())
-                    myIpAddresses.set(ipList.toTypedArray())
+            .mergeWith(containerInstances)
+            .toList()
+            .takeLast(1)
+            .withLatestFrom(ipAddresses) { instances, ipList ->
+                myLastUpdatedDate.set(getCurrentUTC())
+                myIpAddresses.set(ipList.toTypedArray())
 
-                    val newInstances = instances.associateBy { it.id.lowercase() }
-                    myInstancesCache.putAll(newInstances)
+                val newInstances = instances.associateBy { it.id.lowercase() }
+                myInstancesCache.putAll(newInstances)
 
-                    val keysInCache = myInstancesCache.asMap().keys.toSet()
-                    val notifiedInstances = HashSet(myNotifiedInstances)
-                    myInstancesCache.invalidateAll(keysInCache.minus(newInstances.keys.plus(notifiedInstances)))
-                    myNotifiedInstances.removeAll(notifiedInstances)
+                val keysInCache = myInstancesCache.asMap().keys.toSet()
+                val notifiedInstances = HashSet(myNotifiedInstances)
+                myInstancesCache.invalidateAll(keysInCache.minus(newInstances.keys.plus(notifiedInstances)))
+                myNotifiedInstances.removeAll(notifiedInstances)
 
-                    Unit
-                }
-                .map { getFilteredResources(parameter) }
-                .toSingle()
+                Unit
+            }
+            .map { getFilteredResources(parameter) }
+            .toSingle()
     }
 
     private fun getLiveInstanceFromSnapshot(resource: HasId?): InstanceDescriptor? {
@@ -221,6 +309,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 powerState,
                 null,
                 null,
+                null,
                 getCurrentUTC())
         return instance
     }
@@ -252,6 +341,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 instanceState.powerState,
                 null,
                 vm.primaryNetworkInterfaceId(),
+                null,
                 getCurrentUTC()
         ))
     }
@@ -278,6 +368,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                             instanceView.powerState,
                             if (instanceView.error != null) TypedCloudErrorInfo.fromException(instanceView.error) else null,
                             vm.primaryNetworkInterfaceId(),
+                            null,
                             getCurrentUTC())
                     instance
                 }
@@ -408,6 +499,8 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
     }
 
     private fun getPublicIPAddressOrDefault(instance: InstanceDescriptor): String? {
+        instance.publicIpAddress?.let { return it }
+
         var ipAddresses = myIpAddresses.get()
         if (ipAddresses.isEmpty()) return null
 
@@ -448,6 +541,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
             val powerState: String?,
             val error: TypedCloudErrorInfo?,
             val primaryNetworkInterfaceId: String?,
+            val publicIpAddress: String?,
             val lastUpdatedDate: LocalDateTime
     )
 
@@ -460,13 +554,12 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
     companion object {
         private val LOG = Logger.getInstance(FetchInstancesTaskImpl::class.java.name)
-        private const val PUBLIC_IP_SUFFIX = "-pip"
         private const val PROVISIONING_STATE = "ProvisioningState/"
-        private const val PROVISIONING_STATE_SUCCEEDED = "Succeeded"
         private const val POWER_STATE = "PowerState/"
-        private const val CACHE_KEY = "key"
         private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
         private const val CONTAINER_INSTANCE_NAMESPACE = "Microsoft.ContainerInstance"
         private const val CONTAINER_GROUPS_RESOURCE_TYPE = "containerGroups"
+
+        private val FETCH_INSTANCES_SCRIPT = AzureUtils.getResourceAsString("/queries/fetch_instances.kusto")
     }
 }

@@ -190,7 +190,11 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
 
   public String describe() { return String.format("%s(%x)", getName(), hashCode()); }
 
-  private class InstanceState {
+  protected void setInstanceState(@NotNull final InstanceState state) {
+    myState.set(state);
+  }
+
+  protected class InstanceState {
     @NotNull
     private Date myStartDate = new Date();
 

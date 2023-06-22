@@ -34,7 +34,7 @@ Resources
         type,
         tags,
         provisioningState = tostring(properties.provisioningState),
-        powerStateCode = tostring(split(tostring(currentState.state), "/")[1]),
+        powerStateCode = tostring(currentState.state),
         startDate = todatetime(currentState.startTime)
     | where isnull(tags) or tags["teamcity-server"] =~ "@@TeamCityServer"
 )

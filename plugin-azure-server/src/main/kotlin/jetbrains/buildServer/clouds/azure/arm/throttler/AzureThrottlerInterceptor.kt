@@ -43,7 +43,7 @@ class AzureThrottlerInterceptor(
         val requestId = request.header(CLIENT_REQUEST_ID)
 
         val taskContext = tackContextProvider.getContext()
-        val corellationId = "[${taskContext?.corellationId ?: "-${requestId}"}/${taskContext?.getRequestSequenceLength().toString() ?: "---"}]"
+        val corellationId = "[${taskContext?.corellationId ?: "-${requestId}"}/${taskContext?.getRequestSequenceLength()?.toString() ?: "---"}]"
 
         LOG.debug("[$name] $corellationId Azure request starting")
 

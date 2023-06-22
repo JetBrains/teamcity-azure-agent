@@ -158,6 +158,7 @@ class AzureCloudImage(
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Creating new virtual machine ${instance.describe()}")
                 myApiConnector.createInstance(instance, data)
+                instance.hasVmInstance = true
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 handleDeploymentError(e)
@@ -358,6 +359,7 @@ class AzureCloudImage(
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Restarting virtual machine ${instance.describe()}")
                 myApiConnector.restartInstance(instance)
+                instance.hasVmInstance = true
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 instance.status = InstanceStatus.ERROR

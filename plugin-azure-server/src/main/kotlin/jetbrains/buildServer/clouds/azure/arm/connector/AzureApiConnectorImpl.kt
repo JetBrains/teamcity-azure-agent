@@ -142,10 +142,7 @@ class AzureApiConnectorImpl(
         val id = instance.id
 
         if (isVm && details.target == AzureCloudDeployTarget.Instance) {
-            if (id != details.instanceId!!) {
-                return true
-            }
-            return false
+            return !id.equals(details.instanceId, true)
         }
 
         if (!name.startsWith(details.sourceId, true)) {

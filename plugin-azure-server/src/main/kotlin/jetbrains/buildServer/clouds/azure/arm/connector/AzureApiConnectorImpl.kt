@@ -726,22 +726,24 @@ class AzureApiConnectorImpl(
     private suspend fun stopVm(instance: AzureCloudInstance) = coroutineScope {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
+        deploymentLocks.getOrPut("$groupId/${instance.name}") { Mutex() }.withLock {
+            try {
+                myAzureRequestsThrottler.executeUpdateTask(
+                        AzureThrottlerActionTasks.StopVirtualMachine,
+                        StopVirtualMachineTaskParameter(groupId, name))
+                        .awaitOne()
+                LOG.debug("Virtual machine $name has been successfully stopped")
+            } catch (e: com.microsoft.azure.CloudException) {
+                val details = AzureUtils.getExceptionDetails(e)
+                val message = "Failed to stop virtual machine $name: $details"
+                LOG.debug(message, e)
+                throw CloudException(message, e)
+            } catch (e: Throwable) {
+                val message = "Failed to stop virtual machine $name: ${e.message}"
+                LOG.debug(message, e)
+                throw CloudException(message, e)
 
-        try {
-            myAzureRequestsThrottler.executeUpdateTask(
-                    AzureThrottlerActionTasks.StopVirtualMachine,
-                    StopVirtualMachineTaskParameter(groupId, name))
-                    .awaitOne()
-            LOG.debug("Virtual machine $name has been successfully stopped")
-        } catch (e: com.microsoft.azure.CloudException) {
-            val details = AzureUtils.getExceptionDetails(e)
-            val message = "Failed to stop virtual machine $name: $details"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
-        } catch (e: Throwable) {
-            val message = "Failed to stop virtual machine $name: ${e.message}"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
+            }
         }
     }
 

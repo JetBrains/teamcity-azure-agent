@@ -143,13 +143,7 @@ public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implem
   }
 
   @NotNull
-  public Date getStartedTime() {
-    final InstanceState state = myState.get();
-    if (state.getStatus().isStartingOrStarted() && state.getStatus() != InstanceStatus.RUNNING) {
-      return new Date();
-    }
-    return state.getStartDate();
-  }
+  public Date getStartedTime() { return myState.get().getStartDate(); }
 
   public void setStartDate(@NotNull final Date startDate) {
     myState.updateAndGet(state -> {

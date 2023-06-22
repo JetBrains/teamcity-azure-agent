@@ -77,8 +77,7 @@ class AzureCloudImage(
     override fun getImageDetails(): AzureCloudImageDetails = myImageDetails
 
     override fun createInstanceFromReal(realInstance: AbstractInstance): AzureCloudInstance {
-        return AzureCloudInstance(this, realInstance.name).apply {
-            properties = realInstance.properties
+        return AzureCloudInstance(this, realInstance).apply {
             hasVmInstance = true
         }
     }

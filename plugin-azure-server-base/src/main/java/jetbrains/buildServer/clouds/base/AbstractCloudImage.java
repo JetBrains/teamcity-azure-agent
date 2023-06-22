@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.clouds.base;
 
+import java.util.ArrayList;
 import jetbrains.buildServer.clouds.CanStartNewInstanceResult;
 import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudImage;
@@ -71,7 +72,7 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
 
   @NotNull
   public Collection<T> getInstances() {
-    return Collections.unmodifiableCollection(myInstances.values());
+    return new ArrayList(myInstances.values());
   }
 
   @Nullable
@@ -112,7 +113,6 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
       if (myInstances.get(instanceName) == null) {
         final AbstractInstance realInstance = realInstances.get(instanceName);
         final T newInstance = createInstanceFromReal(realInstance);
-        newInstance.setStatus(realInstance.getInstanceStatus());
         myInstances.put(instanceName, newInstance);
       }
     }

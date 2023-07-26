@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.base;
 
 import com.intellij.openapi.diagnostic.Logger;
+import java.util.concurrent.ConcurrentHashMap;
 import jetbrains.buildServer.clouds.*;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
@@ -56,7 +57,7 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
     public AbstractCloudClient(@NotNull final CloudClientParameters params, @NotNull final CloudApiConnector apiConnector) {
         myParameters = params;
         myAsyncTaskExecutor = new CloudAsyncTaskExecutor("Async tasks for cloud " + params.getProfileDescription());
-        myImageMap = new HashMap<>();
+        myImageMap = new ConcurrentHashMap<>();
         myErrorProvider = new CloudErrorMap(new DefaultErrorMessageUpdater());
         myApiConnector = apiConnector;
     }

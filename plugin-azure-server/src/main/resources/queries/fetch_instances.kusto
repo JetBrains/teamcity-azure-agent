@@ -10,7 +10,7 @@ Resources
     provisioningState = tostring(properties.provisioningState),
     powerStateCode = tostring(split(tostring(instanceView.powerState.code), "/")[1]),
     timeCreated = todatetime(properties.timeCreated)
-| where isnull(tags) or tags["teamcity-server"] =~ "@@TeamCityServer"
+| where isnull(tags) or array_length(bag_keys(tags)) == 0 or tags["teamcity-server"] =~ "@@TeamCityServer"
 | join kind=leftouter (resourcechanges
         | extend
             id = tostring(properties.targetResourceId),
@@ -36,7 +36,7 @@ Resources
         provisioningState = tostring(properties.provisioningState),
         powerStateCode = tostring(currentState.state),
         startDate = todatetime(currentState.startTime)
-    | where isnull(tags) or tags["teamcity-server"] =~ "@@TeamCityServer"
+    | where isnull(tags) or array_length(bag_keys(tags)) == 0 or tags["teamcity-server"] =~ "@@TeamCityServer"
 )
 | extend nics = array_length(properties.networkProfile.networkInterfaces)
 | mv-expand

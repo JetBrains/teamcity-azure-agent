@@ -88,6 +88,7 @@ class UnixCustomDataReader(agentConfiguration: BuildAgentConfigurationEx,
         private val LOG = Logger.getInstance(UnixCustomDataReader::class.java.name)
         private const val UNIX_CONFIG_DIR = "/var/lib/waagent/"
         private const val UNIX_CUSTOM_DATA_FILE = UNIX_CONFIG_DIR + "ovf-env.xml"
+        @Suppress("HttpUrlsUsage")
         private const val WINDOWS_AZURE_NAMESPACE = "http://schemas.microsoft.com/windowsazure"
     }
 }

@@ -10,7 +10,7 @@
     <download-url>https://github.com/JetBrains/teamcity-azure-plugin</download-url>
     <vendor>
       <name>JetBrains</name>
-      <url>http://www.jetbrains.com/</url>
+      <url>https://www.jetbrains.com/</url>
     </vendor>
   </info>
   <requirements min-build="40000" />

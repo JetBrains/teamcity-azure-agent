@@ -29,8 +29,8 @@ subprojects {
     apply plugin: 'java-library'
 
     test.useTestNG()
-    jar.version = null
+    jar.archiveVersion = null
 
-    sourceCompatibility = '1.8'
-    targetCompatibility = '1.8'
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }

@@ -1,16 +1,16 @@
 
 
 plugins {
-    id 'com.github.rodm.teamcity-server' version "1.4.1"
+    id 'io.github.rodm.teamcity-server' version "1.5"
 }
 
 dependencies {
-    compile project(':plugin-azure-common')
+    api project(':plugin-azure-common')
 
     provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
     provided "org.jetbrains.teamcity:cloud-shared:$teamcityVersion"
     provided 'com.google.code.gson:gson:2.5'
-    testCompile 'org.testng:testng:6.8'
+    testImplementation 'org.testng:testng:6.8'
 }
 
 teamcity {

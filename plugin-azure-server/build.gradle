@@ -1,7 +1,7 @@
 
 
 plugins {
-    id 'com.github.rodm.teamcity-server' version "1.4.1"
+    id 'io.github.rodm.teamcity-server' version "1.5"
 }
 
 ext.azureSdkVersion = findProperty('azureArmSdkVersion') ?: '1.41.1'
@@ -15,18 +15,18 @@ teamcity {
     }
 }
 
-configurations.compile {
+configurations.implementation {
     exclude group: 'org.slf4j', module: 'slf4j-api'
 }
 dependencies {
     agent project(path: ':plugin-azure-agent', configuration: 'plugin')
-    compile project(':plugin-azure-server-base')
+    api project(':plugin-azure-server-base')
 
-    compile "org.jetbrains.kotlin:kotlin-stdlib"
-    compile "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version"
-    compile "com.microsoft.azure:azure:$azureSdkVersion"
-    compile 'com.microsoft.azure:azure-storage:8.4.0'
-    compile 'com.squareup.okio:okio:1.7.0'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib"
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:$kotlinx_version"
+    implementation "com.microsoft.azure:azure:$azureSdkVersion"
+    implementation 'com.microsoft.azure:azure-storage:8.4.0'
+    implementation 'com.squareup.okio:okio:1.7.0'
     provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
     provided "org.jetbrains.teamcity:cloud-shared:$teamcityVersion"
     provided "org.jetbrains.teamcity.internal:server:$teamcityVersion"
@@ -37,12 +37,12 @@ dependencies {
     provided 'net.jcip:jcip-annotations:1.0'
     provided 'javax.mail:mail:1.4.7'
     provided 'org.bouncycastle:bcprov-jdk15on:1.60'
-    testCompile 'org.testng:testng:6.8'
-    testCompile 'io.mockk:mockk:1.13.2'
+    testImplementation 'org.testng:testng:6.8'
+    testImplementation 'io.mockk:mockk:1.13.2'
 }
 
-serverPlugin.version = null
-serverPlugin.baseName = 'cloud-azure-arm'
+serverPlugin.archiveVersion = null
+serverPlugin.archiveBaseName = 'cloud-azure-arm'
 
 compileKotlin {
     sourceCompatibility = JavaVersion.VERSION_1_8

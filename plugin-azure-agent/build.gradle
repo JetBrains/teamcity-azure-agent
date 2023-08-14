@@ -1,7 +1,7 @@
 
 
 plugins {
-    id 'com.github.rodm.teamcity-agent' version "1.4.1"
+    id 'io.github.rodm.teamcity-agent' version "1.5"
 }
 
 teamcity {
@@ -12,18 +12,18 @@ teamcity {
 }
 
 dependencies {
-    compile project(':plugin-azure-common')
-    compile "org.jetbrains.kotlin:kotlin-stdlib"
+    api project(':plugin-azure-common')
+    implementation "org.jetbrains.kotlin:kotlin-stdlib"
     provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
     provided "org.jetbrains.teamcity:cloud-shared:$teamcityVersion"
     provided "org.jetbrains.teamcity.internal:agent:$teamcityVersion"
-    testCompile 'org.testng:testng:6.8'
-    testCompile 'org.jmock:jmock:2.5.1'
-    testCompile 'org.jmock:jmock-legacy:2.5.1'
+    testImplementation 'org.testng:testng:6.8'
+    testImplementation 'org.jmock:jmock:2.5.1'
+    testImplementation 'org.jmock:jmock-legacy:2.5.1'
 }
 
-agentPlugin.version = null
-agentPlugin.baseName = 'cloud-azure-arm'
+agentPlugin.archiveVersion = null
+agentPlugin.archiveBaseName = 'cloud-azure-arm'
 
 compileKotlin {
     sourceCompatibility = JavaVersion.VERSION_1_8

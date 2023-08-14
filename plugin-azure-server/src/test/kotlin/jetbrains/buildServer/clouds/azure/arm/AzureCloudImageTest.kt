@@ -1,4 +1,4 @@
-
+package jetbrains.buildServer.clouds.azure.arm
 
 import io.mockk.MockKAnnotations
 import io.mockk.coEvery
@@ -8,12 +8,6 @@ import io.mockk.mockk
 import io.mockk.verify
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.InstanceStatus
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageType
-import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
-import jetbrains.buildServer.clouds.azure.arm.AzureInstanceEventListener
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
 import junit.framework.TestCase
@@ -39,11 +33,10 @@ class AzureCloudImageTest : MockObjectTestCase() {
     fun beforeMethod() {
         MockKAnnotations.init(this)
 
-        myApiConnector = mockk();
+        myApiConnector = mockk()
         coEvery { myApiConnector.createInstance(any(), any()) } coAnswers {
             val instance = firstArg<AzureCloudInstance>()
             instance.hasVmInstance = true
-            Unit
         }
         every { myApiConnector.fetchInstances<AzureInstance>(any<AzureCloudImage>()) } returns emptyMap()
         coEvery { myApiConnector.stopInstance(any()) } coAnswers {
@@ -51,7 +44,6 @@ class AzureCloudImageTest : MockObjectTestCase() {
             TestCase.assertEquals(instance.hasVmInstance, true)
 
             instance.status = InstanceStatus.STOPPED
-            Unit
         }
 
         myImageDetails = AzureCloudImageDetails(
@@ -337,7 +329,6 @@ class AzureCloudImageTest : MockObjectTestCase() {
         coEvery { myApiConnector.startInstance(any<AzureCloudInstance>(), any<CloudInstanceUserData>()) } coAnswers {
             val instance = firstArg<AzureCloudInstance>()
             instance.status = InstanceStatus.RUNNING
-            Unit
         }
 
         val instance = createInstance()

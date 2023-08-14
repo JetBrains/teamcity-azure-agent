@@ -77,7 +77,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     }
 
     @Test
-    fun shouldExecuteNextRerutnFalseWhenQueueIsEmpty() {
+    fun shouldExecuteNextReturnFalseWhenQueueIsEmpty() {
         // Given
         val instance = createInstance()
         every { requestQueue.extractNextBatch() } returns emptyBatch
@@ -153,7 +153,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
         val instance = createInstance()
         instance.enableRetryOnThrottle()
         every { requestQueue.addRequest(any(), any(), any(), any(), any(), any(), any()) } returns Unit
-        var localDate = LocalDateTime.now(Clock.systemUTC())
+        val localDate = LocalDateTime.now(Clock.systemUTC())
 
         // When
         instance.requestTask(AzureThrottlerFlow.Suspended, "Test parameter")
@@ -425,7 +425,7 @@ class AzureThrottlerTaskQueueImplTest : MockObjectTestCase() {
     }
 
     @Test(invocationCount = 10)
-    fun shouldPostProcessQueueWhenExecutingWithDelayedSuscription() {
+    fun shouldPostProcessQueueWhenExecutingWithDelayedSubscription() {
         // Given
         task = cacheableTask
         every { cacheableTask.setCacheTimeout(any()) } returns Unit

@@ -42,7 +42,7 @@ class ArmTemplateBuilderTest {
         Assert.assertEquals(builder.toString(),
             """{"resources":[{"name":"[parameters('vmName')]"},{"vm":"vm"}]}""")
         Assert.assertEquals(builder.serializeParameters(),
-            """{"teamcity-profile":{"value":"profile"}}""");
+            """{"teamcity-profile":{"value":"profile"}}""")
     }
 
     fun testSetPublicIp() {
@@ -181,7 +181,7 @@ class ArmTemplateBuilderTest {
                 """{"resources":[{"type":"Microsoft.ContainerInstance/containerGroups","name":"myName","properties":{"containers":[{"name":"myName","properties":{"environmentVariables":[{"name":"key","value":"value"}]}}]}}]}""")
     }
 
-    fun testEnableAcceleratedNerworking() {
+    fun testEnableAcceleratedNetworking() {
         val builder = ArmTemplateBuilder("""{"resources": [
       {
         "type": "Microsoft.Network/networkInterfaces",

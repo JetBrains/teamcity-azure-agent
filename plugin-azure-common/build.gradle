@@ -1,7 +1,7 @@
 
 
 plugins{
-    id 'com.github.rodm.teamcity-common' version "1.4.1"
+    id 'io.github.rodm.teamcity-common' version "1.5"
 }
 
 teamcity {
@@ -9,10 +9,10 @@ teamcity {
 }
 
 dependencies {
-    compile 'com.google.code.gson:gson:2.5'
-    compile 'javax.xml.bind:jaxb-api:2.3.1'
-    compile "org.jetbrains.kotlin:kotlin-stdlib"
-    compile "org.apache.httpcomponents:httpclient:4.3.6"
+    implementation 'com.google.code.gson:gson:2.5'
+    implementation 'javax.xml.bind:jaxb-api:2.3.1'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib"
+    implementation "org.apache.httpcomponents:httpclient:4.3.6"
 }
 
 compileKotlin {

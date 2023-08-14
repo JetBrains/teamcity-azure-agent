@@ -9,10 +9,13 @@ teamcity {
 }
 
 dependencies {
-    implementation 'com.google.code.gson:gson:2.5'
+    implementation libs.gson
     implementation 'javax.xml.bind:jaxb-api:2.3.1'
     implementation "org.jetbrains.kotlin:kotlin-stdlib"
-    implementation "org.apache.httpcomponents:httpclient:4.3.6"
+    implementation 'org.apache.httpcomponents:httpclient:4.5.14'
+    constraints {
+        implementation 'commons-codec:commons-codec:1.15'
+    }
 }
 
 compileKotlin {

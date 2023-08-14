@@ -16,7 +16,7 @@ class FetchInstancesTaskImplTest : MockObjectTestCase() {
     }
 
     @Test
-    fun shouldGetFromCaheReturnNullWhenCacheIsNotFilled() {
+    fun shouldGetFromCacheReturnNullWhenCacheIsNotFilled() {
         // Given
         val instance = createInstance()
 

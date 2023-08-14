@@ -167,7 +167,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
     }
 
     @Test
-    fun shouldDoNothingWhenNotifyCompletedInNormalFlowWithPreviousSuccessfullExecution() {
+    fun shouldDoNothingWhenNotifyCompletedInNormalFlowWithPreviousSuccessfulExecution() {
         // Given
         val instance = createInstance()
         instance.setContainer(container)
@@ -326,6 +326,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         mockery.assertIsSatisfied()
     }
 
+    @Test
     fun shouldNotSetThrottlerTimeWhenSuspended() {
         // Given
         enableAggressiveThrottlingWhenReachLimitInPercents = 0
@@ -356,6 +357,7 @@ class AzureThrottlerStrategyTest : MockObjectTestCase() {
         mockery.assertIsSatisfied()
     }
 
+    @Test
     fun shouldNotSetTimeoutForPeriodicalTasks() {
         // Given
         randomTasksResourceReservationInPercents = 50

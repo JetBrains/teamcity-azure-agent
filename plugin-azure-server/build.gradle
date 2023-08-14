@@ -31,14 +31,21 @@ dependencies {
     provided "org.jetbrains.teamcity:cloud-shared:$teamcityVersion"
     provided "org.jetbrains.teamcity.internal:server:$teamcityVersion"
     provided "org.jetbrains.teamcity:cloud-server-api:$teamcityVersion"
-    provided 'com.google.code.gson:gson:2.5'
+    provided libs.gson
     provided 'org.apache.taglibs:taglibs-standard-impl:1.2.3'
     compileOnly 'org.slf4j:slf4j-api:1.7.24'
     provided 'net.jcip:jcip-annotations:1.0'
     provided 'javax.mail:mail:1.4.7'
-    provided 'org.bouncycastle:bcprov-jdk15on:1.60'
-    testImplementation 'org.testng:testng:6.8'
+    provided 'org.bouncycastle:bcprov-jdk15on:1.70'
+    testImplementation libs.testng
     testImplementation 'io.mockk:mockk:1.13.2'
+
+    constraints {
+        implementation 'net.minidev:json-smart:2.4.9'
+        implementation 'com.google.guava:guava:32.1.2-jre'
+        implementation 'com.squareup.retrofit2:converter-jackson:2.9.0'
+        implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
+    }
 }
 
 serverPlugin.archiveVersion = null

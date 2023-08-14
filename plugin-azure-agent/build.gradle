@@ -17,7 +17,7 @@ dependencies {
     provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
     provided "org.jetbrains.teamcity:cloud-shared:$teamcityVersion"
     provided "org.jetbrains.teamcity.internal:agent:$teamcityVersion"
-    testImplementation 'org.testng:testng:6.8'
+    testImplementation libs.testng
     testImplementation 'org.jmock:jmock:2.5.1'
     testImplementation 'org.jmock:jmock-legacy:2.5.1'
 }

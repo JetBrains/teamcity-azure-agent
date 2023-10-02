@@ -168,6 +168,13 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
         return this
     }
 
+    fun appendInnerTemplate(innerTemplate: String): ArmTemplateBuilder {
+        (root["resources"] as ArrayNode).apply {
+            this.addPOJO(mapper.readTree(innerTemplate))
+        }
+        return this
+    }
+
     @Suppress("unused")
     fun addContainer(name: String, customEnvironmentVariables: List<Pair<String, String>> = Collections.emptyList()): ArmTemplateBuilder {
         val properties = getPropertiesOfResource("type", "Microsoft.ContainerInstance/containerGroups")

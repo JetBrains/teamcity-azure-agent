@@ -16,10 +16,12 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
+import com.fasterxml.jackson.databind.json.JsonMapper
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.LongRunningOperationOptions
 import com.microsoft.azure.management.compute.DiskCreateOptionTypes
-import com.microsoft.azure.management.resources.Deployment
+import com.microsoft.azure.management.compute.VirtualMachine
+import com.microsoft.azure.management.resources.*
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
@@ -98,37 +100,61 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
             .deploymentOperations()
             .listAsync()
             .sorted { t1, t2 -> t2.timestamp().compareTo(t1.timestamp()) }
-            .map { it.targetResource() }
-            .filter { it != null }
-            .concatMap { targetResource ->
-                val result = Observable.just(ResourceDescriptor(targetResource.id(), targetResource.resourceType()))
-                if (targetResource.resourceType().equals(VIRTUAL_MACHINES_RESOURCE_TYPE, ignoreCase = true)) {
-                    taskContext.apply()
-                    api
-                        .virtualMachines()
-                        .getByIdAsync(targetResource.id())
-                        .filter { it != null && it.isManagedDiskEnabled }
-                        .flatMap {
-                            Observable
-                                .just(it.osDiskId())
-                                .concatWith(Observable.from(
-                                    it
-                                        .dataDisks()
-                                        .values
-                                        .filter { d -> d.creationMethod() == DiskCreateOptionTypes.FROM_IMAGE }
-                                        .map { d -> d.id() }
-                                ))
+            .concatMap { operation ->
+                var result : Observable<ResourceDescriptor> = Observable.empty<ResourceDescriptor>()
+                if (operation.provisioningState().equals(PROVISIONING_STATE_FAILED, ignoreCase = true)) {
+                    LOG.debug("Deployment operation failed. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}. Provisioning operation: ${format(operation.inner().properties())}.")
+                    val statusMessage = operation.statusMessage() as StatusMessage?
+                    if (statusMessage != null) {
+                        val error = statusMessage.error()
+                        val code = error.code()
+                        val target = error.target()
+                        if (code.equals(OPERATION_CODE_CONFLICTING_USER_INPUT, ignoreCase = true)) {
+                            LOG.debug("Resource ${target} will be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
+                            val resourceType = "${ResourceUtils.resourceProviderFromResourceId(target)}/${ResourceUtils.resourceTypeFromResourceId(target)}"
+                            result = Observable.just(ResourceDescriptor(target, resourceType))
+                        } else {
+                            LOG.debug("Resource ${target} will not be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
                         }
-                        .concatMap {
-                            result.concatWith(Observable.just(ResourceDescriptor(it, DISKS_RESOURCE_TYPE)))
-                        }
+                    }
                 } else {
-                    result
+                    val targetResource = operation.targetResource()
+                    if (targetResource != null) {
+                        val currentResource = Observable.just(ResourceDescriptor(targetResource.id(), targetResource.resourceType()))
+                        if (targetResource.resourceType().equals(VIRTUAL_MACHINES_RESOURCE_TYPE, ignoreCase = true)) {
+                            taskContext.apply()
+                            result = api
+                                .virtualMachines()
+                                .getByIdAsync(targetResource.id())
+                                .filter { virtualMachine: VirtualMachine? -> virtualMachine != null && virtualMachine.isManagedDiskEnabled }
+                                .flatMap {
+                                    Observable
+                                        .just(it.osDiskId())
+                                        .concatWith(Observable.from(
+                                            it
+                                                .dataDisks()
+                                                .values
+                                                .filter { d -> d.creationMethod() == DiskCreateOptionTypes.FROM_IMAGE }
+                                                .map { d -> d.id() }
+                                        ))
+                                }
+                                .concatMap {
+                                    currentResource.concatWith(Observable.just(ResourceDescriptor(it, DISKS_RESOURCE_TYPE)))
+                                }
+                        } else if (targetResource.resourceType().equals(DEPLOYMENT_RESOURCE_TYPE, ignoreCase = true) &&
+                            targetResource.resourceName().contains(OS_DISK_DELETE_OPTION_DEPLOYMENT_NAME_SUFFIX, ignoreCase = true)) {
+                            result = Observable.empty()
+                        } else {
+                            result = currentResource
+                        }
+                    }
                 }
+                result
             }
             .distinctUntilChanged()
             .filter {
                 if (isKnownGenericResourceType(it.resourceType)) return@filter true
+                if (isKnownGenericResourceName(it.resourceId)) return@filter true
 
                 when(it.resourceType) {
                     DEPLOYMENT_RESOURCE_TYPE,
@@ -154,6 +180,17 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                 it.split(',').map { it.trim().lowercase(Locale.getDefault()) }.filter { it.isNotEmpty() }.toSet()
             }
             ?.contains(resourceType.lowercase(Locale.getDefault()))
+            ?: false
+
+    private fun isKnownGenericResourceName(resourceId: String): Boolean =
+        TeamCityProperties
+            .getPropertyOrNull(TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_NAMES)
+            ?.let {
+                it.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+            }
+            ?.any {
+                resourceId.contains(it, ignoreCase = true)
+            }
             ?: false
 
     private fun deleteResource(
@@ -192,21 +229,25 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                             }
                     }
             }
-            DEPLOYMENT_RESOURCE_TYPE -> api.deployments().getByIdAsync(resourceDescriptor.resourceId).flatMap { deleteDeployment(
-                it,
-                api,
-                taskContext,
-                genericResourceService
-            ) }
+            DEPLOYMENT_RESOURCE_TYPE -> api
+                .deployments()
+                .getByIdAsync(resourceDescriptor.resourceId)
+                .filter { deployment: Deployment? -> deployment != null }
+                .flatMap {
+                    deleteDeployment(
+                    it,
+                    api,
+                    taskContext,
+                    genericResourceService)
+                }
             else -> deleteGenericResource(api, taskContext, resourceDescriptor, genericResourceService)
         }
             .defaultIfEmpty(Unit)
             .doOnNext {
                 LOG.debug("Resource ${resourceDescriptor.resourceId} has been deleted. CorellationId=${taskContext.corellationId}")
             }
-            .onErrorReturn {
+            .doOnError {
                 LOG.warnAndDebugDetails("Error occured during deletion of resource ${resourceDescriptor.resourceId}, corellationId=${taskContext.corellationId} :", it)
-                Observable.just(Unit)
             }
     }
 
@@ -297,6 +338,28 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         ): Observable<Response<ResponseBody>>
     }
 
+    class DeploymentOperationPropertiesInternal(properties: DeploymentOperationProperties) {
+        val provisioningOperation: ProvisioningOperation? = properties.provisioningOperation()
+        val provisioningState: String? = properties.provisioningState()
+        val timestamp: String? = properties.timestamp()?.toString()
+        val duration: String? = properties.duration()
+        val serviceRequestId: String? = properties.serviceRequestId()
+        val statusCode: String? = properties.statusCode()
+        val statusMessage: StatusMessageInternal? = properties.statusMessage()?.let { StatusMessageInternal(it) }
+    }
+
+    class StatusMessageInternal(statusMessage: StatusMessage) {
+        val status: String? = statusMessage.status()
+        val error: ErrorResponseInternal? = statusMessage.error()?.let { ErrorResponseInternal(it) }
+    }
+
+    class ErrorResponseInternal(errorResponse: ErrorResponse) {
+        val code: String? = errorResponse.code()
+        val message: String? = errorResponse.message()
+        val target: String? = errorResponse.target()
+        val details: List<ErrorResponseInternal>? = errorResponse.details()?.let { it.map { ErrorResponseInternal((it)) } }
+    }
+
     companion object {
         private val LOG = Logger.getInstance(DeleteDeploymentTaskImpl::class.java.name)
         private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
@@ -313,5 +376,14 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
 
         private const val PROVISIONING_STATE_CANCELLED = "Canceled"
         private const val PROVISIONING_STATE_RUNNING = "Running"
+        private const val PROVISIONING_STATE_FAILED = "Failed"
+
+        private const val OPERATION_CODE_CONFLICTING_USER_INPUT = "ConflictingUserInput"
+
+        private const val OS_DISK_DELETE_OPTION_DEPLOYMENT_NAME_SUFFIX = "-jb-5fe33749"
+
+        private val mapper = JsonMapper()
+        private fun format(properties: DeploymentOperationProperties): String =
+            mapper.writeValueAsString(DeploymentOperationPropertiesInternal(properties))
     }
 }

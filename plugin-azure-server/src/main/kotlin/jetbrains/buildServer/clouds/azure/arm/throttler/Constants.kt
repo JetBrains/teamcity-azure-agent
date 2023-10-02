@@ -52,6 +52,7 @@ const val TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_RESOURCEGRAPH_DISABLE = "te
 const val TEAMCITY_CLOUDS_AZURE_TASKS_FETCHCUSTOMIMAGES_RESOURCEGRAPH_DISABLE = "teamcity.clouds.azure.tasks.fetchcustomimages.resourcegraph.disable"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_CONTAINER_NIC_RETRY_DELAY_SEC = "teamcity.clouds.azure.tasks.deletedeployment.container.nic.retry.delay"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_TYPES = "teamcity.clouds.azure.tasks.deletedeployment.knownGeneric.resourceTypes"
+const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_NAMES = "teamcity.clouds.azure.tasks.deletedeployment.knownGeneric.resourceNames"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_MILTITHREAD_POLLING = "teamcity.clouds.azure.tasks.deletedeployment.useMultitreadPolling"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_CTREATEDEPLOYMENT_USE_MILTITHREAD_POLLING = "teamcity.clouds.azure.tasks.createdeployment.useMultitreadPolling"
 
@@ -76,5 +77,7 @@ const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_QUEUE_MAX_SIZE = "team
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_SCHEDULER_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.scheduler.pool.max.size"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_GLOBAL_SYNC_DISABLE = "teamcity.clouds.azure.throttler.global.sync.disable"
+
+const val TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POSRT_UPDATE_DISABLE = "teamcity.clouds.azure.deployment.template.post.update.disable"
 
 const val DEFAULT_REMAINING_READS_PER_HOUR = 12000L

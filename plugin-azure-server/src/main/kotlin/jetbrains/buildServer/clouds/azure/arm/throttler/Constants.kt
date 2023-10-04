@@ -78,6 +78,6 @@ const val TEAMCITY_CLOUDS_AZURE_THROTTLER_SCHEDULER_POOL_MAX_SIZE = "teamcity.cl
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_GLOBAL_SYNC_DISABLE = "teamcity.clouds.azure.throttler.global.sync.disable"
 
-const val TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POSRT_UPDATE_DISABLE = "teamcity.clouds.azure.deployment.template.post.update.disable"
+const val TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POST_UPDATE_DISABLE = "teamcity.clouds.azure.deployment.template.post.update.disable"
 
 const val DEFAULT_REMAINING_READS_PER_HOUR = 12000L

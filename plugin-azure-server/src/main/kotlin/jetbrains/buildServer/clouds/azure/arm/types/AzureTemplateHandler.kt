@@ -5,10 +5,9 @@ package jetbrains.buildServer.clouds.azure.arm.types
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POSRT_UPDATE_DISABLE
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POST_UPDATE_DISABLE
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
-import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.coroutineScope
 import java.util.*
@@ -31,7 +30,7 @@ class AzureTemplateHandler(private val connector: AzureApiConnector) : AzureHand
         val details = instance.image.imageDetails
         ArmTemplateBuilder(details.template!!, details.disableTemplateModification ?: false)
             .let {
-                if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POSRT_UPDATE_DISABLE)) {
+                if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POST_UPDATE_DISABLE)) {
                     it
                 } else {
                     it.appendInnerTemplate(AzureUtils.getResourceAsString("/templates/os-disk-deleteOption-template.json"))

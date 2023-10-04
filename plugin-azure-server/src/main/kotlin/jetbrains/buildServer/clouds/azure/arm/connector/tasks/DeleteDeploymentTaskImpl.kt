@@ -39,13 +39,20 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                     LOG.debug("Deployment ${parameter.name} in group ${parameter.resourceGroupName} was not found. CorellationId=${taskContext.corellationId}", it)
                     Observable.empty()
                 }
-                .doOnNext {
-                    if (it == null) {
-                        LOG.debug("Deleting deployment error. Could not find deployment ${parameter.name} in group ${parameter.resourceGroupName}. CorellationId=${taskContext.corellationId}")
+                .flatMap { deployment: Deployment? ->
+                    if (deployment == null) {
+                        LOG.debug("Could not find deployment ${parameter.name} in group ${parameter.resourceGroupName}. Removing resource directly. CorellationId=${taskContext.corellationId}")
+                        getVMResources(taskContext) {
+                            api
+                                .virtualMachines()
+                                .getByResourceGroupAsync(parameter.resourceGroupName, parameter.name)
+                        }
+                            .concatMap { deleteResource(it, api, genericResourceService, taskContext) }
+
+                    } else {
+                        deleteDeployment(deployment, api, taskContext, genericResourceService)
                     }
                 }
-                .filter { it != null }
-                .flatMap { deleteDeployment(it, api, taskContext, genericResourceService) }
                 .defaultIfEmpty(Unit)
                 .last()
                 .toSingle()
@@ -85,7 +92,14 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         return deployment
             .deploymentOperations()
             .listAsync()
-            .sorted { t1, t2 -> t2.timestamp().compareTo(t1.timestamp()) }
+            .sorted { t1, t2 ->
+                if (isSpecialDeploymentResource(t1.targetResource()))
+                    RESOURCE_PROPRITY_HIGH
+                else if (isSpecialDeploymentResource(t2.targetResource()))
+                    RESOURCE_PROPRITY_LOW
+                else
+                    t2.timestamp().compareTo(t1.timestamp())
+            }
             .concatMap { operation ->
                 var result : Observable<ResourceDescriptor> = Observable.empty<ResourceDescriptor>()
                 if (operation.provisioningState().equals(PROVISIONING_STATE_FAILED, ignoreCase = true)) {
@@ -106,32 +120,14 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                 } else {
                     val targetResource = operation.targetResource()
                     if (targetResource != null) {
-                        val currentResource = Observable.just(ResourceDescriptor(targetResource.id(), targetResource.resourceType()))
                         if (targetResource.resourceType().equals(VIRTUAL_MACHINES_RESOURCE_TYPE, ignoreCase = true)) {
-                            taskContext.apply()
-                            result = api
-                                .virtualMachines()
-                                .getByIdAsync(targetResource.id())
-                                .filter { virtualMachine: VirtualMachine? -> virtualMachine != null && virtualMachine.isManagedDiskEnabled }
-                                .flatMap {
-                                    Observable
-                                        .just(it.osDiskId())
-                                        .concatWith(Observable.from(
-                                            it
-                                                .dataDisks()
-                                                .values
-                                                .filter { d -> d.creationMethod() == DiskCreateOptionTypes.FROM_IMAGE }
-                                                .map { d -> d.id() }
-                                        ))
-                                }
-                                .concatMap {
-                                    currentResource.concatWith(Observable.just(ResourceDescriptor(it, DISKS_RESOURCE_TYPE)))
-                                }
-                        } else if (targetResource.resourceType().equals(DEPLOYMENT_RESOURCE_TYPE, ignoreCase = true) &&
-                            targetResource.resourceName().contains(OS_DISK_DELETE_OPTION_DEPLOYMENT_NAME_SUFFIX, ignoreCase = true)) {
-                            result = Observable.empty()
+                            result = getVMResources(taskContext) {
+                                api
+                                    .virtualMachines()
+                                    .getByIdAsync(targetResource.id())
+                            }
                         } else {
-                            result = currentResource
+                            result = Observable.just(ResourceDescriptor(targetResource.id(), targetResource.resourceType()))
                         }
                     }
                 }
@@ -156,6 +152,29 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         false
                     }
                 }
+            }
+    }
+
+    private fun getVMResources(taskContext: AzureTaskContext, virtualMachineSource: () -> Observable<VirtualMachine>): Observable<ResourceDescriptor> {
+        taskContext.apply()
+        return virtualMachineSource()
+            .filter { virtualMachine: VirtualMachine? -> virtualMachine != null && virtualMachine.isManagedDiskEnabled }
+            .flatMap {
+                Observable
+                    .just(ResourceDescriptor(it.id(), VIRTUAL_MACHINES_RESOURCE_TYPE))
+                    .concatWith(
+                        Observable.just(
+                            ResourceDescriptor(it.osDiskId(), DISKS_RESOURCE_TYPE))
+                    )
+                    .concatWith(
+                        Observable.from(
+                            it
+                                .dataDisks()
+                                .values
+                                .filter { d -> d.creationMethod() == DiskCreateOptionTypes.FROM_IMAGE }
+                                .map { d -> ResourceDescriptor(d.id(), DISKS_RESOURCE_TYPE) }
+                        )
+                    )
             }
     }
 
@@ -368,8 +387,15 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
 
         private const val OS_DISK_DELETE_OPTION_DEPLOYMENT_NAME_SUFFIX = "-jb-5fe33749"
 
+        private const val RESOURCE_PROPRITY_LOW = -1
+        private const val RESOURCE_PROPRITY_HIGH = 1
+
         private val mapper = JsonMapper()
         private fun format(properties: DeploymentOperationProperties): String =
             mapper.writeValueAsString(DeploymentOperationPropertiesInternal(properties))
+
+        private fun isSpecialDeploymentResource(targetResource: TargetResource?) =
+            targetResource?.resourceType()?.equals(DEPLOYMENT_RESOURCE_TYPE, ignoreCase = true) == true &&
+                    targetResource.resourceName()?.contains(OS_DISK_DELETE_OPTION_DEPLOYMENT_NAME_SUFFIX, ignoreCase = true) == true
     }
 }

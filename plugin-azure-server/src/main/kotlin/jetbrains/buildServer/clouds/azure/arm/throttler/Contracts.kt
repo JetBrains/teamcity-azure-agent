@@ -176,6 +176,10 @@ interface AzureThrottlerRequestSync {
     fun waitForNextTimeSlot()
 }
 
+interface AzureThrottlerSleeper {
+    fun sleep(millis: Long)
+}
+
 class ThrottlerRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, val requestSequenceLength: Long?, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)
 
 open class ThrottlerExecutionTaskException(msg: String? = null, cause: Throwable? = null): Exception(msg, cause)

@@ -11,5 +11,7 @@
     <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottlerCacheImpl" />
     <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerSchedulersProviderImpl"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorFactoryImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerSleeperImpl"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerRequestSyncImpl"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.connector.AzureProjectParametersProviderImpl"/>
 </beans>

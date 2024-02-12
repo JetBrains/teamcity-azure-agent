@@ -27,7 +27,8 @@ data class CreateDeploymentTaskParameter(
         val groupName: String,
         val deploymentName: String,
         val template: String,
-        val params: String)
+        val params: String,
+        val tags: Map<String, String>)
 
 class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, CreateDeploymentTaskParameter, Unit>() {
     private val objectMapper = ObjectMapper()
@@ -101,6 +102,7 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
 
         val deploymentInner = DeploymentInner()
         deploymentInner.withProperties(deploymentProperties)
+        deploymentInner.withTags(parameter.tags)
 
         return deploymentInner
     }

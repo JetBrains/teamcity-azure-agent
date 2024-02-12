@@ -2,6 +2,8 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
+import jdk.internal.org.objectweb.asm.tree.analysis.Value
+
 class AzureThrottlerReadTasks {
     enum class Values {
         FetchResourceGroups,
@@ -14,6 +16,7 @@ class AzureThrottlerReadTasks {
         FetchLocations,
         FetchNetworks,
         FetchServices,
+        FetchStorageAccountKeys,
     }
 
     companion object {
@@ -27,5 +30,6 @@ class AzureThrottlerReadTasks {
         val FetchLocations = AzureTaskDescriptorImpl(Values.FetchLocations, { FetchLocationsTaskImpl() })
         val FetchNetworks = AzureTaskDescriptorImpl(Values.FetchNetworks, { FetchNetworksTaskImpl() })
         val FetchServices = AzureTaskDescriptorImpl(Values.FetchServices, { FetchServicesTaskImpl() })
+        val FetchStorageAccountKeys = AzureTaskDescriptorImpl(Values.FetchStorageAccountKeys, { FetchStorageAccountKeysTaskImpl() })
     }
 }

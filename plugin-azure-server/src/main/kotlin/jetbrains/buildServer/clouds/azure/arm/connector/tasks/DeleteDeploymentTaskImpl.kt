@@ -10,7 +10,10 @@ import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.resources.*
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
+import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
+import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
+import jetbrains.buildServer.clouds.azure.arm.utils.DeploymentFeaturesDescriptorError
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import okhttp3.ResponseBody
 import retrofit2.Response
@@ -50,13 +53,72 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                             .concatMap { deleteResource(it, api, genericResourceService, taskContext) }
 
                     } else {
-                        deleteDeployment(deployment, api, taskContext, genericResourceService)
+                        switchDeleteDeploymentStrategy(deployment, api, taskContext, genericResourceService, parameter)
                     }
                 }
                 .defaultIfEmpty(Unit)
                 .last()
                 .toSingle()
     }
+
+    private fun switchDeleteDeploymentStrategy(deployment: Deployment, api: AzureApi, taskContext: AzureTaskContext, genericResourceService: GenericResourceService, parameter: DeleteDeploymentTaskParameter): Observable<Unit> {
+        val deploymentFeatures = deployment.inner()
+            .tags
+            ?.get(AzureConstants.TAG_FEATURES)
+            ?.let {
+                try {
+                    AzureUtils.getDeploymentFeatures(it)
+                } catch (e: DeploymentFeaturesDescriptorError) {
+                    LOG.warnAndDebugDetails("Incorrect ${AzureConstants.TAG_FEATURES} tag value for deployment ${deployment.name()}. CorellationId=${taskContext.corellationId}", e)
+                    null
+                }
+            }
+        if (deploymentFeatures == null || !deploymentFeatures.isVM || !deploymentFeatures.isSafeRemoval)
+            return deleteDeployment(deployment, api, taskContext, genericResourceService)
+        else
+            LOG.debug("Deployment supports safe removal. CorellationId=${taskContext.corellationId}")
+            return safeDeleteVirtualMachineDeployment(deployment, api, taskContext, genericResourceService, parameter)
+    }
+
+    private fun safeDeleteVirtualMachineDeployment(deployment: Deployment, api: AzureApi, taskContext: AzureTaskContext, genericResourceService: GenericResourceService, parameter: DeleteDeploymentTaskParameter): Observable<Unit> =
+        cancelRunningDeployment(deployment, taskContext)
+            .flatMap { cancelledDeployment ->
+                val virtualMachineResource = getVirtualMachineResource(deployment, parameter)
+                LOG.debug("Removing vm ${virtualMachineResource.resourceId}. CorellationId=${taskContext.corellationId}")
+                deleteGenericResource(api, taskContext, virtualMachineResource, genericResourceService)
+                    .defaultIfEmpty(Unit)
+                    .flatMap {
+                        val deploymentResource = ResourceDescriptor(deployment.id(), DEPLOYMENT_RESOURCE_TYPE)
+                        LOG.debug("Removing deployment template ${deploymentResource.resourceId}. CorellationId=${taskContext.corellationId}")
+                        deleteGenericResource(api, taskContext, deploymentResource, genericResourceService)
+                    }
+                    .defaultIfEmpty(Unit)
+                    .doOnNext {
+                        LOG.debug("Deployment ${cancelledDeployment.name()} has been deleted. Id: ${cancelledDeployment.id()}, CorellationId=${taskContext.corellationId}")
+                        val inner = cancelledDeployment.inner()
+                        myNotifications.raise(AzureTaskDeploymentStatusChangedEventArgs(
+                            api,
+                            inner.id(),
+                            inner.name(),
+                            inner.properties().provisioningState(),
+                            inner.properties().providers(),
+                            inner.properties().dependencies(),
+                            true
+                        ))
+                    }
+            }
+
+    private fun getVirtualMachineResource(deployment: Deployment, parameter: DeleteDeploymentTaskParameter): ResourceDescriptor =
+        ResourceDescriptor(
+            ResourceUtils.constructResourceId(
+                ResourceUtils.subscriptionFromResourceId(deployment.id()),
+                parameter.resourceGroupName,
+                VIRTUAL_MACHINES_PROVIDER_NAMESPACE,
+                VIRTUAL_MACHINES_RESOURCE_TYPE_SHORT,
+                parameter.name,
+                ""),
+            VIRTUAL_MACHINES_RESOURCE_TYPE)
+
 
     private fun deleteDeployment(deployment: Deployment, api: AzureApi, taskContext: AzureTaskContext, genericResourceService: GenericResourceService): Observable<Unit> =
         cancelRunningDeployment(deployment, taskContext)
@@ -155,28 +217,36 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
             }
     }
 
-    private fun getVMResources(taskContext: AzureTaskContext, virtualMachineSource: () -> Observable<VirtualMachine>): Observable<ResourceDescriptor> {
+    private fun getVMResources(taskContext: AzureTaskContext, virtualMachineSource: () -> Observable<VirtualMachine?>): Observable<ResourceDescriptor> {
         taskContext.apply()
         return virtualMachineSource()
-            .filter { virtualMachine: VirtualMachine? -> virtualMachine != null && virtualMachine.isManagedDiskEnabled }
-            .flatMap {
-                Observable
-                    .just(ResourceDescriptor(it.id(), VIRTUAL_MACHINES_RESOURCE_TYPE))
-                    .concatWith(
-                        Observable.just(
-                            ResourceDescriptor(it.osDiskId(), DISKS_RESOURCE_TYPE))
-                    )
-                    .concatWith(
-                        Observable.from(
-                            it
-                                .dataDisks()
-                                .values
-                                .filter { d -> d.creationMethod() == DiskCreateOptionTypes.FROM_IMAGE }
-                                .map { d -> ResourceDescriptor(d.id(), DISKS_RESOURCE_TYPE) }
-                        )
-                    )
+            .filter { vm: VirtualMachine? -> vm != null && vm.isManagedDiskEnabled }
+            .map { it!! }
+            .flatMap { vm ->
+                Observable.concat(
+                    getVmResource(vm),
+                    getOsDiskResource(vm),
+                    getDataDiskResources(vm)
+                )
             }
     }
+
+    private fun getVmResource(virtualMachine: VirtualMachine): Observable<ResourceDescriptor> =
+        Observable.just(ResourceDescriptor(virtualMachine.id(), VIRTUAL_MACHINES_RESOURCE_TYPE))
+
+    private fun getOsDiskResource(virtualMachine: VirtualMachine): Observable<ResourceDescriptor> =
+        if (virtualMachine.osDiskId() != null)
+            Observable.just(ResourceDescriptor(virtualMachine.osDiskId(), DISKS_RESOURCE_TYPE))
+        else
+            Observable.empty()
+
+    private fun getDataDiskResources(virtualMachine: VirtualMachine): Observable<ResourceDescriptor> =
+        Observable.from(
+            virtualMachine.dataDisks().values
+                .filter { disk -> disk.creationMethod() == DiskCreateOptionTypes.FROM_IMAGE }
+                .map { disk -> ResourceDescriptor(disk.id(), DISKS_RESOURCE_TYPE) }
+        )
+
 
     private fun isKnownGenericResourceType(resourceType: String): Boolean =
         TeamCityProperties
@@ -367,6 +437,8 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
 
     companion object {
         private val LOG = Logger.getInstance(DeleteDeploymentTaskImpl::class.java.name)
+        private const val VIRTUAL_MACHINES_PROVIDER_NAMESPACE = "Microsoft.Compute"
+        private const val VIRTUAL_MACHINES_RESOURCE_TYPE_SHORT = "virtualMachines"
         private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
         private const val CONTAINER_GROUPS_RESOURCE_TYPE = "Microsoft.ContainerInstance/containerGroups"
 

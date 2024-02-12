@@ -4,7 +4,9 @@ import jetbrains.buildServer.serverSide.TeamCityProperties
 import java.time.ZonedDateTime
 import java.util.concurrent.locks.ReentrantLock
 
-class AzureThrottlerRequestSyncImpl : AzureThrottlerRequestSync {
+class AzureThrottlerRequestSyncImpl(
+    private val sleeper: AzureThrottlerSleeper
+) : AzureThrottlerRequestSync {
     private val sync = ReentrantLock(true)
 
     @Volatile
@@ -25,7 +27,7 @@ class AzureThrottlerRequestSyncImpl : AzureThrottlerRequestSync {
 
     private fun waitForTimeSpin(time: Long) {
         while(getCurrentMilli() <= time) {
-            Thread.sleep(CHECK_DELAY_IN_MILLI)
+            sleeper.sleep(CHECK_DELAY_IN_MILLI)
         }
     }
 
@@ -36,3 +38,4 @@ class AzureThrottlerRequestSyncImpl : AzureThrottlerRequestSync {
         private val DELAY_IN_MILLI = 400L
     }
 }
+

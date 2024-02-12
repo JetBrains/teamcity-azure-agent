@@ -2,6 +2,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.connector
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
 import com.microsoft.azure.storage.CloudStorageAccount
@@ -27,7 +28,11 @@ import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
+import jetbrains.buildServer.clouds.server.CloudManagerBase
+import jetbrains.buildServer.parameters.ReferencesResolverUtil
+import jetbrains.buildServer.serverSide.ProjectManager
 import jetbrains.buildServer.serverSide.TeamCityProperties
+import jetbrains.buildServer.util.StringUtils
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -45,12 +50,13 @@ import java.util.concurrent.TimeUnit
 class AzureApiConnectorImpl(
     params: Map<String, String>,
     myAzureRequestThrottlerCache: AzureRequestThrottlerCache,
-    private val myServerIdFunc: () -> String
+    private val myProfileId: String?,
+    private val parametersProvider: AzureProjectParametersProvider,
+    private val myServerIdFunc: () -> String,
 )
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
     private var myAzureRequestsThrottler: AzureRequestThrottler
-    private var myProfileId: String? = null
     private val deploymentLocks = ConcurrentHashMap<String, Mutex>()
 
     init {
@@ -367,8 +373,23 @@ class AzureApiConnectorImpl(
         val template = builder.toString()
         val parameters = builder.serializeParameters()
 
-        createDeployment(groupId, name, template, parameters)
+        val templateSafeRemovalFlag = if (instance.image.imageDetails.imageType == AzureCloudImageType.Template)
+            getProjectFlag("teamcity.cloud.azure.arm.agent.features.template.safeRemoval")
+        else false
+
+        val featuresTagValue = AzureUtils.getDeploymentFeaturesTagValue(true, templateSafeRemovalFlag)
+        val tagsMap = mapOf(AzureConstants.TAG_FEATURES to featuresTagValue)
+
+        createDeployment(groupId, name, template, parameters, tagsMap)
     }
+
+    private fun getProjectFlag(name: String) = (myProfileId
+        ?.let { parametersProvider.getParameters(it) }
+        ?.valueResolver
+        ?.resolve(ReferencesResolverUtil.makeReference(name))
+        ?.let { if (it.isFullyResolved) it.result else null }
+        ?.toBoolean()
+        ?: false)
 
     private suspend fun createContainer(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         val name = instance.name
@@ -399,7 +420,7 @@ class AzureApiConnectorImpl(
         val template = builder.toString()
         val parameters = builder.serializeParameters()
 
-        createDeployment(groupId, name, template, parameters)
+        createDeployment(groupId, name, template, parameters, emptyMap())
     }
 
     private suspend fun addContainerCustomData(instance: AzureCloudInstance, userData: CloudInstanceUserData, builder: ArmTemplateBuilder) = coroutineScope {
@@ -467,12 +488,12 @@ class AzureApiConnectorImpl(
         }
     }
 
-    private suspend fun createDeployment(groupId: String, deploymentId: String, template: String, params: String) = coroutineScope {
+    private suspend fun createDeployment(groupId: String, deploymentId: String, template: String, params: String, tagsMap: Map<String, String>) = coroutineScope {
         deploymentLocks.getOrPut("$groupId/$deploymentId") { Mutex() }.withLock {
             try {
                 myAzureRequestsThrottler.executeUpdateTask(
                     AzureThrottlerActionTasks.CreateDeployment,
-                    CreateDeploymentTaskParameter(groupId, deploymentId, template, params))
+                    CreateDeploymentTaskParameter(groupId, deploymentId, template, params, tagsMap))
                     .awaitOne()
 
                 LOG.debug("Created deployment in group $groupId")
@@ -902,11 +923,10 @@ class AzureApiConnectorImpl(
 
     private suspend fun getStorageAccountKeys(groupName: String, storageName: String) = coroutineScope {
         try {
-            val account = myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchStorageAccounts, Unit)
+            val result = myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchStorageAccountKeys, FetchStorageAccountKeysTaskParameter(groupName, storageName))
                 .awaitOne()
-                .first { x -> x.resourceGroupName.equals(groupName, ignoreCase = true) && x.name == storageName }
             LOG.debug("Received keys for storage account $storageName")
-            account.keys
+            result.map { it.value }
         } catch (e: Throwable) {
             val message = "Failed to get storage account $storageName key: ${e.message}"
             LOG.debug(message, e)
@@ -1009,15 +1029,6 @@ class AzureApiConnectorImpl(
             LOG.debug(message, e)
             throw CloudException(message, e)
         }
-    }
-
-    /**
-     * Sets a profile identifier.
-     *
-     * @param profileId identifier.
-     */
-    fun setProfileId(profileId: String?) {
-        myProfileId = profileId
     }
 
     private fun getResourceGroup(details: AzureCloudImageDetails, instanceName: String): String {

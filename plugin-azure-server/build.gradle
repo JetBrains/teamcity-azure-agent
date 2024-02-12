@@ -44,6 +44,7 @@ dependencies {
     provided "org.jetbrains.teamcity:cloud-interface:$teamcityVersion"
     provided "org.jetbrains.teamcity:cloud-shared:$teamcityVersion"
     provided "org.jetbrains.teamcity.internal:server:$teamcityVersion"
+    provided "org.jetbrains.teamcity:cloud-server-api:$teamcityVersion"
     provided 'com.google.code.gson:gson:2.5'
     provided 'org.apache.taglibs:taglibs-standard-impl:1.2.3'
     compileOnly 'org.slf4j:slf4j-api:1.7.24'
@@ -51,7 +52,7 @@ dependencies {
     provided 'javax.mail:mail:1.4.7'
     provided 'org.bouncycastle:bcprov-jdk15on:1.60'
     testCompile 'org.testng:testng:6.8'
-    testCompile 'io.mockk:mockk:1.9.3'
+    testCompile 'io.mockk:mockk:1.13.1'
 }
 
 serverPlugin.version = null

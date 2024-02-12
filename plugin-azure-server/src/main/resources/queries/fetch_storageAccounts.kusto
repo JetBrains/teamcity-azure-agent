@@ -1,0 +1,4 @@
+Resources
+| project id, name, location, resourceGroup, skuTypeName = sku.name, type
+| where type == "microsoft.storage/storageaccounts"
+| project-away type

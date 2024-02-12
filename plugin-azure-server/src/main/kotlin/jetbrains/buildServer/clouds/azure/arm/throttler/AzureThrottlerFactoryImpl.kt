@@ -95,6 +95,9 @@ class AzureThrottlerFactoryImpl(
                 .registerTask(AzureThrottlerReadTasks.FetchServices,
                         AzureThrottlerTaskTimeExecutionType.Periodical,
                         periodicalTaskCacheTimeout)
+                .registerTask(AzureThrottlerReadTasks.FetchStorageAccountKeys,
+                        AzureThrottlerTaskTimeExecutionType.Random,
+                        randomTaskCacheTimeout)
     }
 
     override fun createActionRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<AzureApi, AzureThrottlerActionTasks.Values> {

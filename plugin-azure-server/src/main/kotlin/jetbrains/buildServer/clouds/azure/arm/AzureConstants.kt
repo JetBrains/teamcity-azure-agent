@@ -196,6 +196,7 @@ class AzureConstants {
         const val TAG_DATA_HASH = "teamcity-data-hash"
         const val TAG_IMAGE_HASH = "teamcity-image-hash"
         const val TAG_INVESTIGATION = "teamcity-investigation"
+        const val TAG_FEATURES = "teamcity-features"
 
         const val TEAMCITY_URL = "teamcityUrl"
 

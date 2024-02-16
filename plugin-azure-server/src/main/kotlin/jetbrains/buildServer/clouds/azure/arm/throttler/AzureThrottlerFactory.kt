@@ -11,8 +11,8 @@ import rx.Scheduler
 import java.io.Closeable
 
 interface AzureThrottlerFactory {
-    fun createReadRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<AzureApi, AzureThrottlerReadTasks.Values>
-    fun createActionRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<AzureApi, AzureThrottlerActionTasks.Values>
+    fun createReadRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications, requestSync: AzureThrottlerRequestSync): AzureThrottler<AzureApi, AzureThrottlerReadTasks.Values>
+    fun createActionRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications, requestSync: AzureThrottlerRequestSync): AzureThrottler<AzureApi, AzureThrottlerActionTasks.Values>
 }
 
 interface AzureThrottlerSchedulersProvider : Closeable {

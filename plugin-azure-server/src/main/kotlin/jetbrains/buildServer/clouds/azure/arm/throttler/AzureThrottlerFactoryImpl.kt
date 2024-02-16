@@ -17,7 +17,6 @@
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.microsoft.azure.credentials.AzureTokenCredentials
-import com.microsoft.azure.management.Azure
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerActionTasks
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerReadTasks
@@ -25,18 +24,22 @@ import jetbrains.buildServer.serverSide.TeamCityProperties
 import java.util.concurrent.atomic.AtomicLong
 
 class AzureThrottlerFactoryImpl(
-    private val mySchedulersProvider: AzureThrottlerSchedulersProvider,
-    private val myRequestSync: AzureThrottlerRequestSync
+    private val mySchedulersProvider: AzureThrottlerSchedulersProvider
 ) : AzureThrottlerFactory {
     private val throttlerId = AtomicLong(0)
 
-    override fun createReadRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<AzureApi, AzureThrottlerReadTasks.Values> {
+    override fun createReadRequestsThrottler(
+        credentials: AzureTokenCredentials,
+        subscriptionId: String?,
+        taskNotifications: AzureTaskNotifications,
+        requestSync: AzureThrottlerRequestSync
+    ): AzureThrottler<AzureApi, AzureThrottlerReadTasks.Values> {
         val azureAdapter = AzureThrottlerAdapterImpl(
                 AzureThrottlerConfigurableImpl(),
                 ReqourceGraphConfigurableImpl(),
                 credentials,
                 subscriptionId,
-                myRequestSync,
+                requestSync,
                 "${throttlerId.incrementAndGet()}-ReadAdapter")
 
         val randomTaskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_RESERVATION, 20) }
@@ -100,13 +103,18 @@ class AzureThrottlerFactoryImpl(
                         randomTaskCacheTimeout)
     }
 
-    override fun createActionRequestsThrottler(credentials: AzureTokenCredentials, subscriptionId: String?, taskNotifications: AzureTaskNotifications): AzureThrottler<AzureApi, AzureThrottlerActionTasks.Values> {
+    override fun createActionRequestsThrottler(
+        credentials: AzureTokenCredentials,
+        subscriptionId: String?,
+        taskNotifications: AzureTaskNotifications,
+        requestSync: AzureThrottlerRequestSync
+    ): AzureThrottler<AzureApi, AzureThrottlerActionTasks.Values> {
         val azureActionAdapter = AzureThrottlerAdapterImpl(
                 AzureThrottlerConfigurableImpl(),
                 ReqourceGraphConfigurableImpl(),
                 credentials,
                 subscriptionId,
-                myRequestSync,
+                requestSync,
                 "${throttlerId.incrementAndGet()}-ActionAdapter")
 
         val randomTaskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_RESERVATION, 50) }

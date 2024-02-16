@@ -190,6 +190,10 @@ interface AzureThrottlerRequestSync {
     fun waitForNextTimeSlot()
 }
 
+interface AzureThrottlerRequestSyncFactory {
+    fun create(): AzureThrottlerRequestSync
+}
+
 interface AzureThrottlerSleeper {
     fun sleep(millis: Long)
 }

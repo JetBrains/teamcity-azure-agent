@@ -65,7 +65,7 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                     managerClient.acceptLanguage(),
                     managerClient.userAgent()
                 )) {
-                    taskContext.apply()
+                    taskContext.getDeferralSequence()
                 }
                 .doOnNext {
                     myNotifications.raise(AzureTaskDeploymentStatusChangedEventArgs(
@@ -74,7 +74,8 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         it.name(),
                         it.properties().provisioningState(),
                         it.properties().providers(),
-                        it.properties().dependencies()
+                        it.properties().dependencies(),
+                        taskContext
                     ))
                 }
                 .map { Unit }
@@ -99,7 +100,8 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         inner.name(),
                         inner.properties().provisioningState(),
                         inner.properties().providers(),
-                        inner.properties().dependencies()
+                        inner.properties().dependencies(),
+                        taskContext
                     ))
                 }
                 .map { Unit }

@@ -20,8 +20,8 @@ import rx.Observable
 import rx.Single
 import rx.internal.util.SubscriptionList
 import rx.subjects.Subject
-import java.time.Clock
-import java.time.LocalDateTime
+import java.time.*
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
 enum class AzureThrottlerTaskTimeExecutionType {
@@ -53,6 +53,7 @@ interface AzureTaskContext {
     fun apply()
     fun getRequestSequenceLength(): Long
     fun increaseRequestsSequenceLength()
+    fun getDeferralSequence(): Observable<Unit>
 }
 
 interface AzureTaskContextProvider {
@@ -186,16 +187,22 @@ interface AzureThrottlerTaskCompletionResultNotifier {
     fun notifyCompleted(performedRequests: Boolean)
 }
 
-interface AzureThrottlerRequestSync {
-    fun waitForNextTimeSlot()
+interface AzureTimeManager {
+    fun getTicket(corellationId: String): AzureOperationTicket
 }
 
-interface AzureThrottlerRequestSyncFactory {
-    fun create(): AzureThrottlerRequestSync
+data class AzureOperationTicket(
+    val corellationId: String,
+    val createdDate: LocalDateTime,
+    val timestamp: LocalDateTime,
+    val startTime: LocalDateTime,
+) {
+    fun getOffset() : Duration =
+        Duration.ofMillis(Math.max(ChronoUnit.MILLIS.between(LocalDateTime.now(ZoneOffset.UTC), startTime), 0))
 }
 
-interface AzureThrottlerSleeper {
-    fun sleep(millis: Long)
+interface AzureTimeManagerFactory {
+    fun create(): AzureTimeManager
 }
 
 class ThrottlerRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, val requestSequenceLength: Long?, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)

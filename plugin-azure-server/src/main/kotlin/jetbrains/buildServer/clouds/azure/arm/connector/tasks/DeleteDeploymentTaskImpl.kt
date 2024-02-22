@@ -65,6 +65,19 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                                 .getByResourceGroupAsync(parameter.resourceGroupName, parameter.name)
                         }
                             .concatMap { deleteResource(it, api, genericResourceService, taskContext) }
+                            .last()
+                            .doOnNext {
+                                val subscriptionId = api.subscriptionId()
+                                if (subscriptionId != null) {
+                                    myNotifications.raise(
+                                        AzureTaskVirtualMachineRemoved(
+                                            api,
+                                            taskContext,
+                                            getVirtualMachineResource(subscriptionId, parameter).resourceId,
+                                        )
+                                    )
+                                }
+                            }
 
                     } else {
                         switchDeleteDeploymentStrategy(deployment, api, taskContext, genericResourceService, parameter)
@@ -97,7 +110,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
     private fun safeDeleteVirtualMachineDeployment(deployment: Deployment, api: AzureApi, taskContext: AzureTaskContext, genericResourceService: GenericResourceService, parameter: DeleteDeploymentTaskParameter): Observable<Unit> =
         cancelRunningDeployment(deployment, taskContext)
             .flatMap { cancelledDeployment ->
-                val virtualMachineResource = getVirtualMachineResource(deployment, parameter)
+                val virtualMachineResource = getVirtualMachineResource(ResourceUtils.subscriptionFromResourceId(deployment.id()), parameter)
                 LOG.debug("Removing vm ${virtualMachineResource.resourceId}. CorellationId=${taskContext.corellationId}")
                 deleteGenericResource(api, taskContext, virtualMachineResource, genericResourceService)
                     .defaultIfEmpty(Unit)
@@ -117,15 +130,16 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                             inner.properties().provisioningState(),
                             inner.properties().providers(),
                             inner.properties().dependencies(),
+                            taskContext,
                             true
                         ))
                     }
             }
 
-    private fun getVirtualMachineResource(deployment: Deployment, parameter: DeleteDeploymentTaskParameter): ResourceDescriptor =
+    private fun getVirtualMachineResource(subscriptionId: String, parameter: DeleteDeploymentTaskParameter): ResourceDescriptor =
         ResourceDescriptor(
             ResourceUtils.constructResourceId(
-                ResourceUtils.subscriptionFromResourceId(deployment.id()),
+                subscriptionId,
                 parameter.resourceGroupName,
                 VIRTUAL_MACHINES_PROVIDER_NAMESPACE,
                 VIRTUAL_MACHINES_RESOURCE_TYPE_SHORT,
@@ -142,11 +156,14 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                     .defaultIfEmpty(Unit)
                     .last()
                     .flatMap {
-                        taskContext.apply()
-                        api.deployments()
-                            .deleteByIdAsync(cancelledDeployment.id())
-                            .toObservable<Unit>()
-                            .concatWith(Observable.just(Unit))
+                        taskContext
+                            .getDeferralSequence()
+                            .flatMap {
+                                api.deployments()
+                                    .deleteByIdAsync(cancelledDeployment.id())
+                                    .toObservable<Unit>()
+                                    .concatWith(Observable.just(Unit))
+                            }
                     }
                     .doOnNext {
                         LOG.debug("Deployment ${cancelledDeployment.name()} has been deleted. Id: ${cancelledDeployment.id()}, CorellationId=${taskContext.corellationId}")
@@ -158,90 +175,103 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                             inner.properties().provisioningState(),
                             inner.properties().providers(),
                             inner.properties().dependencies(),
+                            taskContext,
                             true
                         ))
                     }
             }
 
     private fun getDeployedResources(deployment: Deployment, api: AzureApi, taskContext: AzureTaskContext): Observable<ResourceDescriptor> {
-        taskContext.apply()
-        return deployment
-            .deploymentOperations()
-            .listAsync()
-            .sorted { t1, t2 ->
-                if (isSpecialDeploymentResource(t1.targetResource()))
-                    RESOURCE_PROPRITY_HIGH
-                else if (isSpecialDeploymentResource(t2.targetResource()))
-                    RESOURCE_PROPRITY_LOW
-                else
-                    t2.timestamp().compareTo(t1.timestamp())
-            }
-            .concatMap { operation ->
-                var result : Observable<ResourceDescriptor> = Observable.empty<ResourceDescriptor>()
-                if (operation.provisioningState().equals(PROVISIONING_STATE_FAILED, ignoreCase = true)) {
-                    LOG.debug("Deployment operation failed. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}. Provisioning operation: ${format(operation.inner().properties())}.")
-                    val statusMessage = operation.statusMessage() as StatusMessage?
-                    if (statusMessage != null) {
-                        val error = statusMessage.error()
-                        val code = error.code()
-                        val target = error.target()
-                        if (code.equals(OPERATION_CODE_CONFLICTING_USER_INPUT, ignoreCase = true)) {
-                            LOG.debug("Resource ${target} will be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
-                            val resourceType = "${ResourceUtils.resourceProviderFromResourceId(target)}/${ResourceUtils.resourceTypeFromResourceId(target)}"
-                            result = Observable.just(ResourceDescriptor(target, resourceType))
-                        } else {
-                            LOG.debug("Resource ${target} will not be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
-                        }
+        return taskContext
+            .getDeferralSequence()
+            .flatMap {
+                deployment
+                    .deploymentOperations()
+                    .listAsync()
+                    .sorted { t1, t2 ->
+                        if (isSpecialDeploymentResource(t1.targetResource()))
+                            RESOURCE_PROPRITY_HIGH
+                        else if (isSpecialDeploymentResource(t2.targetResource()))
+                            RESOURCE_PROPRITY_LOW
+                        else
+                            t2.timestamp().compareTo(t1.timestamp())
                     }
-                } else {
-                    val targetResource = operation.targetResource()
-                    if (targetResource != null) {
-                        if (targetResource.resourceType().equals(VIRTUAL_MACHINES_RESOURCE_TYPE, ignoreCase = true)) {
-                            result = getVMResources(taskContext) {
-                                api
-                                    .virtualMachines()
-                                    .getByIdAsync(targetResource.id())
+                    .concatMap { operation ->
+                        var result: Observable<ResourceDescriptor> = Observable.empty<ResourceDescriptor>()
+                        if (operation.provisioningState().equals(PROVISIONING_STATE_FAILED, ignoreCase = true)) {
+                            LOG.debug(
+                                "Deployment operation failed. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}. Provisioning operation: ${
+                                    format(
+                                        operation.inner().properties()
+                                    )
+                                }."
+                            )
+                            val statusMessage = operation.statusMessage() as StatusMessage?
+                            if (statusMessage != null) {
+                                val error = statusMessage.error()
+                                val code = error.code()
+                                val target = error.target()
+                                if (code.equals(OPERATION_CODE_CONFLICTING_USER_INPUT, ignoreCase = true)) {
+                                    LOG.debug("Resource ${target} will be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
+                                    val resourceType = "${ResourceUtils.resourceProviderFromResourceId(target)}/${ResourceUtils.resourceTypeFromResourceId(target)}"
+                                    result = Observable.just(ResourceDescriptor(target, resourceType))
+                                } else {
+                                    LOG.debug("Resource ${target} will not be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
+                                }
                             }
                         } else {
-                            result = Observable.just(ResourceDescriptor(targetResource.id(), targetResource.resourceType()))
+                            val targetResource = operation.targetResource()
+                            if (targetResource != null) {
+                                if (targetResource.resourceType().equals(VIRTUAL_MACHINES_RESOURCE_TYPE, ignoreCase = true)) {
+                                    result = getVMResources(taskContext) {
+                                        api
+                                            .virtualMachines()
+                                            .getByIdAsync(targetResource.id())
+                                    }
+                                } else {
+                                    result = Observable.just(ResourceDescriptor(targetResource.id(), targetResource.resourceType()))
+                                }
+                            }
+                        }
+                        result
+                    }
+                    .distinctUntilChanged()
+                    .filter {
+                        if (isKnownGenericResourceType(it.resourceType)) return@filter true
+                        if (isKnownGenericResourceName(it.resourceId)) return@filter true
+
+                        when (it.resourceType) {
+                            DEPLOYMENT_RESOURCE_TYPE,
+                            CONTAINER_GROUPS_RESOURCE_TYPE,
+                            NETWORK_PROFILE_RESOURCE_TYPE,
+                            VIRTUAL_MACHINES_RESOURCE_TYPE,
+                            DISKS_RESOURCE_TYPE,
+                            NETWORK_INTERFACES_RESOURCE_TYPE,
+                            NETWORK_PUBLIC_IP_RESOURCE_TYPE -> true
+
+                            else -> {
+                                LOG.debug("Skip deleting resource: ${it.resourceId}. CorellationId=${taskContext.corellationId}")
+                                false
+                            }
                         }
                     }
-                }
-                result
-            }
-            .distinctUntilChanged()
-            .filter {
-                if (isKnownGenericResourceType(it.resourceType)) return@filter true
-                if (isKnownGenericResourceName(it.resourceId)) return@filter true
-
-                when(it.resourceType) {
-                    DEPLOYMENT_RESOURCE_TYPE,
-                    CONTAINER_GROUPS_RESOURCE_TYPE,
-                    NETWORK_PROFILE_RESOURCE_TYPE,
-                    VIRTUAL_MACHINES_RESOURCE_TYPE,
-                    DISKS_RESOURCE_TYPE,
-                    NETWORK_INTERFACES_RESOURCE_TYPE,
-                    NETWORK_PUBLIC_IP_RESOURCE_TYPE -> true
-
-                    else -> {
-                        LOG.debug("Skip deleting resource: ${it.resourceId}. CorellationId=${taskContext.corellationId}")
-                        false
-                    }
-                }
             }
     }
 
     private fun getVMResources(taskContext: AzureTaskContext, virtualMachineSource: () -> Observable<VirtualMachine?>): Observable<ResourceDescriptor> {
-        taskContext.apply()
-        return virtualMachineSource()
-            .filter { vm: VirtualMachine? -> vm != null && vm.isManagedDiskEnabled }
-            .map { it!! }
-            .flatMap { vm ->
-                Observable.concat(
-                    getVmResource(vm),
-                    getOsDiskResource(vm),
-                    getDataDiskResources(vm)
-                )
+        return taskContext
+            .getDeferralSequence()
+            .flatMap {
+                virtualMachineSource()
+                    .filter { vm: VirtualMachine? -> vm != null && vm.isManagedDiskEnabled }
+                    .map { it!! }
+                    .flatMap { vm ->
+                        Observable.concat(
+                            getVmResource(vm),
+                            getOsDiskResource(vm),
+                            getDataDiskResources(vm)
+                        )
+                    }
             }
     }
 
@@ -288,55 +318,65 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         genericResourceService: GenericResourceService,
         taskContext: AzureTaskContext
     ): Observable<Unit> {
-        LOG.debug("Deleting resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
-        taskContext.apply()
-        return when (resourceDescriptor.resourceType) {
-            CONTAINER_GROUPS_RESOURCE_TYPE -> api.containerGroups().deleteByIdAsync(resourceDescriptor.resourceId).toObservable<Unit>()
-            NETWORK_PROFILE_RESOURCE_TYPE -> {
-                val id = ResourceId.fromString(resourceDescriptor.resourceId)
-                val networkProfilesService = api.networks().manager().inner().networkProfiles()
-                networkProfilesService
-                    .getByResourceGroupAsync(id.resourceGroupName(), id.name())
-                    .filter { it != null }
-                    .concatMap { networkProfile ->
-                        networkProfile.containerNetworkInterfaces().clear()
-                        networkProfile.withContainerNetworkInterfaceConfigurations(emptyList())
+        return taskContext
+            .getDeferralSequence()
+            .flatMap {
+                LOG.debug("Deleting resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
+                when (resourceDescriptor.resourceType) {
+                    CONTAINER_GROUPS_RESOURCE_TYPE -> api.containerGroups().deleteByIdAsync(resourceDescriptor.resourceId).toObservable<Unit>()
+                    NETWORK_PROFILE_RESOURCE_TYPE -> {
+                        val id = ResourceId.fromString(resourceDescriptor.resourceId)
+                        val networkProfilesService = api.networks().manager().inner().networkProfiles()
                         networkProfilesService
-                            .createOrUpdateAsync(id.resourceGroupName(), id.name(), networkProfile)
-                            .onErrorReturn {
-                                LOG.debug("Could not reset network profile ${resourceDescriptor.resourceId}. It will be removed. CorellationId=${taskContext.corellationId} Error: ${it.message}")
-                                networkProfile
+                            .getByResourceGroupAsync(id.resourceGroupName(), id.name())
+                            .filter { it != null }
+                            .concatMap { networkProfile ->
+                                networkProfile.containerNetworkInterfaces().clear()
+                                networkProfile.withContainerNetworkInterfaceConfigurations(emptyList())
+                                networkProfilesService
+                                    .createOrUpdateAsync(id.resourceGroupName(), id.name(), networkProfile)
+                                    .onErrorReturn {
+                                        LOG.debug("Could not reset network profile ${resourceDescriptor.resourceId}. It will be removed. CorellationId=${taskContext.corellationId} Error: ${it.message}")
+                                        networkProfile
+                                    }
+                            }
+                            .concatMap {
+                                networkProfilesService
+                                    .deleteAsync(id.resourceGroupName(), id.name()).map({ Unit })
+                                    .delaySubscription(
+                                        TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_CONTAINER_NIC_RETRY_DELAY_SEC, 30),
+                                        TimeUnit.SECONDS,
+                                        Schedulers.io()
+                                    )
+                                    .retry { attemptNo, throwable ->
+                                        LOG.debug("Could not delete network profile ${resourceDescriptor.resourceId}.  CorellationId=${taskContext.corellationId}. Attempt: ${attemptNo}. Error: ${throwable.message}")
+                                        attemptNo <= 4
+                                    }
                             }
                     }
-                    .concatMap {
-                        networkProfilesService
-                            .deleteAsync(id.resourceGroupName(), id.name()).map({ Unit })
-                            .delaySubscription(TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_CONTAINER_NIC_RETRY_DELAY_SEC, 30), TimeUnit.SECONDS, Schedulers.io())
-                            .retry { attemptNo, throwable ->
-                                LOG.debug("Could not delete network profile ${resourceDescriptor.resourceId}.  CorellationId=${taskContext.corellationId}. Attempt: ${attemptNo}. Error: ${throwable.message}")
-                                attemptNo <= 4
-                            }
-                    }
-            }
-            DEPLOYMENT_RESOURCE_TYPE -> api
-                .deployments()
-                .getByIdAsync(resourceDescriptor.resourceId)
-                .filter { deployment: Deployment? -> deployment != null }
-                .flatMap {
-                    deleteDeployment(
-                    it,
-                    api,
-                    taskContext,
-                    genericResourceService)
+
+                    DEPLOYMENT_RESOURCE_TYPE -> api
+                        .deployments()
+                        .getByIdAsync(resourceDescriptor.resourceId)
+                        .filter { deployment: Deployment? -> deployment != null }
+                        .flatMap {
+                            deleteDeployment(
+                                it,
+                                api,
+                                taskContext,
+                                genericResourceService
+                            )
+                        }
+
+                    else -> deleteGenericResource(api, taskContext, resourceDescriptor, genericResourceService)
                 }
-            else -> deleteGenericResource(api, taskContext, resourceDescriptor, genericResourceService)
-        }
-            .defaultIfEmpty(Unit)
-            .doOnNext {
-                LOG.debug("Resource ${resourceDescriptor.resourceId} has been deleted. CorellationId=${taskContext.corellationId}")
-            }
-            .doOnError {
-                LOG.warnAndDebugDetails("Error occured during deletion of resource ${resourceDescriptor.resourceId}, corellationId=${taskContext.corellationId} :", it)
+                    .defaultIfEmpty(Unit)
+                    .doOnNext {
+                        LOG.debug("Resource ${resourceDescriptor.resourceId} has been deleted. CorellationId=${taskContext.corellationId}")
+                    }
+                    .doOnError {
+                        LOG.warnAndDebugDetails("Error occured during deletion of resource ${resourceDescriptor.resourceId}, corellationId=${taskContext.corellationId} :", it)
+                    }
             }
     }
 
@@ -346,30 +386,48 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         resourceDescriptor: ResourceDescriptor,
         genericResourceService: GenericResourceService
     ): Observable<Unit> {
-        taskContext.apply()
+        LOG.debug("Resource ${resourceDescriptor.resourceId} will be removed. CorellationId=${taskContext.corellationId}")
         if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_MILTITHREAD_POLLING)) {
             val manager = api.genericResources().manager()
-            return manager
-                .providers()
-                .getByNameAsync(ResourceUtils.resourceProviderFromResourceId(resourceDescriptor.resourceId))
-                .map { ResourceUtils.defaultApiVersion(resourceDescriptor.resourceId, it) }
+            return taskContext
+                .getDeferralSequence()
                 .flatMap {
-                    val source = genericResourceService
-                        .deleteById(
-                            resourceDescriptor.resourceId,
-                            it,
-                            manager.inner().acceptLanguage(),
-                            manager.inner().userAgent())
+                    LOG.debug("Getting provider for resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
                     manager
-                        .inner()
-                        .azureClient
-                        .postOrDeleteAsync<Void>(source, LongRunningOperationOptions.DEFAULT) {
-                            taskContext.apply()
+                        .providers()
+                        .getByNameAsync(ResourceUtils.resourceProviderFromResourceId(resourceDescriptor.resourceId))
+                        .map { ResourceUtils.defaultApiVersion(resourceDescriptor.resourceId, it) }
+                        .flatMap { apiVersion ->
+                            LOG.debug("Got provider for resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
+                            val source = taskContext
+                                .getDeferralSequence()
+                                .flatMap {
+                                    LOG.debug("Removing resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
+                                    genericResourceService
+                                        .deleteById(
+                                            resourceDescriptor.resourceId,
+                                            apiVersion,
+                                            manager.inner().acceptLanguage(),
+                                            manager.inner().userAgent()
+                                        )
+                                }
+
+                            manager
+                                .inner()
+                                .azureClient
+                                .postOrDeleteAsync<Void>(source, LongRunningOperationOptions.DEFAULT) {
+                                    taskContext.getDeferralSequence()
+                                }
+                                .map { Unit }
+                                .defaultIfEmpty(Unit)
                         }
-                        .map { Unit }
-                }
+                    }
         }
-        return api.genericResources().deleteByIdAsync(resourceDescriptor.resourceId).toObservable<Unit>()
+        return taskContext
+            .getDeferralSequence()
+            .flatMap {
+                api.genericResources().deleteByIdAsync(resourceDescriptor.resourceId).toObservable<Unit>()
+            }
     }
 
     private fun cancelRunningDeployment(deployment: Deployment, taskContext: AzureTaskContext): Observable<Deployment> {
@@ -381,8 +439,11 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         if (deployment.provisioningState().equals(PROVISIONING_STATE_RUNNING, ignoreCase = true)) {
             val cancelOperationState = BehaviorSubject.create<Notification<Deployment>>()
             return Observable.defer {
-                taskContext.apply()
-                deployment.cancelAsync().toObservable<Deployment>().materialize().take(1).doOnNext { cancelOperationState.onNext(it) }
+                taskContext
+                    .getDeferralSequence()
+                    .flatMap {
+                        deployment.cancelAsync().toObservable<Deployment>().materialize().take(1).doOnNext { cancelOperationState.onNext(it) }
+                    }
             }.repeatWhen {
                 LOG.debug("Canceling running deployment ${deployment.name()}. CorellationId=${taskContext.corellationId}")
 

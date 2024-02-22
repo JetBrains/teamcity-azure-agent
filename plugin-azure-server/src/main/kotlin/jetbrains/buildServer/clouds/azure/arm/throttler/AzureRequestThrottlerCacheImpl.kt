@@ -32,12 +32,12 @@ import java.util.concurrent.TimeUnit
 class AzureRequestThrottlerCacheImpl(
         private val mySchedulersProvider: AzureThrottlerSchedulersProvider,
         private val myAzureThrottlerFactory: AzureThrottlerFactory,
-        private val myAzureRequestSyncFactory: AzureThrottlerRequestSyncFactory,
+        private val myAzureTimeManagerFactory: AzureTimeManagerFactory,
 ) : AzureRequestThrottlerCache {
     private val envMap: ConcurrentMap<EnvKey, AzureRequestThrottler> = ConcurrentHashMap<EnvKey, AzureRequestThrottler>();
     private val appMap: ConcurrentMap<AppKey, AzureRequestThrottler> = ConcurrentHashMap<AppKey, AzureRequestThrottler>();
-    private val myReadRequestSync = myAzureRequestSyncFactory.create()
-    private val myActionRequestSync = myAzureRequestSyncFactory.create()
+    private val myReadTimeManager = myAzureTimeManagerFactory.create()
+    private val myActionTimeManager = myAzureTimeManagerFactory.create()
 
     override fun getOrCreateThrottler(params: Map<String, String>) : AzureRequestThrottler {
         val subscriptionId = params[AzureConstants.SUBSCRIPTION_ID]
@@ -56,13 +56,13 @@ class AzureRequestThrottlerCacheImpl(
 
     override fun getOrCreateByEnv(env: AzureEnvironment, subscriptionId: String?) : AzureRequestThrottler {
         return envMap.getOrPut(EnvKey(env, subscriptionId)) {
-            AzureRequestThrottlerImpl(subscriptionId, MSICredentials(env), myAzureThrottlerFactory, myReadRequestSync, myActionRequestSync)
+            AzureRequestThrottlerImpl(subscriptionId, MSICredentials(env), myAzureThrottlerFactory, myReadTimeManager, myActionTimeManager)
         }
     }
 
     override fun getOrCreateByCredentials(clientId: String?, tenantId: String?, clientSecret: String?, env: AzureEnvironment, subscriptionId: String?) : AzureRequestThrottler {
         return appMap.getOrPut(AppKey(clientId, tenantId, clientSecret, subscriptionId)) {
-            AzureRequestThrottlerImpl(subscriptionId, ApplicationTokenCredentials(clientId, tenantId, clientSecret, env), myAzureThrottlerFactory, myReadRequestSync, myActionRequestSync)
+            AzureRequestThrottlerImpl(subscriptionId, ApplicationTokenCredentials(clientId, tenantId, clientSecret, env), myAzureThrottlerFactory, myReadTimeManager, myActionTimeManager)
         }
     }
 
@@ -84,16 +84,16 @@ class AzureRequestThrottlerCacheImpl(
         override val subscriptionId: String?,
         private val credentials: AzureTokenCredentials,
         private val myAzureThrottlerFactory: AzureThrottlerFactory,
-        private val myReadRequestSync: AzureThrottlerRequestSync,
-        private val myActionRequestSync: AzureThrottlerRequestSync,
+        private val myReadTimeManager: AzureTimeManager,
+        private val myActionTimeManager: AzureTimeManager,
     ) : AzureRequestThrottler {
         private var myReadsThrottler: AzureThrottler<AzureApi, AzureThrottlerReadTasks.Values>
         private var myUpdatesThrottler: AzureThrottler<AzureApi, AzureThrottlerActionTasks.Values>
         private var myTaskNotifications = AzureTaskNotificationsImpl()
 
         init {
-            myReadsThrottler = myAzureThrottlerFactory.createReadRequestsThrottler(credentials, subscriptionId, myTaskNotifications, myReadRequestSync)
-            myUpdatesThrottler = myAzureThrottlerFactory.createActionRequestsThrottler(credentials, subscriptionId, myTaskNotifications,myActionRequestSync)
+            myReadsThrottler = myAzureThrottlerFactory.createReadRequestsThrottler(credentials, subscriptionId, myTaskNotifications, myReadTimeManager)
+            myUpdatesThrottler = myAzureThrottlerFactory.createActionRequestsThrottler(credentials, subscriptionId, myTaskNotifications, myReadTimeManager)
         }
 
         override fun <P, T> executeReadTask(taskDescriptor: AzureTaskDescriptor<AzureApi, AzureThrottlerReadTasks.Values, P, T>, parameters: P): Single<T> {

@@ -22,6 +22,7 @@ import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.Providers
 import com.microsoft.azure.management.resources.ProvisioningState
 import com.microsoft.azure.management.resources.implementation.ProviderInner
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskContext
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskEventArgs
 
 class AzureTaskVirtualMachineStatusChangedEventArgs(override val api: AzureApi, val virtualMachine: VirtualMachine) : AzureTaskEventArgs {
@@ -34,5 +35,12 @@ class AzureTaskDeploymentStatusChangedEventArgs(
     val provisioningState: ProvisioningState,
     val providers: List<ProviderInner>,
     val dependencies: List<Dependency>,
+    val taskContext: AzureTaskContext,
     val isDeleting: Boolean = false
+) : AzureTaskEventArgs
+
+class AzureTaskVirtualMachineRemoved(
+    override val api: AzureApi,
+    val taskContext: AzureTaskContext,
+    val resourceId: String,
 ) : AzureTaskEventArgs

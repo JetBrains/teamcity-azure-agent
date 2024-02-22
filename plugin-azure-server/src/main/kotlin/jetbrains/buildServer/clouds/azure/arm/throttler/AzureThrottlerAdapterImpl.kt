@@ -22,12 +22,16 @@ import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApiImpl
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.version.ServerVersionHolder
+import rx.Observable
+import rx.Scheduler
 import rx.Single
+import rx.schedulers.Schedulers
 import java.time.Clock
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
@@ -37,7 +41,8 @@ class AzureThrottlerAdapterImpl (
         resourceGraphConfigurable: ResourceGraphConfigurableWithNetworkInterceptors,
         credentials: AzureTokenCredentials,
         subscriptionId: String?,
-        requestSync: AzureThrottlerRequestSync,
+        private val timeManager: AzureTimeManager,
+        private val delayScheduler: Scheduler,
         override val name: String
 ) : AzureThrottlerAdapter<AzureApi> {
     @Suppress("JoinDeclarationAndAssignment")
@@ -51,7 +56,7 @@ class AzureThrottlerAdapterImpl (
     private var myTaskContext = ThreadLocal<TaskContext?>()
 
     init {
-        myInterceptor = AzureThrottlerInterceptor(this, this, name, requestSync)
+        myInterceptor = AzureThrottlerInterceptor(this, this, name)
 
         myAzure = AzureApiImpl(
             azureConfigurable
@@ -105,20 +110,25 @@ class AzureThrottlerAdapterImpl (
     }
 
     override fun <T> execute(queryFactory: (AzureApi, AzureTaskContext) -> Single<T>): Single<AzureThrottlerAdapterResult<T>> {
-        val taskContext = TaskContext(myTaskContext)
-        return queryFactory(myAzure, taskContext)
-                .doOnSubscribe {
-                    myTaskContext.set(taskContext)
-                }
-                .doOnUnsubscribe {
-                    myTaskContext.remove()
-                }
-                .map {
-                    AzureThrottlerAdapterResult(
+        val taskContext = TaskContext(myTaskContext, timeManager, delayScheduler)
+        return taskContext
+            .getDeferralSequence()
+            .flatMap {
+                queryFactory(myAzure, taskContext)
+                    .doOnSubscribe {
+                        myTaskContext.set(taskContext)
+                    }
+                    .doOnUnsubscribe {
+                        myTaskContext.remove()
+                    }
+                    .map {
+                        AzureThrottlerAdapterResult(
                             it,
                             taskContext.getRequestSequenceLength(),
                             false)
-                }
+                    }
+                    .toObservable()
+            }.toSingle()
     }
 
     override fun notifyRemainingReads(value: Long?, requestCount: Long) {
@@ -144,7 +154,11 @@ class AzureThrottlerAdapterImpl (
 
     override fun getContext(): AzureTaskContext? = myTaskContext.get()
 
-    class TaskContext(private val storage: ThreadLocal<TaskContext?>) : AzureTaskContext {
+    class TaskContext(
+        private val storage: ThreadLocal<TaskContext?>,
+        private val timeManager: AzureTimeManager,
+        private val delayScheduler: Scheduler
+    ) : AzureTaskContext {
         private val myCorellationId: String
         private val requestSequenceLength = AtomicLong(0)
         override val corellationId: String
@@ -159,6 +173,14 @@ class AzureThrottlerAdapterImpl (
         override fun getRequestSequenceLength(): Long = requestSequenceLength.get()
 
         override fun increaseRequestsSequenceLength() { requestSequenceLength.incrementAndGet() }
+
+        override fun getDeferralSequence(): Observable<Unit> {
+            val ticket = timeManager.getTicket(myCorellationId)
+            LOG.debug("Operation delay details: CorellationId: ${myCorellationId}, offset: ${ticket.getOffset()}")
+            return Observable.just(Unit)
+                .delaySubscription(ticket.getOffset().toMillis(), TimeUnit.MILLISECONDS, delayScheduler)
+                .map { apply() }
+        }
     }
 
     companion object {

@@ -18,17 +18,17 @@ import java.lang.reflect.Type
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-inline fun <reified T> AzureClient.putOrPatchAsync(source: Observable<Response<ResponseBody>>, noinline beforePollAttemptHandler: () -> Unit): Observable<T> {
+inline fun <reified T> AzureClient.putOrPatchAsync(source: Observable<Response<ResponseBody>>, noinline beforePollAttemptHandler: () -> Observable<Unit>): Observable<T> {
     val resourceType = object : TypeToken<T>() {}.type
     return pollAsync(this, this.beginPutOrPatchAsync<T>(source, resourceType), resourceType, beforePollAttemptHandler)
 }
 
-inline fun <reified T> AzureClient.postOrDeleteAsync(source: Observable<Response<ResponseBody>>, options: LongRunningOperationOptions, noinline beforePollAttemptHandler: () -> Unit): Observable<T> {
+inline fun <reified T> AzureClient.postOrDeleteAsync(source: Observable<Response<ResponseBody>>, options: LongRunningOperationOptions, noinline beforePollAttemptHandler: () -> Observable<Unit>): Observable<T> {
     val resourceType = object : TypeToken<T>() {}.type
     return pollAsync(this, this.beginPostOrDeleteAsync(source, options, resourceType), resourceType, beforePollAttemptHandler)
 }
 
-public fun<T> pollAsync(azureClient: AzureClient, pollingStateSource: Single<PollingState<T>>, resourceType: Type, beforePollAttemptHandler: () -> Unit): Observable<T> =
+public fun<T> pollAsync(azureClient: AzureClient, pollingStateSource: Single<PollingState<T>>, resourceType: Type, beforePollAttemptHandler: () -> Observable<Unit>): Observable<T> =
     pollingStateSource
         .toObservable()
         .flatMap { state ->
@@ -53,12 +53,14 @@ public fun<T> pollAsync(azureClient: AzureClient, pollingStateSource: Single<Pol
             it.resource()
         }
 
-public fun <T> doPollAsync(azureClient: AzureClient, state: PollingState<T>, resourceType: Type, beforePollAttemptHandler: () -> Unit): Observable<PollingState<T>> {
+public fun <T> doPollAsync(azureClient: AzureClient, state: PollingState<T>, resourceType: Type, beforePollAttemptHandler: () -> Observable<Unit>): Observable<PollingState<T>> {
     val retryCount = TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_LONG_RUNNING_QUERY_RETRY_COUNT, 5)
     return Observable.just(true)
         .flatMap<PollingState<T>> {
             beforePollAttemptHandler()
-            azureClient.pollSingleAsync(state, resourceType).toObservable()
+                .flatMap {
+                    azureClient.pollSingleAsync(state, resourceType).toObservable()
+                }
         }
         .repeatWhen { observable ->
             observable.flatMap {

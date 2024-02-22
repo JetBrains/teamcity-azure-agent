@@ -61,7 +61,7 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
             val dependency = args.dependencies.firstOrNull { it.resourceType() == VIRTUAL_MACHINES_RESOURCE_TYPE }
             if (dependency != null) {
                 if (args.isDeleting || args.provisioningState == ProvisioningState.SUCCEEDED) {
-                    updateVirtualMachine(args.api, dependency.id(), args.isDeleting)
+                    updateVirtualMachine(args.api, args.taskContext, dependency.id(), args.isDeleting)
                 }
                 return@register
             }
@@ -79,6 +79,9 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 updateContainer(args.api, containerId, args.isDeleting)
             }
         }
+        myNotifications.register<AzureTaskVirtualMachineRemoved> {
+            updateVirtualMachine(it.api, it.taskContext, it.resourceId, true)
+        }
     }
 
     override fun create(api: AzureApi, taskContext: AzureTaskContext, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {
@@ -88,8 +91,6 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     .just(emptyList<FetchInstancesTaskInstanceDescriptor>());
         }
         LOG.debug("Start fetching instances. COrellationId: ${taskContext.corellationId}")
-
-
         return if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_RESOURCEGRAPH_DISABLE))
             createTask(api, taskContext, parameter)
         else createResourceGraphTask(api, taskContext, parameter)
@@ -371,29 +372,32 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 .await()
     }
 
-    private fun updateVirtualMachine(api: AzureApi, virtualMachineId: String, isDeleting: Boolean) {
+    private fun updateVirtualMachine(api: AzureApi, taskContext: AzureTaskContext, virtualMachineId: String, isDeleting: Boolean) {
         if (isDeleting) {
             myNotifiedInstances.remove(virtualMachineId.lowercase())
             myInstancesCache.invalidate(virtualMachineId.lowercase())
             return
         }
-        api.virtualMachines()
-                .getByIdAsync(virtualMachineId)
-                .flatMap { if (it != null) fetchVirtualMachine(it) else Observable.just(null) }
-                .withLatestFrom(fetchIPAddresses(api)) {
-                    instance, ipList ->
-                    myIpAddresses.set(ipList.toTypedArray())
-                    if (instance != null) {
-                        myNotifiedInstances.add(instance.id.lowercase())
-                        myInstancesCache.put(instance.id.lowercase(), instance)
-                    } else {
-                        myNotifiedInstances.remove(virtualMachineId.lowercase())
-                        myInstancesCache.invalidate(virtualMachineId.lowercase())
+        taskContext
+            .getDeferralSequence()
+            .flatMap {
+                api.virtualMachines()
+                    .getByIdAsync(virtualMachineId)
+                    .flatMap { if (it != null) fetchVirtualMachine(it) else Observable.just(null) }
+                    .withLatestFrom(taskContext.getDeferralSequence().flatMap { fetchIPAddresses(api) }) { instance, ipList ->
+                        myIpAddresses.set(ipList.toTypedArray())
+                        if (instance != null) {
+                            myNotifiedInstances.add(instance.id.lowercase())
+                            myInstancesCache.put(instance.id.lowercase(), instance)
+                        } else {
+                            myNotifiedInstances.remove(virtualMachineId.lowercase())
+                            myInstancesCache.invalidate(virtualMachineId.lowercase())
+                        }
                     }
-                }
-                .take(1)
-                .toCompletable()
-                .await()
+                    .take(1)
+            }
+            .toCompletable()
+            .await()
     }
 
     private fun getAssignedNetworkInterfaceId(publicIpAddress: PublicIPAddress?): String? {

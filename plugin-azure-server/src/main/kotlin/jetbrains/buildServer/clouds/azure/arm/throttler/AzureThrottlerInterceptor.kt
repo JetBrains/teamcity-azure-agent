@@ -13,8 +13,7 @@ import java.util.regex.Pattern
 class AzureThrottlerInterceptor(
         private val remainingReadsNotifier: AzureThrottlerAdapterRemainingReadsNotifier,
         private val tackContextProvider: AzureTaskContextProvider,
-        private val name: String,
-        private val sync: AzureThrottlerRequestSync
+        private val name: String
 ) : Interceptor {
     private val myThrottlerDelayInMilliseconds = AtomicLong(300)
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -22,8 +21,6 @@ class AzureThrottlerInterceptor(
         if (sleepTime != 0L) {
             Thread.sleep(sleepTime)
         }
-
-        sync.waitForNextTimeSlot()
 
         val request = chain.request()
         val requestId = request.header(CLIENT_REQUEST_ID)

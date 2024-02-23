@@ -48,18 +48,22 @@ class ResourceProvidersInner(
 
     fun poolResourcesAsync(query: QueryRequest): Observable<Table> {
         return resourcesAsync(query)
-            .concatMap { response ->
-                if (response.skipToken.isNullOrEmpty())
-                    Observable.just(Table(response.data!!))
-                else
-                    Observable.timer(
-                        TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_RESOURCEGRAPH_LONG_RUNNING_QUERY_RETRY_TIMEOUT, 5),
-                        TimeUnit.SECONDS,
-                        Schedulers.immediate()
-                    )
-                    .flatMap {
-                        doPollResourcesAsync(query, response.skipToken!!)
-                    }
+            .flatMap { response ->
+                Observable.concat(
+                    Observable
+                        .just(Table(response.data!!)),
+                    if (response.skipToken.isNullOrEmpty())
+                        Observable.empty()
+                    else
+                        Observable.timer(
+                            TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_RESOURCEGRAPH_LONG_RUNNING_QUERY_RETRY_TIMEOUT, 5),
+                            TimeUnit.SECONDS,
+                            Schedulers.immediate()
+                        )
+                            .flatMap {
+                                doPollResourcesAsync(query, response.skipToken!!)
+                            }
+                )
             }
     }
 

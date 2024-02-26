@@ -35,7 +35,9 @@ class StartVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifica
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)
                 .flatMap {vm ->
                     if (vm != null) {
-                        vm.startAsync().toObservable<Unit>().doOnCompleted { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
+                        vm.startAsync()
+                            .toObservable<Unit>()
+                            .concatMap { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
                     } else {
                         LOG.warnAndDebugDetails("Could not find resource to start. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
                         Observable.just(Unit)

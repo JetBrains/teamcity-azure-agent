@@ -34,7 +34,9 @@ class RestartVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifi
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)
                 .flatMap { vm ->
                     if (vm != null) {
-                        vm.restartAsync().toObservable<Unit>().doOnCompleted { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
+                        vm.restartAsync()
+                            .toObservable<Unit>()
+                            .concatMap { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
                     } else {
                         LOG.warnAndDebugDetails("Could not find virtual machine to restart. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
                         Observable.just(Unit)

@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
+import rx.Observable
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.reflect.KClass
@@ -29,7 +30,15 @@ class AzureTaskNotificationsImpl : AzureTaskNotifications {
         handlers.add(handler as AzureTaskEventHandler<AzureTaskEventArgs>)
     }
 
-    override fun raise(event: AzureTaskEventArgs) {
-        myHandlers[event::class]?.forEach { it.handle(event) }
+    override fun raise(event: AzureTaskEventArgs) : Observable<Unit> {
+        val handlersList = myHandlers[event::class]
+        return if (handlersList.isNullOrEmpty())
+            Observable.just(Unit)
+        else {
+            Observable
+                .from(handlersList)
+                .concatMap { it.handle(event) }
+                .last()
+        }
     }
 }

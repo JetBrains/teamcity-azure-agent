@@ -57,13 +57,15 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         myNotifications.register<AzureTaskVirtualMachineStatusChangedEventArgs> {
             updateVirtualMachine(it.api, it.virtualMachine)
         }
+
         myNotifications.register<AzureTaskDeploymentStatusChangedEventArgs> { args ->
             val dependency = args.dependencies.firstOrNull { it.resourceType() == VIRTUAL_MACHINES_RESOURCE_TYPE }
             if (dependency != null) {
-                if (args.isDeleting || args.provisioningState == ProvisioningState.SUCCEEDED) {
+                return@register if (args.isDeleting || args.provisioningState == ProvisioningState.SUCCEEDED) {
                     updateVirtualMachine(args.api, args.taskContext, dependency.id(), args.isDeleting)
+                } else {
+                    Observable.just(Unit)
                 }
-                return@register
             }
 
             val containerProvider = args.providers.firstOrNull { it.namespace() == CONTAINER_INSTANCE_NAMESPACE }
@@ -76,8 +78,9 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     args.deploymentName,
                         "")
 
-                updateContainer(args.api, containerId, args.isDeleting)
+                return@register updateContainer(args.api, containerId, args.isDeleting)
             }
+            return@register Observable.just(Unit)
         }
         myNotifications.register<AzureTaskVirtualMachineRemoved> {
             updateVirtualMachine(it.api, it.taskContext, it.resourceId, true)
@@ -258,13 +261,13 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 }
     }
 
-    private fun updateContainer(api: AzureApi, containerId: String, isDeleting: Boolean) {
+    private fun updateContainer(api: AzureApi, containerId: String, isDeleting: Boolean) : Observable<Unit> {
         if (isDeleting) {
             myNotifiedInstances.remove(containerId.lowercase())
             myInstancesCache.invalidate(containerId.lowercase())
-            return
+            return Observable.just(Unit)
         }
-        api.containerGroups()
+        return api.containerGroups()
                 .getByIdAsync(containerId)
                 .map { it?.let { fetchContainer(it) } }
                 .withLatestFrom(fetchIPAddresses(api)) {
@@ -279,8 +282,6 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     }
                 }
                 .take(1)
-                .toCompletable()
-                .await()
     }
 
     private fun fetchContainer(containerGroup: ContainerGroup): InstanceDescriptor {
@@ -361,24 +362,21 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                 }
     }
 
-    private fun updateVirtualMachine(api: AzureApi, virtualMachine: VirtualMachine) {
+    private fun updateVirtualMachine(api: AzureApi, virtualMachine: VirtualMachine) : Observable<Unit> =
         fetchVirtualMachine(virtualMachine)
-                .withLatestFrom(fetchIPAddresses(api)) { instance, ipList ->
-                    myIpAddresses.set(ipList.toTypedArray())
-                    myInstancesCache.put(instance.id.lowercase(), instance)
-                }
-                .take(1)
-                .toCompletable()
-                .await()
-    }
+            .withLatestFrom(fetchIPAddresses(api)) { instance, ipList ->
+                myIpAddresses.set(ipList.toTypedArray())
+                myInstancesCache.put(instance.id.lowercase(), instance)
+            }
+            .take(1)
 
-    private fun updateVirtualMachine(api: AzureApi, taskContext: AzureTaskContext, virtualMachineId: String, isDeleting: Boolean) {
+    private fun updateVirtualMachine(api: AzureApi, taskContext: AzureTaskContext, virtualMachineId: String, isDeleting: Boolean) : Observable<Unit> {
         if (isDeleting) {
             myNotifiedInstances.remove(virtualMachineId.lowercase())
             myInstancesCache.invalidate(virtualMachineId.lowercase())
-            return
+            return Observable.just(Unit)
         }
-        taskContext
+        return taskContext
             .getDeferralSequence()
             .flatMap {
                 api.virtualMachines()
@@ -396,8 +394,6 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     }
                     .take(1)
             }
-            .toCompletable()
-            .await()
     }
 
     private fun getAssignedNetworkInterfaceId(publicIpAddress: PublicIPAddress?): String? {

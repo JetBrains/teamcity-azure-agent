@@ -52,7 +52,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         }
                             .concatMap { deleteResource(it, api, genericResourceService, taskContext) }
                             .last()
-                            .doOnNext {
+                            .concatMap {
                                 val subscriptionId = api.subscriptionId()
                                 if (subscriptionId != null) {
                                     myNotifications.raise(
@@ -62,9 +62,10 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                                             getVirtualMachineResource(subscriptionId, parameter).resourceId,
                                         )
                                     )
+                                } else {
+                                    Observable.just(Unit)
                                 }
                             }
-
                     } else {
                         switchDeleteDeploymentStrategy(deployment, api, taskContext, genericResourceService, parameter)
                     }
@@ -106,7 +107,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         deleteGenericResource(api, taskContext, deploymentResource, genericResourceService)
                     }
                     .defaultIfEmpty(Unit)
-                    .doOnNext {
+                    .concatMap {
                         LOG.debug("Deployment ${cancelledDeployment.name()} has been deleted. Id: ${cancelledDeployment.id()}, CorellationId=${taskContext.corellationId}")
                         val inner = cancelledDeployment.inner()
                         myNotifications.raise(AzureTaskDeploymentStatusChangedEventArgs(
@@ -151,7 +152,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                                     .concatWith(Observable.just(Unit))
                             }
                     }
-                    .doOnNext {
+                    .concatMap {
                         LOG.debug("Deployment ${cancelledDeployment.name()} has been deleted. Id: ${cancelledDeployment.id()}, CorellationId=${taskContext.corellationId}")
                         val inner = cancelledDeployment.inner()
                         myNotifications.raise(AzureTaskDeploymentStatusChangedEventArgs(

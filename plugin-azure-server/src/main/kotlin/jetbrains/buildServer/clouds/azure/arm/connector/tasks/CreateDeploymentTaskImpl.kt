@@ -53,7 +53,7 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                 )) {
                     taskContext.getDeferralSequence()
                 }
-                .doOnNext {
+                .concatMap {
                     myNotifications.raise(AzureTaskDeploymentStatusChangedEventArgs(
                         api,
                         it.id(),
@@ -64,7 +64,6 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         taskContext
                     ))
                 }
-                .map { Unit }
                 .toSingle()
 
         } else {
@@ -78,7 +77,7 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                     .withMode(DeploymentMode.INCREMENTAL)
                     .createAsync()
             )
-                .doOnNext {
+                .concatMap {
                     val inner = it.inner()
                     myNotifications.raise(AzureTaskDeploymentStatusChangedEventArgs(
                         api,
@@ -90,7 +89,6 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         taskContext
                     ))
                 }
-                .map { Unit }
                 .toSingle()
         }
     }

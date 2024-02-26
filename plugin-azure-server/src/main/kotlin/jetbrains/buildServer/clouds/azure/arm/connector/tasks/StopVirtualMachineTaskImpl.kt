@@ -20,7 +20,9 @@ class StopVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotificat
                 .getByResourceGroupAsync(parameter.groupId, parameter.name)
                 .flatMap { vm ->
                     if (vm != null) {
-                        vm.deallocateAsync().toObservable<Unit>().doOnCompleted { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
+                        vm.deallocateAsync()
+                            .toObservable<Unit>()
+                            .concatMap { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
                     } else {
                         LOG.warnAndDebugDetails("Could not find virtual machine to stop. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
                         Observable.just(Unit)

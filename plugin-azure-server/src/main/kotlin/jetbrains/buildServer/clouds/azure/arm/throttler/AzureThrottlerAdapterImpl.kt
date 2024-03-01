@@ -25,12 +25,11 @@ import jetbrains.buildServer.version.ServerVersionHolder
 import rx.Observable
 import rx.Scheduler
 import rx.Single
-import rx.schedulers.Schedulers
 import java.time.Clock
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.UUID
+import java.util.*
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -175,11 +174,13 @@ class AzureThrottlerAdapterImpl (
         override fun increaseRequestsSequenceLength() { requestSequenceLength.incrementAndGet() }
 
         override fun getDeferralSequence(): Observable<Unit> {
-            val ticket = timeManager.getTicket(myCorellationId)
-            LOG.debug("Operation delay details: CorellationId: ${myCorellationId}, offset: ${ticket.getOffset()}")
-            return Observable.just(Unit)
-                .delaySubscription(ticket.getOffset().toMillis(), TimeUnit.MILLISECONDS, delayScheduler)
-                .map { apply() }
+            return Observable.defer {
+                val ticket = timeManager.getTicket(myCorellationId)
+                LOG.debug("Operation delay details: CorellationId: ${myCorellationId}, offset: ${ticket.getOffset()}")
+                Observable.just(Unit)
+                    .delaySubscription(ticket.getOffset().toMillis(), TimeUnit.MILLISECONDS, delayScheduler)
+                    .map { apply() }
+            }
         }
     }
 

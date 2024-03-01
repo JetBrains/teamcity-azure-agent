@@ -65,7 +65,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                                 .getByResourceGroupAsync(parameter.resourceGroupName, parameter.name)
                         }
                             .concatMap { deleteResource(it, api, genericResourceService, taskContext) }
-                            .last()
+                            .takeLast(1)
                             .concatMap {
                                 val subscriptionId = api.subscriptionId()
                                 if (subscriptionId != null) {

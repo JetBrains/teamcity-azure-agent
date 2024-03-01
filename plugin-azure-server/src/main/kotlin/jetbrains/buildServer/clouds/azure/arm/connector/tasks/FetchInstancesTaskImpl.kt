@@ -195,11 +195,10 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
                     !it.isOnError
                 }
                 .dematerialize<VirtualMachine>()
-                .withLatestFrom(machineInstancesImpl) { vm, vmStatusesMap ->
-                    vm to vmStatusesMap[vm.id()]
-                }
-                .flatMap { (vm, vmStatus) ->
-                    fetchVirtualMachineWithCache(vm, vmStatus)
+                .flatMap { vm ->
+                    machineInstancesImpl.flatMap { vmStatusesMap ->
+                        fetchVirtualMachineWithCache(vm, vmStatusesMap[vm.id()])
+                    }
                 }
 
         val containerInstances =
@@ -269,19 +268,21 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         }
         return api.containerGroups()
                 .getByIdAsync(containerId)
-                .map { it?.let { fetchContainer(it) } }
-                .withLatestFrom(fetchIPAddresses(api)) {
-                    instance, ipList ->
-                    myIpAddresses.set(ipList.toTypedArray())
-                    if (instance != null) {
-                        myNotifiedInstances.add(instance.id.lowercase())
-                        myInstancesCache.put(instance.id.lowercase(), instance)
-                    } else {
-                        myNotifiedInstances.remove(containerId.lowercase())
-                        myInstancesCache.invalidate(containerId.lowercase())
+                .map { containerGroup: ContainerGroup? -> containerGroup?.let { fetchContainer(it) } }
+                .flatMap { instance: InstanceDescriptor? ->
+                    fetchIPAddresses(api).map { ipList ->
+                        myIpAddresses.set(ipList.toTypedArray())
+                        if (instance != null) {
+                            myNotifiedInstances.add(instance.id.lowercase())
+                            myInstancesCache.put(instance.id.lowercase(), instance)
+                        } else {
+                            myNotifiedInstances.remove(containerId.lowercase())
+                            myInstancesCache.invalidate(containerId.lowercase())
+                        }
                     }
                 }
-                .take(1)
+                .takeLast(1)
+                .defaultIfEmpty(Unit)
     }
 
     private fun fetchContainer(containerGroup: ContainerGroup): InstanceDescriptor {
@@ -364,11 +365,14 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
 
     private fun updateVirtualMachine(api: AzureApi, virtualMachine: VirtualMachine) : Observable<Unit> =
         fetchVirtualMachine(virtualMachine)
-            .withLatestFrom(fetchIPAddresses(api)) { instance, ipList ->
-                myIpAddresses.set(ipList.toTypedArray())
-                myInstancesCache.put(instance.id.lowercase(), instance)
+            .flatMap { instance ->
+                fetchIPAddresses(api).map { ipList ->
+                    myIpAddresses.set(ipList.toTypedArray())
+                    myInstancesCache.put(instance.id.lowercase(), instance)
+                }
             }
-            .take(1)
+            .takeLast(1)
+            .defaultIfEmpty(Unit)
 
     private fun updateVirtualMachine(api: AzureApi, taskContext: AzureTaskContext, virtualMachineId: String, isDeleting: Boolean) : Observable<Unit> {
         if (isDeleting) {
@@ -381,18 +385,24 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
             .flatMap {
                 api.virtualMachines()
                     .getByIdAsync(virtualMachineId)
-                    .flatMap { if (it != null) fetchVirtualMachine(it) else Observable.just(null) }
-                    .withLatestFrom(taskContext.getDeferralSequence().flatMap { fetchIPAddresses(api) }) { instance, ipList ->
-                        myIpAddresses.set(ipList.toTypedArray())
-                        if (instance != null) {
-                            myNotifiedInstances.add(instance.id.lowercase())
-                            myInstancesCache.put(instance.id.lowercase(), instance)
-                        } else {
-                            myNotifiedInstances.remove(virtualMachineId.lowercase())
-                            myInstancesCache.invalidate(virtualMachineId.lowercase())
-                        }
+                    .flatMap { vm: VirtualMachine? -> if (vm != null) fetchVirtualMachine(vm) else Observable.just(null) }
+                    .flatMap { instance ->
+                        taskContext
+                            .getDeferralSequence()
+                            .flatMap { fetchIPAddresses(api) }
+                            .map { ipList ->
+                                myIpAddresses.set(ipList.toTypedArray())
+                                if (instance != null) {
+                                    myNotifiedInstances.add(instance.id.lowercase())
+                                    myInstancesCache.put(instance.id.lowercase(), instance)
+                                } else {
+                                    myNotifiedInstances.remove(virtualMachineId.lowercase())
+                                    myInstancesCache.invalidate(virtualMachineId.lowercase())
+                                }
+                            }
                     }
                     .take(1)
+                    .defaultIfEmpty(Unit)
             }
     }
 

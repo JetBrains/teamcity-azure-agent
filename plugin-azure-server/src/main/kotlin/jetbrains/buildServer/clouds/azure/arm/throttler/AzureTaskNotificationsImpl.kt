@@ -23,8 +23,8 @@ class AzureTaskNotificationsImpl : AzureTaskNotifications {
         else {
             Observable
                 .from(handlersList)
-                .concatMap { it.handle(event) }
-                .last()
+                .concatMap { it.handle(event).defaultIfEmpty(Unit) }
+                .takeLast(1)
         }
     }
 }

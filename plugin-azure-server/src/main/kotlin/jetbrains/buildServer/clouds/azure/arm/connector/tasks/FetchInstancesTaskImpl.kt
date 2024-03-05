@@ -99,6 +99,9 @@ class FetchInstancesTaskImpl(private val myNotifications: AzureTaskNotifications
         myNotifications.register<AzureTaskVirtualMachineRemoved> {
             updateVirtualMachine(it.api, it.taskContext, it.resourceId, true)
         }
+        myNotifications.register<AzureTaskVirtualMachineCreated> {
+            updateVirtualMachine(it.api, it.taskContext, it.resourceId, false)
+        }
     }
 
     override fun create(api: AzureApi, taskContext: AzureTaskContext, parameter: FetchInstancesTaskParameter): Single<List<FetchInstancesTaskInstanceDescriptor>> {

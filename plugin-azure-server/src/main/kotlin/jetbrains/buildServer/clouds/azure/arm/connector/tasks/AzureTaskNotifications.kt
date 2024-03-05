@@ -44,3 +44,9 @@ class AzureTaskVirtualMachineRemoved(
     val taskContext: AzureTaskContext,
     val resourceId: String,
 ) : AzureTaskEventArgs
+
+class AzureTaskVirtualMachineCreated(
+    override val api: AzureApi,
+    val taskContext: AzureTaskContext,
+    val resourceId: String,
+) : AzureTaskEventArgs

@@ -394,7 +394,7 @@ class AzureApiConnectorImpl(
         val featuresTagValue = AzureUtils.getDeploymentFeaturesTagValue(true, templateSafeRemovalFlag)
         val tagsMap = mapOf(AzureConstants.TAG_FEATURES to featuresTagValue)
 
-        createDeployment(groupId, name, template, parameters, tagsMap)
+        createDeployment(groupId, name, template, parameters, tagsMap, VIRTUAL_MACHINES_RESOURCE_TYPE)
     }
 
     private fun getProjectFlag(name: String) = (myProfileId
@@ -434,7 +434,7 @@ class AzureApiConnectorImpl(
         val template = builder.toString()
         val parameters = builder.serializeParameters()
 
-        createDeployment(groupId, name, template, parameters, emptyMap())
+        createDeployment(groupId, name, template, parameters, emptyMap(), CONTAINER_INSTANCE_RESOURCE_TYPE)
     }
 
     private suspend fun addContainerCustomData(instance: AzureCloudInstance, userData: CloudInstanceUserData, builder: ArmTemplateBuilder) = coroutineScope {
@@ -502,12 +502,12 @@ class AzureApiConnectorImpl(
         }
     }
 
-    private suspend fun createDeployment(groupId: String, deploymentId: String, template: String, params: String, tagsMap: Map<String, String>) = coroutineScope {
+    private suspend fun createDeployment(groupId: String, deploymentId: String, template: String, params: String, tagsMap: Map<String, String>, targetResourceType: String) = coroutineScope {
         deploymentLocks.getOrPut("$groupId/$deploymentId") { Mutex() }.withLock {
             try {
                 myAzureRequestsThrottler.executeUpdateTask(
                     AzureThrottlerActionTasks.CreateDeployment,
-                    CreateDeploymentTaskParameter(groupId, deploymentId, template, params, tagsMap))
+                    CreateDeploymentTaskParameter(groupId, deploymentId, template, params, tagsMap, targetResourceType))
                     .awaitOne()
 
                 LOG.debug("Created deployment in group $groupId")
@@ -1067,5 +1067,7 @@ class AzureApiConnectorImpl(
                 "Microsoft.ContainerInstance" to listOf("containerGroups"),
                 "Microsoft.Compute" to listOf("virtualMachines")
         )
+        private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
+        private const val CONTAINER_INSTANCE_RESOURCE_TYPE = "Microsoft.ContainerInstance/containerGroups"
     }
 }

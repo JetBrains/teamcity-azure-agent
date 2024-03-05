@@ -4,10 +4,12 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.diagnostic.Logger
+import com.microsoft.azure.CloudException
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.DeploymentMode
 import com.microsoft.azure.management.resources.DeploymentProperties
+import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import com.microsoft.azure.management.resources.fluentcore.utils.Utils
 import com.microsoft.azure.management.resources.implementation.DeploymentExtendedInner
 import com.microsoft.azure.management.resources.implementation.DeploymentInner
@@ -28,7 +30,8 @@ data class CreateDeploymentTaskParameter(
         val deploymentName: String,
         val template: String,
         val params: String,
-        val tags: Map<String, String>)
+        val tags: Map<String, String>,
+        val targetResourceType: String)
 
 class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, CreateDeploymentTaskParameter, Unit>() {
     private val objectMapper = ObjectMapper()
@@ -63,6 +66,28 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         it.properties().dependencies(),
                         taskContext
                     ))
+                }
+                .onErrorResumeNext { throwable ->
+                    if (throwable is CloudException &&
+                        DEPLOYMENT_NOT_FOUND_CODE.equals(throwable.body()?.code(), ignoreCase = true) &&
+                        VIRTUAL_MACHINES_RESOURCE_TYPE.equals(parameter.targetResourceType, ignoreCase = true)
+                    ) {
+                        LOG.debug("Deployment has gone. Name: ${parameter.deploymentName}, corellationId: [${taskContext.corellationId}]")
+                        myNotifications.raise(AzureTaskVirtualMachineCreated(
+                                api,
+                                taskContext,
+                                ResourceUtils.constructResourceId(
+                                    api.subscriptionId(),
+                                    parameter.groupName,
+                                    VIRTUAL_MACHINES_PROVIDER_NAMESPACE,
+                                    VIRTUAL_MACHINES_RESOURCE_TYPE_SHORT,
+                                    parameter.deploymentName,
+                                    ""),
+                            )
+                        )
+                    } else {
+                        Observable.error(throwable)
+                    }
                 }
                 .toSingle()
 
@@ -123,5 +148,9 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
 
     companion object {
         private val LOG = Logger.getInstance(CreateDeploymentTaskImpl::class.java.name)
+        private const val VIRTUAL_MACHINES_PROVIDER_NAMESPACE = "Microsoft.Compute"
+        private const val VIRTUAL_MACHINES_RESOURCE_TYPE_SHORT = "virtualMachines"
+        private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
+        private const val DEPLOYMENT_NOT_FOUND_CODE = "DeploymentNotFound"
     }
 }

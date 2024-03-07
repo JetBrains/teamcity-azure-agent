@@ -55,6 +55,7 @@ const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_CONTAINER_NIC_RETRY_DELAY
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_TYPES = "teamcity.clouds.azure.tasks.deletedeployment.knownGeneric.resourceTypes"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_NAMES = "teamcity.clouds.azure.tasks.deletedeployment.knownGeneric.resourceNames"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_MILTITHREAD_POLLING = "teamcity.clouds.azure.tasks.deletedeployment.useMultitreadPolling"
+const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_PROVIDER_CACHE = "teamcity.clouds.azure.tasks.deletedeployment.useProviderCache"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_CTREATEDEPLOYMENT_USE_MILTITHREAD_POLLING = "teamcity.clouds.azure.tasks.createdeployment.useMultitreadPolling"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_USE_OLD_SCHEDULERS = "teamcity.clouds.azure.throttler.use.old.schedulers"

@@ -10,6 +10,7 @@ import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.resources.*
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
+import com.microsoft.azure.management.resources.implementation.ProviderInner
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.throttler.*
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
@@ -31,6 +32,8 @@ data class DeleteDeploymentTaskParameter(
         val name: String)
 
 class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, DeleteDeploymentTaskParameter, Unit>() {
+    private val providerToApiVersionMap = Collections.synchronizedMap(mutableMapOf<String, InternalProvider>())
+
     override fun create(api: AzureApi, taskContext: AzureTaskContext, parameter: DeleteDeploymentTaskParameter): Single<Unit> {
         LOG.debug("Deleting deployment. Name=${parameter.name}, CorellationId=${taskContext.corellationId}")
 
@@ -376,45 +379,67 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         LOG.debug("Resource ${resourceDescriptor.resourceId} will be removed. CorellationId=${taskContext.corellationId}")
         if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_MILTITHREAD_POLLING)) {
             val manager = api.genericResources().manager()
-            return taskContext
-                .getDeferralSequence()
-                .flatMap {
-                    LOG.debug("Getting provider for resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
-                    manager
-                        .providers()
-                        .getByNameAsync(ResourceUtils.resourceProviderFromResourceId(resourceDescriptor.resourceId))
-                        .map { ResourceUtils.defaultApiVersion(resourceDescriptor.resourceId, it) }
-                        .flatMap { apiVersion ->
-                            LOG.debug("Got provider for resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
-                            val source = taskContext
-                                .getDeferralSequence()
-                                .flatMap {
-                                    LOG.debug("Removing resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
-                                    genericResourceService
-                                        .deleteById(
-                                            resourceDescriptor.resourceId,
-                                            apiVersion,
-                                            manager.inner().acceptLanguage(),
-                                            manager.inner().userAgent()
-                                        )
-                                }
-
-                            manager
-                                .inner()
-                                .azureClient
-                                .postOrDeleteAsync<Void>(source, LongRunningOperationOptions.DEFAULT) {
-                                    taskContext.getDeferralSequence()
-                                }
-                                .map { Unit }
-                                .defaultIfEmpty(Unit)
+            return getProviderApiVersion(api, taskContext, resourceDescriptor)
+                .flatMap { apiVersion ->
+                    LOG.debug("Got provider for resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
+                    val source = taskContext
+                        .getDeferralSequence()
+                        .flatMap {
+                            LOG.debug("Removing resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
+                            genericResourceService
+                                .deleteById(
+                                    resourceDescriptor.resourceId,
+                                    apiVersion,
+                                    manager.inner().acceptLanguage(),
+                                    manager.inner().userAgent()
+                                )
                         }
-                    }
+
+                    manager
+                        .inner()
+                        .azureClient
+                        .postOrDeleteAsync<Void>(source, LongRunningOperationOptions.DEFAULT) {
+                            taskContext.getDeferralSequence()
+                        }
+                        .map { Unit }
+                        .defaultIfEmpty(Unit)
+                }
         }
         return taskContext
             .getDeferralSequence()
             .flatMap {
                 api.genericResources().deleteByIdAsync(resourceDescriptor.resourceId).toObservable<Unit>()
             }
+            .defaultIfEmpty(Unit)
+    }
+
+    private fun getProviderApiVersion(
+        api: AzureApi,
+        taskContext: AzureTaskContext,
+        resourceDescriptor: ResourceDescriptor): Observable<String> {
+        val providerName = ResourceUtils.resourceProviderFromResourceId(resourceDescriptor.resourceId)
+        val provider = providerToApiVersionMap.get(providerName)
+        return if (provider != null && TeamCityProperties.getBooleanOrTrue(TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_PROVIDER_CACHE)) {
+            LOG.debug("Found provider in cache. Resource ${resourceDescriptor.resourceId}, provider: ${providerName}. CorellationId=${taskContext.corellationId}")
+            Observable.just(provider)
+        } else {
+            val manager = api.genericResources().manager()
+            taskContext
+                .getDeferralSequence()
+                .flatMap {
+                    LOG.debug("Getting provider for resource ${resourceDescriptor.resourceId}. CorellationId=${taskContext.corellationId}")
+                    manager
+                        .providers()
+                        .getByNameAsync(providerName)
+                        .map {
+                            LOG.debug("Fetched resource provider. Resource ${resourceDescriptor.resourceId}, provider: ${providerName}. CorellationId=${taskContext.corellationId}")
+                            val internalProvider = InternalProvider(it.inner())
+                            providerToApiVersionMap.putIfAbsent(providerName, internalProvider)
+                            internalProvider
+                        }
+                }
+        }
+            .map { ResourceUtils.defaultApiVersion(resourceDescriptor.resourceId, it) }
     }
 
     private fun cancelRunningDeployment(deployment: Deployment, taskContext: AzureTaskContext): Observable<Deployment> {
@@ -495,6 +520,19 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         val message: String? = errorResponse.message()
         val target: String? = errorResponse.target()
         val details: List<ErrorResponseInternal>? = errorResponse.details()?.let { it.map { ErrorResponseInternal((it)) } }
+    }
+
+    private class InternalProvider(private val inner : ProviderInner) : Provider {
+        private val key = UUID.randomUUID().toString()
+        override fun key(): String = key
+
+        override fun inner(): ProviderInner = inner
+
+        override fun namespace(): String = inner.namespace()
+
+        override fun registrationState(): String = inner.registrationState()
+
+        override fun resourceTypes(): MutableList<ProviderResourceType> = inner.resourceTypes()
     }
 
     companion object {

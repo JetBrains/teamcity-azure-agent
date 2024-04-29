@@ -3,6 +3,7 @@
 package jetbrains.buildServer.clouds.base;
 
 import java.util.ArrayList;
+import java.util.function.Consumer;
 import jetbrains.buildServer.clouds.CanStartNewInstanceResult;
 import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudImage;
@@ -84,7 +85,7 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
 
     public abstract CanStartNewInstanceResult canStartNewInstance();
 
-  public abstract void terminateInstance(@NotNull final T instance);
+  public abstract void terminateInstance(@NotNull final T instance, @NotNull final Consumer<T> onSuccess);
 
   public abstract void restartInstance(@NotNull final T instance);
 

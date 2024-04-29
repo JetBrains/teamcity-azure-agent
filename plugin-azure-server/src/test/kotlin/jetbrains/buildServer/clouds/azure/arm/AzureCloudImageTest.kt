@@ -26,6 +26,7 @@ import org.jmock.MockObjectTestCase
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
 import java.util.concurrent.CyclicBarrier
+import java.util.function.Consumer
 import kotlin.concurrent.thread
 
 class AzureCloudImageTest : MockObjectTestCase() {
@@ -349,8 +350,10 @@ class AzureCloudImageTest : MockObjectTestCase() {
             instance.startNewInstance(userData)
         }
 
+        val onSuccess = mockk<Consumer<AzureCloudInstance>>(relaxed = true)
+
         runBlocking(myJob) {
-            instance.terminateInstance(stoppedInstance)
+            instance.terminateInstance(stoppedInstance, onSuccess)
         }
 
         val barrier = CyclicBarrier(3)
@@ -399,6 +402,9 @@ class AzureCloudImageTest : MockObjectTestCase() {
 
         coVerify { myApiConnector.startInstance(any()) }
         coVerify(exactly = 1) { myApiConnector.startInstance(eq(stoppedInstance)) }
+
+        verify(exactly = 1) { onSuccess.accept(any()) }
+        verify { onSuccess.accept(eq(stoppedInstance)) }
     }
 
     private fun<T> runBlocking(job : CompletableJob, action: () -> T) : T {

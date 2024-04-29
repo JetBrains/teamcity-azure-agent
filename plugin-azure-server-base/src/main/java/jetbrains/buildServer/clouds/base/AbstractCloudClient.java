@@ -84,7 +84,7 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
 
     public void terminateInstance(@NotNull final CloudInstance baseInstance) {
         final G instance = (G) baseInstance;
-        instance.getImage().terminateInstance(instance);
+        instance.getImage().terminateInstance(instance, this::onInstanceTerminated);
     }
 
     public boolean canStartNewInstance(@NotNull final CloudImage baseImage) {
@@ -124,6 +124,8 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
 
     @Nullable
     public abstract G findInstanceByAgent(@NotNull final AgentDescription agent);
+
+    protected abstract void onInstanceTerminated(@NotNull final G instance);
 
     @Nullable
     public T findImageById(@NotNull final String imageId) throws CloudException {

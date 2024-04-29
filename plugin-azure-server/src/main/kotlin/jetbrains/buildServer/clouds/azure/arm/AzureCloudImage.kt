@@ -17,20 +17,10 @@
 package jetbrains.buildServer.clouds.azure.arm
 
 import com.intellij.openapi.diagnostic.Logger
-import jetbrains.buildServer.clouds.CanStartNewInstanceResult
-import jetbrains.buildServer.clouds.CloudException
-import jetbrains.buildServer.clouds.CloudInstanceUserData
-import jetbrains.buildServer.clouds.InstanceStatus
-import jetbrains.buildServer.clouds.QuotaException
+import jetbrains.buildServer.clouds.*
 import jetbrains.buildServer.clouds.azure.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
-import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
-import jetbrains.buildServer.clouds.azure.arm.types.AzureContainerHandler
-import jetbrains.buildServer.clouds.azure.arm.types.AzureHandler
-import jetbrains.buildServer.clouds.azure.arm.types.AzureImageHandler
-import jetbrains.buildServer.clouds.azure.arm.types.AzureInstanceHandler
-import jetbrains.buildServer.clouds.azure.arm.types.AzureTemplateHandler
-import jetbrains.buildServer.clouds.azure.arm.types.AzureVhdHandler
+import jetbrains.buildServer.clouds.azure.arm.types.*
 import jetbrains.buildServer.clouds.base.AbstractCloudImage
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
@@ -41,6 +31,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
+import java.util.function.Consumer
 
 /**
  * Azure cloud image.
@@ -369,7 +360,10 @@ class AzureCloudImage(
         }
     }
 
-    override fun terminateInstance(instance: AzureCloudInstance) {
+    override fun terminateInstance(
+        instance: AzureCloudInstance,
+        onSuccess: Consumer<AzureCloudInstance>
+    ) {
         if (instance.properties.containsKey(AzureConstants.TAG_INVESTIGATION)) {
             LOG.info("Could not stop virtual machine ${instance.describe()} under investigation. To do that remove ${AzureConstants.TAG_INVESTIGATION} tag from it.")
             return
@@ -398,6 +392,7 @@ class AzureCloudImage(
                 }
 
                 LOG.info("Virtual machine ${instance.describe()} has been successfully terminated")
+                onSuccess.accept(instance)
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 instance.status = InstanceStatus.ERROR

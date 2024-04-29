@@ -28,17 +28,20 @@ import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerSchedulers
 import jetbrains.buildServer.clouds.base.AbstractCloudClientFactory
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.AgentDescription
+import jetbrains.buildServer.serverSide.BuildAgentManagerEx
 import jetbrains.buildServer.serverSide.PropertiesProcessor
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 
 /**
  * Constructs Azure ARM cloud clients.
  */
-class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
-                              private val myPluginDescriptor: PluginDescriptor,
-                              private val myImagesHolder: AzureCloudImagesHolder,
-                              private val myApiConnectorFactory: AzureApiConnectorFactory,
-                              private val mySchedulersProvider: AzureThrottlerSchedulersProvider
+class AzureCloudClientFactory(
+    cloudRegistrar: CloudRegistrar,
+    private val myPluginDescriptor: PluginDescriptor,
+    private val myImagesHolder: AzureCloudImagesHolder,
+    private val myApiConnectorFactory: AzureApiConnectorFactory,
+    private val mySchedulersProvider: AzureThrottlerSchedulersProvider,
+    private val myBuildAgentManager: BuildAgentManagerEx
 )
     : AbstractCloudClientFactory<AzureCloudImageDetails, AzureCloudClient>(cloudRegistrar) {
 
@@ -57,7 +60,7 @@ class AzureCloudClientFactory(cloudRegistrar: CloudRegistrar,
 
         val apiConnector = myApiConnectorFactory.create(parameters, state.profileId)
 
-        val azureCloudClient = AzureCloudClient(params, apiConnector, myImagesHolder, mySchedulersProvider)
+        val azureCloudClient = AzureCloudClient(params, apiConnector, myImagesHolder, mySchedulersProvider, myBuildAgentManager)
         azureCloudClient.updateErrors(*errors)
 
         apiConnector.start()

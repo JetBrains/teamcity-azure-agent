@@ -65,6 +65,10 @@ const val TEAMCITY_CLOUDS_AZURE_THROTTLER_DISPATCHER_POOL_QUEUE_MAX_SIZE = "team
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_SCHEDULER_POOL_MAX_SIZE = "teamcity.clouds.azure.throttler.scheduler.pool.max.size"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_GLOBAL_SYNC_DISABLE = "teamcity.clouds.azure.throttler.global.sync.disable"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TIMEMANAGER_NEW_THROTTLING_MODEL_DISABLE = "teamcity.clouds.azure.throttler.new.model.disable"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TIMEMANAGER_BUCKET_SIZE = "teamcity.clouds.azure.throttler.timeManager.bucket.size"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TIMEMANAGER_BUCKET_REFILL_INTERVAL_MSEC = "teamcity.clouds.azure.throttler.timeManager.bucket.refillInterval"
+const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TIMEMANAGER_BUCKET_REFILL_VALUE = "teamcity.clouds.azure.throttler.timeManager.bucket.refillValue"
 
 const val TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POST_UPDATE_DISABLE = "teamcity.clouds.azure.deployment.template.post.update.disable"
 

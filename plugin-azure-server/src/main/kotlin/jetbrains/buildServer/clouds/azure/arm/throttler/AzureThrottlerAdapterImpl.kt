@@ -161,12 +161,17 @@ class AzureThrottlerAdapterImpl (
 
         override fun getDeferralSequence(): Observable<Unit> {
             return Observable.defer {
-                val ticket = timeManager.getTicket(myCorellationId)
-                LOG.debug("Operation delay details: CorellationId: ${myCorellationId}, offset: ${ticket.getOffset()}")
-                Observable.just(Unit)
-                    .delaySubscription(ticket.getOffset().toMillis(), TimeUnit.MILLISECONDS, delayScheduler)
-                    .map { apply() }
+                if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_THROTTLER_TIMEMANAGER_NEW_THROTTLING_MODEL_DISABLE)) {
+                    val ticket = timeManager.getTicket(myCorellationId)
+                    LOG.debug("Operation delay details: CorellationId: ${myCorellationId}, offset: ${ticket.getOffset()}")
+                    Observable.just(Unit)
+                        .delaySubscription(ticket.getOffset().toMillis(), TimeUnit.MILLISECONDS, delayScheduler)
+                } else {
+                    timeManager
+                        .getDeferralSequence(corellationId)
+                }
             }
+                .map { apply() }
         }
     }
 

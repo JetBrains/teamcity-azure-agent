@@ -26,6 +26,10 @@ class AzureCloudClient(
 )
     : AzureCloudClientBase<AzureCloudInstance, AzureCloudImage, AzureCloudImageDetails>(params, apiConnector, imagesHolder) {
     private val myScope: CoroutineScope
+    private val myInstanceListener = object : AzureInstanceEventListener {
+        override fun instanceTerminated(instance: AzureCloudInstance) = unregisterAgent(instance)
+        override fun instanceFailedToCreate(instance: AzureCloudInstance, throwable: Throwable) = unregisterAgent(instance)
+    }
 
     init {
         myScope = CoroutineScope(SupervisorJob() + schedulersProvider.getDispatcher())
@@ -36,11 +40,12 @@ class AzureCloudClient(
             imageDetails.region = params.getParameter(AzureConstants.REGION)
         }
 
-        return AzureCloudImage(imageDetails, myApiConnector as AzureApiConnector, myScope)
+        return AzureCloudImage(imageDetails, myApiConnector as AzureApiConnector, myScope, myInstanceListener)
     }
 
-    override fun onInstanceTerminated(instance: AzureCloudInstance) {
+    private fun unregisterAgent(instance: AzureCloudInstance) {
         buildAgentManager.findAgentByName(instance.name, true)?.let {
+            LOG.debug("Found agent: ${LogUtil.describe(it)}. IsRegistered:${it.isRegistered}")
             if (it.isCloudAgent && it.isRegistered && findInstanceByAgent(it) == instance) {
                 LOG.info("Azure instance '${it.name}' has been terminated but the agent is still registered. Unregistering agent: ${LogUtil.describe(it)}")
                 buildAgentManager.unregisterAgent(it.id, "Cloud instance has gone")

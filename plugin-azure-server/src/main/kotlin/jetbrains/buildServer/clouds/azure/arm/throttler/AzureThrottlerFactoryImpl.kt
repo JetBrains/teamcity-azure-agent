@@ -32,7 +32,12 @@ class AzureThrottlerFactoryImpl(
         val randomTaskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_RANDOM_TASK_RESERVATION, 20) }
         val taskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_TASK_RESERVATION, 10) }
         val aggressiveThrottlingLimit = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT, 90) }
-        val adapterThrottlerTimeInMs = { TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_DEFAULT_DELAY_IN_MS, 400) }
+        val adapterThrottlerTimeInMs = {
+            if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_THROTTLER_TIMEMANAGER_NEW_THROTTLING_MODEL_DISABLE))
+                TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_DEFAULT_DELAY_IN_MS, 400)
+            else
+                0
+        }
         val maxAdapterThrottlerTimeInMs = { TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_READ_THROTTLER_MAX_DELAY_IN_MS, 3000) }
 
         val readsStrategy = AzureThrottlerStrategyImpl<AzureApi, AzureThrottlerReadTasks.Values>(
@@ -108,7 +113,12 @@ class AzureThrottlerFactoryImpl(
         val randomTaskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_RANDOM_TASK_RESERVATION, 50) }
         val taskReservation = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_TASK_RESERVATION, 10) }
         val aggressiveThrottlingLimit = { TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_AGGRESSIVE_THROTTLING_LIMIT, 90) }
-        val adapterThrottlerTimeInMs = { TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_DEFAULT_DELAY_IN_MS, 100) }
+        val adapterThrottlerTimeInMs = {
+            if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_THROTTLER_TIMEMANAGER_NEW_THROTTLING_MODEL_DISABLE))
+                TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_DEFAULT_DELAY_IN_MS, 100)
+            else
+                0
+        }
         val maxAdapterThrottlerTimeInMs = { TeamCityProperties.getLong(TEAMCITY_CLOUDS_AZURE_ACTION_THROTTLER_MAX_DELAY_IN_MS, 1000) }
 
         val actionsStrategy = AzureThrottlerStrategyImpl<AzureApi, AzureThrottlerActionTasks.Values>(

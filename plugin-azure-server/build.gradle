@@ -38,7 +38,7 @@ dependencies {
     provided 'javax.mail:mail:1.4.7'
     provided 'org.bouncycastle:bcprov-jdk15on:1.60'
     testCompile 'org.testng:testng:6.8'
-    testCompile 'io.mockk:mockk:1.13.1'
+    testCompile 'io.mockk:mockk:1.13.2'
 }
 
 serverPlugin.version = null

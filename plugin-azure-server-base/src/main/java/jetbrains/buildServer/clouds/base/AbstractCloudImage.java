@@ -3,7 +3,9 @@
 package jetbrains.buildServer.clouds.base;
 
 import java.util.ArrayList;
-import java.util.function.Consumer;
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import jetbrains.buildServer.clouds.CanStartNewInstanceResult;
 import jetbrains.buildServer.clouds.CloudErrorInfo;
 import jetbrains.buildServer.clouds.CloudImage;
@@ -16,11 +18,6 @@ import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.clouds.base.errors.UpdatableCloudErrorProvider;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Sergey.Pak
@@ -85,7 +82,7 @@ public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G exte
 
     public abstract CanStartNewInstanceResult canStartNewInstance();
 
-  public abstract void terminateInstance(@NotNull final T instance, @NotNull final Consumer<T> onSuccess);
+  public abstract void terminateInstance(@NotNull final T instance);
 
   public abstract void restartInstance(@NotNull final T instance);
 

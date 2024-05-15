@@ -20,6 +20,7 @@ class AzureCloudImageTest : MockObjectTestCase() {
     private lateinit var myImageDetails: AzureCloudImageDetails
     private lateinit var myApiConnector: AzureApiConnector
     private lateinit var myScope: CoroutineScope
+    private lateinit var myInstanceListener: AzureInstanceEventListener
 
     @BeforeMethod
     fun beforeMethod() {
@@ -76,6 +77,7 @@ class AzureCloudImageTest : MockObjectTestCase() {
 
         myJob = SupervisorJob()
         myScope = CoroutineScope(myJob + Dispatchers.IO)
+        myInstanceListener = mockk(relaxed = true)
     }
 
     @Test
@@ -336,10 +338,8 @@ class AzureCloudImageTest : MockObjectTestCase() {
             instance.startNewInstance(userData)
         }
 
-        val onSuccess = mockk<Consumer<AzureCloudInstance>>(relaxed = true)
-
         runBlocking(myJob) {
-            instance.terminateInstance(stoppedInstance, onSuccess)
+            instance.terminateInstance(stoppedInstance)
         }
 
         val barrier = CyclicBarrier(3)
@@ -389,8 +389,8 @@ class AzureCloudImageTest : MockObjectTestCase() {
         coVerify { myApiConnector.startInstance(any()) }
         coVerify(exactly = 1) { myApiConnector.startInstance(eq(stoppedInstance)) }
 
-        verify(exactly = 1) { onSuccess.accept(any()) }
-        verify { onSuccess.accept(eq(stoppedInstance)) }
+        verify(exactly = 1) { myInstanceListener.instanceTerminated(any()) }
+        verify { myInstanceListener.instanceTerminated(eq(stoppedInstance)) }
     }
 
     private fun<T> runBlocking(job : CompletableJob, action: () -> T) : T {
@@ -400,6 +400,6 @@ class AzureCloudImageTest : MockObjectTestCase() {
     }
 
     private fun createInstance() : AzureCloudImage {
-        return AzureCloudImage(myImageDetails, myApiConnector, myScope)
+        return AzureCloudImage(myImageDetails, myApiConnector, myScope, myInstanceListener)
     }
 }

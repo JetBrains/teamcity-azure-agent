@@ -3,7 +3,11 @@
 package jetbrains.buildServer.clouds.base;
 
 import com.intellij.openapi.diagnostic.Logger;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import jetbrains.buildServer.clouds.*;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
@@ -16,12 +20,6 @@ import jetbrains.buildServer.clouds.base.tasks.UpdateInstancesTask;
 import jetbrains.buildServer.serverSide.AgentDescription;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * @author Sergey.Pak
@@ -70,7 +68,7 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
 
     public void terminateInstance(@NotNull final CloudInstance baseInstance) {
         final G instance = (G) baseInstance;
-        instance.getImage().terminateInstance(instance, this::onInstanceTerminated);
+        instance.getImage().terminateInstance(instance);
     }
 
     public boolean canStartNewInstance(@NotNull final CloudImage baseImage) {
@@ -110,8 +108,6 @@ public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T 
 
     @Nullable
     public abstract G findInstanceByAgent(@NotNull final AgentDescription agent);
-
-    protected abstract void onInstanceTerminated(@NotNull final G instance);
 
     @Nullable
     public T findImageById(@NotNull final String imageId) throws CloudException {

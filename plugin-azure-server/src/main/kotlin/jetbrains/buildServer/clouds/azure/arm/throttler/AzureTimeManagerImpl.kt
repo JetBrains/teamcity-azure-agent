@@ -16,33 +16,19 @@
 
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
-import com.intellij.openapi.diagnostic.Logger
-import java.time.Duration
-import java.time.LocalDateTime
-import java.time.ZoneOffset
-import java.time.temporal.ChronoUnit
-import java.util.concurrent.atomic.AtomicReference
+import rx.Observable
 
-class AzureTimeManagerImpl : AzureTimeManager {
-    private val myOperationDelay = Duration.of(400, ChronoUnit.MILLIS)
-    private val myNextOperationOffset = AtomicReference<LocalDateTime>(LocalDateTime.MIN)
-
+class AzureTimeManagerImpl(
+    private val azureTicketTimeManager: AzureTicketTimeManager,
+    private val azureDefettalSequenceTimeManager: AzureDefettalSequenceTimeManager
+) : AzureTimeManager {
     override fun getTicket(corellationId: String): AzureOperationTicket =
-        AzureOperationTicket(corellationId, LocalDateTime.now(ZoneOffset.UTC), LocalDateTime.now(ZoneOffset.UTC), reserveNextOperationOffset())
-    private fun reserveNextOperationOffset(): LocalDateTime {
-        var nextSlot: LocalDateTime
-        var resultSlot: LocalDateTime
-        do {
-            val currentDateTime = LocalDateTime.now(ZoneOffset.UTC)
-            val slot = myNextOperationOffset.get()
-            resultSlot = if (currentDateTime > slot) currentDateTime else slot
-            nextSlot = resultSlot.plus(myOperationDelay)
-        } while (!myNextOperationOffset.compareAndSet(slot, nextSlot))
+        azureTicketTimeManager.getTicket(corellationId)
 
-        return resultSlot
-    }
+    override fun getDeferralSequence(corellationId: String): Observable<Unit> =
+        azureDefettalSequenceTimeManager.getDeferralSequence(corellationId)
 
-    companion object {
-        private val LOG = Logger.getInstance(AzureTimeManagerImpl::class.java)
-    }
+    override fun dispose() =
+        azureDefettalSequenceTimeManager.dispose()
 }
+

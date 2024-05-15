@@ -31,7 +31,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.util.*
 import java.util.concurrent.atomic.AtomicReference
-import java.util.function.Consumer
 
 /**
  * Azure cloud image.
@@ -39,7 +38,8 @@ import java.util.function.Consumer
 class AzureCloudImage(
     private val myImageDetails: AzureCloudImageDetails,
     private val myApiConnector: AzureApiConnector,
-    private val myScope: CoroutineScope
+    private val myScope: CoroutineScope,
+    private val myInstanceListener: AzureInstanceEventListener
 ) : AbstractCloudImage<AzureCloudInstance, AzureCloudImageDetails>(myImageDetails.sourceId, myImageDetails.sourceId) {
 
     private val myImageHandlers = mapOf(
@@ -168,6 +168,7 @@ class AzureCloudImage(
                 } else {
                     LOG.info("Allocated resources for virtual machine ${instance.describe()} would not be deleted. Cleanup them manually.")
                 }
+                myInstanceListener.instanceFailedToCreate(instance, e)
             } finally {
                 instance.provisioningInProgress = false
             }
@@ -360,10 +361,7 @@ class AzureCloudImage(
         }
     }
 
-    override fun terminateInstance(
-        instance: AzureCloudInstance,
-        onSuccess: Consumer<AzureCloudInstance>
-    ) {
+    override fun terminateInstance(instance: AzureCloudInstance) {
         if (instance.properties.containsKey(AzureConstants.TAG_INVESTIGATION)) {
             LOG.info("Could not stop virtual machine ${instance.describe()} under investigation. To do that remove ${AzureConstants.TAG_INVESTIGATION} tag from it.")
             return
@@ -392,7 +390,8 @@ class AzureCloudImage(
                 }
 
                 LOG.info("Virtual machine ${instance.describe()} has been successfully terminated")
-                onSuccess.accept(instance)
+
+                myInstanceListener.instanceTerminated(instance)
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 instance.status = InstanceStatus.ERROR

@@ -47,6 +47,9 @@ class AzureThrottlerInterceptor(
         val response = chain.proceed(request)
 
         val remainingReads = getHeaderLongValue(response, SUBSCRIPTION_REMAINING_READS_HEADER);
+        val remainingWrites = getHeaderLongValue(response, SUBSCRIPTION_REMAINING_WRITES_HEADER);
+        val remainingDeletes = getHeaderLongValue(response, SUBSCRIPTION_REMAINING_DELETES_HEADER);
+        val remainingResource = response.header(REMAINING_RESOURCE)
         val remainingResourceReads = getHeaderLongValue(response, SUBSCRIPTION_RESOURCE_REMAINING_READS_HEADER);
         val remainingTenantReads = getHeaderLongValue(response, TENANT_REMAINING_READS_HEADER);
         val remainingTenantResourceReads = getHeaderLongValue(response, TENANT_RESOURCE_REMAINING_READS_HEADER);
@@ -58,6 +61,9 @@ class AzureThrottlerInterceptor(
 
         LOG.debug("[$name] $corellationId Azure request processed: Remaining reads: $remainingReadsResult, Url: ${request.url()}")
         LOG.debug("[$name] $corellationId Azure request processed: Headers: $SUBSCRIPTION_REMAINING_READS_HEADER=$remainingReads, " +
+                "$SUBSCRIPTION_REMAINING_WRITES_HEADER=$remainingWrites, " +
+                "$SUBSCRIPTION_REMAINING_DELETES_HEADER=$remainingDeletes, " +
+                "$REMAINING_RESOURCE=$remainingResource, " +
                 "$SUBSCRIPTION_RESOURCE_REMAINING_READS_HEADER=$remainingResourceReads, " +
                 "$TENANT_REMAINING_READS_HEADER=$remainingTenantReads, " +
                 "$TENANT_RESOURCE_REMAINING_READS_HEADER=$remainingTenantResourceReads, ")
@@ -144,6 +150,10 @@ class AzureThrottlerInterceptor(
     companion object {
         private val LOG = Logger.getInstance(AzureThrottlerInterceptor::class.java.name)
         private const val SUBSCRIPTION_REMAINING_READS_HEADER = "x-ms-ratelimit-remaining-subscription-reads"
+        private const val SUBSCRIPTION_REMAINING_WRITES_HEADER = "x-ms-ratelimit-remaining-subscription-writes"
+        private const val SUBSCRIPTION_REMAINING_DELETES_HEADER = "x-ms-ratelimit-remaining-subscription-deletes"
+        private const val REMAINING_RESOURCE = "x-ms-ratelimit-remaining-resource"
+
         private const val SUBSCRIPTION_RESOURCE_REMAINING_READS_HEADER = "x-ms-ratelimit-remaining-subscription-resource-requests"
         private const val TENANT_REMAINING_READS_HEADER = "x-ms-ratelimit-remaining-tenant-reads"
         private const val TENANT_RESOURCE_REMAINING_READS_HEADER = "x-ms-ratelimit-remaining-tenant-resource-requests"

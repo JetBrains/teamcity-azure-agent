@@ -16,6 +16,7 @@
 
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
+import jetbrains.buildServer.util.Disposable
 import rx.Observable
 import rx.Single
 import rx.internal.util.SubscriptionList
@@ -187,8 +188,18 @@ interface AzureThrottlerTaskCompletionResultNotifier {
     fun notifyCompleted(performedRequests: Boolean)
 }
 
-interface AzureTimeManager {
+interface AzureTimeManager : Disposable {
     fun getTicket(corellationId: String): AzureOperationTicket
+
+    fun getDeferralSequence(corellationId: String) : Observable<Unit>
+}
+
+interface AzureTicketTimeManager {
+    fun getTicket(corellationId: String): AzureOperationTicket
+}
+
+interface AzureDefettalSequenceTimeManager : Disposable {
+    fun getDeferralSequence(corellationId: String) : Observable<Unit>
 }
 
 data class AzureOperationTicket(

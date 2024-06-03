@@ -17,6 +17,7 @@
 package jetbrains.buildServer.clouds.azure.arm.connector
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
 import com.microsoft.azure.storage.CloudStorageAccount
@@ -27,6 +28,7 @@ import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.azure.AzureCompress
 import jetbrains.buildServer.clouds.azure.AzureProperties
+import jetbrains.buildServer.clouds.azure.AzureUserData
 import jetbrains.buildServer.clouds.azure.arm.*
 import jetbrains.buildServer.clouds.azure.arm.connector.tasks.*
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottler
@@ -42,11 +44,8 @@ import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
-import jetbrains.buildServer.clouds.server.CloudManagerBase
 import jetbrains.buildServer.parameters.ReferencesResolverUtil
-import jetbrains.buildServer.serverSide.ProjectManager
 import jetbrains.buildServer.serverSide.TeamCityProperties
-import jetbrains.buildServer.util.StringUtils
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -483,6 +482,17 @@ class AzureApiConnectorImpl(
         }
     }
 
+    private fun encodeAzureUserData(userData: CloudInstanceUserData, name: String): String {
+        return try {
+            val customData = userData.serialize()
+            AzureUserData.serializeV1(customData, name)
+        } catch (e: Exception) {
+            val message = "Failed to encode azure user data for instance $name: ${e.message}"
+            LOG.debug(message, e)
+            throw CloudException(message, e)
+        }
+    }
+
     private suspend fun createResourceGroup(groupId: String, region: String) = coroutineScope {
         try {
             myAzureRequestsThrottler.executeUpdateTask(
@@ -699,20 +709,21 @@ class AzureApiConnectorImpl(
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override suspend fun startInstance(instance: AzureCloudInstance) = coroutineScope {
+    override suspend fun startInstance(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         if (!instance.image.imageDetails.isVmInstance()) {
             throw CloudException("Starting container instances is not supported")
         } else {
-            startVm(instance)
+            startVm(instance, userData)
         }
     }
 
-    private suspend fun startVm(instance: AzureCloudInstance) = coroutineScope {
+    private suspend fun startVm(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
 
         try {
-            myAzureRequestsThrottler.executeUpdateTask(AzureThrottlerActionTasks.StartVirtualMachine, StartVirtualMachineTaskParameter(groupId, name))
+            val azureUserData = encodeAzureUserData(userData, name)
+            myAzureRequestsThrottler.executeUpdateTask(AzureThrottlerActionTasks.StartVirtualMachine, StartVirtualMachineTaskParameter(groupId, name, azureUserData))
                 .awaitOne()
             LOG.debug("Virtual machine $name has been successfully started")
         } catch (e: com.microsoft.azure.CloudException) {
@@ -1069,5 +1080,6 @@ class AzureApiConnectorImpl(
         )
         private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
         private const val CONTAINER_INSTANCE_RESOURCE_TYPE = "Microsoft.ContainerInstance/containerGroups"
+        private val mapper = ObjectMapper().configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
     }
 }

@@ -26,12 +26,13 @@ class WindowsCustomDataReader(agentConfiguration: BuildAgentConfigurationEx,
     override val customDataFileName: String
         get() = WINDOWS_CUSTOM_DATA_FILE
 
-    override fun parseCustomData(customData: String) {
+    override fun parseCustomData(customData: String): MetadataReaderResult {
         // Process custom data
-        try {
+        return try {
             processCustomData(customData)
         } catch (e: Exception) {
             LOG.warnAndDebugDetails(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFileName), e)
+            MetadataReaderResult.SKIP
         }
     }
 

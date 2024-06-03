@@ -26,7 +26,6 @@ import org.jmock.MockObjectTestCase
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
 import java.util.concurrent.CyclicBarrier
-import java.util.function.Consumer
 import kotlin.concurrent.thread
 
 class AzureCloudImageTest : MockObjectTestCase() {
@@ -331,7 +330,7 @@ class AzureCloudImageTest : MockObjectTestCase() {
             disableTemplateModification = null
         )
 
-        coEvery { myApiConnector.startInstance(any<AzureCloudInstance>()) } coAnswers {
+        coEvery { myApiConnector.startInstance(any<AzureCloudInstance>(), any<CloudInstanceUserData>()) } coAnswers {
             val instance = firstArg<AzureCloudInstance>()
             instance.status = InstanceStatus.RUNNING
             Unit
@@ -400,8 +399,8 @@ class AzureCloudImageTest : MockObjectTestCase() {
 
         coVerify(exactly = 2) {myApiConnector.createInstance(any(), any()) }
 
-        coVerify { myApiConnector.startInstance(any()) }
-        coVerify(exactly = 1) { myApiConnector.startInstance(eq(stoppedInstance)) }
+        coVerify { myApiConnector.startInstance(any(), userData) }
+        coVerify(exactly = 1) { myApiConnector.startInstance(eq(stoppedInstance), userData) }
 
         verify(exactly = 1) { myInstanceListener.instanceTerminated(any()) }
         verify { myInstanceListener.instanceTerminated(eq(stoppedInstance)) }

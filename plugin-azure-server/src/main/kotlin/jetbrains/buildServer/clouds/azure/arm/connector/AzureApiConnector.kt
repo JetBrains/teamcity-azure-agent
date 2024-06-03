@@ -31,7 +31,7 @@ interface AzureApiConnector : CloudApiConnector<AzureCloudImage, AzureCloudInsta
 
     suspend fun restartInstance(instance: AzureCloudInstance)
 
-    suspend fun startInstance(instance: AzureCloudInstance)
+    suspend fun startInstance(instance: AzureCloudInstance, userData: CloudInstanceUserData)
 
     suspend fun stopInstance(instance: AzureCloudInstance)
 

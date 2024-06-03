@@ -10,6 +10,7 @@ import com.microsoft.azure.management.resources.*
 import com.microsoft.azure.management.resources.implementation.ResourceManagementClientImpl
 import com.microsoft.azure.management.storage.StorageAccounts
 import jetbrains.buildServer.clouds.azure.arm.resourceGraph.ResourceGraph
+import jetbrains.buildServer.clouds.azure.arm.virtualMachinesEx.VirtualMachinesEx
 
 interface AzureApi {
     fun subscriptionId(): String?
@@ -19,6 +20,8 @@ interface AzureApi {
     fun resourceGroups(): ResourceGroups
 
     fun virtualMachines(): VirtualMachines
+
+    fun virtualMachinesEx(): VirtualMachinesEx
 
     fun containerGroups(): ContainerGroups
 

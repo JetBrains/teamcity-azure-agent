@@ -126,7 +126,8 @@ object AzureMetadata {
     )
 
     data class Compute(
-            val name: String?
+            val name: String?,
+            val userData: String?
     )
 
     data class Network(
@@ -184,7 +185,7 @@ object AzureMetadata {
             val eventId: String?
     )
 
-    private const val INSTANCE_METADATA_URL = "http://169.254.169.254/metadata/instance?api-version=2020-09-01"
+    private const val INSTANCE_METADATA_URL = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
 
     private const val SCHEDULED_EVENTS_METADATA_URL = "http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01"
 

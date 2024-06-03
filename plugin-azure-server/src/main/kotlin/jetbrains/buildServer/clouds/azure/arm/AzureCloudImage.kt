@@ -98,7 +98,7 @@ class AzureCloudImage(
         }
 
         val instance = if (myImageDetails.deployTarget == AzureCloudDeployTarget.Instance) {
-            startStoppedInstance()
+            startStoppedInstance(userData)
         } else {
             tryToStartStoppedInstance(userData) ?: createInstance(userData)
         }
@@ -258,7 +258,7 @@ class AzureCloudImage(
                         instanceToStart.provisioningInProgress = true
                         instanceToStart.status = InstanceStatus.STARTING
                         LOG.info("Starting stopped virtual machine ${instanceToStart.describe()}")
-                        myApiConnector.startInstance(instanceToStart)
+                        myApiConnector.startInstance(instanceToStart, userData)
                     } catch (e: Throwable) {
                         LOG.warnAndDebugDetails(e.message, e)
                         handleDeploymentError(e)
@@ -279,7 +279,7 @@ class AzureCloudImage(
      *
      * @return instance.
      */
-    private fun startStoppedInstance(): AzureCloudInstance {
+    private fun startStoppedInstance(userData: CloudInstanceUserData): AzureCloudInstance {
         val instance = stoppedInstances.singleOrNull()
                 ?: throw CloudException("Instance ${imageDetails.vmNamePrefix ?: imageDetails.sourceId} was not found")
 
@@ -291,7 +291,7 @@ class AzureCloudImage(
                 instance.provisioningInProgress = true
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Starting virtual machine ${instance.describe()}")
-                myApiConnector.startInstance(instance)
+                myApiConnector.startInstance(instance, userData)
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 handleDeploymentError(e)

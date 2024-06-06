@@ -35,51 +35,36 @@ class StartVirtualMachineTaskImpl(private val myNotifications: AzureTaskNotifica
         return api
             .virtualMachinesEx()
             .inner()
-            .getByResourceGroupWithRawServiceResponseAsync(parameter.groupId, parameter.name)
-            .flatMap { raw ->
-                val rawVm = mutableMapOf(*raw.body().map { it.toPair() }.toTypedArray())
-
-                @Suppress("UNCHECKED_CAST")
-                val propertiesRaw = rawVm[TEMPATE_PROPERTIES_FIELD] as MutableMap<String, Any>?
-
-                val source = if (propertiesRaw != null) {
-                    propertiesRaw.put(USERDATA_TEMPLATE_FIELD, parameter.userData)
-
-                    LOG.debug("Updating userData for virtual machine: ${rawVm["id"]}. CorellationId: ${taskContext.corellationId}")
-                    taskContext
-                        .getDeferralSequence()
-                        .flatMap {
-                            api
-                                .virtualMachinesEx()
-                                .inner()
-                                .updateRawAsync(parameter.groupId, parameter.name, rawVm)
-                                .doOnNext {
-                                    LOG.debug("Updated userData for virtual machine: ${it["id"]}. CorellationId: ${taskContext.corellationId}")
+            .updateRawAsync(
+                parameter.groupId,
+                parameter.name,
+                mapOf(
+                    TEMPATE_PROPERTIES_FIELD to mapOf(
+                        USERDATA_TEMPLATE_FIELD to parameter.userData
+                    )
+                )
+            )
+            .doOnNext {
+                LOG.debug("Updated userData for virtual machine: ${it["id"]}. CorellationId: ${taskContext.corellationId}")
+            }
+            .flatMap {
+                taskContext
+                    .getDeferralSequence()
+                    .flatMap {
+                        api
+                            .virtualMachines()
+                            .getByResourceGroupAsync(parameter.groupId, parameter.name)
+                            .flatMap { vm ->
+                                if (vm != null) {
+                                    vm.startAsync()
+                                        .toObservable<Unit>()
+                                        .concatMap { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
+                                } else {
+                                    LOG.warnAndDebugDetails("Could not find resource to start. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
+                                    Observable.just(Unit)
                                 }
-                        }
-                } else {
-                    Observable.error(Exception("Could not update userData for VM. VM metadata JSON is empty. Group name: ${parameter.groupId}, VM name:${parameter.name}. CorellationId: ${taskContext.corellationId}"))
-                }
-
-                source.flatMap {
-                    taskContext
-                        .getDeferralSequence()
-                        .flatMap {
-                            api
-                                .virtualMachines()
-                                .getByResourceGroupAsync(parameter.groupId, parameter.name)
-                                .flatMap { vm ->
-                                    if (vm != null) {
-                                        vm.startAsync()
-                                            .toObservable<Unit>()
-                                            .concatMap { myNotifications.raise(AzureTaskVirtualMachineStatusChangedEventArgs(api, vm)) }
-                                    } else {
-                                        LOG.warnAndDebugDetails("Could not find resource to start. GroupId: ${parameter.groupId}, Name: ${parameter.name}", null)
-                                        Observable.just(Unit)
-                                    }
-                                }
-                        }
-                }
+                            }
+                    }
             }
             .defaultIfEmpty(Unit)
             .toSingle()

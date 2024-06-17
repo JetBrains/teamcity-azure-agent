@@ -1,4 +1,18 @@
-
+/*
+ * Copyright 2000-2021 JetBrains s.r.o.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
@@ -127,13 +141,16 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
             }
 
     private fun getVirtualMachineResource(subscriptionId: String, parameter: DeleteDeploymentTaskParameter): ResourceDescriptor =
+        getVirtualMachineResource(subscriptionId, parameter.resourceGroupName, parameter.name)
+
+    private fun getVirtualMachineResource(subscriptionId: String, resourceGroupName: String, name: String): ResourceDescriptor =
         ResourceDescriptor(
             ResourceUtils.constructResourceId(
                 subscriptionId,
-                parameter.resourceGroupName,
+                resourceGroupName,
                 VIRTUAL_MACHINES_PROVIDER_NAMESPACE,
                 VIRTUAL_MACHINES_RESOURCE_TYPE_SHORT,
-                parameter.name,
+                name,
                 ""),
             VIRTUAL_MACHINES_RESOURCE_TYPE)
 
@@ -189,7 +206,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                     .concatMap { operation ->
                         var result: Observable<ResourceDescriptor> = Observable.empty<ResourceDescriptor>()
                         if (operation.provisioningState().equals(PROVISIONING_STATE_FAILED, ignoreCase = true)) {
-                            LOG.debug(
+                            LOG.warn(
                                 "Deployment operation failed. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}. Provisioning operation: ${
                                     format(
                                         operation.inner().properties()
@@ -201,12 +218,25 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                                 val error = statusMessage.error()
                                 val code = error.code()
                                 val target = error.target()
-                                if (code.equals(OPERATION_CODE_CONFLICTING_USER_INPUT, ignoreCase = true)) {
-                                    LOG.debug("Resource ${target} will be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
-                                    val resourceType = "${ResourceUtils.resourceProviderFromResourceId(target)}/${ResourceUtils.resourceTypeFromResourceId(target)}"
-                                    result = Observable.just(ResourceDescriptor(target, resourceType))
-                                } else {
-                                    LOG.debug("Resource ${target} will not be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
+                                when {
+                                    code.equals(OPERATION_CODE_CONFLICTING_USER_INPUT, ignoreCase = true) -> {
+                                        LOG.debug("Resource ${target} will be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
+                                        val resourceType = "${ResourceUtils.resourceProviderFromResourceId(target)}/${ResourceUtils.resourceTypeFromResourceId(target)}"
+                                        result = Observable.just(ResourceDescriptor(target, resourceType))
+                                    }
+                                    code.equals(OPERATION_CODE_OS_PROVISIONING_CLIENT_ERROR, ignoreCase = true) ||
+                                    code.equals(OPERATION_CODE_OS_PROVISIONING_TIMED_OUT, ignoreCase = true) ||
+                                    code.equals(OPERATION_CODE_OS_PROVISIONING_INTERNAL_ERROR, ignoreCase = true) -> {
+                                        val subscriptionId = api.subscriptionId()
+                                        if (subscriptionId != null) {
+                                            val resource = getVirtualMachineResource(subscriptionId, deployment.resourceGroupName(), deployment.name())
+                                            LOG.debug("Resource (generated id ${resource.resourceId}) will be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
+                                            result = Observable.just(resource)
+                                        }
+                                    }
+                                    else -> {
+                                        LOG.debug("Resource ${target} will not be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
+                                    }
                                 }
                             }
                         } else {
@@ -556,6 +586,9 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
         private const val PROVISIONING_STATE_FAILED = "Failed"
 
         private const val OPERATION_CODE_CONFLICTING_USER_INPUT = "ConflictingUserInput"
+        private const val OPERATION_CODE_OS_PROVISIONING_CLIENT_ERROR = "OSProvisioningClientError"
+        private const val OPERATION_CODE_OS_PROVISIONING_TIMED_OUT = "OSProvisioningTimedOut"
+        private const val OPERATION_CODE_OS_PROVISIONING_INTERNAL_ERROR = "OSProvisioningInternalError"
 
         private const val OS_DISK_DELETE_OPTION_DEPLOYMENT_NAME_SUFFIX = "-jb-5fe33749"
 

@@ -3,8 +3,6 @@
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.intellij.openapi.diagnostic.Logger
-import com.microsoft.azure.management.storage.StorageAccountKey
-import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.resourceGraph.QueryRequest
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskContext
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTaskBaseImpl
@@ -12,7 +10,6 @@ import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TA
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import rx.Single
-import java.util.HashSet
 
 data class StorageAccountTaskAccountDescriptor(
         val id: String,

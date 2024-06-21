@@ -8,14 +8,10 @@ import com.microsoft.azure.credentials.AzureTokenCredentials
 import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.resources.fluentcore.arm.implementation.AzureConfigurableImpl
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorImpl
-import jetbrains.buildServer.clouds.azure.arm.connector.CredentialsAuthenticator
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureProxyUtils.configureTeamCityProxy
-import jetbrains.buildServer.serverSide.TeamCityProperties
 import okhttp3.Interceptor
 import java.io.File
 import java.io.IOException
-import java.net.InetSocketAddress
-import java.net.Proxy
 
 class AzureThrottlerConfigurableImpl : AzureConfigurableImpl<Azure.Configurable>(), AzureConfigurableWithNetworkInterceptors {
     override fun withNetworkInterceptor(interceptor: Interceptor): AzureConfigurableWithNetworkInterceptors {

@@ -4,9 +4,7 @@ package jetbrains.buildServer.clouds.azure.arm.connector
 
 import jetbrains.buildServer.clouds.InstanceStatus
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
-
-import java.util.Date
-import java.util.TreeMap
+import java.util.*
 
 /**
  * Azure cloud instance.

@@ -8,8 +8,7 @@ import jetbrains.buildServer.clouds.models.FakeCloudImageDetails;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.util.Collection;
-import java.util.Iterator;
+import java.util.*;
 
 /**
  * @author Dmitry.Tretyakov

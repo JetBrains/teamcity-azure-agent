@@ -6,7 +6,8 @@ import jetbrains.buildServer.clouds.azure.AzureMetadata
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.serverSide.SProject
 import jetbrains.buildServer.serverSide.executors.ExecutorServices
-import jetbrains.buildServer.serverSide.healthStatus.*
+import jetbrains.buildServer.serverSide.healthStatus.HealthStatusScope
+import jetbrains.buildServer.serverSide.healthStatus.ProjectSuggestedItem
 import jetbrains.buildServer.web.openapi.PagePlaces
 import jetbrains.buildServer.web.openapi.PluginDescriptor
 import jetbrains.buildServer.web.openapi.healthStatus.suggestions.ProjectSuggestion

@@ -3,7 +3,6 @@
 package jetbrains.buildServer.clouds.azure.arm.connector
 
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottlerCache
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerSchedulersProvider
 import jetbrains.buildServer.serverSide.ServerSettings
 
 class AzureApiConnectorFactoryImpl(

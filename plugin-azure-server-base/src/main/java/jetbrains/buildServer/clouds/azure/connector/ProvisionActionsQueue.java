@@ -6,8 +6,7 @@ import com.intellij.openapi.diagnostic.Logger;
 import jetbrains.buildServer.clouds.base.connector.CloudAsyncTaskExecutor;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;

@@ -2,12 +2,11 @@
 
 package jetbrains.buildServer.clouds.base.connector;
 
-import java.util.Date;
-import java.util.Map;
-
 import jetbrains.buildServer.clouds.InstanceStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
 
 /**
  * @author Sergey.Pak

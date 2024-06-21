@@ -9,8 +9,7 @@ import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.Collections;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Dmitry.Tretyakov

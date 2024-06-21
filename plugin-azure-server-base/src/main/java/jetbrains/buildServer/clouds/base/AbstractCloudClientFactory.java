@@ -2,14 +2,17 @@
 
 package jetbrains.buildServer.clouds.base;
 
-import java.util.Collection;
-
-import jetbrains.buildServer.clouds.*;
+import jetbrains.buildServer.clouds.CloudClientFactory;
+import jetbrains.buildServer.clouds.CloudClientParameters;
+import jetbrains.buildServer.clouds.CloudRegistrar;
+import jetbrains.buildServer.clouds.CloudState;
 import jetbrains.buildServer.clouds.base.beans.CloudImageDetails;
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo;
 import jetbrains.buildServer.serverSide.TeamCityProperties;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
 
 /**
  * @author Sergey.Pak

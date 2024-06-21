@@ -10,7 +10,6 @@ import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.throttler.ThrottlerExecutionTaskException
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
-import java.util.*
 
 @Suppress("UselessCallOnNotNull")
 fun AzureCloudImageDetails.checkSourceId(errors: MutableList<Throwable>) {

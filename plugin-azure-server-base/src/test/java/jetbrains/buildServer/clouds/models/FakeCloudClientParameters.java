@@ -5,9 +5,7 @@ import jetbrains.buildServer.clouds.CloudImageParameters;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class FakeCloudClientParameters extends CloudClientParameters {
     private final Map<String, String> params = new HashMap<>();

@@ -3,12 +3,17 @@
 package jetbrains.buildServer.clouds.base.connector;
 
 import com.intellij.openapi.diagnostic.Logger;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.*;
 import jetbrains.buildServer.util.NamedThreadFactory;
 import jetbrains.buildServer.util.executors.ExecutorsFactory;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Sergey.Pak

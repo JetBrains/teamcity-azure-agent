@@ -2,8 +2,9 @@
 
 package jetbrains.buildServer.clouds.base;
 
-import java.util.Map;
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;
+
+import java.util.*;
 
 /**
  * @author Sergey.Pak

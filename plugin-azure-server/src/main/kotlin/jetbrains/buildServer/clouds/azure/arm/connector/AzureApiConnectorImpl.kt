@@ -243,25 +243,28 @@ class AzureApiConnectorImpl(
      * @return image name.
      */
     override suspend fun getImageName(imageId: String): String = coroutineScope {
-        var images = emptyList<CustomImageTaskImageDescriptor>()
+        val images: List<CustomImageTaskImageDescriptor>
         try {
             images = myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchCustomImages, Unit)
                 .awaitOne()
-            LOG.debug("Received image $imageId")
-
-            val image = images.first { it.id.equals(imageId, ignoreCase = true) }
-            image.name
+            LOG.debug("Received images")
         } catch (e: ThrottlerExecutionTaskException) {
             throw e
         } catch (e: Throwable) {
-            val message = "Failed to get image $imageId: ${e.message}"
+            val message = "Failed to get images: ${e.message}"
             LOG.debug(message, e)
-
-            val listOfImages = "List of custom images: ${images.joinToString { it.id }}"
-            LOG.debug(listOfImages)
 
             throw CloudException(message, e)
         }
+        val image = images.firstOrNull { it.id.equals(imageId, ignoreCase = true) }
+        if (image == null) {
+            val message = "Failed to find image '$imageId'"
+            val listOfImages = "$message across defined images: ${images.joinToString { it.id }}"
+            LOG.debug(listOfImages)
+
+            throw CloudException("$message across defined images in current subscription")
+        }
+        image.name
     }
 
     /**

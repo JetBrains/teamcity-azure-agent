@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.microsoft.azure.management.resources.fluentcore.arm.Region

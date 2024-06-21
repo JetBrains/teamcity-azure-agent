@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure
 
 import java.io.FileNotFoundException

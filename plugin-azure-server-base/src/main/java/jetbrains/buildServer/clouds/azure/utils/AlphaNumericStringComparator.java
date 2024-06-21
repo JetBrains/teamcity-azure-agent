@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.utils;
 
 import java.text.DecimalFormatSymbols;

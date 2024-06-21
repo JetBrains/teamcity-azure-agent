@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.connector;
 
 import jetbrains.buildServer.clouds.base.AbstractCloudImage;

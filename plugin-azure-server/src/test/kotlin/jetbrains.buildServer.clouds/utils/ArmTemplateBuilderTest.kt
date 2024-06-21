@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.utils
 
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants

@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.arm.web
 
 import kotlinx.coroutines.coroutineScope

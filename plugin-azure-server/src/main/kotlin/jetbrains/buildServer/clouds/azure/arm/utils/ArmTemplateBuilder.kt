@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.arm.utils
 
 import com.fasterxml.jackson.core.JsonParser

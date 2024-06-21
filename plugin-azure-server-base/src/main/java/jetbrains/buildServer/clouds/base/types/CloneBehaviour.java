@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.base.types;
 
 /**

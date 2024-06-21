@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.utils;
 
 import jetbrains.buildServer.controllers.BasePropertiesBean;

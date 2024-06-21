@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.base.errors;
 
 import org.jetbrains.annotations.NotNull;

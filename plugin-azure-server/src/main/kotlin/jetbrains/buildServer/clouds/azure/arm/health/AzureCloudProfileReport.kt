@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.arm.health
 
 import jetbrains.buildServer.clouds.azure.AzureMetadata

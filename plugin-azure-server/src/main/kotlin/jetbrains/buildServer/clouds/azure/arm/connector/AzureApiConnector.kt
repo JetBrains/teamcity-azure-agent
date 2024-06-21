@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.arm.connector
 
 import jetbrains.buildServer.clouds.CloudInstanceUserData

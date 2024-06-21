@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.arm
 
 import com.google.gson.annotations.SerializedName

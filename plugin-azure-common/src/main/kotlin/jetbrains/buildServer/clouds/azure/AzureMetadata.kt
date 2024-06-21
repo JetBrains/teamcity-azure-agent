@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure
 
 import com.google.gson.Gson

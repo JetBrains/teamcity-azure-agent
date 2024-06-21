@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.google.common.cache.CacheBuilder

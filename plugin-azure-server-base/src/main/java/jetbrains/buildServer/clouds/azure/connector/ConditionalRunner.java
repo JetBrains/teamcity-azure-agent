@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.connector;
 
 import com.intellij.openapi.diagnostic.Logger;

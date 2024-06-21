@@ -4,8 +4,6 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.resources.Dependency
-import com.microsoft.azure.management.resources.Deployment
-import com.microsoft.azure.management.resources.Providers
 import com.microsoft.azure.management.resources.ProvisioningState
 import com.microsoft.azure.management.resources.implementation.ProviderInner
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskContext

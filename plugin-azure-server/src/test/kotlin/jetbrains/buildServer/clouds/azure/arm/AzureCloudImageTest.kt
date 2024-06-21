@@ -1,13 +1,27 @@
 
 
-import io.mockk.*
+import io.mockk.MockKAnnotations
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.InstanceStatus
-import jetbrains.buildServer.clouds.azure.arm.*
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageType
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
+import jetbrains.buildServer.clouds.azure.arm.AzureInstanceEventListener
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureInstance
 import junit.framework.TestCase
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CompletableJob
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.runBlocking
 import org.jmock.MockObjectTestCase
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test

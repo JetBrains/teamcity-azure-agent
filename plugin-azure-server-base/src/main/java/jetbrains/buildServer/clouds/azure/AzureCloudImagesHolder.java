@@ -6,7 +6,7 @@ import jetbrains.buildServer.clouds.base.AbstractCloudImage;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**

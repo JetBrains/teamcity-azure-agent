@@ -2,7 +2,6 @@
 
 package jetbrains.buildServer.clouds.base.connector;
 
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**

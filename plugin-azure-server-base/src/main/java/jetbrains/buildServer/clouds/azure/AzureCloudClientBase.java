@@ -19,7 +19,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.springframework.util.CollectionUtils;
 
-import java.util.Map;
+import java.util.*;
 
 /**
  * Azure cloud client base.

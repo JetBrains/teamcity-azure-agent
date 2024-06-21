@@ -6,7 +6,11 @@ import com.microsoft.azure.management.compute.VirtualMachines
 import com.microsoft.azure.management.containerinstance.ContainerGroups
 import com.microsoft.azure.management.network.Networks
 import com.microsoft.azure.management.network.PublicIPAddresses
-import com.microsoft.azure.management.resources.*
+import com.microsoft.azure.management.resources.Deployments
+import com.microsoft.azure.management.resources.GenericResources
+import com.microsoft.azure.management.resources.Providers
+import com.microsoft.azure.management.resources.ResourceGroups
+import com.microsoft.azure.management.resources.Subscriptions
 import com.microsoft.azure.management.resources.implementation.ResourceManagementClientImpl
 import com.microsoft.azure.management.storage.StorageAccounts
 import jetbrains.buildServer.clouds.azure.arm.resourceGraph.ResourceGraph

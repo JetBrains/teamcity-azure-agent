@@ -2,7 +2,6 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.resources.fluentcore.arm.AzureConfigurable
-import com.microsoft.azure.management.resources.fluentcore.arm.implementation.AzureConfigurableImpl
 import jetbrains.buildServer.clouds.azure.arm.connector.CredentialsAuthenticator
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import java.net.InetSocketAddress

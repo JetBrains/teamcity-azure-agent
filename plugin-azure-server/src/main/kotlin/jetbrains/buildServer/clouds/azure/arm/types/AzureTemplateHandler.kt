@@ -3,14 +3,15 @@
 package jetbrains.buildServer.clouds.azure.arm.types
 
 import com.intellij.openapi.diagnostic.Logger
-import jetbrains.buildServer.clouds.azure.arm.*
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
 import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POST_UPDATE_DISABLE
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.coroutineScope
-import java.util.*
 
 class AzureTemplateHandler(private val connector: AzureApiConnector) : AzureHandler {
     @Suppress("UselessCallOnNotNull")

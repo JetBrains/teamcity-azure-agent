@@ -2,7 +2,14 @@
 
 package jetbrains.buildServer.clouds.azure.throttler
 
-import jetbrains.buildServer.clouds.azure.arm.throttler.*
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerAdapter
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFlow
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerStrategyImpl
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerStrategyTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerStrategyTaskContainer
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskQueueCallHistoryStatistics
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskTimeExecutionType
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlingSource
 import org.jmock.Expectations
 import org.jmock.MockObjectTestCase
 import org.jmock.Mockery

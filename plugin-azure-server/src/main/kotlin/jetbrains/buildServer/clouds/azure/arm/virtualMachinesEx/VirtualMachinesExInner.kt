@@ -4,13 +4,21 @@ import com.google.common.reflect.TypeToken
 import com.microsoft.azure.CloudException
 import com.microsoft.azure.management.compute.InstanceViewTypes
 import com.microsoft.azure.management.compute.implementation.ComputeManagementClientImpl
-import com.microsoft.azure.management.compute.implementation.VirtualMachineInner
 import com.microsoft.azure.management.resources.fluentcore.collection.InnerSupportsGet
-import com.microsoft.rest.*
+import com.microsoft.rest.RestException
+import com.microsoft.rest.ServiceCallback
+import com.microsoft.rest.ServiceFuture
+import com.microsoft.rest.ServiceResponse
+import com.microsoft.rest.Validator
 import okhttp3.ResponseBody
 import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.http.*
+import retrofit2.http.Body
+import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.Headers
+import retrofit2.http.PATCH
+import retrofit2.http.Path
+import retrofit2.http.Query
 import rx.Observable
 import java.io.IOException
 

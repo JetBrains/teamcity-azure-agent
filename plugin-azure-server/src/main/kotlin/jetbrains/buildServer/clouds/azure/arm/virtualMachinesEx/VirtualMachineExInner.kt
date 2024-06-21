@@ -1,7 +1,6 @@
 package jetbrains.buildServer.clouds.azure.arm.virtualMachinesEx
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.compute.implementation.VirtualMachineInner
 import com.microsoft.rest.serializer.JsonFlatten
 

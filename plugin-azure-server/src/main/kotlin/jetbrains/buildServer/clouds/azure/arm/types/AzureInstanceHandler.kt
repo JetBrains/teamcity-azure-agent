@@ -11,7 +11,6 @@ import jetbrains.buildServer.clouds.azure.arm.throttler.ThrottlerExecutionTaskEx
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import kotlinx.coroutines.coroutineScope
-import java.util.*
 
 class AzureInstanceHandler(private val connector: AzureApiConnector) : AzureHandler {
     override suspend fun checkImage(image: AzureCloudImage) = coroutineScope {

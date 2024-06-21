@@ -4,8 +4,6 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 import com.google.common.cache.CacheBuilder
 import com.intellij.openapi.diagnostic.Logger
-import com.microsoft.azure.management.compute.OperatingSystemStateTypes
-import com.microsoft.azure.management.compute.OperatingSystemTypes
 import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.compute.implementation.VirtualMachineInner
 import com.microsoft.azure.management.compute.implementation.VirtualMachineInstanceViewInner
@@ -16,9 +14,13 @@ import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import com.microsoft.azure.management.resources.fluentcore.arm.models.HasId
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.resourceGraph.QueryRequest
-import jetbrains.buildServer.clouds.azure.arm.resourceGraph.QueryRequestOptions
-import jetbrains.buildServer.clouds.azure.arm.resourceGraph.QueryResponse
-import jetbrains.buildServer.clouds.azure.arm.throttler.*
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskContext
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerCacheableTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_FULLSTATEAPI_DISABLE
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_FETCHINSTANCES_RESOURCEGRAPH_DISABLE
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_THROTTLER_TASK_THROTTLE_TIMEOUT_SEC
+import jetbrains.buildServer.clouds.azure.arm.throttler.register
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
 import jetbrains.buildServer.serverSide.TeamCityProperties

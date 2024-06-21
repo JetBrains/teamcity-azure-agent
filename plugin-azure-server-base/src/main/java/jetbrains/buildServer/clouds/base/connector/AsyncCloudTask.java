@@ -2,9 +2,10 @@
 
 package jetbrains.buildServer.clouds.base.connector;
 
-import java.util.concurrent.*;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.concurrent.Future;
 
 /**
  * @author Sergey.Pak

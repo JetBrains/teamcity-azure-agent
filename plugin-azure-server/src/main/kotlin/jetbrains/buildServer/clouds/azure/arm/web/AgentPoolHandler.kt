@@ -6,10 +6,9 @@ import jetbrains.buildServer.BuildProject
 import jetbrains.buildServer.serverSide.agentPools.AgentPool
 import jetbrains.buildServer.serverSide.agentPools.AgentPoolManager
 import kotlinx.coroutines.coroutineScope
-import org.jdom.Content
 import org.jdom.Element
-import javax.servlet.http.HttpServletRequest
 import java.lang.reflect.Method
+import javax.servlet.http.HttpServletRequest
 
 
 /**

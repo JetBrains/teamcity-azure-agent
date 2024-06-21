@@ -2,11 +2,11 @@
 
 package jetbrains.buildServer.clouds.base.errors;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 import jetbrains.buildServer.clouds.CloudErrorInfo;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * @author Sergey.Pak

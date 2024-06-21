@@ -5,7 +5,6 @@ package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.CloudException
-import com.microsoft.azure.management.Azure
 import com.microsoft.azure.management.resources.Deployment
 import com.microsoft.azure.management.resources.DeploymentMode
 import com.microsoft.azure.management.resources.DeploymentProperties
@@ -20,10 +19,14 @@ import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TA
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import okhttp3.ResponseBody
 import retrofit2.Response
-import retrofit2.http.*
+import retrofit2.http.Body
+import retrofit2.http.Header
+import retrofit2.http.Headers
+import retrofit2.http.PUT
+import retrofit2.http.Path
+import retrofit2.http.Query
 import rx.Observable
 import rx.Single
-import java.util.*
 
 data class CreateDeploymentTaskParameter(
         val groupName: String,

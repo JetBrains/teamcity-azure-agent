@@ -3,8 +3,13 @@
 package jetbrains.buildServer.clouds.azure.arm.utils
 
 import kotlinx.coroutines.suspendCancellableCoroutine
-import rx.*
-import java.lang.IllegalStateException
+import rx.Completable
+import rx.CompletableSubscriber
+import rx.Observable
+import rx.Single
+import rx.SingleSubscriber
+import rx.Subscriber
+import rx.Subscription
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 

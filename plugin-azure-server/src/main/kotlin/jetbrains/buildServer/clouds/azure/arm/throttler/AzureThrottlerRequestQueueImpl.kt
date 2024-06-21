@@ -5,7 +5,6 @@ package jetbrains.buildServer.clouds.azure.arm.throttler
 import rx.Observable
 import rx.internal.util.SubscriptionList
 import rx.subjects.Subject
-import java.lang.Exception
 import java.time.Clock
 import java.time.LocalDateTime
 import java.util.concurrent.ConcurrentLinkedQueue

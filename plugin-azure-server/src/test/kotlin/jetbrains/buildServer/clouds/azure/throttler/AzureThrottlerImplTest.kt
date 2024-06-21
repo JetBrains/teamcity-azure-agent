@@ -2,16 +2,33 @@
 
 package jetbrains.buildServer.clouds.azure.throttler
 
-import io.mockk.*
-import jetbrains.buildServer.clouds.azure.arm.throttler.*
+import io.mockk.CapturingSlot
+import io.mockk.MockKAnnotations
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.verify
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskContext
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskDescriptor
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerAdapter
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerAdapterResult
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFlow
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerImpl
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerScheduledExecutor
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerScheduledExecutorFactorty
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerSchedulers
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerStrategy
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTask
+import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskTimeExecutionType
+import jetbrains.buildServer.clouds.azure.arm.throttler.ThrottlerTimeoutException
 import org.jmock.MockObjectTestCase
 import org.testng.Assert
 import org.testng.annotations.BeforeMethod
 import org.testng.annotations.Test
 import rx.Observer
+import rx.Single
 import rx.schedulers.Schedulers
 import rx.schedulers.TestScheduler
-import rx.Single
 import java.util.concurrent.TimeUnit
 
 class AzureThrottlerImplTest : MockObjectTestCase() {

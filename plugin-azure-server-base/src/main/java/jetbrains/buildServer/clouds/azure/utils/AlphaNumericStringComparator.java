@@ -3,9 +3,7 @@
 package jetbrains.buildServer.clouds.azure.utils;
 
 import java.text.DecimalFormatSymbols;
-import java.util.Comparator;
-
-import java.util.Locale;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 

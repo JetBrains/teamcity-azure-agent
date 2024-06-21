@@ -15,7 +15,6 @@
  */
 package jetbrains.buildServer.clouds.azure.arm.connector
 
-import jetbrains.buildServer.parameters.ProcessingResult
 import jetbrains.buildServer.serverSide.ParametersSupport
 
 interface AzureProjectParametersProvider {

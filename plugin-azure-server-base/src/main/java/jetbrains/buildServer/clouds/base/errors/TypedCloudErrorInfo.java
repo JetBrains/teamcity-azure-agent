@@ -3,11 +3,6 @@ package jetbrains.buildServer.clouds.base.errors;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/22/2014
- *         Time: 2:40 PM
- */
 public class TypedCloudErrorInfo{
   @NotNull private final String myType;
   @NotNull private final String myMessage;

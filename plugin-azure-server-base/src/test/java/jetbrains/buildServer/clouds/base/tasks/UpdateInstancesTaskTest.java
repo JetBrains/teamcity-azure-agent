@@ -13,11 +13,6 @@ import org.testng.annotations.Test;
 
 import java.util.*;
 
-/**
- * @author Sergey.Pak
- *         Date: 10/27/2014
- *         Time: 3:52 PM
- */
 @Test
 public class UpdateInstancesTaskTest {
 

@@ -13,11 +13,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/22/2014
- *         Time: 1:52 PM
- */
 public class UpdateInstancesTask<G extends AbstractCloudInstance<T>,
   T extends AbstractCloudImage<G, ?>,
   F extends AbstractCloudClient<G, T, ?>

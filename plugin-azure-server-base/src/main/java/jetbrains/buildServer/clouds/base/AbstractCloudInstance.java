@@ -15,11 +15,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/22/2014
- *         Time: 1:51 PM
- */
 public abstract class AbstractCloudInstance<T extends AbstractCloudImage> implements CloudInstance, UpdatableCloudErrorProvider {
   private static final Logger LOG = Logger.getInstance(AbstractCloudInstance.class.getName());
   private static final AtomicInteger STARTING_INSTANCE_IDX = new AtomicInteger(0);

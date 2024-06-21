@@ -13,11 +13,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/29/2014
- *         Time: 3:51 PM
- */
 public class CloudAsyncTaskExecutor {
 
   private static final Logger LOG = Logger.getInstance(CloudAsyncTaskExecutor.class.getName());

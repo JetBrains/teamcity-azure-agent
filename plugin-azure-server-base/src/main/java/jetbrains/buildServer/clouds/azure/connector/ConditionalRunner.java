@@ -6,11 +6,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * @author Sergey.Pak
- *         Date: 8/14/2014
- *         Time: 4:50 PM
- */
 class ConditionalRunner implements Runnable {
   private static final Logger LOG = Logger.getInstance(ConditionalRunner.class.getName());
 

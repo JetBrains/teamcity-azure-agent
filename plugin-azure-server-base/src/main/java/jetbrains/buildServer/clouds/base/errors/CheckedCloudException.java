@@ -1,10 +1,5 @@
 package jetbrains.buildServer.clouds.base.errors;
 
-/**
- * @author Sergey.Pak
- *         Date: 11/12/2014
- *         Time: 5:54 PM
- */
 public class CheckedCloudException extends Exception {
 
   public CheckedCloudException(final Throwable cause) {

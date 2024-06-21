@@ -4,11 +4,6 @@ import com.google.gson.annotations.SerializedName;
 import jetbrains.buildServer.clouds.base.beans.CloudImagePasswordDetails;
 import jetbrains.buildServer.clouds.base.types.CloneBehaviour;
 
-/**
- * @author Dmitry.Tretyakov
- *         Date: 3/2/2016
- *         Time: 2:29 PM
- */
 public class FakeCloudImageDetails implements CloudImagePasswordDetails {
     @SerializedName("data")
     private final String myData;

@@ -6,11 +6,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/25/2014
- *         Time: 5:17 PM
- */
 public abstract class AbstractInstance {
   @NotNull
   public abstract String getName();

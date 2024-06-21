@@ -5,10 +5,6 @@ import jetbrains.buildServer.serverSide.crypt.RSACipher;
 
 import javax.servlet.http.HttpServletRequest;
 
-/**
- * @author Pavel.Sher
- *         Date: 25.05.2006
- */
 public class PluginPropertiesUtil {
     private final static String PROPERTY_PREFIX = "prop:";
     private static final String ENCRYPTED_PROPERTY_PREFIX = "prop:encrypted:";

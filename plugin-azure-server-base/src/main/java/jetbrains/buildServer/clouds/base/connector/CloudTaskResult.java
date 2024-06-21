@@ -2,11 +2,6 @@ package jetbrains.buildServer.clouds.base.connector;
 
 import org.jetbrains.annotations.Nullable;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/29/2014
- *         Time: 6:41 PM
- */
 public class CloudTaskResult {
   private final boolean myHasErrors;
   private final String myDescription;

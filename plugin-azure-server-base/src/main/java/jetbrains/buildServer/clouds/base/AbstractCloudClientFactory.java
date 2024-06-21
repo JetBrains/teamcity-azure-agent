@@ -12,11 +12,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/22/2014
- *         Time: 1:51 PM
- */
 public abstract class AbstractCloudClientFactory<D extends CloudImageDetails, C extends AbstractCloudClient>
   implements CloudClientFactory {
 

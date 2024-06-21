@@ -6,11 +6,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/23/2014
- *         Time: 4:51 PM
- */
 public class CloudErrorMap implements UpdatableCloudErrorProvider {
   private final ErrorMessageUpdater myMessageUpdater;
   private final AtomicReference<CloudErrorInfo> myErrorInfo = new AtomicReference<>();

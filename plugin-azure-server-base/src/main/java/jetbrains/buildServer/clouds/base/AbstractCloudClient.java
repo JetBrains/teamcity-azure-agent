@@ -26,11 +26,6 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
-/**
- * @author Sergey.Pak
- * Date: 7/22/2014
- * Time: 1:49 PM
- */
 public abstract class AbstractCloudClient<G extends AbstractCloudInstance<T>, T extends AbstractCloudImage<G, D>, D extends CloudImageDetails>
         implements CloudClientEx, UpdatableCloudErrorProvider {
 

@@ -5,11 +5,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.concurrent.Future;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/29/2014
- *         Time: 3:27 PM
- */
 public interface AsyncCloudTask {
 
   /**

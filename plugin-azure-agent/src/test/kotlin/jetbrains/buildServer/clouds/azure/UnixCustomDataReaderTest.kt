@@ -8,11 +8,6 @@ import org.testng.annotations.Test
 
 import java.io.File
 
-/**
- * @author Dmitry.Tretyakov
- * Date: 20.06.2016
- * Time: 15:58
- */
 @Test
 class UnixCustomDataReaderTest {
 

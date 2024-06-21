@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.base;
 
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance;

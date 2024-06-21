@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.arm.types
 
 import jetbrains.buildServer.TeamCityAsserts

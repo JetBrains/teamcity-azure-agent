@@ -12,8 +12,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-package jetbrains.buildServer.clouds.azure.arm.connector
+ */package jetbrains.buildServer.clouds.azure.arm.connector
 
 import jetbrains.buildServer.clouds.server.CloudManagerBase
 import jetbrains.buildServer.serverSide.ParametersSupport

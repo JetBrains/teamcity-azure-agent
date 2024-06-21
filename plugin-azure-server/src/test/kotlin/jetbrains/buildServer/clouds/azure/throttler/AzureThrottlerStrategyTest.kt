@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.throttler
 
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerAdapter

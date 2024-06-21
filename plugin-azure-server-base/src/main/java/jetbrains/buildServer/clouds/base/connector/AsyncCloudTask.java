@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.base.connector;
 
 import org.jetbrains.annotations.NotNull;

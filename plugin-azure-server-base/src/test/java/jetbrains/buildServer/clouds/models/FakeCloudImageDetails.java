@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.models;
 
 import com.google.gson.annotations.SerializedName;

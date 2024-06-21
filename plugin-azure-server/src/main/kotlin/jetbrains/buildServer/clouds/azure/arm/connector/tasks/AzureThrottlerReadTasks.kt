@@ -1,5 +1,3 @@
-
-
 package jetbrains.buildServer.clouds.azure.arm.connector.tasks
 
 class AzureThrottlerReadTasks {

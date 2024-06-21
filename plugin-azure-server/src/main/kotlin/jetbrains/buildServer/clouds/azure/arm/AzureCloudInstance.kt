@@ -7,11 +7,6 @@ import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.serverSide.AgentDescription
 import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * @author Sergey.Pak
- * *         Date: 7/31/2014
- * *         Time: 7:15 PM
- */
 class AzureCloudInstance internal constructor(image: AzureCloudImage, name: String)
     : AbstractCloudInstance<AzureCloudImage>(image, name, name) {
     private val myHasVmInstance = AtomicBoolean(false)

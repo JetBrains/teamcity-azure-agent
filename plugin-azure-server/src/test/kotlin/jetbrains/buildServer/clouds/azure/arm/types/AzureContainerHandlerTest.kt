@@ -4,9 +4,6 @@ import jetbrains.buildServer.TeamCityAsserts
 import org.testng.Assert
 import org.testng.annotations.Test
 
-/**
- * @author Dmitrii Bogdanov
- */
 @Test
 class AzureContainerHandlerTest {
     fun testParseEnvironmentVariablesWithInvalidCharacters() {

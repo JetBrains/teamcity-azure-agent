@@ -10,11 +10,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-/**
- * @author Sergey.Pak
- *         Date: 9/25/2014
- *         Time: 7:29 PM
- */
 public class ProvisionActionsQueue {
   private static final Logger LOG = Logger.getInstance(ProvisionActionsQueue.class.getName());
   private static final Pattern CONFLICT_ERROR_PATTERN = Pattern.compile("Windows Azure is currently performing an operation with x-ms-requestid ([0-9a-f]{32}) on this deployment that requires exclusive access.");

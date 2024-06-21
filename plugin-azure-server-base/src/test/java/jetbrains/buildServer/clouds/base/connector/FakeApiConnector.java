@@ -8,11 +8,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-/**
- * @author Sergey.Pak
- *         Date: 10/27/2014
- *         Time: 3:53 PM
- */
 public class FakeApiConnector implements CloudApiConnector {
 
   @Override

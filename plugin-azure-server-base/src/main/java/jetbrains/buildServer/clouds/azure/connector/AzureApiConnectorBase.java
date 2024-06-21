@@ -9,11 +9,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-/**
- * @author Dmitry.Tretyakov
- *         Date: 3/18/2016
- *         Time: 5:42 PM
- */
 public abstract class AzureApiConnectorBase<T extends AbstractCloudImage, G extends AbstractCloudInstance> implements CloudApiConnector<T, G> {
     @NotNull
     public <R extends AbstractInstance> Map<String, R> fetchInstances(@NotNull final T image) throws CheckedCloudException {

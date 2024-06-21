@@ -16,11 +16,6 @@ import org.jetbrains.annotations.Nullable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/22/2014
- *         Time: 1:50 PM
- */
 public abstract class AbstractCloudImage<T extends AbstractCloudInstance, G extends CloudImageDetails> implements CloudImage, UpdatableCloudErrorProvider {
   protected final UpdatableCloudErrorProvider myErrorProvider = new CloudErrorMap(new DefaultErrorMessageUpdater());
   private final Map<String, T> myInstances = new ConcurrentHashMap<>();

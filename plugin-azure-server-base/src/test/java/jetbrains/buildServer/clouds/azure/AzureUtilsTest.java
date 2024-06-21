@@ -8,11 +8,6 @@ import org.testng.annotations.Test;
 
 import java.util.*;
 
-/**
- * @author Dmitry.Tretyakov
- * Date: 3/2/2016
- * Time: 2:27 PM
- */
 public class AzureUtilsTest {
     @Test
     public void parseImageDataTest() {

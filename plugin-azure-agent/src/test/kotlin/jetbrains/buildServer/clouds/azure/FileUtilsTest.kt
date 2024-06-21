@@ -5,11 +5,6 @@ import org.testng.annotations.Test
 
 import java.io.File
 
-/**
- * @author Dmitry.Tretyakov
- * Date: 20.06.2016
- * Time: 16:13
- */
 @Test
 class FileUtilsTest {
 

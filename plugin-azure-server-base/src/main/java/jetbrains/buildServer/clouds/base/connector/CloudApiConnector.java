@@ -8,11 +8,6 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.*;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/23/2014
- *         Time: 3:26 PM
- */
 public interface CloudApiConnector<T extends AbstractCloudImage, G extends AbstractCloudInstance> {
 
   void test() throws CheckedCloudException;

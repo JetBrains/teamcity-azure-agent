@@ -84,9 +84,9 @@
         <tr data-bind="if: type() === '${cons.credentialsService}'">
             <th class="noBorder"><label for="${cons.clientSecret}">Application Key: <l:star/></label></th>
             <td>
-                <input type="password" class="longField ignoreModified"
+                <input name="prop:${cons.clientSecret}" id="${cons.clientSecret}" type="password" class="longField ignoreModified"
                        data-bind="textInput: displayPassword"/>
-                <input type="hidden" name="prop:${cons.clientSecret}"
+                <input type="hidden" name="prop:encrypted:${cons.clientSecret}" id="prop:encrypted:${cons.clientSecret}"
                        data-bind="value: clientSecret"/>
                 <span class="smallNote">Azure AD application key <bs:help
                         urlPrefix="${azureLink}#get-application-id-and-authentication-key" file=""/></span>
@@ -469,8 +469,10 @@
             <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
                 <th class="noBorder"><label for="${cons.vmPassword}">Provision Password: <l:star/></label></th>
                 <td>
-                    <input type="password" id="${cons.vmPassword}" class="longField ignoreModified"
-                           data-bind="textInput: image().vmPassword"/>
+                    <input type="password" class="longField ignoreModified"
+                           data-bind="textInput: shortDisplayPassword"/>
+                    <input type="hidden" name="prop:${cons.vmPassword}"
+                           data-bind="value: image().vmPassword"/>
                     <span class="smallNote">Choose value according to the <a
                             href="https://msdn.microsoft.com/en-us/library/azure/jj943764.aspx#Anchor_1"
                             target="_blank"
@@ -706,7 +708,7 @@
               contextPath: "${contextPath}",
               imageListControlId: "${cons.imageId}",
               publicKey: "${publicKey}",
-              clientSecret: "${propertiesBean.properties[cons.clientSecret]}"
+              clientSecret: "${propertiesBean.getEncryptedPropertyValue(cons.clientSecret)}"
           }), dialog);
       });
     });

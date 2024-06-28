@@ -25,21 +25,21 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }
   };
 
-  const passwordStub = '*'.repeat(40);
+  const azurePassStub = config.azurePassStub;
 
   self.credentials = ko.validatedObservable({
     environment: ko.observable().extend({required: true}),
     type: self.credentialsType,
     tenantId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
     clientId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
-    displayPassword: ko.observable(passwordStub),
+    displayPassword: ko.observable(azurePassStub),
     clientSecret: ko.observable(config.clientSecret).trimmed().extend(requiredForServiceCredentials),
     subscriptionId: ko.observable().extend({required: true}),
     region: ko.observable()
   });
 
   self.credentials().displayPassword.subscribe(function (newPass) {
-    if (newPass !== passwordStub) {
+    if (newPass !== azurePassStub) {
       self.credentials().clientSecret(window.BS.Encrypt.encryptData(newPass, config.publicKey));
     }
   });

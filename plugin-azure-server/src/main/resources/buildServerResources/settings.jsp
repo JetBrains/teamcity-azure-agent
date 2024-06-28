@@ -12,6 +12,8 @@
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.arm.AzureConstants"/>
 <jsp:useBean id="basePath" class="java.lang.String" scope="request"/>
 
+<c:set var="AZURE_PASSWORD_STUB" value="****************************************" />
+
 <script type="text/javascript">
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}settings.css'/>");
 </script>
@@ -85,7 +87,7 @@
             <th class="noBorder"><label for="${cons.clientSecret}">Application Key: <l:star/></label></th>
             <td>
                 <input name="prop:${cons.clientSecret}" id="${cons.clientSecret}" type="password" class="longField ignoreModified"
-                       data-bind="textInput: displayPassword" value="****************************************"/>
+                       data-bind="textInput: displayPassword" value="${AZURE_PASSWORD_STUB}"/>
                 <input type="hidden" name="prop:encrypted:${cons.clientSecret}" id="prop:encrypted:${cons.clientSecret}"
                        data-bind="value: clientSecret"/>
                 <span class="smallNote">Azure AD application key <bs:help
@@ -708,7 +710,8 @@
               contextPath: "${contextPath}",
               imageListControlId: "${cons.imageId}",
               publicKey: "${publicKey}",
-              clientSecret: "${propertiesBean.getEncryptedPropertyValue(cons.clientSecret)}"
+              clientSecret: "${propertiesBean.getEncryptedPropertyValue(cons.clientSecret)}",
+              azurePassStub: "${AZURE_PASSWORD_STUB}"
           }), dialog);
       });
     });

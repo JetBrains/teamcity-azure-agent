@@ -85,7 +85,7 @@
             <th class="noBorder"><label for="${cons.clientSecret}">Application Key: <l:star/></label></th>
             <td>
                 <input name="prop:${cons.clientSecret}" id="${cons.clientSecret}" type="password" class="longField ignoreModified"
-                       data-bind="textInput: displayPassword"/>
+                       data-bind="textInput: displayPassword" value="****************************************"/>
                 <input type="hidden" name="prop:encrypted:${cons.clientSecret}" id="prop:encrypted:${cons.clientSecret}"
                        data-bind="value: clientSecret"/>
                 <span class="smallNote">Azure AD application key <bs:help

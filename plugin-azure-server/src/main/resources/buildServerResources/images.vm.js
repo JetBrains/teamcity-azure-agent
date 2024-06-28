@@ -25,14 +25,27 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }
   };
 
+  const passwordStub = '*'.repeat(40);
+
   self.credentials = ko.validatedObservable({
     environment: ko.observable().extend({required: true}),
     type: self.credentialsType,
     tenantId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
     clientId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
-    clientSecret: ko.observable('').trimmed().extend(requiredForServiceCredentials),
+    displayPassword: ko.observable(passwordStub),
+    clientSecret: ko.observable(config.clientSecret).trimmed().extend(requiredForServiceCredentials),
     subscriptionId: ko.observable().extend({required: true}),
     region: ko.observable()
+  });
+
+  self.credentials().displayPassword.subscribe(function (newPass) {
+    if (newPass !== passwordStub) {
+      self.credentials().clientSecret(window.BS.Encrypt.encryptData(newPass, config.publicKey));
+    }
+  });
+
+  self.credentials().clientSecret.subscribe(function (newPass) {
+    self.credentials().clientSecret(newPass);
   });
 
   self.isValidClientData = ko.pureComputed(function () {
@@ -1261,7 +1274,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
         "prop:subscriptionId": credentials.subscriptionId(),
         "prop:tenantId": credentials.tenantId(),
         "prop:clientId": credentials.clientId(),
-        "prop:secure:clientSecret": credentials.clientSecret()
+        "prop:encrypted:secure:clientSecret": credentials.clientSecret()
       };
     }
   }

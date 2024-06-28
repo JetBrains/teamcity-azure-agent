@@ -85,10 +85,9 @@
             <th class="noBorder"><label for="${cons.clientSecret}">Application Key: <l:star/></label></th>
             <td>
                 <input type="password" class="longField ignoreModified"
-                       data-bind="textInput: clientSecret"/>
+                       data-bind="textInput: displayPassword"/>
                 <input type="hidden" name="prop:${cons.clientSecret}"
-                       value="<c:out value="${propertiesBean.properties[cons.clientSecret]}"/>"
-                       data-bind="initializeValue: clientSecret, value: clientSecret"/>
+                       data-bind="value: clientSecret"/>
                 <span class="smallNote">Azure AD application key <bs:help
                         urlPrefix="${azureLink}#get-application-id-and-authentication-key" file=""/></span>
                 <span class="error option-error" data-bind="validationMessage: clientSecret"></span>
@@ -705,7 +704,9 @@
               baseUrl: "<c:url value='${basePath}'/>",
               projectId: "${projectId}",
               contextPath: "${contextPath}",
-              imageListControlId: "${cons.imageId}"
+              imageListControlId: "${cons.imageId}",
+              publicKey: "${publicKey}",
+              clientSecret: "${propertiesBean.properties[cons.clientSecret]}"
           }), dialog);
       });
     });

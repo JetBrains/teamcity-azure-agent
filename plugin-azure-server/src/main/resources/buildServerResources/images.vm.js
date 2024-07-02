@@ -26,26 +26,29 @@ function ArmImagesViewModel($, ko, dialog, config) {
   };
 
   const azurePassStub = config.azurePassStub;
+  const displayPassIfNotEmpty = (val) => {
+    if (val) {
+      return azurePassStub;
+    }
+
+    return '';
+  };
 
   self.credentials = ko.validatedObservable({
     environment: ko.observable().extend({required: true}),
     type: self.credentialsType,
     tenantId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
     clientId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
-    displayPassword: ko.observable(azurePassStub),
+    displayPassword: ko.observable(displayPassIfNotEmpty(config.clientSecret)),
     clientSecret: ko.observable(config.clientSecret).trimmed().extend(requiredForServiceCredentials),
     subscriptionId: ko.observable().extend({required: true}),
     region: ko.observable()
   });
 
-  self.credentials().displayPassword.subscribe(function (newPass) {
-    if (newPass !== azurePassStub) {
-      self.credentials().clientSecret(window.BS.Encrypt.encryptData(newPass, config.publicKey));
+  self.credentials().displayPassword.subscribe(function (val) {
+    if (val !== azurePassStub) {
+      self.credentials().clientSecret(window.BS.Encrypt.encryptData(val, config.publicKey));
     }
-  });
-
-  self.credentials().clientSecret.subscribe(function (newPass) {
-    self.credentials().clientSecret(newPass);
   });
 
   self.isValidClientData = ko.pureComputed(function () {
@@ -479,7 +482,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   // Hidden fields for serialized values
   self.images_data = ko.observable();
-  self.passwords_data = ko.observable();
+  self.passwords_data = ko.observable(config.passwordsData);
 
   // Deserialized values
   self.images = ko.observableArray();

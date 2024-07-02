@@ -482,7 +482,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   // Hidden fields for serialized values
   self.images_data = ko.observable();
-  self.passwords_data = ko.observable(config.passwordsData);
+  self.passwords_data = ko.observable();
 
   // Deserialized values
   self.images = ko.observableArray();

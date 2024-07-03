@@ -20,6 +20,7 @@ import com.microsoft.azure.LongRunningOperationOptions
 import com.microsoft.azure.management.compute.DiskCreateOptionTypes
 import com.microsoft.azure.management.compute.VirtualMachine
 import com.microsoft.azure.management.resources.Deployment
+import com.microsoft.azure.management.resources.DeploymentOperation
 import com.microsoft.azure.management.resources.DeploymentOperationProperties
 import com.microsoft.azure.management.resources.ErrorResponse
 import com.microsoft.azure.management.resources.Provider
@@ -31,14 +32,7 @@ import com.microsoft.azure.management.resources.fluentcore.arm.ResourceId
 import com.microsoft.azure.management.resources.fluentcore.arm.ResourceUtils
 import com.microsoft.azure.management.resources.implementation.ProviderInner
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskContext
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureTaskNotifications
-import jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerTaskBaseImpl
-import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_CONTAINER_NIC_RETRY_DELAY_SEC
-import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_NAMES
-import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_TYPES
-import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_MILTITHREAD_POLLING
-import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_PROVIDER_CACHE
+import jetbrains.buildServer.clouds.azure.arm.throttler.*
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.azure.arm.utils.DeploymentFeaturesDescriptorError
 import jetbrains.buildServer.serverSide.TeamCityProperties
@@ -234,6 +228,7 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                                 val error = statusMessage.error()
                                 val code = error.code()
                                 val target = error.target()
+                                val subscriptionId = api.subscriptionId()
                                 when {
                                     code.equals(OPERATION_CODE_CONFLICTING_USER_INPUT, ignoreCase = true) -> {
                                         LOG.debug("Resource ${target} will be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
@@ -242,10 +237,10 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                                     }
                                     code.equals(OPERATION_CODE_OS_PROVISIONING_CLIENT_ERROR, ignoreCase = true) ||
                                     code.equals(OPERATION_CODE_OS_PROVISIONING_TIMED_OUT, ignoreCase = true) ||
-                                    code.equals(OPERATION_CODE_OS_PROVISIONING_INTERNAL_ERROR, ignoreCase = true) -> {
-                                        val subscriptionId = api.subscriptionId()
-                                        if (subscriptionId != null) {
-                                            val resource = getVirtualMachineResource(subscriptionId, deployment.resourceGroupName(), deployment.name())
+                                    code.equals(OPERATION_CODE_OS_PROVISIONING_INTERNAL_ERROR, ignoreCase = true) ||
+                                    TeamCityProperties.getBooleanOrTrue(TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_DELETE_VM_FIRST_ON_ANY_FAIL) -> {
+                                        subscriptionId?.let {
+                                            val resource = getVirtualMachineResource(it, deployment.resourceGroupName(), deployment.name())
                                             LOG.debug("Resource (generated id ${resource.resourceId}) will be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
                                             result = Observable.just(resource)
                                         }
@@ -292,6 +287,17 @@ class DeleteDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         }
                     }
             }
+    }
+
+    private fun getVmResourceForDeployment(deployment: Deployment, operation: DeploymentOperation, api: AzureApi, taskContext: AzureTaskContext,) : Observable<ResourceDescriptor> {
+        val subscriptionId = api.subscriptionId()
+        return if (subscriptionId != null) {
+            val resource = getVirtualMachineResource(subscriptionId, deployment.resourceGroupName(), deployment.name())
+            LOG.debug("Resource (generated id ${resource.resourceId}) will be deleted. OperationId ${operation.operationId()}. CorellationId=${taskContext.corellationId}")
+            Observable.just(resource)
+        } else {
+            Observable.empty()
+        }
     }
 
     private fun getVMResources(taskContext: AzureTaskContext, virtualMachineSource: () -> Observable<VirtualMachine?>): Observable<ResourceDescriptor> {

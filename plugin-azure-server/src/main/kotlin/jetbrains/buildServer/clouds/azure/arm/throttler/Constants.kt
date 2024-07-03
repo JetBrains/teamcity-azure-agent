@@ -40,6 +40,7 @@ const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_TYPES = "t
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_KNOWN_RESOURCE_NAMES = "teamcity.clouds.azure.tasks.deletedeployment.knownGeneric.resourceNames"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_MILTITHREAD_POLLING = "teamcity.clouds.azure.tasks.deletedeployment.useMultitreadPolling"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_USE_PROVIDER_CACHE = "teamcity.clouds.azure.tasks.deletedeployment.useProviderCache"
+const val TEAMCITY_CLOUDS_AZURE_TASKS_DELETEDEPLOYMENT_DELETE_VM_FIRST_ON_ANY_FAIL = "teamcity.clouds.azure.tasks.deletedeployment.deleteVmFirstOnAnyFail"
 const val TEAMCITY_CLOUDS_AZURE_TASKS_CTREATEDEPLOYMENT_USE_MILTITHREAD_POLLING = "teamcity.clouds.azure.tasks.createdeployment.useMultitreadPolling"
 
 const val TEAMCITY_CLOUDS_AZURE_THROTTLER_USE_OLD_SCHEDULERS = "teamcity.clouds.azure.throttler.use.old.schedulers"

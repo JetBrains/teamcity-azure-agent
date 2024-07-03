@@ -81,6 +81,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
   self.template = ko.observable('');
   self.disableTemplateModification = ko.observable(false);
 
+  self.userAssignedIdentity = ko.observable();
+  self.enableSystemAssignedIdentity = ko.observable(false);
+
   var requiredForDeployment = {
     required: {
       onlyIf: function () {
@@ -414,6 +417,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
     .extend({min: 0.00001, max: 20000}),
     enableAcceleratedNetworking: ko.observable(false),
     disableTemplateModification: self.disableTemplateModification,
+    userAssignedIdentity: ko.observable(),
+    enableSystemAssignedIdentity: self.enableSystemAssignedIdentity
   });
 
   // Data from Azure APIs
@@ -669,6 +674,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
       image.enableSpotPrice = JSON.parse(image.enableSpotPrice || "false");
       image.enableAcceleratedNetworking = JSON.parse(image.enableAcceleratedNetworking || "false");
       image.disableTemplateModification = JSON.parse(image.disableTemplateModification || "false");
+      image.userAssignedIdentity = image.userAssignedIdentity;
+      image.enableSystemAssignedIdentity = JSON.parse(image.enableSystemAssignedIdentity || "false");
     });
 
     self.images(images);
@@ -712,7 +719,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
       customTags: "",
       spotVm: false,
       enableSpotPrice: false,
-      spotPrice: spotPriceDefault * priceDivider
+      spotPrice: spotPriceDefault * priceDivider,
+      userAssignedIdentity: "",
+      systemAssignedIdentity: false,
     };
 
     // Pre-fill collections while loading resources
@@ -786,6 +795,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.spotPrice(image.spotPrice != null ? image.spotPrice/priceDivider : undefined);
     model.enableAcceleratedNetworking(image.enableAcceleratedNetworking);
     model.disableTemplateModification(image.disableTemplateModification);
+    model.userAssignedIdentity(image.userAssignedIdentity);
+    model.enableSystemAssignedIdentity(image.enableSystemAssignedIdentity);
 
     model.registryPassword("");
     model.vmPassword("");
@@ -845,7 +856,9 @@ function ArmImagesViewModel($, ko, dialog, config) {
       enableSpotPrice: model.enableSpotPrice(),
       spotPrice: model.spotPrice() != null ? Math.trunc(parseFloat(model.spotPrice())*priceDivider) : undefined,
       enableAcceleratedNetworking: model.enableAcceleratedNetworking(),
-      disableTemplateModification: model.disableTemplateModification()
+      disableTemplateModification: model.disableTemplateModification(),
+      userAssignedIdentity: model.userAssignedIdentity(),
+      enableSystemAssignedIdentity: model.enableSystemAssignedIdentity(),
     };
 
     var originalImage = self.originalImage;

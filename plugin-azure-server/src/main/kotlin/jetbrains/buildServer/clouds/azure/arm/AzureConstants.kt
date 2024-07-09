@@ -130,6 +130,12 @@ class AzureConstants {
     val disableTemplateModification: String
         get() = DISABLE_TEMPLATE_MODIFICATION
 
+    val updateImageRequestPath: String
+        get() = UPDATE_IMAGE_REQUEST_PATH
+
+    val profileId: String
+        get() = PROFILE_ID
+
     companion object {
         const val CLOUD_CODE = "arm"
 
@@ -187,5 +193,9 @@ class AzureConstants {
         val CONTAINER_VOLUMES = listOf("logs", "plugins", "system", "tools")
 
         const val PROP_DEPLOYMENT_DELETE_FAILED = "teamcity.arm.deployment.removeFailed"
+
+        const val UPDATE_IMAGE_REQUEST_PATH = "/plugins/cloud-azure-arm/images.html"
+        const val PROJECT_ID = "projectId"
+        const val IMAGE_UPDATE_TYPE = "imageUpdateType"
     }
 }

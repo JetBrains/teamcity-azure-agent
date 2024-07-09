@@ -709,7 +709,9 @@
               imageListControlId: "${cons.imageId}",
               publicKey: "${publicKey}",
               clientSecret: "${empty propertiesBean.properties[cons.clientSecret] ? "" : propertiesBean.getEncryptedPropertyValue(cons.clientSecret)}",
-              azurePassStub: "${AZURE_PASSWORD_STUB}"
+              azurePassStub: "${AZURE_PASSWORD_STUB}",
+              updateImageRequestPath: "<c:url value='${cons.updateImageRequestPath}'/>",
+              profileId: "${propertiesBean.properties[cons.profileId]}"
           }), dialog);
       });
     });

@@ -711,6 +711,11 @@ function ArmImagesViewModel($, ko, dialog, config) {
       return false;
     }
 
+    $.post(config.updateImageRequestPath, {
+      "prop:projectId": config.projectId,
+      "prop:profileId": config.profileId,
+      "prop:vmNamePrefix": self.image().vmNamePrefix});
+
     self.originalImage = data;
 
     var model = self.image();

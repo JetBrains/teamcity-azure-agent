@@ -665,9 +665,10 @@
             <input type="hidden" name="prop:${cons.imagesData}"
                    value="<c:out value="${empty sourceImagesData || sourceImagesData == '[]' ? imagesData : sourceImagesData}"/>"
                    data-bind="initializeValue: images_data, value: images_data"/>
-            <c:set var="passwordsValue" value="${propertiesBean.properties['secure:passwords_data']}"/>
-            <input type="hidden" name="prop:secure:passwords_data" value="<c:out value="${passwordsValue}"/>"
-                   data-bind="initializeValue: passwords_data, value: passwords_data"/>
+            <input type="password" name="prop:secure:passwords_data" id="secure:passwords_data" class="longField ignoreModified misc"
+                   value="${AZURE_PASSWORD_STUB}"/>
+            <input type="hidden" name="prop:encrypted:secure:passwords_data" id="prop:encrypted:secure:passwords_data"
+                   data-bind="value: passwords_data"/>
         </div>
 
         <a class="btn" href="#" disabled="disabled"
@@ -712,6 +713,7 @@
               clientSecret: "${empty propertiesBean.properties[cons.clientSecret] ? "" : propertiesBean.getEncryptedPropertyValue(cons.clientSecret)}",
               azurePassStub: "${AZURE_PASSWORD_STUB}",
               updateImageRequestPath: "<c:url value='${updateConstants.updateImageRequestPath}'/>",
+              passwords_data: "${propertiesBean.getEncryptedPropertyValue("secure:passwords_data")}"
           }), dialog);
       });
     });

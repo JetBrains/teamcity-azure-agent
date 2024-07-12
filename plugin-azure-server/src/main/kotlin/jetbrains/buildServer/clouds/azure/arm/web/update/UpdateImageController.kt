@@ -1,15 +1,14 @@
 package jetbrains.buildServer.clouds.azure.arm.web.update
 
+import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.clouds.azure.arm.utils.Serialization
 import jetbrains.buildServer.clouds.azure.utils.PluginPropertiesUtil
 import jetbrains.buildServer.controllers.BaseController
 import jetbrains.buildServer.controllers.BasePropertiesBean
 import jetbrains.buildServer.controllers.XmlResponseUtil
 import jetbrains.buildServer.serverSide.SBuildServer
-import jetbrains.buildServer.serverSide.crypt.RSACipher
 import jetbrains.buildServer.web.openapi.WebControllerManager
 import org.apache.commons.lang3.StringUtils
-import org.jdom.Element
 import org.springframework.web.servlet.ModelAndView
 import java.util.EnumSet
 import java.util.stream.Collectors
@@ -27,31 +26,43 @@ class UpdateImageController(
     }
 
     companion object {
+        private val LOG = Logger.getInstance(UpdateImageController::class.java.getName())
         private val requiredProps = EnumSet.allOf(ImageUpdateProperties::class.java)
     }
 
     override fun doHandle(req: HttpServletRequest, resp: HttpServletResponse): ModelAndView? {
         if (!isPost(req)) {
+            val message = "${req.method} not supported"
+
+            LOG.error { message }
+            completeExceptionally(ActionError("Update Image", message), resp)
+
             return null
         }
 
         val props = parseRequestData(req)
-        checkBasicProperties(props)
+        val missingProps = checkBasicProperties(props)
 
-        val data = updateProcessor.processImageUpdate(props)
-        val xmlResponse = assembleResponse(data)
-        Serialization.writeResponse(xmlResponse, resp)
+        if (missingProps.isNotEmpty()) {
+            val message = "Missing required properties: $missingProps"
+
+            LOG.error(message)
+            completeExceptionally(ActionError("Update Image", message), resp)
+
+            return null
+        }
+
+        val result = updateProcessor.processImageUpdate(props)
+        Serialization.writeResponse(result.asElement(XmlResponseUtil.newXmlResponse()), resp)
 
         return null
     }
 
-    private fun assembleResponse(data: String): Element {
-        val encrypted = RSACipher.encryptDataForWeb(data)
-        val xmlResponse = XmlResponseUtil.newXmlResponse()
-        xmlResponse.addContent(Element("passwords_data")
-            .apply { text = encrypted }
-        )
-        return xmlResponse
+    private fun completeExceptionally(error: ActionError, resp: HttpServletResponse) {
+        val res = UpdateImageResult(null)
+        res.registerErrors(error)
+
+        Serialization.writeResponse(res.asElement(XmlResponseUtil.newXmlResponse()), resp)
     }
 
     private fun parseRequestData(req: HttpServletRequest): BasePropertiesBean {
@@ -60,14 +71,12 @@ class UpdateImageController(
         return props
     }
 
-    private fun checkBasicProperties(props: BasePropertiesBean) {
+    private fun checkBasicProperties(props: BasePropertiesBean): MutableList<String> {
         val missingProps = requiredProps.stream()
-            .filter { StringUtils.isEmpty(props.properties[it.propertyName]) }
+            .filter { props.properties[it.propertyName] == null }
             .map { it.propertyName }
             .collect(Collectors.toList())
 
-        if (missingProps.isNotEmpty()) {
-            throw IllegalArgumentException("Missing required properties: $missingProps")
-        }
+        return missingProps
     }
 }

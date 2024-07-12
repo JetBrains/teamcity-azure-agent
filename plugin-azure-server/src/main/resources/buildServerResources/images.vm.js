@@ -341,7 +341,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }).extend({
       validation: {
         validator: function (value) {
-          return self.originalImage && self.originalImage.vmNamePrefix === value || !self.passwords[value];
+          return self.originalImage && self.originalImage.vmNamePrefix === value || !self.vmNamePrefixes.has(value);
         },
         message: 'Name prefix should be unique within subscription'
       }
@@ -484,13 +484,13 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   // Hidden fields for serialized values
   self.images_data = ko.observable();
-  self.passwords_data = ko.observable();
+  self.passwords_data = ko.observable(config.passwords_data);
 
   // Deserialized values
   self.images = ko.observableArray();
   self.instances = ko.observableArray();
   self.nets = {};
-  self.passwords = {};
+  self.vmNamePrefixes = new Set();
 
   self.credentialsType.subscribe(function () {
     self.loadSubscriptions();
@@ -668,6 +668,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     images.forEach(function (image) {
       if (image["source-id"]) {
         image.vmNamePrefix = image["source-id"];
+        self.vmNamePrefixes.add(image.vmNamePrefix);
       } else {
         saveValue = true;
       }
@@ -691,10 +692,6 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
     self.images(images);
     if (saveValue) saveImages();
-  });
-
-  self.passwords_data.subscribe(function (data) {
-    self.passwords = ko.utils.parseJson(data || "{}");
   });
 
   self.enableSpotPrice.subscribe(function(data) {
@@ -808,12 +805,13 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.registryPassword("");
     model.vmPassword("");
     if (image.deployTarget !== deployTargets.instance) {
-      var key = image.vmNamePrefix;
-      var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
-      if (image.imageType === imageTypes.container) {
-        model.registryPassword(password);
-      } else {
-        model.vmPassword(password);
+      const exists = self.images().find(e => e.vmNamePrefix === image.vmNamePrefix);
+      if (exists) {
+        if (image.imageType === imageTypes.container) {
+          model.registryPassword(azurePassStub);
+        } else {
+          model.vmPassword(azurePassStub);
+        }
       }
     }
 
@@ -866,30 +864,36 @@ function ArmImagesViewModel($, ko, dialog, config) {
       disableTemplateModification: model.disableTemplateModification()
     };
 
+    let pass;
+    if (image.imageType === imageTypes.container) {
+      pass = model.registryPassword();
+    } else {
+      pass = model.vmPassword();
+    }
+
+    if (pass !== azurePassStub) {
+      $.post(config.updateImageRequestPath, {
+        "prop:vmNamePrefix": self.image().vmNamePrefix,
+        "prop:encrypted:secure:password": encryptData(pass),
+        "prop:imageUpdateType": "upsert",
+        "prop:encrypted:secure:passwords_data": self.passwords_data()
+      }).then(function (response) {
+        const $response = $j(response);
+        const data = $response.find("passwords_data").text();
+        self.passwords_data(data);
+      });
+    }
+
     var originalImage = self.originalImage;
     if (originalImage) {
       self.images.replace(originalImage, image);
-      var originalKey = originalImage.vmNamePrefix;
-      delete self.passwords[originalKey];
+      self.vmNamePrefixes.delete(originalImage.vmNamePrefix);
     } else {
       self.images.push(image);
     }
+
     self.images_data(JSON.stringify(self.images()));
-
-    var key = image.vmNamePrefix;
-    if (image.imageType === imageTypes.container) {
-      self.passwords[key] = model.registryPassword();
-    } else {
-      self.passwords[key] = model.vmPassword();
-    }
-    self.passwords_data(JSON.stringify(self.passwords));
-
-    $.post(config.updateImageRequestPath, {
-      "prop:vmNamePrefix": self.image().vmNamePrefix,
-      "prop:encrypted:secure:password": encryptData(self.passwords[key]),
-      "prop:imageUpdateType": "upsert",
-      "prop:encrypted:secure:passwords_data": encryptData(self.passwords_data())
-    });
+    self.vmNamePrefixes.add(image.vmNamePrefix);
 
     dialog.close();
     return false;
@@ -922,18 +926,19 @@ function ArmImagesViewModel($, ko, dialog, config) {
       return false;
     }
 
-    self.images.remove(image);
-    saveImages();
-
-    var key = image.vmNamePrefix;
-    delete self.passwords[key];
-    self.passwords_data(JSON.stringify(self.passwords));
-
     $.post(config.updateImageRequestPath, {
-      "prop:vmNamePrefix": self.image().vmNamePrefix,
+      "prop:vmNamePrefix": image.vmNamePrefix,
       "prop:imageUpdateType": "delete",
-      "prop:encrypted:secure:passwords_data": encryptData(self.passwords_data())
+      "prop:encrypted:secure:passwords_data": self.passwords_data()
+    }).then(function (response) {
+      const $response = $j(response);
+      const data = $response.find("passwords_data").text();
+      self.passwords_data(data);
     });
+
+    self.images.remove(image);
+    self.vmNamePrefixes.delete(image.vmNamePrefix);
+    saveImages();
 
     return false;
   };

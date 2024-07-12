@@ -172,3 +172,7 @@ table.arm-settings .nowrap {
   padding-left: 0.5em;
   border-radius: 5px;
 }
+
+.misc {
+    display: none;
+}

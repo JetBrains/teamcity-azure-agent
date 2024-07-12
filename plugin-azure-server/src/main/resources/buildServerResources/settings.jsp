@@ -10,6 +10,7 @@
 </table>
 <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.arm.AzureConstants"/>
+<jsp:useBean id="updateConstants" class="jetbrains.buildServer.clouds.azure.arm.web.update.ImageUpdateConstants"/>
 <jsp:useBean id="basePath" class="java.lang.String" scope="request"/>
 
 <c:set var="AZURE_PASSWORD_STUB" value="****************************************" />
@@ -710,8 +711,7 @@
               publicKey: "${publicKey}",
               clientSecret: "${empty propertiesBean.properties[cons.clientSecret] ? "" : propertiesBean.getEncryptedPropertyValue(cons.clientSecret)}",
               azurePassStub: "${AZURE_PASSWORD_STUB}",
-              updateImageRequestPath: "<c:url value='${cons.updateImageRequestPath}'/>",
-              profileId: "${propertiesBean.properties[cons.profileId]}"
+              updateImageRequestPath: "<c:url value='${updateConstants.updateImageRequestPath}'/>",
           }), dialog);
       });
     });

@@ -5,7 +5,7 @@ import jetbrains.buildServer.clouds.CloudProfileData
 import jetbrains.buildServer.controllers.BasePropertiesBean
 
 interface ImageUpdateHandler {
-    fun processUpdate(cloudProfile: CloudProfile, props: BasePropertiesBean): CloudProfileData
+    fun processUpdate(props: BasePropertiesBean): String
 
     fun type(): ImageUpdateType
 }

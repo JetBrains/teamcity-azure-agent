@@ -9,9 +9,8 @@
     <bean class="jetbrains.buildServer.clouds.azure.arm.web.SettingsController"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.UpdateImageController"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.UpdateImageProcessor"/>
-    <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.handler.AddImageHandler"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.handler.DeleteImageHandler"/>
-    <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.handler.UpdateImageHandler"/>
+    <bean class="jetbrains.buildServer.clouds.azure.arm.web.update.handler.UpsertImageHandler"/>
     <bean class="jetbrains.buildServer.clouds.azure.arm.health.AzureCloudProfileReport"/>
 
     <bean class="jetbrains.buildServer.clouds.azure.arm.throttler.AzureThrottlerFactoryImpl"/>

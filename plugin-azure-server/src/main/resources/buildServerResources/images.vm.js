@@ -34,6 +34,8 @@ function ArmImagesViewModel($, ko, dialog, config) {
     return '';
   };
 
+  const encryptData = val => window.BS.Encrypt.encryptData(val, config.publicKey);
+
   self.credentials = ko.validatedObservable({
     environment: ko.observable().extend({required: true}),
     type: self.credentialsType,
@@ -47,7 +49,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   self.credentials().displayPassword.subscribe(function (val) {
     if (val !== azurePassStub) {
-      self.credentials().clientSecret(window.BS.Encrypt.encryptData(val, config.publicKey));
+      self.credentials().clientSecret(encryptData(val));
     }
   });
 
@@ -711,11 +713,6 @@ function ArmImagesViewModel($, ko, dialog, config) {
       return false;
     }
 
-    $.post(config.updateImageRequestPath, {
-      "prop:projectId": config.projectId,
-      "prop:profileId": config.profileId,
-      "prop:vmNamePrefix": self.image().vmNamePrefix});
-
     self.originalImage = data;
 
     var model = self.image();
@@ -887,6 +884,13 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }
     self.passwords_data(JSON.stringify(self.passwords));
 
+    $.post(config.updateImageRequestPath, {
+      "prop:vmNamePrefix": self.image().vmNamePrefix,
+      "prop:encrypted:secure:password": encryptData(self.passwords[key]),
+      "prop:imageUpdateType": "upsert",
+      "prop:encrypted:secure:passwords_data": encryptData(self.passwords_data())
+    });
+
     dialog.close();
     return false;
   };
@@ -924,6 +928,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
     var key = image.vmNamePrefix;
     delete self.passwords[key];
     self.passwords_data(JSON.stringify(self.passwords));
+
+    $.post(config.updateImageRequestPath, {
+      "prop:vmNamePrefix": self.image().vmNamePrefix,
+      "prop:imageUpdateType": "delete",
+      "prop:encrypted:secure:passwords_data": encryptData(self.passwords_data())
+    });
 
     return false;
   };

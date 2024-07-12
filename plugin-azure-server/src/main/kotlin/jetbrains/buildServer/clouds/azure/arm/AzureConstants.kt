@@ -130,9 +130,6 @@ class AzureConstants {
     val disableTemplateModification: String
         get() = DISABLE_TEMPLATE_MODIFICATION
 
-    val updateImageRequestPath: String
-        get() = UPDATE_IMAGE_REQUEST_PATH
-
     val profileId: String
         get() = PROFILE_ID
 
@@ -162,7 +159,7 @@ class AzureConstants {
         const val VM_NAME_PREFIX = "vmNamePrefix"
         const val VM_PUBLIC_IP = "vmPublicIp"
         const val VM_USERNAME = "vmUsername"
-        const val VM_PASSWORD = "vmPassword"
+        const val VM_PASSWORD = Constants.SECURE_PROPERTY_PREFIX + "vmPassword"
         const val REUSE_VM = "reuseVm"
         const val STORAGE_ACCOUNT_TYPE = "storageAccountType"
         const val TEMPLATE = "template"
@@ -170,7 +167,7 @@ class AzureConstants {
         const val MEMORY = "memory"
         const val STORAGE_ACCOUNT = "storageAccount"
         const val REGISTRY_USERNAME = "registryUsername"
-        const val REGISTRY_PASSWORD = "registryPassword"
+        const val REGISTRY_PASSWORD = Constants.SECURE_PROPERTY_PREFIX + "registryPassword"
         const val PROFILE_ID = "profileId"
         const val CUSTOM_ENVIRONMENT_VARIABLES = "customEnvironmentVariables"
         const val CUSTOM_TAGS = "customTags"
@@ -193,9 +190,5 @@ class AzureConstants {
         val CONTAINER_VOLUMES = listOf("logs", "plugins", "system", "tools")
 
         const val PROP_DEPLOYMENT_DELETE_FAILED = "teamcity.arm.deployment.removeFailed"
-
-        const val UPDATE_IMAGE_REQUEST_PATH = "/plugins/cloud-azure-arm/images.html"
-        const val PROJECT_ID = "projectId"
-        const val IMAGE_UPDATE_TYPE = "imageUpdateType"
     }
 }

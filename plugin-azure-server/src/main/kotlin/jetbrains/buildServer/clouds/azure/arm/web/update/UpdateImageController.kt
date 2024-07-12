@@ -8,7 +8,6 @@ import jetbrains.buildServer.controllers.BasePropertiesBean
 import jetbrains.buildServer.controllers.XmlResponseUtil
 import jetbrains.buildServer.serverSide.SBuildServer
 import jetbrains.buildServer.web.openapi.WebControllerManager
-import org.apache.commons.lang3.StringUtils
 import org.springframework.web.servlet.ModelAndView
 import java.util.EnumSet
 import java.util.stream.Collectors

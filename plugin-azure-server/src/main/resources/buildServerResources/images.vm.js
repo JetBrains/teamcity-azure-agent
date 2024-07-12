@@ -870,6 +870,21 @@ function ArmImagesViewModel($, ko, dialog, config) {
       pass = model.vmPassword();
     }
 
+    const finishImageModification = () => {
+      var originalImage = self.originalImage;
+      if (originalImage) {
+        self.images.replace(originalImage, image);
+        self.vmNamePrefixes.delete(originalImage.vmNamePrefix);
+      } else {
+        self.images.push(image);
+      }
+
+      self.images_data(JSON.stringify(self.images()));
+      self.vmNamePrefixes.add(image.vmNamePrefix);
+
+      dialog.close();
+    };
+
     if (pass !== azurePassStub) {
       $.post(config.updateImageRequestPath, {
         "prop:vmNamePrefix": self.image().vmNamePrefix,
@@ -880,21 +895,19 @@ function ArmImagesViewModel($, ko, dialog, config) {
         const $response = $j(response);
         const data = $response.find("passwords_data").text();
         self.passwords_data(data);
+
+        const errors = getErrors($response);
+        if (errors) {
+          alert("Failed to update image data: " + errors);
+          return;
+        }
+
+        finishImageModification();
       });
-    }
-
-    var originalImage = self.originalImage;
-    if (originalImage) {
-      self.images.replace(originalImage, image);
-      self.vmNamePrefixes.delete(originalImage.vmNamePrefix);
     } else {
-      self.images.push(image);
+      finishImageModification();
     }
 
-    self.images_data(JSON.stringify(self.images()));
-    self.vmNamePrefixes.add(image.vmNamePrefix);
-
-    dialog.close();
     return false;
   };
 
@@ -931,13 +944,21 @@ function ArmImagesViewModel($, ko, dialog, config) {
       "prop:encrypted:secure:passwords_data": self.passwords_data()
     }).then(function (response) {
       const $response = $j(response);
+
+      const errors = getErrors($response);
+      if (errors) {
+        alert("Failed to update image data: " + errors);
+        return;
+      }
+
       const data = $response.find("passwords_data").text();
       self.passwords_data(data);
+
+      self.images.remove(image);
+      self.vmNamePrefixes.delete(image.vmNamePrefix);
+      saveImages();
     });
 
-    self.images.remove(image);
-    self.vmNamePrefixes.delete(image.vmNamePrefix);
-    saveImages();
 
     return false;
   };

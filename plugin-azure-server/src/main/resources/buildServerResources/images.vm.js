@@ -805,8 +805,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.registryPassword("");
     model.vmPassword("");
     if (image.deployTarget !== deployTargets.instance) {
-      const exists = self.images().find(e => e.vmNamePrefix === image.vmNamePrefix);
-      if (exists) {
+      if (image.groupId !== null) {
         if (image.imageType === imageTypes.container) {
           model.registryPassword(azurePassStub);
         } else {

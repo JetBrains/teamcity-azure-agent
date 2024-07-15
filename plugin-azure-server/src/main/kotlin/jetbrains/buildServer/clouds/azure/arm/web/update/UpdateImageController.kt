@@ -31,11 +31,7 @@ class UpdateImageController(
 
     override fun doHandle(req: HttpServletRequest, resp: HttpServletResponse): ModelAndView? {
         if (!isPost(req)) {
-            val message = "${req.method} not supported"
-
-            LOG.error { message }
-            completeExceptionally(ActionError("Update Image", message), resp)
-
+            processExceptionalState("${req.method} not supported for updating images data", resp, null)
             return null
         }
 
@@ -43,18 +39,23 @@ class UpdateImageController(
         val missingProps = checkBasicProperties(props)
 
         if (missingProps.isNotEmpty()) {
-            val message = "Missing required properties: $missingProps"
-
-            LOG.error(message)
-            completeExceptionally(ActionError("Update Image", message), resp)
-
+            processExceptionalState("Missing required properties for the images data update: $missingProps", resp, null)
             return null
         }
 
-        val result = updateProcessor.processImageUpdate(props)
-        Serialization.writeResponse(result.asElement(XmlResponseUtil.newXmlResponse()), resp)
+        try {
+            val result = updateProcessor.processImageUpdate(props)
+            Serialization.writeResponse(result.asElement(XmlResponseUtil.newXmlResponse()), resp)
+        } catch (e: Exception) {
+            processExceptionalState("Unexpected exception during the images data update", resp, e)
+        }
 
         return null
+    }
+
+    private fun processExceptionalState(message: String, resp: HttpServletResponse, ex: Throwable?) {
+        LOG.error(message, ex)
+        completeExceptionally(ActionError("Update Image", message), resp)
     }
 
     private fun completeExceptionally(error: ActionError, resp: HttpServletResponse) {

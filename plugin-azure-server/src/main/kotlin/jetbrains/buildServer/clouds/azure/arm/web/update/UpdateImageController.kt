@@ -59,7 +59,7 @@ class UpdateImageController(
     }
 
     private fun completeExceptionally(error: ActionError, resp: HttpServletResponse) {
-        val res = UpdateImageResult(null)
+        val res = UpdateImageResult()
         res.registerErrors(error)
 
         Serialization.writeResponse(res.asElement(XmlResponseUtil.newXmlResponse()), resp)

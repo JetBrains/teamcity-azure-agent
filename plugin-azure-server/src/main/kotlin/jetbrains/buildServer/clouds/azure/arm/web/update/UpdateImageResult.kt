@@ -9,6 +9,8 @@ const val PASSWORDS_DATA = "passwords_data"
 data class UpdateImageResult(private val value: String?) {
     private val errors = ActionErrors()
 
+    constructor() : this(null)
+
     fun registerErrors(error: ActionError) {
         errors.addError(error.id, error.message)
     }

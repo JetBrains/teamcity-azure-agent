@@ -19,14 +19,14 @@ data class UpdateImageResult(private val value: String?) {
         if (errors.hasErrors()) {
             errors.serialize(xmlResponse)
         } else {
-            assembleResponse(value, xmlResponse)
+            assembleResponse(xmlResponse)
         }
 
         return xmlResponse
     }
 
-    private fun assembleResponse(data: String?, xmlResponse: Element) {
-        val encrypted = RSACipher.encryptDataForWeb(data)
+    private fun assembleResponse(xmlResponse: Element) {
+        val encrypted = RSACipher.encryptDataForWeb(value)
         xmlResponse.addContent(Element(PASSWORDS_DATA)
             .apply { text = encrypted }
         )

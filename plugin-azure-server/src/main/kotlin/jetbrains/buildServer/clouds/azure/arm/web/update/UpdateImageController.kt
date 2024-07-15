@@ -31,7 +31,7 @@ class UpdateImageController(
 
     override fun doHandle(req: HttpServletRequest, resp: HttpServletResponse): ModelAndView? {
         if (!isPost(req)) {
-            processExceptionalState("${req.method} not supported for updating images data", resp, null)
+            processExceptionalState("${req.method} is not supported for updating images data", resp, null)
             return null
         }
 
@@ -72,11 +72,9 @@ class UpdateImageController(
     }
 
     private fun checkBasicProperties(props: BasePropertiesBean): MutableList<String> {
-        val missingProps = requiredProps.stream()
+        return requiredProps.stream()
             .filter { props.properties[it.propertyName] == null }
             .map { it.propertyName }
             .collect(Collectors.toList())
-
-        return missingProps
     }
 }

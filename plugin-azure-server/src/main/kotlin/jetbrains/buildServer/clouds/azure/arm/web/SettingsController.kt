@@ -2,6 +2,7 @@ package jetbrains.buildServer.clouds.azure.arm.web
 
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorFactory
+import jetbrains.buildServer.clouds.azure.arm.utils.Serialization
 import jetbrains.buildServer.clouds.azure.utils.PluginPropertiesUtil
 import jetbrains.buildServer.controllers.ActionErrors
 import jetbrains.buildServer.controllers.BaseController
@@ -103,7 +104,7 @@ class SettingsController(server: SBuildServer,
             errors.serialize(xmlResponse)
         }
 
-        writeResponse(xmlResponse, asyncContext.response)
+        Serialization.writeResponse(xmlResponse, asyncContext.response)
         asyncContext.complete()
     }
 
@@ -119,13 +120,5 @@ class SettingsController(server: SBuildServer,
 
     companion object {
         private val LOG = Logger.getInstance(SettingsController::class.java.name)
-
-        private fun writeResponse(xmlResponse: Element, response: ServletResponse) {
-            try {
-                XmlResponseUtil.writeXmlResponse(xmlResponse, response as HttpServletResponse)
-            } catch (e: IOException) {
-                throw RuntimeException(e)
-            }
-        }
     }
 }

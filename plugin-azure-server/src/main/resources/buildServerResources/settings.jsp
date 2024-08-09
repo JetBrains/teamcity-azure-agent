@@ -10,7 +10,10 @@
 </table>
 <jsp:useBean id="propertiesBean" scope="request" type="jetbrains.buildServer.controllers.BasePropertiesBean"/>
 <jsp:useBean id="cons" class="jetbrains.buildServer.clouds.azure.arm.AzureConstants"/>
+<jsp:useBean id="updateConstants" class="jetbrains.buildServer.clouds.azure.arm.web.update.ImageUpdateConstants"/>
 <jsp:useBean id="basePath" class="java.lang.String" scope="request"/>
+
+<c:set var="AZURE_PASSWORD_STUB" value="****************************************" />
 
 <script type="text/javascript">
     BS.LoadStyleSheetDynamically("<c:url value='${resPath}settings.css'/>");
@@ -84,11 +87,10 @@
         <tr data-bind="if: type() === '${cons.credentialsService}'">
             <th class="noBorder"><label for="${cons.clientSecret}">Application Key: <l:star/></label></th>
             <td>
-                <input type="password" class="longField ignoreModified"
-                       data-bind="textInput: clientSecret"/>
-                <input type="hidden" name="prop:${cons.clientSecret}"
-                       value="<c:out value="${propertiesBean.properties[cons.clientSecret]}"/>"
-                       data-bind="initializeValue: clientSecret, value: clientSecret"/>
+                <input name="prop:${cons.clientSecret}" id="${cons.clientSecret}" type="password" class="longField ignoreModified"
+                       data-bind="textInput: displayPassword" value="${AZURE_PASSWORD_STUB}"/>
+                <input type="hidden" name="prop:encrypted:${cons.clientSecret}" id="prop:encrypted:${cons.clientSecret}"
+                       data-bind="value: clientSecret"/>
                 <span class="smallNote">Azure AD application key <bs:help
                         urlPrefix="${azureLink}#get-application-id-and-authentication-key" file=""/></span>
                 <span class="error option-error" data-bind="validationMessage: clientSecret"></span>
@@ -663,9 +665,10 @@
             <input type="hidden" name="prop:${cons.imagesData}"
                    value="<c:out value="${empty sourceImagesData || sourceImagesData == '[]' ? imagesData : sourceImagesData}"/>"
                    data-bind="initializeValue: images_data, value: images_data"/>
-            <c:set var="passwordsValue" value="${propertiesBean.properties['secure:passwords_data']}"/>
-            <input type="hidden" name="prop:secure:passwords_data" value="<c:out value="${passwordsValue}"/>"
-                   data-bind="initializeValue: passwords_data, value: passwords_data"/>
+            <input type="password" name="prop:secure:passwords_data" id="secure:passwords_data" class="longField ignoreModified misc"
+                   value="${AZURE_PASSWORD_STUB}"/>
+            <input type="hidden" name="prop:encrypted:secure:passwords_data" id="prop:encrypted:secure:passwords_data"
+                   data-bind="value: passwords_data"/>
         </div>
 
         <a class="btn" href="#" disabled="disabled"
@@ -705,7 +708,12 @@
               baseUrl: "<c:url value='${basePath}'/>",
               projectId: "${projectId}",
               contextPath: "${contextPath}",
-              imageListControlId: "${cons.imageId}"
+              imageListControlId: "${cons.imageId}",
+              publicKey: "${publicKey}",
+              clientSecret: "${empty propertiesBean.properties[cons.clientSecret] ? "" : propertiesBean.getEncryptedPropertyValue(cons.clientSecret)}",
+              azurePassStub: "${AZURE_PASSWORD_STUB}",
+              updateImageRequestPath: "<c:url value='${updateConstants.updateImageRequestPath}'/>",
+              passwords_data: "${propertiesBean.getEncryptedPropertyValue("secure:passwords_data")}"
           }), dialog);
       });
     });

@@ -52,6 +52,12 @@ class AzureCloudClientFactory(
         return azureCloudClient
     }
 
+    override fun getTypeDescription(): String = """
+        Agents are hosted on Azure Virtual Machines that provide unique versions of Microsoft Windows. This is customizable solution that can be tailored to various TeamCity projects.
+    """.trimIndent()
+
+    override fun getProfileIconUrl(): String = myPluginDescriptor.getPluginResourcesPath("icon.svg")
+
     override fun parseImageData(params: CloudClientParameters): Collection<AzureCloudImageDetails> {
         if (!params.getParameter(CloudImageParameters.SOURCE_IMAGES_JSON).isNullOrEmpty()) {
             return AzureUtils.parseImageData(AzureCloudImageDetails::class.java, params)

@@ -34,10 +34,14 @@ data class CreateDeploymentTaskParameter(
         val tags: Map<String, String>,
         val targetResourceType: String)
 
-class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, CreateDeploymentTaskParameter, Unit>() {
+data class CreateDeploymentTaskDescriptor(
+        val instance: FetchInstancesTaskInstanceDescriptor?
+)
+
+class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotifications) : AzureThrottlerTaskBaseImpl<AzureApi, CreateDeploymentTaskParameter, CreateDeploymentTaskDescriptor>() {
     private val objectMapper = ObjectMapper()
 
-    override fun create(api: AzureApi, taskContext: AzureTaskContext, parameter: CreateDeploymentTaskParameter): Single<Unit> {
+    override fun create(api: AzureApi, taskContext: AzureTaskContext, parameter: CreateDeploymentTaskParameter): Single<CreateDeploymentTaskDescriptor> {
         if (TeamCityProperties.getBooleanOrTrue(TEAMCITY_CLOUDS_AZURE_TASKS_CTREATEDEPLOYMENT_USE_MILTITHREAD_POLLING)) {
             val managerClient = api.deploymentsClient()
 
@@ -58,15 +62,18 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                     taskContext.getDeferralSequence()
                 }
                 .concatMap {
-                    myNotifications.raise(AzureTaskDeploymentStatusChangedEventArgs(
-                        api,
-                        it.id(),
-                        it.name(),
-                        it.properties().provisioningState(),
-                        it.properties().providers(),
-                        it.properties().dependencies(),
-                        taskContext
-                    ))
+                    val event = AzureTaskDeploymentStatusChangedEventArgs(
+                            api,
+                            it.id(),
+                            it.name(),
+                            it.properties().provisioningState(),
+                            it.properties().providers(),
+                            it.properties().dependencies(),
+                            taskContext,
+                    )
+                    myNotifications
+                            .raise(event)
+                            .map { CreateDeploymentTaskDescriptor(event.instance) }
                 }
                 .onErrorResumeNext { throwable ->
                     if (throwable is CloudException &&
@@ -74,18 +81,20 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         VIRTUAL_MACHINES_RESOURCE_TYPE.equals(parameter.targetResourceType, ignoreCase = true)
                     ) {
                         LOG.debug("Deployment has gone. Name: ${parameter.deploymentName}, corellationId: [${taskContext.corellationId}]")
-                        myNotifications.raise(AzureTaskVirtualMachineCreated(
-                                api,
-                                taskContext,
-                                ResourceUtils.constructResourceId(
-                                    api.subscriptionId(),
-                                    parameter.groupName,
-                                    VIRTUAL_MACHINES_PROVIDER_NAMESPACE,
-                                    VIRTUAL_MACHINES_RESOURCE_TYPE_SHORT,
-                                    parameter.deploymentName,
-                                    ""),
-                            )
+                        val event = AzureTaskVirtualMachineCreated(
+                            api,
+                            taskContext,
+                            ResourceUtils.constructResourceId(
+                                api.subscriptionId(),
+                                parameter.groupName,
+                                VIRTUAL_MACHINES_PROVIDER_NAMESPACE,
+                                VIRTUAL_MACHINES_RESOURCE_TYPE_SHORT,
+                                parameter.deploymentName,
+                                ""),
                         )
+                        myNotifications
+                            .raise(event)
+                            .map { CreateDeploymentTaskDescriptor(event.instance) }
                     } else {
                         Observable.error(throwable)
                     }
@@ -105,7 +114,7 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
             )
                 .concatMap {
                     val inner = it.inner()
-                    myNotifications.raise(AzureTaskDeploymentStatusChangedEventArgs(
+                    val event = AzureTaskDeploymentStatusChangedEventArgs(
                         api,
                         inner.id(),
                         inner.name(),
@@ -113,7 +122,10 @@ class CreateDeploymentTaskImpl(private val myNotifications: AzureTaskNotificatio
                         inner.properties().providers(),
                         inner.properties().dependencies(),
                         taskContext
-                    ))
+                    )
+                    myNotifications
+                        .raise(event)
+                        .map { CreateDeploymentTaskDescriptor(event.instance) }
                 }
                 .toSingle()
         }

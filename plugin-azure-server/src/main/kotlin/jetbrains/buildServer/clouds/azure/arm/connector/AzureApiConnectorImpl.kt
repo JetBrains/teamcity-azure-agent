@@ -115,11 +115,7 @@ class AzureApiConnectorImpl(
 
                 val errors = arrayListOf<TypedCloudErrorInfo>()
                 for (instanceDescriptor in instanceDescriptorMap.getOrDefault(image.id, emptyList())) {
-                    val instance = AzureInstance(instanceDescriptor.name)
-                    updateInstanceByDescriptor(instance, instanceDescriptor)
-
-                    map[instance.name] = instance
-
+                    map[instanceDescriptor.name] = createInstanceFromDescriptor(instanceDescriptor)
                     instanceDescriptor.error?.let { errors.add(it) }
                 }
                 image.updateErrors(*errors.toTypedArray())
@@ -168,12 +164,14 @@ class AzureApiConnectorImpl(
         return false
     }
 
-    private fun updateInstanceByDescriptor(instance: AzureInstance, instanceDescriptor: FetchInstancesTaskInstanceDescriptor) {
+    private fun createInstanceFromDescriptor(instanceDescriptor: FetchInstancesTaskInstanceDescriptor): AzureInstance {
+        val instance = AzureInstance(instanceDescriptor.name)
         instance.properties = instanceDescriptor.tags
         instanceDescriptor.powerState?.let { instance.setPowerState(it) }
         instanceDescriptor.provisioningState?.let { instance.setProvisioningState(it) }
         instanceDescriptor.startDate?.let { instance.setStartDate(it) }
         instanceDescriptor.publicIpAddress?.let { instance.setIpAddress(it) }
+        return instance
     }
 
     override fun checkImage(image: AzureCloudImage) = runBlocking {
@@ -358,12 +356,25 @@ class AzureApiConnectorImpl(
      * @param userData is a custom data.
      * @return promise.
      */
-    override suspend fun createInstance(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
-        instance.properties[AzureConstants.TAG_SERVER] = myServerIdFunc()
-        if (!instance.image.imageDetails.isVmInstance()) {
-            createContainer(instance, userData)
-        } else {
-            createVm(instance, userData)
+    override suspend fun createInstance(instance: AzureCloudInstance, userData: CloudInstanceUserData) {
+        coroutineScope {
+            instance.properties[AzureConstants.TAG_SERVER] = myServerIdFunc()
+            val resultDescriptor = if (!instance.image.imageDetails.isVmInstance())
+                createContainer(instance, userData)
+            else
+                createVm(instance, userData)
+
+            resultDescriptor?.let {
+                val newInstance = createInstanceFromDescriptor(it)
+                instance.apply {
+                    hasVmInstance = true
+                    status = newInstance.instanceStatus
+                    setStartDate(newInstance.startDate ?: Date())
+                }
+                newInstance.ipAddress?.let { ipAddress ->
+                    if (ipAddress.isNotEmpty()) instance.setNetworkIdentify(ipAddress)
+                }
+            }
         }
     }
 
@@ -519,12 +530,13 @@ class AzureApiConnectorImpl(
     private suspend fun createDeployment(groupId: String, deploymentId: String, template: String, params: String, tagsMap: Map<String, String>, targetResourceType: String) = coroutineScope {
         deploymentLocks.getOrPut("$groupId/$deploymentId") { Mutex() }.withLock {
             try {
-                myAzureRequestsThrottler.executeUpdateTask(
+                val result = myAzureRequestsThrottler.executeUpdateTask(
                     AzureThrottlerActionTasks.CreateDeployment,
                     CreateDeploymentTaskParameter(groupId, deploymentId, template, params, tagsMap, targetResourceType))
                     .awaitOne()
 
-                LOG.debug("Created deployment in group $groupId")
+                LOG.debug("Created deployment $deploymentId in resource group $groupId. Resource id: ${result.instance?.id}")
+                result.instance
             } catch (e: com.microsoft.azure.CloudException) {
                 val details = AzureUtils.getExceptionDetails(e)
                 val message = "Failed to create deployment $deploymentId in resource group $groupId: $details"
@@ -532,6 +544,7 @@ class AzureApiConnectorImpl(
                 if (!message.endsWith("Canceled")) {
                     throw CloudException(message, e)
                 }
+                null
             } catch (e: Throwable) {
                 val message = "Failed to create deployment $deploymentId in resource group $groupId: ${e.message}"
                 LOG.debug(message, e)

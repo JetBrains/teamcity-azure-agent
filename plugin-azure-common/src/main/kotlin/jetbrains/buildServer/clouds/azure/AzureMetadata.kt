@@ -124,9 +124,24 @@ object AzureMetadata {
     )
 
     data class Compute(
-            val name: String?,
-            val userData: String?
+        val name: String?,
+        val licenseType: String?,
+        val offer: String?,
+        val osType: String?,
+        val sku: String?,
+        val version: String?,
+        val exactVersion: String?,
+        val vmId: String?,
+        val vmSize: String?,
+        val vmScaleSetName: String?,
+        val tags: String?,
+        val userData: String?
     )
+    {
+        fun asMap() : Map<*, *> {
+            return GSON.fromJson(GSON.toJson(this), Map::class.java)
+        }
+    }
 
     data class Network(
             @SerializedName("interface")

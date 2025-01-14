@@ -20,7 +20,7 @@ class AzureMetadataReader(
         }
 
         val result = updateConfiguration(metadata)
-        runSpotChecker(metadata);
+        runSpotChecker(metadata)
         return result
     }
 
@@ -31,10 +31,15 @@ class AzureMetadataReader(
     }
 
     internal fun updateConfiguration(metadata: AzureMetadata.Metadata): MetadataReaderResult {
-        metadata.compute?.name?.let {
-            if (it.isNotBlank() && configuration.name.isBlank()) {
-                LOG.info("Setting name from instance metadata: $it")
-                configuration.name = it
+        metadata.compute?.let {
+            if (it.name?.isNotBlank() == true && configuration.name.isBlank()) {
+                LOG.info("Setting name from instance metadata: ${it.name}")
+                configuration.name = it.name
+            }
+            for ((key, value) in it.asMap())
+            {
+                LOG.info("Setting properties from instance metadata")
+                configuration.addSystemProperty(AzureProperties.INSTANCE_PREFIX + key, value?.toString() ?: "")
             }
         }
 

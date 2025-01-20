@@ -1,19 +1,3 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
@@ -22,7 +6,9 @@ import rx.Single
 import rx.internal.util.SubscriptionList
 import java.time.Clock
 import java.time.LocalDateTime
-import java.util.concurrent.*
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.locks.ReentrantReadWriteLock
@@ -108,10 +94,7 @@ class AzureThrottlerImpl<A, I>(
 
     override fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P, timeout: Long, timeUnit: TimeUnit): Single<T> {
         val executionId = myNonBlockingTaskExecutionId.incrementAndGet()
-        LOG.debug("[${taskDescriptor.taskId}-$executionId] Starting non blocking task")
-
         return executeTask<P, T>(taskDescriptor.taskId, parameters)
-                .doOnEach { LOG.debug("[${taskDescriptor.taskId}-$executionId] Single On Each Value of task. Kind: ${it.kind}") }
                 .timeout(timeout, timeUnit, schedulers.timeoutScheduler)
                 .onErrorResumeNext { error ->
                     LOG.debug("[${taskDescriptor.taskId}-$executionId] Error occurred: $error")
@@ -121,8 +104,6 @@ class AzureThrottlerImpl<A, I>(
                     }
                     return@onErrorResumeNext Single.error<T>(error)
                 }
-                .doOnSubscribe { LOG.debug("[${taskDescriptor.taskId}-$executionId] Subscribing") }
-                .doOnUnsubscribe { LOG.debug("[${taskDescriptor.taskId}-$executionId] Unsubscribing") }
     }
 
     override fun <P, T> executeTaskWithTimeout(taskDescriptor: AzureTaskDescriptor<A, I, P, T>, parameters: P): Single<T> {

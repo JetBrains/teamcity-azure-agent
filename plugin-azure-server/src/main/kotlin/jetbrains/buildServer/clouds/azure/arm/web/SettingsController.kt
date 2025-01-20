@@ -1,23 +1,8 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure.arm.web
 
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnectorFactory
+import jetbrains.buildServer.clouds.azure.arm.utils.Serialization
 import jetbrains.buildServer.clouds.azure.utils.PluginPropertiesUtil
 import jetbrains.buildServer.controllers.ActionErrors
 import jetbrains.buildServer.controllers.BaseController
@@ -32,7 +17,6 @@ import jetbrains.buildServer.web.util.WebUtil
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
-import org.jdom.Content
 import org.jdom.Element
 import org.springframework.web.servlet.ModelAndView
 import java.io.IOException
@@ -120,7 +104,7 @@ class SettingsController(server: SBuildServer,
             errors.serialize(xmlResponse)
         }
 
-        writeResponse(xmlResponse, asyncContext.response)
+        Serialization.writeResponse(xmlResponse, asyncContext.response)
         asyncContext.complete()
     }
 
@@ -136,13 +120,5 @@ class SettingsController(server: SBuildServer,
 
     companion object {
         private val LOG = Logger.getInstance(SettingsController::class.java.name)
-
-        private fun writeResponse(xmlResponse: Element, response: ServletResponse) {
-            try {
-                XmlResponseUtil.writeXmlResponse(xmlResponse, response as HttpServletResponse)
-            } catch (e: IOException) {
-                throw RuntimeException(e)
-            }
-        }
     }
 }

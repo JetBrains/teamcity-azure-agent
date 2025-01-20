@@ -1,19 +1,3 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
@@ -27,7 +11,6 @@ import rx.subjects.PublishSubject
 import java.time.Clock
 import java.time.LocalDateTime
 import java.time.ZoneOffset
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
@@ -127,7 +110,6 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
     override fun setCacheTimeout(timeoutInSeconds: Long, source: AzureThrottlingSource) {
         val timeout = max(defaultCacheTimeoutInSeconds, timeoutInSeconds)
         if (myCacheTimeoutInSeconds.get() == timeout) {
-            LOG.debug("[$name] New timeout $timeoutInSeconds was ignored for $taskId task (current value: $timeout)")
             return
         }
 
@@ -172,7 +154,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
             } else {
                 val cacheValue = task.getFromCache(requestBatch.parameter)
                 if (cacheValue != null && !task.needCacheUpdate(requestBatch.parameter)) {
-                    LOG.debug("[$name] Updating queue items from cache for task $taskId. Count: ${requestBatch.count()}")
+                    LOG.debug("[$name] Updating queue items from cache for task $taskId. Task count: ${requestBatch.count()}")
 
                     val cacheSubscription = SubscriptionList()
                     mySubscriptions.add(cacheSubscription)
@@ -189,8 +171,7 @@ class AzureThrottlerTaskQueueImpl<A, I, P, T>(
         val resultSubscription = SubscriptionList()
         mySubscriptions.add(resultSubscription)
         resultSubscription.add(adapter
-                .execute { task.create(adapter.api, requestBatch.parameter) }
-                .doOnEach { LOG.debug("[$name] [$taskId] Received task notification. Kind: ${it.kind}") }
+                .execute { api, taskContext -> task.create(api, taskContext, requestBatch.parameter) }
                 .subscribeOn(requestScheduler)
                 .doOnSuccess {
                     myLastUpdatedDateTime.set(LocalDateTime.now(Clock.systemUTC()))

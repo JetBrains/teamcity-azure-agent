@@ -1,29 +1,15 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
+import jetbrains.buildServer.util.Disposable
 import rx.Observable
-import rx.Observer
 import rx.Single
-import rx.Subscription
 import rx.internal.util.SubscriptionList
 import rx.subjects.Subject
 import java.time.Clock
+import java.time.Duration
 import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
 enum class AzureThrottlerTaskTimeExecutionType {
@@ -49,8 +35,21 @@ interface AzureThrottlerCacheableTask<A, P, T> : AzureThrottlerTask<A, P, T> {
     fun checkThrottleTime(parameter: P): Boolean
 }
 
+interface AzureTaskContext {
+    val corellationId: String
+
+    fun apply()
+    fun getRequestSequenceLength(): Long
+    fun increaseRequestsSequenceLength()
+    fun getDeferralSequence(): Observable<Unit>
+}
+
+interface AzureTaskContextProvider {
+    fun getContext(): AzureTaskContext?
+}
+
 interface AzureThrottlerTask<A, P, T> :  AzureThrottlerTaskParameterEqualityComparer<P> {
-    fun create(api: A, parameter: P): Single<T>
+    fun create(api: A, taskContext: AzureTaskContext, parameter: P): Single<T>
 }
 
 interface AzureThrottlerTaskParameterEqualityComparer<P> {
@@ -154,7 +153,7 @@ data class AzureThrottlerTaskQueueCallHistoryStatistics(
 
 data class AzureThrottlerAdapterResult<T>(val value: T?, val requestsCount: Long?, val fromCache: Boolean)
 
-interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier {
+interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier, AzureTaskContextProvider {
     val api: A
     val name: String
     fun setThrottlerTime(milliseconds: Long)
@@ -163,7 +162,7 @@ interface AzureThrottlerAdapter<A> : AzureThrottlerAdapterRemainingReadsNotifier
     fun getWindowStartDateTime(): LocalDateTime
     fun getRemainingReads(): Long
     fun getDefaultReads(): Long
-    fun <T> execute(queryFactory: (A) -> Single<T>): Single<AzureThrottlerAdapterResult<T>>
+    fun <T> execute(queryFactory: (A, AzureTaskContext) -> Single<T>): Single<AzureThrottlerAdapterResult<T>>
     fun logDiagnosticInfo()
 }
 
@@ -174,6 +173,34 @@ interface AzureThrottlerAdapterRemainingReadsNotifier {
 interface AzureThrottlerTaskCompletionResultNotifier {
     fun notifyRateLimitReached(retryAfterTimeoutInSeconds: Long)
     fun notifyCompleted(performedRequests: Boolean)
+}
+
+interface AzureTimeManager : Disposable {
+    fun getTicket(corellationId: String): AzureOperationTicket
+
+    fun getDeferralSequence(corellationId: String) : Observable<Unit>
+}
+
+interface AzureTicketTimeManager {
+    fun getTicket(corellationId: String): AzureOperationTicket
+}
+
+interface AzureDefettalSequenceTimeManager : Disposable {
+    fun getDeferralSequence(corellationId: String) : Observable<Unit>
+}
+
+data class AzureOperationTicket(
+    val corellationId: String,
+    val createdDate: LocalDateTime,
+    val timestamp: LocalDateTime,
+    val startTime: LocalDateTime,
+) {
+    fun getOffset() : Duration =
+        Duration.ofMillis(Math.max(ChronoUnit.MILLIS.between(LocalDateTime.now(ZoneOffset.UTC), startTime), 0))
+}
+
+interface AzureTimeManagerFactory {
+    fun create(): AzureTimeManager
 }
 
 class ThrottlerRateLimitReachedException(val retryAfterTimeoutInSeconds: Long, val requestSequenceLength: Long?, msg: String? = null, cause: Throwable? = null): Exception(msg, cause)

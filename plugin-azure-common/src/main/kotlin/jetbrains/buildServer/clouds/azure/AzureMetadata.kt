@@ -1,19 +1,3 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure
 
 import com.google.gson.Gson
@@ -140,8 +124,24 @@ object AzureMetadata {
     )
 
     data class Compute(
-            val name: String?
+        val name: String?,
+        val licenseType: String?,
+        val offer: String?,
+        val osType: String?,
+        val sku: String?,
+        val version: String?,
+        val exactVersion: String?,
+        val vmId: String?,
+        val vmSize: String?,
+        val vmScaleSetName: String?,
+        val tags: String?,
+        val userData: String?
     )
+    {
+        fun asMap() : Map<*, *> {
+            return GSON.fromJson(GSON.toJson(this), Map::class.java)
+        }
+    }
 
     data class Network(
             @SerializedName("interface")
@@ -198,7 +198,7 @@ object AzureMetadata {
             val eventId: String?
     )
 
-    private const val INSTANCE_METADATA_URL = "http://169.254.169.254/metadata/instance?api-version=2020-09-01"
+    private const val INSTANCE_METADATA_URL = "http://169.254.169.254/metadata/instance?api-version=2021-02-01"
 
     private const val SCHEDULED_EVENTS_METADATA_URL = "http://169.254.169.254/metadata/scheduledevents?api-version=2019-08-01"
 

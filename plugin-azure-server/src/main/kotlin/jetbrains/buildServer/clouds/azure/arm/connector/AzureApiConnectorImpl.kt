@@ -1,21 +1,7 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure.arm.connector
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.SerializationFeature
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.management.compute.OperatingSystemStateTypes
 import com.microsoft.azure.storage.CloudStorageAccount
@@ -26,8 +12,26 @@ import jetbrains.buildServer.clouds.CloudException
 import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.clouds.azure.AzureCompress
 import jetbrains.buildServer.clouds.azure.AzureProperties
-import jetbrains.buildServer.clouds.azure.arm.*
-import jetbrains.buildServer.clouds.azure.arm.connector.tasks.*
+import jetbrains.buildServer.clouds.azure.AzureUserData
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudDeployTarget
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImage
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageType
+import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
+import jetbrains.buildServer.clouds.azure.arm.AzureConstants
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerActionTasks
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureThrottlerReadTasks
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.CreateDeploymentTaskParameter
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.CreateResourceGroupTaskParameter
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.CustomImageTaskImageDescriptor
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.DeleteDeploymentTaskParameter
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.FetchInstancesTaskInstanceDescriptor
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.FetchInstancesTaskParameter
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.FetchStorageAccountKeysTaskParameter
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.FetchVirtualMachinesTaskVirtualMachineDescriptor
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.RestartVirtualMachineTaskParameter
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.StartVirtualMachineTaskParameter
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.StopVirtualMachineTaskParameter
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottler
 import jetbrains.buildServer.clouds.azure.arm.throttler.AzureRequestThrottlerCache
 import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_TASKS_THROTTLER_TIMEOUT_SEC
@@ -41,6 +45,7 @@ import jetbrains.buildServer.clouds.azure.utils.AlphaNumericStringComparator
 import jetbrains.buildServer.clouds.base.connector.AbstractInstance
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
 import jetbrains.buildServer.clouds.base.errors.TypedCloudErrorInfo
+import jetbrains.buildServer.parameters.ReferencesResolverUtil
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
@@ -59,12 +64,13 @@ import java.util.concurrent.TimeUnit
 class AzureApiConnectorImpl(
     params: Map<String, String>,
     myAzureRequestThrottlerCache: AzureRequestThrottlerCache,
-    private val myServerIdFunc: () -> String
+    private val myProfileId: String?,
+    private val parametersProvider: AzureProjectParametersProvider,
+    private val myServerIdFunc: () -> String,
 )
     : AzureApiConnectorBase<AzureCloudImage, AzureCloudInstance>(), AzureApiConnector {
 
     private var myAzureRequestsThrottler: AzureRequestThrottler
-    private var myProfileId: String? = null
     private val deploymentLocks = ConcurrentHashMap<String, Mutex>()
 
     init {
@@ -140,29 +146,22 @@ class AzureApiConnectorImpl(
         val name = instance.name
         val tags = instance.tags
         val id = instance.id
-        val resourceTypeLogName = if (isVm) "vm" else "container"
 
         if (isVm && details.target == AzureCloudDeployTarget.Instance) {
-            if (id != details.instanceId!!) {
-                return true
-            }
-            return false
+            return !id.equals(details.instanceId, true)
         }
 
         if (!name.startsWith(details.sourceId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with name $name for sourceId ${details.sourceId}")
             return true
         }
 
         val sourceName = tags[AzureConstants.TAG_SOURCE]
         if (!sourceName.equals(details.sourceId, true)) {
-            LOG.debug("Ignore $resourceTypeLogName with invalid source tag $sourceName")
             return true
         }
 
         val resourceProfileId = tags[AzureConstants.TAG_PROFILE]
         if (!resourceProfileId.equals(myProfileId, true)) {
-            LOG.debug("Ignore resource with invalid profile tag $resourceProfileId")
             return true
         }
 
@@ -259,25 +258,28 @@ class AzureApiConnectorImpl(
      * @return image name.
      */
     override suspend fun getImageName(imageId: String): String = coroutineScope {
-        var images = emptyList<CustomImageTaskImageDescriptor>()
+        val images: List<CustomImageTaskImageDescriptor>
         try {
             images = myAzureRequestsThrottler.executeReadTaskWithTimeout(AzureThrottlerReadTasks.FetchCustomImages, Unit)
                 .awaitOne()
-            LOG.debug("Received image $imageId")
-
-            val image = images.first { it.id.equals(imageId, ignoreCase = true) }
-            image.name
+            LOG.debug("Received images")
         } catch (e: ThrottlerExecutionTaskException) {
             throw e
         } catch (e: Throwable) {
-            val message = "Failed to get image $imageId: ${e.message}"
+            val message = "Failed to get images: ${e.message}"
             LOG.debug(message, e)
-
-            val listOfImages = "List of custom images: ${images.joinToString { it.id }}"
-            LOG.debug(listOfImages)
 
             throw CloudException(message, e)
         }
+        val image = images.firstOrNull { it.id.equals(imageId, ignoreCase = true) }
+        if (image == null) {
+            val message = "Failed to find image '$imageId'"
+            val listOfImages = "$message across defined images: ${images.joinToString { it.id }}"
+            LOG.debug(listOfImages)
+
+            throw CloudException("$message across defined images in current subscription")
+        }
+        image.name
     }
 
     /**
@@ -388,8 +390,23 @@ class AzureApiConnectorImpl(
         val template = builder.toString()
         val parameters = builder.serializeParameters()
 
-        createDeployment(groupId, name, template, parameters)
+        val templateSafeRemovalFlag = if (instance.image.imageDetails.imageType == AzureCloudImageType.Template)
+            getProjectFlag("teamcity.cloud.azure.arm.agent.features.template.safeRemoval")
+        else false
+
+        val featuresTagValue = AzureUtils.getDeploymentFeaturesTagValue(true, templateSafeRemovalFlag)
+        val tagsMap = mapOf(AzureConstants.TAG_FEATURES to featuresTagValue)
+
+        createDeployment(groupId, name, template, parameters, tagsMap, VIRTUAL_MACHINES_RESOURCE_TYPE)
     }
+
+    private fun getProjectFlag(name: String) = (myProfileId
+        ?.let { parametersProvider.getParameters(it) }
+        ?.valueResolver
+        ?.resolve(ReferencesResolverUtil.makeReference(name))
+        ?.let { if (it.isFullyResolved) it.result else null }
+        ?.toBoolean()
+        ?: false)
 
     private suspend fun createContainer(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         val name = instance.name
@@ -420,7 +437,7 @@ class AzureApiConnectorImpl(
         val template = builder.toString()
         val parameters = builder.serializeParameters()
 
-        createDeployment(groupId, name, template, parameters)
+        createDeployment(groupId, name, template, parameters, emptyMap(), CONTAINER_INSTANCE_RESOURCE_TYPE)
     }
 
     private suspend fun addContainerCustomData(instance: AzureCloudInstance, userData: CloudInstanceUserData, builder: ArmTemplateBuilder) = coroutineScope {
@@ -469,6 +486,17 @@ class AzureApiConnectorImpl(
         }
     }
 
+    private fun encodeAzureUserData(userData: CloudInstanceUserData, name: String): String {
+        return try {
+            val customData = userData.serialize()
+            AzureUserData.serializeV1(customData, name)
+        } catch (e: Exception) {
+            val message = "Failed to encode azure user data for instance $name: ${e.message}"
+            LOG.debug(message, e)
+            throw CloudException(message, e)
+        }
+    }
+
     private suspend fun createResourceGroup(groupId: String, region: String) = coroutineScope {
         try {
             myAzureRequestsThrottler.executeUpdateTask(
@@ -488,12 +516,12 @@ class AzureApiConnectorImpl(
         }
     }
 
-    private suspend fun createDeployment(groupId: String, deploymentId: String, template: String, params: String) = coroutineScope {
+    private suspend fun createDeployment(groupId: String, deploymentId: String, template: String, params: String, tagsMap: Map<String, String>, targetResourceType: String) = coroutineScope {
         deploymentLocks.getOrPut("$groupId/$deploymentId") { Mutex() }.withLock {
             try {
                 myAzureRequestsThrottler.executeUpdateTask(
                     AzureThrottlerActionTasks.CreateDeployment,
-                    CreateDeploymentTaskParameter(groupId, deploymentId, template, params))
+                    CreateDeploymentTaskParameter(groupId, deploymentId, template, params, tagsMap, targetResourceType))
                     .awaitOne()
 
                 LOG.debug("Created deployment in group $groupId")
@@ -524,6 +552,7 @@ class AzureApiConnectorImpl(
         } else {
             deleteDeployTarget(instance)
         }
+        instance.hasVmInstance = false
         Unit
     }
 
@@ -684,20 +713,21 @@ class AzureApiConnectorImpl(
      * @param instance is a cloud instance.
      * @return promise.
      */
-    override suspend fun startInstance(instance: AzureCloudInstance) = coroutineScope {
+    override suspend fun startInstance(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         if (!instance.image.imageDetails.isVmInstance()) {
             throw CloudException("Starting container instances is not supported")
         } else {
-            startVm(instance)
+            startVm(instance, userData)
         }
     }
 
-    private suspend fun startVm(instance: AzureCloudInstance) = coroutineScope {
+    private suspend fun startVm(instance: AzureCloudInstance, userData: CloudInstanceUserData) = coroutineScope {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
 
         try {
-            myAzureRequestsThrottler.executeUpdateTask(AzureThrottlerActionTasks.StartVirtualMachine, StartVirtualMachineTaskParameter(groupId, name))
+            val azureUserData = encodeAzureUserData(userData, name)
+            myAzureRequestsThrottler.executeUpdateTask(AzureThrottlerActionTasks.StartVirtualMachine, StartVirtualMachineTaskParameter(groupId, name, azureUserData))
                 .awaitOne()
             LOG.debug("Virtual machine $name has been successfully started")
         } catch (e: com.microsoft.azure.CloudException) {
@@ -729,22 +759,24 @@ class AzureApiConnectorImpl(
     private suspend fun stopVm(instance: AzureCloudInstance) = coroutineScope {
         val name = instance.name
         val groupId = getResourceGroup(instance.image.imageDetails, name)
+        deploymentLocks.getOrPut("$groupId/${instance.name}") { Mutex() }.withLock {
+            try {
+                myAzureRequestsThrottler.executeUpdateTask(
+                        AzureThrottlerActionTasks.StopVirtualMachine,
+                        StopVirtualMachineTaskParameter(groupId, name))
+                        .awaitOne()
+                LOG.debug("Virtual machine $name has been successfully stopped")
+            } catch (e: com.microsoft.azure.CloudException) {
+                val details = AzureUtils.getExceptionDetails(e)
+                val message = "Failed to stop virtual machine $name: $details"
+                LOG.debug(message, e)
+                throw CloudException(message, e)
+            } catch (e: Throwable) {
+                val message = "Failed to stop virtual machine $name: ${e.message}"
+                LOG.debug(message, e)
+                throw CloudException(message, e)
 
-        try {
-            myAzureRequestsThrottler.executeUpdateTask(
-                    AzureThrottlerActionTasks.StopVirtualMachine,
-                    StopVirtualMachineTaskParameter(groupId, name))
-                    .awaitOne()
-            LOG.debug("Virtual machine $name has been successfully stopped")
-        } catch (e: com.microsoft.azure.CloudException) {
-            val details = AzureUtils.getExceptionDetails(e)
-            val message = "Failed to stop virtual machine $name: $details"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
-        } catch (e: Throwable) {
-            val message = "Failed to stop virtual machine $name: ${e.message}"
-            LOG.debug(message, e)
-            throw CloudException(message, e)
+            }
         }
     }
 
@@ -920,11 +952,10 @@ class AzureApiConnectorImpl(
 
     private suspend fun getStorageAccountKeys(groupName: String, storageName: String) = coroutineScope {
         try {
-            val account = myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchStorageAccounts, Unit)
+            val result = myAzureRequestsThrottler.executeReadTask(AzureThrottlerReadTasks.FetchStorageAccountKeys, FetchStorageAccountKeysTaskParameter(groupName, storageName))
                 .awaitOne()
-                .first { x -> x.resourceGroupName.equals(groupName, ignoreCase = true) && x.name == storageName }
             LOG.debug("Received keys for storage account $storageName")
-            account.keys
+            result.map { it.value }
         } catch (e: Throwable) {
             val message = "Failed to get storage account $storageName key: ${e.message}"
             LOG.debug(message, e)
@@ -1029,15 +1060,6 @@ class AzureApiConnectorImpl(
         }
     }
 
-    /**
-     * Sets a profile identifier.
-     *
-     * @param profileId identifier.
-     */
-    fun setProfileId(profileId: String?) {
-        myProfileId = profileId
-    }
-
     private fun getResourceGroup(details: AzureCloudImageDetails, instanceName: String): String {
         return when (details.target) {
             AzureCloudDeployTarget.NewGroup -> instanceName
@@ -1060,5 +1082,8 @@ class AzureApiConnectorImpl(
                 "Microsoft.ContainerInstance" to listOf("containerGroups"),
                 "Microsoft.Compute" to listOf("virtualMachines")
         )
+        private const val VIRTUAL_MACHINES_RESOURCE_TYPE = "Microsoft.Compute/virtualMachines"
+        private const val CONTAINER_INSTANCE_RESOURCE_TYPE = "Microsoft.ContainerInstance/containerGroups"
+        private val mapper = ObjectMapper().configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false)
     }
 }

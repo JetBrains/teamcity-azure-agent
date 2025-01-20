@@ -1,59 +1,59 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
 import com.microsoft.azure.credentials.AzureTokenCredentials
-import com.microsoft.azure.management.Azure
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApi
+import jetbrains.buildServer.clouds.azure.arm.connector.tasks.AzureApiImpl
 import jetbrains.buildServer.serverSide.TeamCityProperties
 import jetbrains.buildServer.version.ServerVersionHolder
+import rx.Observable
+import rx.Scheduler
 import rx.Single
 import java.time.Clock
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.*
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
 
 class AzureThrottlerAdapterImpl (
         azureConfigurable: AzureConfigurableWithNetworkInterceptors,
+        resourceGraphConfigurable: ResourceGraphConfigurableWithNetworkInterceptors,
         credentials: AzureTokenCredentials,
         subscriptionId: String?,
+        private val timeManager: AzureTimeManager,
+        private val delayScheduler: Scheduler,
         override val name: String
-) : AzureThrottlerAdapter<Azure> {
+) : AzureThrottlerAdapter<AzureApi> {
     @Suppress("JoinDeclarationAndAssignment")
     private var myInterceptor: AzureThrottlerInterceptor
 
-    private val myAzure: Azure
+    private val myAzure: AzureApi
 
     private val myRemainingReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
     private val myWindowStartTime = AtomicReference<LocalDateTime>(LocalDateTime.now(Clock.systemUTC()))
     private val myDefaultReads = AtomicLong(DEFAULT_REMAINING_READS_PER_HOUR)
+    private var myTaskContext = ThreadLocal<TaskContext?>()
 
     init {
-        myInterceptor = AzureThrottlerInterceptor(this, name)
+        myInterceptor = AzureThrottlerInterceptor(this, this, name)
 
-        myAzure = azureConfigurable
+        myAzure = AzureApiImpl(
+            azureConfigurable
                 .configureProxy()
                 .withNetworkInterceptor(myInterceptor)
                 .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}")
                 .authenticate(credentials)
-                .withSubscription(subscriptionId)
+                .withSubscription(subscriptionId),
+            resourceGraphConfigurable
+                .configureProxy()
+                .withNetworkInterceptor(myInterceptor)
+                .withUserAgent("TeamCity Server ${ServerVersionHolder.getVersion().displayVersion}")
+                .authenticate(credentials)
+                .withSubscription(subscriptionId))
 
         myAzure
                 .deployments()
@@ -62,7 +62,7 @@ class AzureThrottlerAdapterImpl (
                 .azureClient
                 .setLongRunningOperationRetryTimeout(TeamCityProperties.getInteger(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_LONG_RUNNING_QUERY_RETRY_TIMEOUT, 30))
     }
-    override val api: Azure
+    override val api: AzureApi
         get() = myAzure
 
 
@@ -92,16 +92,26 @@ class AzureThrottlerAdapterImpl (
         return myRemainingReads.get()
     }
 
-    override fun <T> execute(queryFactory: (Azure) -> Single<T>): Single<AzureThrottlerAdapterResult<T>> {
-        return queryFactory(myAzure)
-                .doOnSubscribe { myInterceptor.onBeginRequestsSequence() }
-                .doOnUnsubscribe { myInterceptor.onEndRequestsSequence() }
-                .map {
-                    AzureThrottlerAdapterResult(
+    override fun <T> execute(queryFactory: (AzureApi, AzureTaskContext) -> Single<T>): Single<AzureThrottlerAdapterResult<T>> {
+        val taskContext = TaskContext(myTaskContext, timeManager, delayScheduler)
+        return taskContext
+            .getDeferralSequence()
+            .flatMap {
+                queryFactory(myAzure, taskContext)
+                    .doOnSubscribe {
+                        myTaskContext.set(taskContext)
+                    }
+                    .doOnUnsubscribe {
+                        myTaskContext.remove()
+                    }
+                    .map {
+                        AzureThrottlerAdapterResult(
                             it,
-                            myInterceptor.getRequestsSequenceLength(),
+                            taskContext.getRequestSequenceLength(),
                             false)
-                }
+                    }
+                    .toObservable()
+            }.toSingle()
     }
 
     override fun notifyRemainingReads(value: Long?, requestCount: Long) {
@@ -123,6 +133,44 @@ class AzureThrottlerAdapterImpl (
                 "Window start time: ${getWindowStartDateTime()}, " +
                 "Window width: ${Duration.ofMillis(getWindowWidthInMilliseconds())}, " +
                 "Throttler time: ${Duration.ofMillis(getThrottlerTime())}")
+    }
+
+    override fun getContext(): AzureTaskContext? = myTaskContext.get()
+
+    class TaskContext(
+        private val storage: ThreadLocal<TaskContext?>,
+        private val timeManager: AzureTimeManager,
+        private val delayScheduler: Scheduler
+    ) : AzureTaskContext {
+        private val myCorellationId: String
+        private val requestSequenceLength = AtomicLong(0)
+        override val corellationId: String
+            get() = myCorellationId
+
+        init {
+            myCorellationId = UUID.randomUUID().toString()
+        }
+
+        override fun apply() = storage.set(this)
+
+        override fun getRequestSequenceLength(): Long = requestSequenceLength.get()
+
+        override fun increaseRequestsSequenceLength() { requestSequenceLength.incrementAndGet() }
+
+        override fun getDeferralSequence(): Observable<Unit> {
+            return Observable.defer {
+                if (TeamCityProperties.getBoolean(TEAMCITY_CLOUDS_AZURE_THROTTLER_TIMEMANAGER_NEW_THROTTLING_MODEL_DISABLE)) {
+                    val ticket = timeManager.getTicket(myCorellationId)
+                    LOG.debug("Operation delay details: CorellationId: ${myCorellationId}, offset: ${ticket.getOffset()}")
+                    Observable.just(Unit)
+                        .delaySubscription(ticket.getOffset().toMillis(), TimeUnit.MILLISECONDS, delayScheduler)
+                } else {
+                    timeManager
+                        .getDeferralSequence(corellationId)
+                }
+            }
+                .map { apply() }
+        }
     }
 
     companion object {

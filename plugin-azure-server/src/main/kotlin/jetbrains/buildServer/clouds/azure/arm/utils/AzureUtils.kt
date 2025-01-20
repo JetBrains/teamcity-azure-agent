@@ -1,19 +1,3 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure.arm.utils
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
@@ -27,6 +11,7 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageType
 import jetbrains.buildServer.util.ExceptionUtil
 import jetbrains.buildServer.util.StringUtil
+import org.apache.commons.codec.binary.Base64
 import org.springframework.util.StringUtils
 import java.io.IOException
 
@@ -49,6 +34,7 @@ object AzureUtils {
         TemplateParameterDescriptor("teamcity-server", "string", true),
         TemplateParameterDescriptor("teamcity-source", "string", true),
     )
+    private val FEATURES_TAG_VERSION = 1
 
     internal val mapper = ObjectMapper()
 
@@ -120,7 +106,7 @@ object AzureUtils {
             return getTemplateParameters(template)
         }
         catch(e: TemplateParameterException) {
-            throw e;
+            throw e
         }
         catch(e: Exception) {
             throw TemplateParameterException("Incorrect template format", e)
@@ -144,7 +130,7 @@ object AzureUtils {
                 .toList()
         }
         catch(e: TemplateParameterException) {
-            throw e;
+            throw e
         }
         catch(e: Exception) {
             throw TemplateParameterException("Incorrect template format", e)
@@ -173,6 +159,46 @@ object AzureUtils {
         }
         return parametersMap.values.toList()
     }
+
+    internal fun getDeploymentFeaturesTagValue(isVM: Boolean, isSafeRemoval: Boolean): String {
+        try {
+            val inner = DeploymentFeaturesDescriptorInner()
+                .also {
+                    it.isVM = isVM
+                    it.isSafeRemoval = isSafeRemoval
+                }
+            val data = Base64.encodeBase64String(mapper.writeValueAsString(inner).toByteArray(Charsets.UTF_8))
+            return "${FEATURES_TAG_VERSION}-${data}"
+        } catch (e: Throwable) {
+            throw DeploymentFeaturesDescriptorError("Could not serialize features", e)
+        }
+    }
+
+    internal fun getDeploymentFeatures(tagValue: String): DeploymentFeaturesDescriptor {
+        val versionDelimiterIndex = tagValue.indexOf('-')
+        if (versionDelimiterIndex <= 0) {
+            throw DeploymentFeaturesDescriptorError("Incorrect format")
+        }
+        val version = try {
+            tagValue.substring(0, versionDelimiterIndex).toInt()
+        } catch(e: NumberFormatException) {
+            throw DeploymentFeaturesDescriptorError("Incorrect version", e)
+        }
+        if (version != 1) {
+            throw DeploymentFeaturesDescriptorError("Version ${version} is not supported")
+        }
+        val data = tagValue.substring(versionDelimiterIndex + 1)
+        val descriptor = try {
+            mapper.readValue(Base64.decodeBase64(data), DeploymentFeaturesDescriptorInner::class.java)
+        } catch (e: Throwable) {
+            throw DeploymentFeaturesDescriptorError("Could not parse data.", e)
+        }
+        return DeploymentFeaturesDescriptor(
+            version = version,
+            isVM = descriptor.isVM,
+            isSafeRemoval = descriptor.isSafeRemoval
+        )
+    }
 }
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -194,16 +220,28 @@ internal open class TemplateParameterDescriptor(
     val name: String,
     val type: String,
     val hasValue: Boolean
-) {
-}
+)
 
 internal class MatchedTemplateParameterDescriptior(
     value: TemplateParameterDescriptor,
     val isProvided: Boolean,
     val isMatched: Boolean
-) : TemplateParameterDescriptor(value.name, value.type, value.hasValue) {
-}
+) : TemplateParameterDescriptor(value.name, value.type, value.hasValue)
+
 class TemplateParameterException : Exception {
-    constructor(message: String) : super(message) { }
-    constructor(message: String, rootCause: Throwable) : super(message, rootCause) { }
+    constructor(message: String) : super(message)
+    constructor(message: String, rootCause: Throwable) : super(message, rootCause)
 }
+
+internal data class DeploymentFeaturesDescriptor(
+    val version: Int,
+    val isVM: Boolean,
+    val isSafeRemoval: Boolean
+)
+
+internal class DeploymentFeaturesDescriptorInner {
+    var isVM = false
+    var isSafeRemoval = false
+}
+
+class DeploymentFeaturesDescriptorError(message: String, cause: Throwable? = null): Exception(message, cause)

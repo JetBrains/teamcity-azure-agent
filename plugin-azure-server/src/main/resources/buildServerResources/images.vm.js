@@ -1,18 +1,4 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+
 
 function ArmImagesViewModel($, ko, dialog, config) {
   var self = this;
@@ -39,14 +25,32 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }
   };
 
+  const azurePassStub = config.azurePassStub;
+  const displayPassIfNotEmpty = (val) => {
+    if (val) {
+      return azurePassStub;
+    }
+
+    return '';
+  };
+
+  const encryptData = val => window.BS.Encrypt.encryptData(val, config.publicKey);
+
   self.credentials = ko.validatedObservable({
     environment: ko.observable().extend({required: true}),
     type: self.credentialsType,
     tenantId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
     clientId: ko.observable('').trimmed().extend(requiredForServiceCredentials),
-    clientSecret: ko.observable('').trimmed().extend(requiredForServiceCredentials),
+    displayPassword: ko.observable(displayPassIfNotEmpty(config.clientSecret)),
+    clientSecret: ko.observable(config.clientSecret).trimmed().extend(requiredForServiceCredentials),
     subscriptionId: ko.observable().extend({required: true}),
     region: ko.observable()
+  });
+
+  self.credentials().displayPassword.subscribe(function (val) {
+    if (val !== azurePassStub) {
+      self.credentials().clientSecret(encryptData(val));
+    }
   });
 
   self.isValidClientData = ko.pureComputed(function () {
@@ -162,7 +166,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
       } else {
         parametersMap[key] = Object.assign( {}, {
           name: key,
-          hasValue: !!value.defaultValue,
+          hasValue: value.defaultValue !== undefined && value.defaultValue !== null,
           isProvided: false,
           isMatched: false
         });
@@ -229,16 +233,28 @@ function ArmImagesViewModel($, ko, dialog, config) {
             return false;
           }
 
-          if (!root.parameters || !root.parameters.vmName) {
-            console.log("No 'vmName' parameter defined");
-            return false;
-          }
+          if (self.disableTemplateModification() === true) {
+            if (!root.parameters) {
+              console.log("No parameters defined");
+              return false;
+            }
 
-          if (!root.resources || !ko.utils.arrayFirst(root.resources, function (resource) {
+            if (!root.resources) {
+              console.log("No resources defined");
+              return false;
+            }
+          } else {
+            if (!root.parameters || !root.parameters.vmName) {
+              console.log("No 'vmName' parameter defined");
+              return false;
+            }
+
+            if (!root.resources || !ko.utils.arrayFirst(root.resources, function (resource) {
               return resource.name === "[parameters('vmName')]";
             })) {
-            console.log("No virtual machine resource with name set to vmName parameter");
-            return false;
+              console.log("No virtual machine resource with name set to vmName parameter");
+              return false;
+            }
           }
 
           return true;
@@ -328,7 +344,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     }).extend({
       validation: {
         validator: function (value) {
-          return self.originalImage && self.originalImage.vmNamePrefix === value || !self.passwords[value];
+          return self.originalImage && self.originalImage.vmNamePrefix === value || !self.vmNamePrefixes.has(value);
         },
         message: 'Name prefix should be unique within subscription'
       }
@@ -473,13 +489,13 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
   // Hidden fields for serialized values
   self.images_data = ko.observable();
-  self.passwords_data = ko.observable();
+  self.passwords_data = ko.observable(config.passwords_data);
 
   // Deserialized values
   self.images = ko.observableArray();
   self.instances = ko.observableArray();
   self.nets = {};
-  self.passwords = {};
+  self.vmNamePrefixes = new Set();
 
   self.credentialsType.subscribe(function () {
     self.loadSubscriptions();
@@ -657,6 +673,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
     images.forEach(function (image) {
       if (image["source-id"]) {
         image.vmNamePrefix = image["source-id"];
+        self.vmNamePrefixes.add(image.vmNamePrefix);
       } else {
         saveValue = true;
       }
@@ -682,10 +699,6 @@ function ArmImagesViewModel($, ko, dialog, config) {
 
     self.images(images);
     if (saveValue) saveImages();
-  });
-
-  self.passwords_data.subscribe(function (data) {
-    self.passwords = ko.utils.parseJson(data || "{}");
   });
 
   self.enableSpotPrice.subscribe(function(data) {
@@ -803,12 +816,12 @@ function ArmImagesViewModel($, ko, dialog, config) {
     model.registryPassword("");
     model.vmPassword("");
     if (image.deployTarget !== deployTargets.instance) {
-      var key = image.vmNamePrefix;
-      var password = Object.keys(self.passwords).indexOf(key) >= 0 ? self.passwords[key] : undefined;
-      if (image.imageType === imageTypes.container) {
-        model.registryPassword(password);
-      } else {
-        model.vmPassword(password);
+      if (image.groupId !== null) {
+        if (image.imageType === imageTypes.container) {
+          model.registryPassword(azurePassStub);
+        } else {
+          model.vmPassword(azurePassStub);
+        }
       }
     }
 
@@ -863,25 +876,51 @@ function ArmImagesViewModel($, ko, dialog, config) {
       enableSystemAssignedIdentity: model.enableSystemAssignedIdentity(),
     };
 
-    var originalImage = self.originalImage;
-    if (originalImage) {
-      self.images.replace(originalImage, image);
-      var originalKey = originalImage.vmNamePrefix;
-      delete self.passwords[originalKey];
-    } else {
-      self.images.push(image);
-    }
-    self.images_data(JSON.stringify(self.images()));
-
-    var key = image.vmNamePrefix;
+    let pass;
     if (image.imageType === imageTypes.container) {
-      self.passwords[key] = model.registryPassword();
+      pass = model.registryPassword();
     } else {
-      self.passwords[key] = model.vmPassword();
+      pass = model.vmPassword();
     }
-    self.passwords_data(JSON.stringify(self.passwords));
 
-    dialog.close();
+    const finishImageModification = () => {
+      var originalImage = self.originalImage;
+      if (originalImage) {
+        self.images.replace(originalImage, image);
+        self.vmNamePrefixes.delete(originalImage.vmNamePrefix);
+      } else {
+        self.images.push(image);
+      }
+
+      self.images_data(JSON.stringify(self.images()));
+      self.vmNamePrefixes.add(image.vmNamePrefix);
+
+      dialog.close();
+    };
+
+    if (pass !== azurePassStub) {
+      $.post(config.updateImageRequestPath, {
+        "prop:vmNamePrefix": self.image().vmNamePrefix,
+        "prop:encrypted:secure:password": encryptData(pass),
+        "prop:imageUpdateType": "upsert",
+        "prop:encrypted:secure:passwords_data": self.passwords_data()
+      }).then(function (response) {
+        const $response = $j(response);
+        const data = $response.find("passwords_data").text();
+        self.passwords_data(data);
+
+        const errors = getErrors($response);
+        if (errors) {
+          alert("Failed to update image data: " + errors);
+          return;
+        }
+
+        finishImageModification();
+      });
+    } else {
+      finishImageModification();
+    }
+
     return false;
   };
 
@@ -912,12 +951,27 @@ function ArmImagesViewModel($, ko, dialog, config) {
       return false;
     }
 
-    self.images.remove(image);
-    saveImages();
+    $.post(config.updateImageRequestPath, {
+      "prop:vmNamePrefix": image.vmNamePrefix,
+      "prop:imageUpdateType": "delete",
+      "prop:encrypted:secure:passwords_data": self.passwords_data()
+    }).then(function (response) {
+      const $response = $j(response);
 
-    var key = image.vmNamePrefix;
-    delete self.passwords[key];
-    self.passwords_data(JSON.stringify(self.passwords));
+      const errors = getErrors($response);
+      if (errors) {
+        alert("Failed to update image data: " + errors);
+        return;
+      }
+
+      const data = $response.find("passwords_data").text();
+      self.passwords_data(data);
+
+      self.images.remove(image);
+      self.vmNamePrefixes.delete(image.vmNamePrefix);
+      saveImages();
+    });
+
 
     return false;
   };
@@ -1276,7 +1330,7 @@ function ArmImagesViewModel($, ko, dialog, config) {
         "prop:subscriptionId": credentials.subscriptionId(),
         "prop:tenantId": credentials.tenantId(),
         "prop:clientId": credentials.clientId(),
-        "prop:secure:clientSecret": credentials.clientSecret()
+        "prop:encrypted:secure:clientSecret": credentials.clientSecret()
       };
     }
   }

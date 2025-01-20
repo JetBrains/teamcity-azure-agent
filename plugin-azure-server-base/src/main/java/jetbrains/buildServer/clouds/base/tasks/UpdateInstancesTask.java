@@ -1,25 +1,6 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.base.tasks;
 
 import com.intellij.openapi.diagnostic.Logger;
-
-import java.util.*;
-
 import jetbrains.buildServer.Used;
 import jetbrains.buildServer.clouds.InstanceStatus;
 import jetbrains.buildServer.clouds.base.AbstractCloudClient;
@@ -30,11 +11,8 @@ import jetbrains.buildServer.clouds.base.connector.CloudApiConnector;
 import jetbrains.buildServer.util.StringUtil;
 import org.jetbrains.annotations.NotNull;
 
-/**
- * @author Sergey.Pak
- *         Date: 7/22/2014
- *         Time: 1:52 PM
- */
+import java.util.*;
+
 public class UpdateInstancesTask<G extends AbstractCloudInstance<T>,
   T extends AbstractCloudImage<G, ?>,
   F extends AbstractCloudClient<G, T, ?>
@@ -107,7 +85,8 @@ public class UpdateInstancesTask<G extends AbstractCloudInstance<T>,
 
           if ((isStatusPermanent(instance.getStatus()) || isStuck(instance))
             && isStatusPermanent(realInstanceStatus)
-            && realInstanceStatus != instance.getStatus()) {
+            && realInstanceStatus != instance.getStatus()
+            && !instance.getProvisioningInProgress()) {
             LOG.info(String.format("Updated instance '%s' status to %s based on API information", realInstanceName, realInstanceStatus));
             instance.setStatus(realInstanceStatus);
           }

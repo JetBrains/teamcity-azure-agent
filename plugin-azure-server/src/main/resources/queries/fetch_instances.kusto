@@ -1,0 +1,70 @@
+Resources
+| where type =~ "microsoft.compute/virtualmachines"
+| extend instanceView = properties.extended.instanceView
+| project
+    id,
+    name,
+    properties,
+    type,
+    tags,
+    provisioningState = tostring(properties.provisioningState),
+    powerStateCode = tostring(split(tostring(instanceView.powerState.code), "/")[1]),
+    timeCreated = todatetime(properties.timeCreated)
+| where isnull(tags["teamcity-server"]) or tags["teamcity-server"] =~ "@@TeamCityServer"
+| join kind=leftouter (resourcechanges
+        | extend
+            id = tostring(properties.targetResourceId),
+            changeTimestamp = todatetime(properties.changeAttributes.timestamp),
+            provisioningState = properties.changes["properties.provisioningState"].newValue
+        | where isnotempty(provisioningState)
+        | summarize arg_max(changeTimestamp, provisioningState) by id
+    ) on id
+| extend startDate = coalesce(changeTimestamp, timeCreated)
+| project-away id1, provisioningState1, changeTimestamp, timeCreated
+| union (
+    Resources
+    | where type =~ 'Microsoft.ContainerInstance/containerGroups'
+    | mv-expand container = properties.containers
+        | where container.name =~ name
+    | extend currentState = container.properties.instanceView.currentState
+    | project
+        id,
+        name,
+        properties,
+        type,
+        tags,
+        provisioningState = tostring(properties.provisioningState),
+        powerStateCode = tostring(currentState.state),
+        startDate = todatetime(currentState.startTime)
+    | where isnull(tags["teamcity-server"]) or tags["teamcity-server"] =~ "@@TeamCityServer"
+)
+| extend nics = array_length(properties.networkProfile.networkInterfaces)
+| mv-expand
+    nic = properties.networkProfile.networkInterfaces,
+    extended = properties.extended
+    | where nics == 1 or nic.properties.primary =~ 'true' or isempty(nic)
+| project
+    resourceId = id,
+    resourceName = name,
+    nicId = tostring(nic.id),
+    resourceType = type,
+    provisioningState ,
+    startDate,
+    powerStateCode,
+    resourceTags = tostring(tags)
+| join kind = leftouter (
+    Resources
+    | where type =~ 'microsoft.network/networkinterfaces'
+    | extend ipConfigsCount = array_length(properties.ipConfigurations)
+    | mv-expand ipConfig = properties.ipConfigurations
+        | where ipConfigsCount == 1 or ipConfig.properties.primary =~ 'true'
+    | project nicId = id, publicIpId = tostring(ipConfig.properties.publicIPAddress.id))
+    on nicId
+| project-away nicId1
+| summarize by resourceId, resourceName, nicId, publicIpId, resourceType, provisioningState, startDate, powerStateCode, resourceTags
+| join kind=leftouter (
+    Resources
+    | where type =~ 'microsoft.network/publicipaddresses'
+    | project publicIpId = id, publicIpAddress = properties.ipAddress)
+    on publicIpId
+| project-away publicIpId, publicIpId1

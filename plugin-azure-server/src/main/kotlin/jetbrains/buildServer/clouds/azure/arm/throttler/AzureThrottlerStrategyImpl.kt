@@ -1,19 +1,3 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure.arm.throttler
 
 import com.intellij.openapi.diagnostic.Logger
@@ -86,10 +70,8 @@ class AzureThrottlerStrategyImpl<A, I>(
                             if (executionCallCount > 0 && resourceRequestsCount > 0) {
                                 val callCount = floor(1.0 * remainingPeriodicalResourceRequestsCountPerTask * executionCallCount / resourceRequestsCount).toLong()
                                 val taskTimeout = windowWidthInMs / (1000 * (callCount + 1))
-                                LOG.debug("Trying to set cache timeout for periodical task ${task.taskId} to $taskTimeout sec")
                                 task.setCacheTimeout(taskTimeout, AzureThrottlingSource.Throttler)
                             } else {
-                                LOG.debug("Trying to reset cache timeout for periodical task ${task.taskId}")
                                 task.setCacheTimeout(0, AzureThrottlingSource.Throttler)
                             }
                         }

@@ -1,19 +1,3 @@
-/*
- * Copyright 2000-2021 JetBrains s.r.o.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package jetbrains.buildServer.clouds.azure.arm
 
 import jetbrains.buildServer.agent.Constants
@@ -146,12 +130,15 @@ class AzureConstants {
     val disableTemplateModification: String
         get() = DISABLE_TEMPLATE_MODIFICATION
 
+    val profileId: String
+        get() = PROFILE_ID
+
     val userAssignedIdentity: String
         get() = USER_ASSIGNED_IDENTITY
-    
+
     val enableSystemAssignedIdentity: String
         get() = ENABLE_SYSTEM_ASSIGNED_IDENTITY
-    
+
     companion object {
         const val CLOUD_CODE = "arm"
 
@@ -178,7 +165,7 @@ class AzureConstants {
         const val VM_NAME_PREFIX = "vmNamePrefix"
         const val VM_PUBLIC_IP = "vmPublicIp"
         const val VM_USERNAME = "vmUsername"
-        const val VM_PASSWORD = "vmPassword"
+        const val VM_PASSWORD = Constants.SECURE_PROPERTY_PREFIX + "vmPassword"
         const val REUSE_VM = "reuseVm"
         const val STORAGE_ACCOUNT_TYPE = "storageAccountType"
         const val TEMPLATE = "template"
@@ -186,7 +173,7 @@ class AzureConstants {
         const val MEMORY = "memory"
         const val STORAGE_ACCOUNT = "storageAccount"
         const val REGISTRY_USERNAME = "registryUsername"
-        const val REGISTRY_PASSWORD = "registryPassword"
+        const val REGISTRY_PASSWORD = Constants.SECURE_PROPERTY_PREFIX + "registryPassword"
         const val PROFILE_ID = "profileId"
         const val CUSTOM_ENVIRONMENT_VARIABLES = "customEnvironmentVariables"
         const val CUSTOM_TAGS = "customTags"
@@ -204,6 +191,7 @@ class AzureConstants {
         const val TAG_DATA_HASH = "teamcity-data-hash"
         const val TAG_IMAGE_HASH = "teamcity-image-hash"
         const val TAG_INVESTIGATION = "teamcity-investigation"
+        const val TAG_FEATURES = "teamcity-features"
 
         const val TEAMCITY_URL = "teamcityUrl"
 

@@ -18,7 +18,8 @@ class AzureTaskDeploymentStatusChangedEventArgs(
     val providers: List<ProviderInner>,
     val dependencies: List<Dependency>,
     val taskContext: AzureTaskContext,
-    val isDeleting: Boolean = false
+    val isDeleting: Boolean = false,
+    var instance: FetchInstancesTaskInstanceDescriptor? = null
 ) : AzureTaskEventArgs
 
 class AzureTaskVirtualMachineRemoved(
@@ -31,4 +32,5 @@ class AzureTaskVirtualMachineCreated(
     override val api: AzureApi,
     val taskContext: AzureTaskContext,
     val resourceId: String,
+    var instance: FetchInstancesTaskInstanceDescriptor? = null
 ) : AzureTaskEventArgs

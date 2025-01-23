@@ -123,7 +123,6 @@ class AzureCloudImage(
     private fun createInstance(userData: CloudInstanceUserData): AzureCloudInstance {
         val instance = createAzureCloudInstance()
         val data = AzureUtils.setVmNameForTag(userData, instance.name)
-        val image = this
 
         myScope.launch {
             val hash = handler!!.getImageHash(imageDetails)
@@ -141,7 +140,6 @@ class AzureCloudImage(
                 instance.status = InstanceStatus.STARTING
                 LOG.info("Creating new virtual machine ${instance.describe()}")
                 myApiConnector.createInstance(instance, data)
-                instance.hasVmInstance = true
             } catch (e: Throwable) {
                 LOG.warnAndDebugDetails(e.message, e)
                 handleDeploymentError(e)

@@ -329,7 +329,9 @@ class AzureCloudImageTest : MockObjectTestCase() {
             enableSpotPrice = null,
             spotPrice = null,
             enableAcceleratedNetworking = null,
-            disableTemplateModification = null
+            disableTemplateModification = null,
+            userAssignedIdentity = null,
+            enableSystemAssignedIdentity = null
         )
 
         coEvery { myApiConnector.startInstance(any<AzureCloudInstance>(), any<CloudInstanceUserData>()) } coAnswers {

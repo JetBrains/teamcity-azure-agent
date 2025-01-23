@@ -72,7 +72,11 @@ class AzureCloudImageDetails(
         @SerializedName(AzureConstants.ENABLE_ACCELERATED_NETWORKING)
         val enableAcceleratedNetworking: Boolean?,
         @SerializedName(AzureConstants.DISABLE_TEMPLATE_MODIFICATION)
-        val disableTemplateModification: Boolean?
+        val disableTemplateModification: Boolean?,
+        @SerializedName(AzureConstants.USER_ASSIGNED_IDENTITY)
+        val userAssignedIdentity: String? = null,
+        @SerializedName(AzureConstants.ENABLE_SYSTEM_ASSIGNED_IDENTITY)
+        val enableSystemAssignedIdentity: Boolean?
 
 ) : CloudImagePasswordDetails {
 

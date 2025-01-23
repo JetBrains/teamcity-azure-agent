@@ -481,6 +481,27 @@
                     <span class="error option-error" data-bind="validationMessage: image().vmPassword"></span>
                 </td>
             </tr>
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
+                <th><label for="${cons.userAssignedIdentity}">User managed identity:</label></th>
+                <td>
+                    <input type="text" id="${cons.userAssignedIdentity}" class="longField ignoreModified"
+                           data-bind="textInput: image().userAssignedIdentity"/>
+                    <span class="smallNote">Supply the ARM resource id for the identity according to the <a
+                        href="https://learn.microsoft.com/en-us/azure/templates/microsoft.compute/virtualmachines?pivots=deployment-language-bicep#virtualmachineidentity"
+                        target="_blank"
+                        rel="noopener noreferrer">virtual machine identity schema.</a></span></span>
+                    <span class="error option-error" data-bind="validationMessage: image().userAssignedIdentity"></span>
+                </td>
+            </tr>
+            <tr data-bind="if: image().imageType() != 'Template' && image().imageType() != 'Container'">
+                <th class="noBorder"><label for="${cons.enableSystemAssignedIdentity}">Use System Assigned Identity:</label></th>
+                <td>
+                    <input type="checkbox" name="${cons.enableSystemAssignedIdentity}" data-bind="checked: image().enableSystemAssignedIdentity"/>
+                    <span class="smallNote">
+                        Create a system-assigned identity.
+                    </span>
+                </td>
+            </tr>
             <tr data-bind="if: image().imageType() == 'Template'">
                 <th class="noBorder"><label for="${cons.template}">ARM Template: <l:star/></label></th>
                 <td>

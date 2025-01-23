@@ -194,4 +194,73 @@ class ArmTemplateBuilderTest {
         Assert.assertEquals(builder.toString(),
                 "{\"resources\":[{\"type\":\"Microsoft.Network/networkInterfaces\",\"name\":\"myName\",\"properties\":{\"enableAcceleratedNetworking\":true}}]}")
     }
+
+    fun testSetupSystemIdentity() {
+        val builder = ArmTemplateBuilder("""{"resources": [
+        {
+          "type": "Microsoft.Compute/virtualMachines",
+          "name": "myName",
+          "properties": {
+          }
+        }
+      ]}""").setupIdentity(null, true)
+
+      Assert.assertEquals(builder.toString(),
+        "{\"resources\":[{\"type\":\"Microsoft.Compute/virtualMachines\",\"name\":\"myName\",\"properties\":{},\"identity\":{\"type\":\"SystemAssigned\"}}]}")
+    }
+
+    fun testSetupSystemAssignedIdentity() {
+      val builder = ArmTemplateBuilder("""{"resources": [
+      {
+        "type": "Microsoft.Compute/virtualMachines",
+        "name": "myName",
+        "properties": {
+        }
+      }
+    ]}""").setupIdentity(null, true)
+
+    Assert.assertEquals(builder.toString(),
+      "{\"resources\":[{\"type\":\"Microsoft.Compute/virtualMachines\",\"name\":\"myName\",\"properties\":{},\"identity\":{\"type\":\"SystemAssigned\"}}]}")
+  }
+
+    fun testSetupUserAssignedIdentity() {
+      val builder = ArmTemplateBuilder("""{"resources": [
+      {
+        "type": "Microsoft.Compute/virtualMachines",
+        "name": "myName",
+        "properties": {
+        }
+      }
+    ]}""").setupIdentity("someIdentity", false)
+
+    Assert.assertEquals(builder.toString(),
+    "{\"resources\":[{\"type\":\"Microsoft.Compute/virtualMachines\",\"name\":\"myName\",\"properties\":{},\"identity\":{\"type\":\"UserAssigned\",\"userAssignedIdentities\":{\"someIdentity\":{}}}}]}")  }
+
+    fun testSetupSystemAndUserAssignedIdentity() {
+      val builder = ArmTemplateBuilder("""{"resources": [
+      {
+        "type": "Microsoft.Compute/virtualMachines",
+        "name": "myName",
+        "properties": {
+        }
+      }
+    ]}""").setupIdentity("someIdentity", true)
+
+    Assert.assertEquals(builder.toString(),
+      "{\"resources\":[{\"type\":\"Microsoft.Compute/virtualMachines\",\"name\":\"myName\",\"properties\":{},\"identity\":{\"type\":\"SystemAssigned, UserAssigned\",\"userAssignedIdentities\":{\"someIdentity\":{}}}}]}")
+  }
+
+  fun testSetupIdentityWithNoIdentities() {
+    val builder = ArmTemplateBuilder("""{"resources": [
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "name": "myName",
+      "properties": {
+      }
+    }
+  ]}""").setupIdentity("", false)
+
+  Assert.assertEquals(builder.toString(),
+    "{\"resources\":[{\"type\":\"Microsoft.Compute/virtualMachines\",\"name\":\"myName\",\"properties\":{}}]}")
+  }
 }

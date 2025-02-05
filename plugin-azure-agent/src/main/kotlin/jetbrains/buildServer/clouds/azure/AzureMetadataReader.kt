@@ -36,9 +36,9 @@ class AzureMetadataReader(
                 LOG.info("Setting name from instance metadata: ${it.name}")
                 configuration.name = it.name
             }
+            LOG.info("Setting properties from instance metadata")
             for ((key, value) in it.asMap())
             {
-                LOG.info("Setting properties from instance metadata")
                 configuration.addSystemProperty(AzureProperties.INSTANCE_PREFIX + key, value?.toString() ?: "")
             }
         }

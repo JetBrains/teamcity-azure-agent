@@ -131,6 +131,7 @@ object AzureMetadata {
         val sku: String?,
         val version: String?,
         val exactVersion: String?,
+        var priority: String?,
         val vmId: String?,
         val vmSize: String?,
         val vmScaleSetName: String?,

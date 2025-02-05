@@ -54,6 +54,7 @@ class AzureMetadataReaderTest {
                 one(agentConfiguration).name
                 will(returnValue(""))
                 one(agentConfiguration).name = "examplevmname"
+                one(agentConfiguration).addSystemProperty("azure.instance.priority", "Regular")
                 one(agentConfiguration).addSystemProperty("azure.instance.name", "examplevmname")
                 one(agentConfiguration).addSystemProperty("azure.instance.licenseType", "Windows_Client")
                 one(agentConfiguration).addSystemProperty("azure.instance.offer", "WindowsServer")

@@ -104,17 +104,11 @@ class FetchCustomImagesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List
         return api
             .resourceGraph()
             .resources()
-            .resourcesAsync(QueryRequest(QUERY))
-            .map { rsp ->
-                if (rsp.resultTruncated == "true") {
-                    LOG.warn("Galleries images response was truncated. TotalCount: ${rsp.totalRecords}, Count: ${rsp.count}")
-                }
-
-                val response = QueryResponse(rsp)
-
+            .poolResourcesAsync(QueryRequest(QUERY))
+            .flatMapIterable { table ->
                 val result = mutableListOf<CustomImageTaskImageDescriptor>()
                 var previousImageId : String? = null
-                response.table.rows.forEach {
+                table.rows.forEach {
                     val galleryId = it.getStringValue("galleryId")
                     val imageId = it.getStringValue("imageId", true)!!
                     val imageName = it.getStringValue("imageName", true)!!
@@ -182,7 +176,7 @@ class FetchCustomImagesTaskImpl : AzureThrottlerCacheableTaskBaseImpl<Unit, List
                 }
                 result.toList()
             }
-            .last()
+            .toList()
             .toSingle()
     }
 

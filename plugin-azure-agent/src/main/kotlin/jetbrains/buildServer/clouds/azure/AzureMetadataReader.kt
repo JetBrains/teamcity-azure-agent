@@ -20,7 +20,9 @@ class AzureMetadataReader(
         }
 
         val result = updateConfiguration(metadata)
-        runSpotChecker(metadata)
+        if (result != MetadataReaderResult.SKIP) {
+            runSpotChecker(metadata)
+        }
         return result
     }
 

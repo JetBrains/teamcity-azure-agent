@@ -33,6 +33,26 @@ class AzureMetadataReader(
     }
 
     internal fun updateConfiguration(metadata: AzureMetadata.Metadata): MetadataReaderResult {
+        val userData = metadata.compute?.userData
+        if (userData.isNullOrBlank()) {
+            LOG.info("No Azure userData provided")
+            return MetadataReaderResult.SKIP
+        } else {
+            LOG.info("Processing Azure userData from IMDS")
+        }
+
+        val azureUserData = try {
+            AzureUserData.deserialize(userData)
+        } catch (throwable: Throwable) {
+            LOG.warnAndDebugDetails("Could not parse Azure userData.", throwable)
+            return MetadataReaderResult.SKIP
+        }
+
+        if (azureUserData.pluginCode != AzureUserData.PLUGIN_CODE) {
+            LOG.warn("Unsupported plugin code (${azureUserData.pluginCode}) in Azure userData. Current plugin code is ${AzureUserData.PLUGIN_CODE}.")
+            return MetadataReaderResult.SKIP
+        }
+
         metadata.compute?.let {
             if (it.name?.isNotBlank() == true && configuration.name.isBlank()) {
                 LOG.info("Setting name from instance metadata: ${it.name}")
@@ -52,26 +72,6 @@ class AzureMetadataReader(
                 configuration.addAlternativeAgentAddress(it)
                 configuration.addSystemProperty("ec2.public-hostname", it)
             }
-        }
-
-        val userData = metadata.compute?.userData
-        if (userData.isNullOrBlank()) {
-            LOG.info("No Azure userData provided")
-            return MetadataReaderResult.SKIP
-        } else {
-            LOG.info("Processing Azure userData from IMDS")
-        }
-
-        val azureUserData = try {
-            AzureUserData.deserialize(userData)
-        } catch (throwable: Throwable) {
-            LOG.warnAndDebugDetails("Could not parse Azure userData.", throwable)
-            return MetadataReaderResult.SKIP
-        }
-
-        if (azureUserData.pluginCode != AzureUserData.PLUGIN_CODE) {
-            LOG.warn("Unsupported plugin code (${azureUserData.pluginCode}) in Azure userData")
-            return MetadataReaderResult.SKIP
         }
 
         myAzureUserData = azureUserData

@@ -1,6 +1,7 @@
 package jetbrains.buildServer.clouds.azure
 
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx
+import jetbrains.buildServer.clouds.CloudInstanceUserData
 import jetbrains.buildServer.util.FileUtil
 import org.jmock.Expectations
 import org.jmock.Mockery
@@ -17,7 +18,19 @@ class AzureMetadataReaderTest {
         m.setThreadingPolicy(Synchroniser())
         val agentConfiguration = m.mock(BuildAgentConfigurationEx::class.java)
         val spotTerminationChecker = m.mock(SpotInstanceTerminationChecker::class.java)
-        val json = FileUtil.readText(File("src/test/resources/metadata.json"))
+        val cloudInstanceUserData = CloudInstanceUserData(
+            "Agent name",
+            "Auth token",
+            "Server URL",
+            null,
+            "Profile ID",
+            "Profile description",
+            emptyMap()
+        )
+        val userData = AzureUserData.serializeV1(cloudInstanceUserData.serialize(), "Sample")
+        val json = FileUtil
+            .readText(File("src/test/resources/metadata.json"))
+            .replace("@userData", userData)
 
         m.checking(object : Expectations() {
             init {
@@ -31,6 +44,7 @@ class AzureMetadataReaderTest {
                 one(agentConfiguration).addSystemProperty("azure.instance.version", "16.04.201610200")
                 one(agentConfiguration).addSystemProperty("azure.instance.vmId", "5d33a910-a7a0-4443-9f01-6a807801b29b")
                 one(agentConfiguration).addSystemProperty("azure.instance.vmSize", "Standard_A1")
+                one(agentConfiguration).addSystemProperty("azure.instance.userData", userData)
                 one(agentConfiguration).addAlternativeAgentAddress("X.X.X.X")
                 one(agentConfiguration).addSystemProperty("ec2.public-hostname", "X.X.X.X")
             }
@@ -47,7 +61,19 @@ class AzureMetadataReaderTest {
         m.setThreadingPolicy(Synchroniser())
         val agentConfiguration = m.mock(BuildAgentConfigurationEx::class.java)
         val spotTerminationChecker = m.mock(SpotInstanceTerminationChecker::class.java)
-        val json = FileUtil.readText(File("src/test/resources/metadata2.json"))
+        val cloudInstanceUserData = CloudInstanceUserData(
+            "Agent name",
+            "Auth token",
+            "Server URL",
+            null,
+            "Profile ID",
+            "Profile description",
+            emptyMap()
+        )
+        val userData = AzureUserData.serializeV1(cloudInstanceUserData.serialize(), "Sample")
+        val json = FileUtil
+            .readText(File("src/test/resources/metadata2.json"))
+            .replace("@userData", userData)
 
         m.checking(object : Expectations() {
             init {
@@ -65,15 +91,15 @@ class AzureMetadataReaderTest {
                 one(agentConfiguration).addSystemProperty("azure.instance.vmSize", "Standard_A3")
                 one(agentConfiguration).addSystemProperty("azure.instance.vmScaleSetName", "crpteste9vflji9")
                 one(agentConfiguration).addSystemProperty("azure.instance.tags", "baz:bash;foo:bar")
-                one(agentConfiguration).addSystemProperty("azure.instance.userData", "Zm9vYmFy")
-                one(agentConfiguration).addAlternativeAgentAddress("X.X.X.X")
-                one(agentConfiguration).addSystemProperty("ec2.public-hostname", "X.X.X.Y")
+                one(agentConfiguration).addSystemProperty("azure.instance.userData", userData)
+                one(agentConfiguration).addAlternativeAgentAddress("1.2.3.4")
+                one(agentConfiguration).addSystemProperty("ec2.public-hostname", "1.2.3.4")
             }
         })
 
         val metadata = AzureMetadata.deserializeInstanceMetadata(json)
         AzureMetadataReader(agentConfiguration, spotTerminationChecker).updateConfiguration(metadata)
 
-//        m.assertIsSatisfied()
+        m.assertIsSatisfied()
     }
 }

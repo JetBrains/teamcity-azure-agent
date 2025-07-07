@@ -128,7 +128,7 @@
     },
     "subscriptionId": "xxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxx",
     "tags": "baz:bash;foo:bar",
-    "userData": "Zm9vYmFy",
+    "userData": "@userData",
     "version": "15.05.22",
     "virtualMachineScaleSet": {
       "id": "/subscriptions/xxxxxxxx-xxxxx-xxx-xxx-xxxx/resourceGroups/resource-group-name/providers/Microsoft.Compute/virtualMachineScaleSets/virtual-machine-scale-set-name"
@@ -143,7 +143,7 @@
       "ipv4": {
         "ipAddress": [{
           "privateIpAddress": "10.144.133.132",
-          "publicIpAddress": ""
+          "publicIpAddress": "1.2.3.4"
         }],
         "subnet": [{
           "address": "10.144.133.128",

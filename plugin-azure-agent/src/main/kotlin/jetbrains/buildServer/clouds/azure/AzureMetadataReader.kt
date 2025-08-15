@@ -10,6 +10,9 @@ class AzureMetadataReader(
 ) {
     private lateinit var myAzureUserData: AzureUserData
 
+    var hasMetadata: Boolean = false
+        private set
+
     fun process() : MetadataReaderResult {
         val metadata = try {
             AzureMetadata.readInstanceMetadata()
@@ -18,6 +21,8 @@ class AzureMetadataReader(
             LOG.debug(e)
             return MetadataReaderResult.SKIP
         }
+
+        hasMetadata = true
 
         val result = updateConfiguration(metadata)
         if (result != MetadataReaderResult.SKIP) {

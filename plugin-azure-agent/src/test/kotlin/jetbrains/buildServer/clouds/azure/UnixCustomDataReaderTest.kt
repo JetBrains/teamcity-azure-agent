@@ -27,7 +27,7 @@ class UnixCustomDataReaderTest {
             }
         })
 
-        UnixCustomDataReader(agentConfiguration, fileUtils).process()
+        UnixCustomDataReader(agentConfiguration, fileUtils).process(false)
 
         m.assertIsSatisfied()
     }
@@ -50,7 +50,7 @@ class UnixCustomDataReaderTest {
             }
         })
 
-        UnixCustomDataReader(agentConfiguration, fileUtils).process()
+        UnixCustomDataReader(agentConfiguration, fileUtils).process(false)
 
         m.assertIsSatisfied()
     }

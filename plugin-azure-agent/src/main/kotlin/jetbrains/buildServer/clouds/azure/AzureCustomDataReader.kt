@@ -3,23 +3,49 @@ package jetbrains.buildServer.clouds.azure
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx
 import jetbrains.buildServer.clouds.CloudInstanceUserData
-
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import java.io.File
 import java.io.FileNotFoundException
+import java.io.IOException
+import kotlin.math.pow
 
 abstract class AzureCustomDataReader(private val myAgentConfiguration: BuildAgentConfigurationEx,
                                      private val myFileUtils: FileUtils) {
 
     protected abstract val customDataFileName: String
 
-    fun process() : MetadataReaderResult {
+    fun process(shouldRetryOnFail: Boolean) : MetadataReaderResult {
         val customDataFile = File(customDataFileName)
+        val maxDelay = TeamCityProperties.getLong("teamcity.azure.customData.retry.maxDelay", 30_000)
+        val maxRetries = if (shouldRetryOnFail) TeamCityProperties.getInteger("teamcity.azure.customData.retry.maxRetries", 7) else 0
+        val delay = TeamCityProperties.getLong("teamcity.azure.customData.retry.delay", 5_000)
         val customData = try {
-            myFileUtils.readFile(customDataFile)
+            Retry<String>()
+                .maxDelay(maxDelay)
+                .maxRetries(maxRetries)
+                .intervalFunction { attemptNo ->
+                    delay * BACKOFF_FACTOR.pow(attemptNo - 1).toLong()
+                }
+                .logRetry { attemptNo, throwable ->
+                    LOG.warnAndDebugDetails("Failed to read Azure custom data file $customDataFile attempt $attemptNo", throwable)
+                }
+                .retryOn(IOException::class.java, EmptyCustomDataFileException::class.java)
+                .block {
+                    myFileUtils
+                        .readFile(customDataFile)
+                        .also {
+                            if (it.isBlank()) {
+                                throw EmptyCustomDataFileException("Azure custom data file $customDataFile is empty")
+                            }
+                        }
+                }
         } catch (e: FileNotFoundException) {
             val message = AzureUtils.getFileNotFoundMessage(e)
             LOG.info(String.format(FAILED_TO_READ_CUSTOM_DATA_FILE, customDataFile, message))
             LOG.debug(e)
+            return MetadataReaderResult.SKIP
+        } catch (e: EmptyCustomDataFileException) {
+            LOG.info(e.message)
             return MetadataReaderResult.SKIP
         } catch (e: Exception) {
             LOG.info(String.format(FAILED_TO_READ_CUSTOM_DATA_FILE, customDataFile, e.message))
@@ -27,12 +53,7 @@ abstract class AzureCustomDataReader(private val myAgentConfiguration: BuildAgen
             return MetadataReaderResult.SKIP
         }
 
-        if (customData.isBlank()) {
-            LOG.info("Azure custom data file $customDataFile is empty")
-            return MetadataReaderResult.SKIP
-        } else {
-            return parseCustomData(customData)
-        }
+        return parseCustomData(customData)
     }
 
     protected abstract fun parseCustomData(customData: String): MetadataReaderResult
@@ -62,9 +83,12 @@ abstract class AzureCustomDataReader(private val myAgentConfiguration: BuildAgen
         return MetadataReaderResult.PROCESSED
     }
 
+    class EmptyCustomDataFileException(message: String) : Exception(message)
+
     companion object {
         private val LOG = Logger.getInstance(AzureCustomDataReader::class.java.name)
         private const val FAILED_TO_READ_CUSTOM_DATA_FILE = "Failed to read azure custom data file %s: %s"
         const val UNABLE_TO_READ_CUSTOM_DATA_FILE = "Unable to read azure custom data file %s: will use existing parameters"
+        private const val BACKOFF_FACTOR = 2.0
     }
 }

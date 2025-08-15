@@ -30,7 +30,7 @@ class WindowsCustomDataReaderTest {
             }
         })
 
-        WindowsCustomDataReader(agentConfiguration, fileUtils).process()
+        WindowsCustomDataReader(agentConfiguration, fileUtils).process(false)
 
         m.assertIsSatisfied()
     }
@@ -48,7 +48,7 @@ class WindowsCustomDataReaderTest {
             }
         })
 
-        WindowsCustomDataReader(agentConfiguration, fileUtils).process()
+        WindowsCustomDataReader(agentConfiguration, fileUtils).process(false)
 
         m.assertIsSatisfied()
     }
@@ -66,7 +66,7 @@ class WindowsCustomDataReaderTest {
             }
         })
 
-        WindowsCustomDataReader(agentConfiguration, fileUtils).process()
+        WindowsCustomDataReader(agentConfiguration, fileUtils).process(false)
 
         m.assertIsSatisfied()
     }

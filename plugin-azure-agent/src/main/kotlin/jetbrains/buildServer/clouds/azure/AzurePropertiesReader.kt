@@ -42,8 +42,8 @@ class AzurePropertiesReader(events: EventDispatcher<AgentLifeCycleListener>,
 
         // Then override them by custom data if available
         val fileMetadataResult = when {
-            SystemInfo.isUnix -> myUnixCustomDataReader.process()
-            SystemInfo.isWindows -> myWindowsCustomDataReader.process()
+            SystemInfo.isUnix -> myUnixCustomDataReader.process(myMetadataReader.hasMetadata)
+            SystemInfo.isWindows -> myWindowsCustomDataReader.process(myMetadataReader.hasMetadata)
             else -> {
                 LOG.warn("Unsupported OS family ${SystemInfo.OS_ARCH}(${SystemInfo.OS_VERSION})")
                 MetadataReaderResult.SKIP

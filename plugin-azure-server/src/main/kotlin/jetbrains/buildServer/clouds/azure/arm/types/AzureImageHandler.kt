@@ -6,10 +6,12 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_VM_TEMPLATE_SPOT_EVICTION_POLICY
 import jetbrains.buildServer.clouds.azure.arm.throttler.ThrottlerExecutionTaskException
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.coroutineScope
 
 class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler {
@@ -64,7 +66,11 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
                 .setStorageAccountType(details.storageAccountType)
                 .setParameterValue("vmSize", details.vmSize!!)
         if (details.spotVm == true) {
-            builder.setupSpotInstance(details.enableSpotPrice, details.spotPrice)
+            val deallocateEvictionPolicy = TeamCityProperties
+                .getProperty(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_VM_TEMPLATE_SPOT_EVICTION_POLICY, "Delete")
+                .lowercase() == "deallocate"
+            val evictionPolicy = if (deallocateEvictionPolicy) "Deallocate" else "Delete"
+            builder.setupSpotInstance(details.enableSpotPrice, details.spotPrice, evictionPolicy)
         }
         if (details.enableAcceleratedNetworking == true) {
             builder.enableAcceleratedNerworking()

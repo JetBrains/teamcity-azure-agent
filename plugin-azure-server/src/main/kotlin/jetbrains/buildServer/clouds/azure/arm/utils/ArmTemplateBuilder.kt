@@ -410,10 +410,10 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
         LOG.debug(deploymentParameters)
     }
 
-    fun setupSpotInstance(enableSpotPrice: Boolean?, spotPrice: Int?): ArmTemplateBuilder {
+    fun setupSpotInstance(enableSpotPrice: Boolean?, spotPrice: Int?, evictionPolicy: String): ArmTemplateBuilder {
         val properties = getPropertiesOfResource("type", "Microsoft.Compute/virtualMachines")
         properties.put("priority", "Spot")
-        properties.put("evictionPolicy", "Deallocate")
+        properties.put("evictionPolicy", evictionPolicy)
 
         val billingProfile = properties.putObject("billingProfile")
         if (enableSpotPrice == true && spotPrice != null) {

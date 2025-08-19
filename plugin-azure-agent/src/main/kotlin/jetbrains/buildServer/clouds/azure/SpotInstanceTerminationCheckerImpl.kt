@@ -44,7 +44,7 @@ class SpotInstanceTerminationCheckerImpl(
                 myCancellable.cancel()
             }
         }
-        myCancellable = myScheduler.scheduleWithFixedDelay(task, 10, 1, TimeUnit.SECONDS)
+        myCancellable = myScheduler.scheduleWithFixedDelay(task, 0, 1, TimeUnit.SECONDS)
     }
 
     companion object {

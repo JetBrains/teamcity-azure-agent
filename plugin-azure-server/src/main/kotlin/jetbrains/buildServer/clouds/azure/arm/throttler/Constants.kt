@@ -71,4 +71,6 @@ const val TEAMCITY_CLOUDS_AZURE_THROTTLER_TIMEMANAGER_BUCKET_REFILL_VALUE = "tea
 
 const val TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_TEMPLATE_POST_UPDATE_DISABLE = "teamcity.clouds.azure.deployment.template.post.update.disable"
 
+const val TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_VM_TEMPLATE_SPOT_EVICTION_POLICY = "teamcity.clouds.azure.deployment.vmTemplate.spot.evictionPolicy"
+
 const val DEFAULT_REMAINING_READS_PER_HOUR = 12000L

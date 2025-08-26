@@ -2,46 +2,39 @@ package jetbrains.buildServer.clouds.azure
 
 import com.intellij.openapi.diagnostic.Logger
 import jetbrains.buildServer.agent.BuildAgentConfigurationEx
-import jetbrains.buildServer.clouds.CloudInstanceUserData
 
-class AzureMetadataReader(
-        private val configuration: BuildAgentConfigurationEx,
-        private val spotTerminationChecker: SpotInstanceTerminationChecker
+class AzureMetadataReader {
+    fun process() : Result<AzureMetadataReaderData> = try {
+        Result.success(AzureMetadataReaderData(AzureMetadata.readInstanceMetadata()))
+    } catch (e: Throwable) {
+        Result.failure(e)
+    }
+}
+
+class AzureMetadataReaderData(
+    val metadata: AzureMetadata.Metadata
 ) {
-    private lateinit var myAzureUserData: AzureUserData
-
-    var hasMetadata: Boolean = false
+    var hasMarkerTags: Boolean = false
         private set
 
-    fun process() : MetadataReaderResult {
-        val metadata = try {
-            AzureMetadata.readInstanceMetadata()
-        } catch (e: Throwable) {
-            LOG.info("Azure instance metadata is not available: " + e.message)
-            LOG.debug(e)
-            return MetadataReaderResult.SKIP
-        }
+    var hasNewIntegrationMarkerTags: Boolean = false
+        private set
 
-        hasMetadata = true
-
-        val result = updateConfiguration(metadata)
-        if (result != MetadataReaderResult.SKIP) {
-            runSpotChecker(metadata)
-        }
-        return result
-    }
-
-    private fun runSpotChecker(metadata: AzureMetadata.Metadata) {
-        metadata.compute?.name?.let {
-            spotTerminationChecker.start(it)
+    init {
+        metadata.compute?.tagsList?.let { tagsList ->
+            LOG.debug {
+                val teamcityTags = tagsList.filter { it.name.startsWith("teamcity", true) }
+                "Azure plugin detected the following TeamCity tags for the VM: {${teamcityTags.joinToString(",") { "\"${it.name}\":\"${it.value}\"" }}}"
+            }
+            hasMarkerTags = tagsList.any { it.name.equals("teamcity-data-hash", true) }
+            hasNewIntegrationMarkerTags = tagsList.any { it.name.equals("teamcity-instance-id", true) }
         }
     }
 
-    internal fun updateConfiguration(metadata: AzureMetadata.Metadata): MetadataReaderResult {
+    fun getUserData() : Result<AzureUserData> {
         val userData = metadata.compute?.userData
         if (userData.isNullOrBlank()) {
-            LOG.info("No Azure userData provided")
-            return MetadataReaderResult.SKIP
+            return Result.failure(UserDataIsEmptyException("No Azure userData provided"))
         } else {
             LOG.info("Processing Azure userData from IMDS")
         }
@@ -49,20 +42,23 @@ class AzureMetadataReader(
         val azureUserData = try {
             AzureUserData.deserialize(userData)
         } catch (throwable: Throwable) {
-            LOG.warnAndDebugDetails("Could not parse Azure userData.", throwable)
-            return MetadataReaderResult.SKIP
+            return Result.failure(UserDataDeserializationException("Could not parse Azure userData.", throwable))
         }
 
         if (azureUserData.pluginCode != AzureUserData.PLUGIN_CODE) {
-            LOG.warn("Unsupported plugin code (${azureUserData.pluginCode}) in Azure userData. Current plugin code is ${AzureUserData.PLUGIN_CODE}.")
-            return MetadataReaderResult.SKIP
+            return Result.failure(UserDataIncorrectCodeException("Unsupported plugin code (${azureUserData.pluginCode}) in Azure userData. Current plugin code is ${AzureUserData.PLUGIN_CODE}."))
         }
 
+        return Result.success(azureUserData)
+    }
+
+    fun updateConfiguration(configuration: BuildAgentConfigurationEx, updateName: Boolean = true) {
         metadata.compute?.let {
-            if (it.name?.isNotBlank() == true && configuration.name.isBlank()) {
+            if (updateName && it.name?.isNotBlank() == true && configuration.name.isBlank()) {
                 LOG.info("Setting name from instance metadata: ${it.name}")
                 configuration.name = it.name
             }
+
             LOG.info("Setting properties from instance metadata")
             for ((key, value) in it.asMap())
             {
@@ -78,32 +74,15 @@ class AzureMetadataReader(
                 configuration.addSystemProperty("ec2.public-hostname", it)
             }
         }
-
-        myAzureUserData = azureUserData
-        return MetadataReaderResult.NEED_POST_PROCESS
-    }
-
-    fun postProcess() {
-        val data = CloudInstanceUserData.deserialize(myAzureUserData.cloudInstanceUserData)
-        if (data == null) {
-            LOG.info("Unable to deserialize userData.cloudInstanceUserData value: '${myAzureUserData.cloudInstanceUserData}'")
-            return
-        }
-
-        data.customAgentConfigurationParameters[STARTING_INSTANCE_ID]?.let {
-            configuration.addConfigurationParameter(STARTING_INSTANCE_ID, it)
-            LOG.info("Updated configuration parameter: $STARTING_INSTANCE_ID")
-        }
     }
 
     companion object {
-        private const val STARTING_INSTANCE_ID = "teamcity.agent.startingInstanceId"
-        private val LOG = Logger.getInstance(AzureMetadataReader::class.java.name)
+        private val LOG = Logger.getInstance(AzureMetadataReaderData::class.java.name)
     }
 }
 
-enum class MetadataReaderResult {
-    SKIP,
-    PROCESSED,
-    NEED_POST_PROCESS
-}
+open class UserDataException(message: String, throwable: Throwable? = null) : Exception(message, throwable)
+open class UserDataIsEmptyException(message: String) : UserDataException(message)
+open class UserDataDeserializationException(message: String, throwable: Throwable) : UserDataException(message, throwable)
+open class UserDataIncorrectCodeException(message: String) : UserDataException(message)
+

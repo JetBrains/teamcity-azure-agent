@@ -1,6 +1,9 @@
 package jetbrains.buildServer.clouds.azure
 
+import com.google.gson.ExclusionStrategy
+import com.google.gson.FieldAttributes
 import com.google.gson.Gson
+import com.google.gson.annotations.Expose
 import com.google.gson.annotations.SerializedName
 import com.intellij.openapi.diagnostic.Logger
 import org.apache.http.client.config.RequestConfig
@@ -68,8 +71,12 @@ object AzureMetadata {
                     val statusCode = response.statusLine.statusCode
                     if (statusCode == 200) {
                         val entity : String? = EntityUtils.toString(response.entity)
-                        LOG.debug("Metadata service returned: $entity")
-                        return deserializeScheduledEventsMetadata(entity)
+                        return try {
+                            deserializeScheduledEventsMetadata(entity)
+                        } catch (e : Throwable) {
+                            LOG.warnAndDebugDetails("Failed to deserialize scheduled events metadata: $entity", e)
+                            throw e
+                        }
                     } else {
                         throw IOException("Failed to connect to $SCHEDULED_EVENTS_METADATA_URL: HTTP $statusCode")
                     }
@@ -111,7 +118,11 @@ object AzureMetadata {
     private fun deserializeScheduledEventsMetadata(json: String?): ScheduledEventsMetadata? {
         return json?.let {
             try {
-                GSON.fromJson(json, ScheduledEventsMetadata::class.java)
+                val result = GSON.fromJson(json, ScheduledEventsMetadata::class.java)
+                if (result.events?.isNotEmpty() == true) {
+                    LOG.debug("Instance metadata service returned: $json")
+                }
+                result
             } catch (e: Exception) {
                 throw IOException("Invalid instance metadata ${e.message}", e)
             }
@@ -131,7 +142,7 @@ object AzureMetadata {
         val sku: String?,
         val version: String?,
         val exactVersion: String?,
-        var priority: String?,
+        val priority: String?,
         val vmId: String?,
         val vmSize: String?,
         val vmScaleSetName: String?,
@@ -139,10 +150,18 @@ object AzureMetadata {
         val userData: String?
     )
     {
+        @Expose(serialize = false, deserialize = true)
+        val tagsList : List<TagValue>? = null
+
         fun asMap() : Map<*, *> {
             return GSON.fromJson(GSON.toJson(this), Map::class.java)
         }
     }
+
+    data class TagValue(
+        val name: String,
+        val value: String?
+    )
 
     data class Network(
             @SerializedName("interface")
@@ -214,7 +233,19 @@ object AzureMetadata {
     private const val PING_MAX_TRIES = 3
     private const val PING_CONNECTION_TIMEOUT_MS = 500
     private const val CONNECTION_TIMEOUT_MS = -1
+
+    private class ExposeSerializationExclusionStrategy : ExclusionStrategy {
+        override fun shouldSkipField(fieldAttributes: FieldAttributes?): Boolean {
+            return fieldAttributes?.annotations?.any { it is Expose && !it.serialize } ?: false
+        }
+
+        override fun shouldSkipClass(clazz: Class<*>?): Boolean = false
+    }
+
     private val GSON = Gson()
+        .newBuilder()
+        .addSerializationExclusionStrategy(ExposeSerializationExclusionStrategy())
+        .create()
 
     private val LOG = Logger.getInstance(AzureMetadata::class.java.name)
 }

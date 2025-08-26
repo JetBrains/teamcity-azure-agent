@@ -17,23 +17,23 @@ class UnixCustomDataReader(agentConfiguration: BuildAgentConfigurationEx,
 
     override val customDataFileName = UNIX_CUSTOM_DATA_FILE
 
-    override fun parseCustomData(customData: String): MetadataReaderResult {
+    override fun parseCustomData(customData: String): Boolean {
         // Process custom data
         return try {
             val documentElement = FileUtil.parseDocument(ByteArrayInputStream(customData.toByteArray()), false)
             if (documentElement == null) {
                 LOG.warn(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFileName))
-                MetadataReaderResult.SKIP
+                false
             } else {
                 readCustomData(documentElement)
             }
         } catch (e: Exception) {
             LOG.warnAndDebugDetails(String.format(UNABLE_TO_READ_CUSTOM_DATA_FILE, customDataFileName), e)
-            MetadataReaderResult.SKIP
+            false
         }
     }
 
-    private fun readCustomData(documentElement: Element): MetadataReaderResult {
+    private fun readCustomData(documentElement: Element): Boolean {
 
         val namespaces = documentElement.additionalNamespaces
                 .filterIsInstance(Namespace::class.java)
@@ -50,7 +50,7 @@ class UnixCustomDataReader(agentConfiguration: BuildAgentConfigurationEx,
 
         if (prefix == null) {
             LOG.warn("Unable to find $WINDOWS_AZURE_NAMESPACE namespace in file $UNIX_CUSTOM_DATA_FILE")
-            return MetadataReaderResult.SKIP
+            return false
         }
 
         val customDataQuery = "string(//$prefix:LinuxProvisioningConfigurationSet/$prefix:CustomData)"
@@ -58,19 +58,19 @@ class UnixCustomDataReader(agentConfiguration: BuildAgentConfigurationEx,
         val value = xPath.selectSingleNode(documentElement)
         if (value == null) {
             LOG.warn("Unable to read CustomData element in file $UNIX_CUSTOM_DATA_FILE")
-            return MetadataReaderResult.SKIP
+            return false
         }
 
         var serializedCustomData = value.toString()
         if (StringUtil.isEmpty(serializedCustomData)) {
             LOG.warn("CustomData element in file $UNIX_CUSTOM_DATA_FILE is empty")
-            return MetadataReaderResult.SKIP
+            return false
         }
 
         val bytes = serializedCustomData.toByteArray()
         if (!Base64.isBase64(bytes)) {
             LOG.warn("CustomData value should be Base64 encoded in file $UNIX_CUSTOM_DATA_FILE is empty")
-            return MetadataReaderResult.SKIP
+            return false
         }
 
         // New azure linux agent execute additional Base64 encode

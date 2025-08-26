@@ -14,7 +14,7 @@ abstract class AzureCustomDataReader(private val myAgentConfiguration: BuildAgen
 
     protected abstract val customDataFileName: String
 
-    fun process(shouldRetryOnFail: Boolean) : MetadataReaderResult {
+    fun process(shouldRetryOnFail: Boolean) : Boolean {
         val customDataFile = File(customDataFileName)
         val maxDelay = TeamCityProperties.getLong("teamcity.azure.customData.retry.maxDelay", 30_000)
         val maxRetries = if (shouldRetryOnFail) TeamCityProperties.getInteger("teamcity.azure.customData.retry.maxRetries", 7) else 0
@@ -43,26 +43,26 @@ abstract class AzureCustomDataReader(private val myAgentConfiguration: BuildAgen
             val message = AzureUtils.getFileNotFoundMessage(e)
             LOG.info(String.format(FAILED_TO_READ_CUSTOM_DATA_FILE, customDataFile, message))
             LOG.debug(e)
-            return MetadataReaderResult.SKIP
+            return false
         } catch (e: EmptyCustomDataFileException) {
             LOG.info(e.message)
-            return MetadataReaderResult.SKIP
+            return false
         } catch (e: Exception) {
             LOG.info(String.format(FAILED_TO_READ_CUSTOM_DATA_FILE, customDataFile, e.message))
             LOG.debug(e)
-            return MetadataReaderResult.SKIP
+            return false
         }
 
         return parseCustomData(customData)
     }
 
-    protected abstract fun parseCustomData(customData: String): MetadataReaderResult
+    protected abstract fun parseCustomData(customData: String): Boolean
 
-    protected fun processCustomData(serializedCustomData: String) : MetadataReaderResult {
+    protected fun processCustomData(serializedCustomData: String) : Boolean {
         val data = CloudInstanceUserData.deserialize(serializedCustomData)
         if (data == null) {
             LOG.info("Unable to deserialize customData: '$serializedCustomData'")
-            return MetadataReaderResult.SKIP
+            return false
         }
 
         val serverAddress = data.serverAddress
@@ -80,7 +80,7 @@ abstract class AzureCustomDataReader(private val myAgentConfiguration: BuildAgen
             myAgentConfiguration.addConfigurationParameter(key, value)
             LOG.info("Added configuration parameter: {$key, $value}")
         }
-        return MetadataReaderResult.PROCESSED
+        return true
     }
 
     class EmptyCustomDataFileException(message: String) : Exception(message)

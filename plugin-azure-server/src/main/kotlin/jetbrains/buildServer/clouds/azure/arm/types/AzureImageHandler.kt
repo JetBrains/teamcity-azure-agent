@@ -73,7 +73,7 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
             builder.setupSpotInstance(details.enableSpotPrice, details.spotPrice, evictionPolicy)
         }
         if (details.enableAcceleratedNetworking == true) {
-            builder.enableAcceleratedNerworking()
+            builder.enableAcceleratedNetworking()
         }
 
         builder.setupIdentity(details.userAssignedIdentity, details.enableSystemAssignedIdentity)

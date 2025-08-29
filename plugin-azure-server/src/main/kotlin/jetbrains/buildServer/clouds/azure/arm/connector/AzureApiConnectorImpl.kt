@@ -382,10 +382,16 @@ class AzureApiConnectorImpl(
         val name = instance.name
         val customData = encodeCustomData(userData, name)
 
+        val enableBootDiagnosticsProjectFlag = if (instance.image.imageDetails.imageType == AzureCloudImageType.Image
+            || instance.image.imageDetails.imageType == AzureCloudImageType.GalleryImage)
+            getProjectFlag("teamcity.cloud.azure.arm.agent.features.image.enableBootDiagnostics")
+        else false
+
         val handler = instance.image.handler
         val builder = handler!!.prepareBuilder(instance)
                 .setCustomData(customData)
                 .setVMTags(instance.properties)
+                .setupBootDiagnostics(enableBootDiagnosticsProjectFlag)
 
         val details = instance.image.imageDetails
         val groupId = when (details.target) {

@@ -360,7 +360,7 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
     }
 
     @Suppress("unused", "MayBeConstant")
-    fun enableAcceleratedNerworking(): ArmTemplateBuilder {
+    fun enableAcceleratedNetworking(): ArmTemplateBuilder {
         val properties = getPropertiesOfResource("type", "Microsoft.Network/networkInterfaces")
         properties.put("enableAcceleratedNetworking", true)
 
@@ -374,29 +374,6 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
             StringUtil.EMPTY
         }
     }
-
-    private fun getFirstResourceOfType(type: String): ObjectNode {
-        val resources = root["resources"] as ArrayNode
-        val groups = resources.filterIsInstance<ObjectNode>().first { it["type"].asText() == type }
-        return groups
-    }
-
-    private fun getPropertiesOfResource(resourceName: String): ObjectNode {
-        return getPropertiesOfResource("name", resourceName)
-    }
-
-    private fun getPropertiesOfResource(fieldName: String, fieldValue: String): ObjectNode {
-        val resources = root["resources"] as ArrayNode
-        val groups = resources.filterIsInstance<ObjectNode>().first { it[fieldName].asText() == fieldValue }
-        return (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
-    }
-
-    private fun reloadTemplate() {
-        val reader = mapper.reader()
-        root = reader.readTree(mapper.writeValueAsString(root)) as ObjectNode
-    }
-
-    override fun toString(): String = mapper.writeValueAsString(root)
 
     fun logDetails() {
         if (!LOG.isDebugEnabled) return
@@ -427,7 +404,7 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
 
     fun setupIdentity(userAssignedIdentity: String?, enableSystemAssignedIdentity: Boolean?): ArmTemplateBuilder {
         val resource = getFirstResourceOfType("Microsoft.Compute/virtualMachines")
-        
+
         val hasUserAssigned = !userAssignedIdentity.isNullOrEmpty();
         val hasSystemAssigned = enableSystemAssignedIdentity == true;
 
@@ -443,6 +420,40 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
         }
 
         return this
+    }
+
+    fun setupBootDiagnostics(enable: Boolean) : ArmTemplateBuilder {
+        if (enable) {
+            val properties = getPropertiesOfResource("type", "Microsoft.Compute/virtualMachines")
+            properties
+                .putObject("diagnosticsProfile")
+                .putObject("bootDiagnostics")
+                .put("enabled", true)
+        }
+        return this
+    }
+
+    override fun toString(): String = mapper.writeValueAsString(root)
+
+    private fun getFirstResourceOfType(type: String): ObjectNode {
+        val resources = root["resources"] as ArrayNode
+        val groups = resources.filterIsInstance<ObjectNode>().first { it["type"].asText() == type }
+        return groups
+    }
+
+    private fun getPropertiesOfResource(resourceName: String): ObjectNode {
+        return getPropertiesOfResource("name", resourceName)
+    }
+
+    private fun getPropertiesOfResource(fieldName: String, fieldValue: String): ObjectNode {
+        val resources = root["resources"] as ArrayNode
+        val groups = resources.filterIsInstance<ObjectNode>().first { it[fieldName].asText() == fieldValue }
+        return (groups["properties"] as? ObjectNode) ?: groups.putObject("properties")
+    }
+
+    private fun reloadTemplate() {
+        val reader = mapper.reader()
+        root = reader.readTree(mapper.writeValueAsString(root)) as ObjectNode
     }
 
     companion object {

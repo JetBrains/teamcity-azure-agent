@@ -64,7 +64,7 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
                 .setParameterValue("vmSize", details.vmSize!!)
 
         if (details.enableAcceleratedNetworking == true) {
-            builder.enableAcceleratedNerworking()
+            builder.enableAcceleratedNetworking()
         }
 
         builder

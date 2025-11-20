@@ -6,9 +6,11 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_VM_TEMPLATE_PUBLIC_IP_USE_STANDARD_SKU
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
 import jetbrains.buildServer.clouds.azure.arm.utils.AzureUtils
 import jetbrains.buildServer.clouds.base.errors.CheckedCloudException
+import jetbrains.buildServer.serverSide.TeamCityProperties
 import kotlinx.coroutines.coroutineScope
 
 class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
@@ -47,7 +49,7 @@ class AzureVhdHandler(private val connector: AzureApiConnector) : AzureHandler {
         val builder = ArmTemplateBuilder(template)
 
         if (details.vmPublicIp == true) {
-            builder.setPublicIp()
+            builder.setPublicIp(TeamCityProperties.getBooleanOrTrue(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_VM_TEMPLATE_PUBLIC_IP_USE_STANDARD_SKU))
         }
 
         connector.deleteVmBlobs(instance)

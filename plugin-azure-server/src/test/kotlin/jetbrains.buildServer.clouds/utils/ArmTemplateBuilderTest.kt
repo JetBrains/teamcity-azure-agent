@@ -46,7 +46,7 @@ class ArmTemplateBuilderTest {
             """{"teamcity-profile":{"value":"profile"}}""")
     }
 
-    fun testSetPublicIp() {
+    fun testSetPublicIpWithOldSKU() {
         val builder = ArmTemplateBuilder("""{"variables": {}, "resources": [{
             "name": "[variables('nicName')]",
             "properties": {
@@ -56,7 +56,7 @@ class ArmTemplateBuilderTest {
                     }
                 ]
             }
-        }]}""").setPublicIp()
+        }]}""").setPublicIp(false)
 
         Assert.assertEquals(builder.toString(),
         """{"variables":{"pipName":"[concat(parameters('vmName'), '-pip')]"},"resources":[{"name":""" +
@@ -66,7 +66,30 @@ class ArmTemplateBuilderTest {
             """{"apiVersion":"2016-09-01","type":"Microsoft.Network/publicIPAddresses","name":""" +
             """"[variables('pipName')]","location":"[variables('location')]","properties":{""" +
             """"publicIPAllocationMethod":"Dynamic"}}]}""")
-}
+    }
+
+    fun testSetPublicIpWithNewSKU() {
+        val builder = ArmTemplateBuilder("""{"variables": {}, "resources": [{
+            "name": "[variables('nicName')]",
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "properties": { }
+                    }
+                ]
+            }
+        }]}""").setPublicIp(true)
+
+        Assert.assertEquals(builder.toString(),
+            "{\"variables\":{\"pipName\":\"[concat(parameters('vmName'), '-pip')]\"},\"resources\":[{\"name\":\"" +
+                    "[variables('nicName')]\",\"properties\":{\"ipConfigurations\":[{\"properties\":" +
+                    "{\"publicIPAddress\":{\"id\":\"[resourceId('Microsoft.Network/publicIPAddresses', " +
+                    "variables('pipName'))]\"}}}]},\"dependsOn\":[\"[concat('Microsoft.Network/publicIPAddresses/', " +
+                    "variables('pipName'))]\"]},{\"apiVersion\":\"2024-10-01\",\"type\":" +
+                    "\"Microsoft.Network/publicIPAddresses\",\"name\":\"[variables('pipName')]\",\"location\":" +
+                    "\"[variables('location')]\",\"sku\":{\"name\":\"Standard\"},\"properties\":" +
+                    "{\"publicIPAllocationMethod\":\"Static\",\"deleteOption\":\"Delete\"}}]}")
+    }
 
     fun testAddParameter() {
         val builder = ArmTemplateBuilder("""{"parameters": {}}""").addParameter("name", "string", "description")

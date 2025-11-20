@@ -6,6 +6,7 @@ import jetbrains.buildServer.clouds.azure.arm.AzureCloudImageDetails
 import jetbrains.buildServer.clouds.azure.arm.AzureCloudInstance
 import jetbrains.buildServer.clouds.azure.arm.AzureConstants
 import jetbrains.buildServer.clouds.azure.arm.connector.AzureApiConnector
+import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_VM_TEMPLATE_PUBLIC_IP_USE_STANDARD_SKU
 import jetbrains.buildServer.clouds.azure.arm.throttler.TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_VM_TEMPLATE_SPOT_EVICTION_POLICY
 import jetbrains.buildServer.clouds.azure.arm.throttler.ThrottlerExecutionTaskException
 import jetbrains.buildServer.clouds.azure.arm.utils.ArmTemplateBuilder
@@ -51,7 +52,7 @@ class AzureImageHandler(private val connector: AzureApiConnector) : AzureHandler
         val builder = ArmTemplateBuilder(template)
 
         if (details.vmPublicIp == true) {
-            builder.setPublicIp()
+            builder.setPublicIp(TeamCityProperties.getBooleanOrTrue(TEAMCITY_CLOUDS_AZURE_DEPLOYMENT_VM_TEMPLATE_PUBLIC_IP_USE_STANDARD_SKU))
         }
 
         builder.setParameterValue("vmName", instance.name)

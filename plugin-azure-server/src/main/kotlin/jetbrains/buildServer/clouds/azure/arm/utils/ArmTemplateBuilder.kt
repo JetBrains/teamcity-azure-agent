@@ -61,7 +61,7 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
     }
 
     @Suppress("unused", "MayBeConstant")
-    fun setPublicIp(): ArmTemplateBuilder {
+    fun setPublicIp(useStandardSKU: Boolean): ArmTemplateBuilder {
         (root["variables"] as ObjectNode).apply {
             this.put("pipName", "[concat(parameters('vmName'), '-pip')]")
         }
@@ -78,15 +78,31 @@ class ArmTemplateBuilder(template: String, private val disableTemplateModificati
                             })
                         }
                     }
-            this.addPOJO(object : Any() {
-                val apiVersion = "2016-09-01"
-                val type = "Microsoft.Network/publicIPAddresses"
-                val name = "[variables('pipName')]"
-                val location = "[variables('location')]"
-                val properties = object : Any() {
-                    val publicIPAllocationMethod = "Dynamic"
-                }
-            })
+            if (useStandardSKU) {
+                this.addPOJO(object : Any() {
+                    val apiVersion = "2024-10-01"
+                    val type = "Microsoft.Network/publicIPAddresses"
+                    val name = "[variables('pipName')]"
+                    val location = "[variables('location')]"
+                    val sku = object : Any() {
+                        val name = "Standard"
+                    }
+                    val properties = object : Any() {
+                        val publicIPAllocationMethod = "Static"
+                        val deleteOption = "Delete"
+                    }
+                })
+            } else {
+                this.addPOJO(object : Any() {
+                    val apiVersion = "2016-09-01"
+                    val type = "Microsoft.Network/publicIPAddresses"
+                    val name = "[variables('pipName')]"
+                    val location = "[variables('location')]"
+                    val properties = object : Any() {
+                        val publicIPAllocationMethod = "Dynamic"
+                    }
+                })
+            }
         }
 
         return this
